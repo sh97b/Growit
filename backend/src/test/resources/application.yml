@@ -1,0 +1,25 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: growit-backend
+  jackson:
+    time-zone: Asia/Seoul
+  datasource:
+    url: jdbc:h2:mem:growit;MODE=MySQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    enabled: false
+
+app:
+  cors:
+    allowed-origins: http://localhost:5173
+  temp-user:
+    enabled: true
