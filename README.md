@@ -147,21 +147,21 @@ Growit은 새로운 걸 배우거나 취미를 키울 때, **눈에 띄는 변�
 
 ## 9. 실행 방법
 
-중요한 비밀 값(AI 키, JWT 비밀 값, DB 비밀번호)은 .env가 아니라 IntelliJ 실행 설정의 환경변수로 설정하고, 일반 설정은 .env.example을 복사해 .env로 만든다. 자세한 내용은 docs/environment-variables.md를 참고한다. (.env와 비밀 값은 저장소에 올리지 않는다)
+로컬 개발은 Docker 없이 진행한다. (`docker-compose.yml`은 서버 배포(EC2) 전용이다) 중요한 비밀 값(AI 키, JWT 비밀 값, DB 비밀번호)은 .env가 아니라 IntelliJ 실행 설정의 환경변수로 설정하고, 일반 설정은 .env.example을 복사해 .env로 만든다. 자세한 내용은 docs/environment-variables.md를 참고한다. (.env와 비밀 값은 저장소에 올리지 않는다)
 
-### 1) DB (MySQL, Docker)
+### 1) DB (MySQL 8.0 이상, 로컬에 직접 설치)
 
-```bash
-cp .env.example .env   # DB_ROOT_PASSWORD, DB_PASSWORD 값을 직접 채운다
-docker compose up -d
-```
+1. 로컬에 MySQL 8.0 이상을 설치하고 실행한다.
+2. `growit` 데이터베이스와 계정을 만든다. (예: `CREATE DATABASE growit CHARACTER SET utf8mb4;`, 계정 생성 후 권한 부여)
+3. `cp .env.example .env` 로 복사하고 `DB_USER`, `DB_PASSWORD` 등을 로컬 MySQL 계정에 맞게 채운다.
 
 ### 2) 백엔드 (IntelliJ)
 
 1. IntelliJ에서 `backend/` 폴더를 연다.
 2. Run/Debug Configuration의 Environment variables에 `DB_PASSWORD`(위 .env와 같은 값)를 입력한다.
-3. `GrowitApplication`을 실행한다.
-4. 확인: `GET http://localhost:8080/api/health` → `{"status":"ok"}`
+3. 로그인(JWT)이 아직 없으므로, 모든 요청을 임시로 user id=1로 처리하려면 Environment variables에 `APP_TEMP_USER_ENABLED=true`도 추가한다. (처음 실행하면 users 표에 id=1 임시 사용자가 자동으로 만들어진다. 비워 두면 기본값 false로, 활동 분야·기록 API가 사용자 id를 알 수 없어 동작하지 않는다)
+4. `GrowitApplication`을 실행한다. (Flyway가 DB 표를 자동으로 만든다)
+5. 확인: `GET http://localhost:8080/api/health` → `{"status":"ok"}`
 
 ### 3) 프론트엔드
 
@@ -180,7 +180,7 @@ growit/
 ├─ frontend/        React + Vite + TypeScript 앱 (Tailwind CSS, React Router, TanStack Query)
 ├─ backend/         Spring Boot 앱 (기능별 패키지: auth, hobby, record, stats, compare, ai, common)
 ├─ docs/            ERD, 구조도, 화면 이미지, 설계 문서
-├─ docker-compose.yml   로컬 개발용 MySQL 컨테이너
+├─ docker-compose.yml   서버 배포(EC2)용 mysql·backend·nginx 컨테이너
 ├─ .env.example
 ├─ CLAUDE.md
 └─ README.md
