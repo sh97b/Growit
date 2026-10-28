@@ -163,7 +163,11 @@ Growit은 새로운 걸 배우거나 취미를 키울 때, **눈에 띄는 변�
 4. `GrowitApplication`을 실행한다. (Flyway가 DB 표를 자동으로 만든다)
 5. 확인: `GET http://localhost:8080/api/health` → `{"status":"ok"}`
 
-### 3) 프론트엔드
+### 3) 테스트 (백엔드)
+
+`cd backend && ./gradlew test` — 테스트는 H2 기반이라 MySQL 스키마 검증은 로컬 실행으로 확인한다.
+
+### 4) 프론트엔드
 
 ```bash
 cd frontend

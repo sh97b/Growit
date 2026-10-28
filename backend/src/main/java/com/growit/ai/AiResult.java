@@ -43,11 +43,12 @@ public class AiResult {
 	@Column(name = "record_ids", nullable = false, columnDefinition = "JSON")
 	private String recordIds;
 
+	@JdbcTypeCode(SqlTypes.CHAR)
 	@Column(name = "cache_key", nullable = false, length = 64)
 	private String cacheKey;
 
 	@CreationTimestamp
-	@Column(name = "created_at", nullable = false, updatable = false)
+	@Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "DATETIME")
 	private LocalDateTime createdAt;
 
 	protected AiResult() {

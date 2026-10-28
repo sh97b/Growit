@@ -44,7 +44,7 @@ public class ActivityRecord {
 	@Column(length = 20)
 	private Feeling feeling;
 
-	@Column(name = "is_milestone", nullable = false)
+	@Column(name = "is_milestone", nullable = false, columnDefinition = "BOOLEAN")
 	private boolean isMilestone;
 
 	@JdbcTypeCode(SqlTypes.JSON)
@@ -52,11 +52,11 @@ public class ActivityRecord {
 	private String aiAnalysis;
 
 	@CreationTimestamp
-	@Column(name = "created_at", nullable = false, updatable = false)
+	@Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "DATETIME")
 	private LocalDateTime createdAt;
 
 	@UpdateTimestamp
-	@Column(name = "updated_at", nullable = false)
+	@Column(name = "updated_at", nullable = false, columnDefinition = "DATETIME")
 	private LocalDateTime updatedAt;
 
 	protected ActivityRecord() {
