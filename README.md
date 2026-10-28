@@ -192,6 +192,27 @@ growit/
 
 ---
 
+## 12. 서버 배포 (EC2)
+
+> 작성 예정
+
+- 로컬 개발은 Docker 없이 진행하고, Docker(Compose)는 AWS EC2 배포 환경에서만 사용한다.
+- 구성: `mysql`(내부 전용), `backend`(내부 전용, `backend/Dockerfile`로 빌드), `nginx`(80·443 공개, `nginx/templates/default.conf.template` 기반 HTTPS 리버스 프록시).
+- 서버에서 `.env.example`을 참고해 `.env`를 만들고(`DOMAIN` 포함), Let's Encrypt 인증서를 `/etc/letsencrypt`에 준비한 뒤 `docker compose up -d --build`로 띄운다.
+- 확인: `https://grow-it.duckdns.org/api/health` → `{"status":"ok"}`
+
+---
+
+## 13. 백업과 복원
+
+> 작성 예정
+
+- `scripts/backup-db.sh`: MySQL을 mysqldump로 덤프해 gzip으로 압축하고 `~/backups/`에 저장하며, 7일이 지난 백업 파일은 자동으로 지운다.
+- `scripts/restore-db.sh <백업파일.sql.gz>`: 지정한 백업 파일로 데이터베이스를 덮어쓴다. 실행 전 확인(`yes` 입력)을 거친다.
+- 주기적 백업(cron 등록 등)은 추후 정리한다.
+
+---
+
 ## 작성자
 
 - (인공지능프로젝트[YD] / 반서현 / 20230898)
