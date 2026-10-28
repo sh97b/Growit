@@ -49,3 +49,7 @@ frontend/*.local
 # OS
 .DS_Store
 Thumbs.db
+
+# Local-only notes
+docs/DESIGN.md
+CLAUDE.md
