@@ -158,11 +158,11 @@ Growit은 새로운 걸 배우거나 취미를 키울 때, **눈에 띄는 변�
 ### 2) 백엔드 (IntelliJ)
 
 1. IntelliJ에서 `backend/` 폴더를 연다.
-2. Run/Debug Configuration의 Environment variables에 `DB_PASSWORD`(위 .env와 같은 값)를 입력한다.
-3. 로그인(JWT)이 아직 없으므로, 모든 요청을 임시로 user id=1로 처리하려면 Environment variables에 `APP_TEMP_USER_ENABLED=true`도 추가한다. (처음 실행하면 users 표에 id=1 임시 사용자가 자동으로 만들어진다. 비워 두면 기본값 false로, 활동 분야·기록 API가 사용자 id를 알 수 없어 동작하지 않는다)
-4. `GrowitApplication`을 실행한다. (Flyway가 DB 표를 자동으로 만든다)
-5. 확인: `GET http://localhost:8080/api/health` → `{"status":"ok"}`
-6. 로컬에서 http://localhost:8080/swagger-ui/index.html 에서 API를 시험할 수 있다. 서버(prod)에서는 꺼져 있다.
+2. Run/Debug Configuration의 Environment variables에 `DB_PASSWORD`(위 .env와 같은 값)와 `JWT_SECRET`(32바이트 이상 임의 문자열, 예: `openssl rand -hex 32`)을 입력한다. `JWT_SECRET`이 없거나 짧으면 서버가 시작되지 않는다.
+3. `GrowitApplication`을 실행한다. (Flyway가 DB 표를 자동으로 만든다)
+4. 확인: `GET http://localhost:8080/api/health` → `{"status":"ok"}`
+5. 로컬에서 http://localhost:8080/swagger-ui/index.html 에서 API를 시험할 수 있다. 서버(prod)에서는 꺼져 있다.
+   `POST /api/auth/signup`으로 가입하고 `POST /api/auth/login`으로 받은 `accessToken`을 화면 오른쪽 위 **Authorize** 버튼에 `Bearer {토큰}` 형식으로 입력하면 로그인이 필요한 API도 시험할 수 있다.
 
 ### 3) 테스트 (백엔드)
 
