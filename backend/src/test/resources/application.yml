@@ -21,5 +21,6 @@ spring:
 app:
   cors:
     allowed-origins: http://localhost:5173
-  temp-user:
-    enabled: true
+  jwt:
+    secret: test-only-secret-key-please-replace-32bytes-min
+    expiration-days: 7
