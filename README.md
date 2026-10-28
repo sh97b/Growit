@@ -158,10 +158,10 @@ Growit은 새로운 걸 배우거나 취미를 키울 때, **눈에 띄는 변�
 ### 2) 백엔드 (IntelliJ)
 
 1. IntelliJ에서 `backend/` 폴더를 연다.
-2. Run/Debug Configuration의 Environment variables에 `DB_PASSWORD`(위 .env와 같은 값)와 `JWT_SECRET`(32바이트 이상 임의 문자열, 예: `openssl rand -hex 32`)을 입력한다. `JWT_SECRET`이 없거나 짧으면 서버가 시작되지 않는다.
+2. Run/Debug Configuration의 Environment variables에 `DB_PASSWORD`(위 .env와 같은 값), `JWT_SECRET`(32바이트 이상 임의 문자열, 예: `openssl rand -hex 32`), `SWAGGER_ENABLED=true`를 입력한다. `JWT_SECRET`이 없거나 짧으면 서버가 시작되지 않는다.
 3. `GrowitApplication`을 실행한다. (Flyway가 DB 표를 자동으로 만든다)
 4. 확인: `GET http://localhost:8080/api/health` → `{"status":"ok"}`
-5. 로컬에서 http://localhost:8080/swagger-ui/index.html 에서 API를 시험할 수 있다. 서버(prod)에서는 꺼져 있다.
+5. 로컬에서 http://localhost:8080/swagger-ui/index.html 에서 API를 시험할 수 있다. `SWAGGER_ENABLED`는 기본 false이고, 서버(prod)에서도 이 값으로만 켜고 끈다(기본은 꺼짐).
    `POST /api/auth/signup`으로 가입하고 `POST /api/auth/login`으로 받은 `accessToken`을 화면 오른쪽 위 **Authorize** 버튼에 `Bearer {토큰}` 형식으로 입력하면 로그인이 필요한 API도 시험할 수 있다.
 
 ### 3) 테스트 (백엔드)
@@ -205,6 +205,8 @@ growit/
 - 구성: `mysql`(내부 전용), `backend`(내부 전용, `backend/Dockerfile`로 빌드), `nginx`(80·443 공개, `nginx/templates/default.conf.template` 기반 HTTPS 리버스 프록시).
 - 서버에서 `.env.example`을 참고해 `.env`를 만들고(`DOMAIN` 포함), Let's Encrypt 인증서를 `/etc/letsencrypt`에 준비한 뒤 `docker compose up -d --build`로 띄운다.
 - 확인: `https://grow-it.duckdns.org/api/health` → `{"status":"ok"}`
+- Swagger는 서버 `.env`의 `SWAGGER_ENABLED`로 켜고 끈다(기본 false). 켜려면 서버 `.env`에서 `SWAGGER_ENABLED=true`로 바꾸고 `docker compose up -d`로 backend를 다시 띄운다.
+  켜진 상태에서 `https://grow-it.duckdns.org/swagger-ui/index.html`(화면), `https://grow-it.duckdns.org/v3/api-docs`(API 문서 JSON)로 확인한다. 꺼져 있으면 두 주소 모두 404여야 한다.
 
 ---
 

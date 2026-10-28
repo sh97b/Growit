@@ -39,6 +39,7 @@ replay_pid*
 backend/build/
 backend/.gradle/
 backend/out/
+backend/bin/
 
 # Frontend (Node)
 frontend/node_modules/

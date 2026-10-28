@@ -24,3 +24,11 @@ app:
   jwt:
     secret: test-only-secret-key-please-replace-32bytes-min
     expiration-days: 7
+  swagger:
+    enabled: false
+
+springdoc:
+  api-docs:
+    enabled: ${app.swagger.enabled}
+  swagger-ui:
+    enabled: ${app.swagger.enabled}

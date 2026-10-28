@@ -10,6 +10,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+/**
+ * Swagger 주소(v3/api-docs, swagger-ui)는 항상 인증 없이 열어 둔다.
+ * SWAGGER_ENABLED(app.swagger.enabled)가 false면 springdoc이 그 주소에 아무 것도 등록하지 않아
+ * 이 permitAll은 의미가 없어지고 요청은 (인증 거부가 아니라) 404로 끝난다.
+ */
 @Configuration
 public class SecurityConfig {
 
