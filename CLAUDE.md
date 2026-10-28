@@ -33,9 +33,9 @@ growit/
 ├─ backend/         Spring Boot 앱 (기능별 패키지: auth, hobby, record, stats, compare, ai, common)
 ├─ nginx/           nginx 설정
 ├─ prompts/         AI 프롬프트 템플릿 (코드와 분리, 버전 관리)
-├─ docs/            ERD, 구조도, 화면 이미지
+├─ docs/            ERD, 구조도, 화면 이미지, 환경변수 설명(environment-variables.md)
 ├─ docker-compose.yml
-├─ .env.example
+├─ .env.example     일반 설정 예시 (중요한 비밀 값은 들어 있지 않음)
 ├─ CLAUDE.md
 └─ README.md
 ```
@@ -61,7 +61,20 @@ growit/
 - **모든 조회·수정에 `user_id` 조건을 건다.** 다른 사용자의 데이터가 섞이면 안 된다.
 - 현재 로그인 사용자는 **한 곳(예: `CurrentUserProvider`)에서만** 꺼낸다. 로그인 구현 전(~11/6)에는 `user_id = 1`로 고정하고, 11/7에 JWT로 교체한다. 컨트롤러가 `user_id`를 요청 본문이나 주소에서 받지 않는다.
 - 비밀번호는 BCrypt로 암호화한다.
-- API 키, DB 비밀번호, JWT 비밀 값은 환경변수로만 쓴다. **코드와 저장소에 넣지 않는다.** `.env`는 `.gitignore`에 있어야 한다.
+- **중요한 비밀 값(`AI_API_KEY`, `JWT_SECRET`, `DB_PASSWORD`)은 `.env`에 넣지 않는다.** 로컬에서는 사용자가 IntelliJ의 Run/Debug Configuration > Environment variables에 직접 입력하고, 운영 서버에서는 AWS Systems Manager Parameter Store(SecureString)에서 읽어 환경변수로 넘긴다.
+- **환경변수 목록** (이 목록만 알면 된다. `docs/environment-variables.md`는 사람이 설정할 때 보는 안내서이므로 읽을 필요 없다)
+  - 비밀 값, IntelliJ에서 사용자가 입력, 기본값 없음: `DB_PASSWORD`, `JWT_SECRET`, `AI_API_KEY` — **해당 기능을 만들 때 추가한다.** (`DB_PASSWORD`는 S0, `AI_API_KEY`는 S4(11/4), `JWT_SECRET`은 S7(11/7). 아직 쓰지 않는 비밀 값은 필수로 읽지 않아야 서버가 시작된다)
+  - 일반 설정, `application.yml` 기본값 + `.env`: `SPRING_PROFILES_ACTIVE`, `APP_CORS_ALLOWED_ORIGINS`, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `JWT_EXPIRES_MINUTES`, `AI_API_BASE_URL`, `AI_MODEL`, `AI_TIMEOUT_SECONDS`, `AI_DAILY_LIMIT_PER_USER_ANALYSIS`(기본 20), `AI_DAILY_LIMIT_PER_USER_REPORT`(기본 5), `AI_DAILY_LIMIT_TOTAL`(기본 300) — 한도는 임시값
+  - 로컬 MySQL 컨테이너 전용, `.env`: `DB_ROOT_PASSWORD`, `DB_PASSWORD`
+  - 프론트엔드, `frontend/.env.development`, 공개 값만: `VITE_API_BASE_URL`
+- **Claude Code의 터미널에는 비밀 값이 없다.** 그래서 (1) 백엔드 실행은 IntelliJ에서 사용자가 하고, (2) 테스트는 비밀 값 없이 돌아가야 한다. AI 호출은 인터페이스 뒤에 두고 테스트에서는 가짜 구현(mock)을 쓴다. 테스트 프로필(`test`)에서는 더미 값을 쓴다. 비밀 값을 달라고 요청하거나 대신 설정하려 하지 않는다.
+- 비밀 값은 `application.yml`에서 **기본값 없이** `${AI_API_KEY}`처럼 읽는다. 값이 없으면 서버가 시작되지 않게 한다. 비밀이 아닌 설정(호출 한도, 타임아웃, 모델 이름 등)은 `application.yml`에 기본값을 둔다.
+- **`.env`는 비밀이 아닌 일반 설정용이다.** (docker compose와 프론트엔드가 읽음) `.env`는 커밋하지 않고 `.env.example`은 커밋한다. 예외로, **로컬 MySQL 컨테이너 전용 비밀번호**(`DB_ROOT_PASSWORD`, `DB_PASSWORD`)는 외부에 노출되지 않는 로컬 임시 값이므로 `.env`에 둘 수 있다. 운영과 다른 값을 쓰고, IntelliJ의 `DB_PASSWORD`와 같은 값으로 맞춘다.
+- `docker-compose.yml`에는 비밀 값을 적지 않고 `.env`의 변수를 참조한다. 로컬에서는 MySQL만 컨테이너로 실행하고 백엔드는 IntelliJ에서 실행한다.
+- **프론트엔드(VS Code)는 비밀 값을 갖지 않는다.** 빌드에 들어가는 `VITE_` 변수는 브라우저에 공개되므로 API 주소 같은 공개 설정만 둔다. AI 호출은 항상 백엔드를 거친다.
+- `.gitignore`에는 `.env`, `.env.*`(단 `.env.example`은 제외), `.idea/`, 빌드 결과물, `node_modules`를 넣는다. IntelliJ 실행 설정에 비밀 값이 들어 있으므로 `.idea/`는 커밋하지 않고, 실행 설정을 "Store as project file"로 저장하지 않는다.
+- **비밀 값을 출력하거나 로그, 에러 메시지, 커밋, 채팅에 남기지 않는다.**
+- 이 서비스의 AI API 키는 여러 사람이 함께 쓰는 키다. 유출되면 다른 사람에게도 영향이 가므로 특히 조심한다.
 - 로그인 전 임시 단계에서는 배포 주소를 외부에 공유하지 않는다.
 
 ## 6. AI 규칙 (서비스의 핵심)
@@ -129,7 +142,7 @@ AI 기능 4가지
 
 ## 10. 하지 말 것
 
-- 키 값이나 비밀번호를 코드, 로그, 커밋에 남기기
+- 키 값이나 비밀번호를 코드, 로그, 커밋에 남기기, AI 키·JWT 비밀 값을 `.env`에 넣기, `.env`와 `.idea/`를 커밋하기, 비밀 값 출력하기
 - 다른 사용자의 데이터가 보일 수 있는 조회
 - 근거 검증 없이 AI 결과 표시하기
 - 연속 일수 강조, 빨강·X 표시, 재촉하는 문구
