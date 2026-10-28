@@ -1,10 +1,16 @@
 package com.growit.record;
 
 import com.growit.common.CurrentUserProvider;
+import com.growit.common.ErrorResponse;
 import com.growit.record.dto.RecordCreateRequest;
 import com.growit.record.dto.RecordListResponse;
 import com.growit.record.dto.RecordResponse;
 import com.growit.record.dto.RecordUpdateRequest;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -20,6 +26,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "기록", description = "활동 기록 등록·조회·수정·삭제")
 @RestController
 @RequestMapping("/api/records")
 public class RecordController {
@@ -32,6 +39,7 @@ public class RecordController {
 		this.currentUserProvider = currentUserProvider;
 	}
 
+	@Operation(summary = "기록 목록 조회 (최신순, 분야·기간·페이지로 필터링)")
 	@GetMapping
 	public RecordListResponse list(
 			@RequestParam(required = false) Long hobbyId,
@@ -42,22 +50,32 @@ public class RecordController {
 		return recordService.list(currentUserProvider.getCurrentUserId(), hobbyId, from, to, page, size);
 	}
 
+	@Operation(summary = "기록 상세 조회")
+	@ApiResponse(responseCode = "404", description = "내 기록이 아니거나 없음",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@GetMapping("/{id}")
 	public RecordResponse get(@PathVariable Long id) {
 		return recordService.get(currentUserProvider.getCurrentUserId(), id);
 	}
 
+	@Operation(summary = "기록 등록")
+	@ApiResponse(responseCode = "400", description = "입력값 오류",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@PostMapping
 	public ResponseEntity<RecordResponse> create(@Valid @RequestBody RecordCreateRequest request) {
 		RecordResponse response = recordService.create(currentUserProvider.getCurrentUserId(), request);
 		return ResponseEntity.status(HttpStatus.CREATED).body(response);
 	}
 
+	@Operation(summary = "기록 수정 (보낸 칸만 수정, ai_analysis는 초기화됨)")
+	@ApiResponse(responseCode = "404", description = "내 기록이 아니거나 없음",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@PatchMapping("/{id}")
 	public RecordResponse update(@PathVariable Long id, @RequestBody RecordUpdateRequest request) {
 		return recordService.update(currentUserProvider.getCurrentUserId(), id, request);
 	}
 
+	@Operation(summary = "기록 삭제")
 	@DeleteMapping("/{id}")
 	public ResponseEntity<Void> delete(@PathVariable Long id) {
 		recordService.delete(currentUserProvider.getCurrentUserId(), id);
