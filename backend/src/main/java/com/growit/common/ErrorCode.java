@@ -4,6 +4,7 @@ import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
 	VALIDATION_ERROR(HttpStatus.BAD_REQUEST),
+	UNAUTHORIZED(HttpStatus.UNAUTHORIZED),
 	NOT_FOUND(HttpStatus.NOT_FOUND),
 	HOBBY_NAME_TAKEN(HttpStatus.CONFLICT),
 	HOBBY_HAS_RECORDS(HttpStatus.CONFLICT);
