@@ -18,7 +18,34 @@
 *.zip
 *.tar.gz
 *.rar
+!backend/gradle/wrapper/gradle-wrapper.jar
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# Environment variables (secrets or local overrides)
+.env
+.env.*
+!.env.example
+!frontend/.env.development
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Backend (Gradle)
+backend/build/
+backend/.gradle/
+backend/out/
+
+# Frontend (Node)
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/*.local
+
+# OS
+.DS_Store
+Thumbs.db
