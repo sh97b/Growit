@@ -1,1 +1,81 @@
 @import "tailwindcss";
+
+@theme {
+  --color-paper: #FBF9F5;
+  --color-surface: #F4F0E9;
+  --color-rest: #EEE9DF;
+  --color-line: #E7E1D6;
+  --color-line-2: #CFC7B8;
+  --color-input: #958D7D;
+  --color-ink: #2B2823;
+  --color-ink-2: #57524A;
+  --color-ink-3: #6B655A;
+
+  --color-base: #3E7C68;
+  --color-base-ink: #336655;
+
+  --color-tag-topic-bg: #E3EEE8;
+  --color-tag-topic-fg: #1F4F40;
+  --color-tag-hard-bg: #F6E7D3;
+  --color-tag-hard-fg: #6B3F0F;
+  --color-tag-feel-bg: #ECE6F3;
+  --color-tag-feel-fg: #4B3A66;
+
+  --color-note-sand-bg: #F6EEDD;
+  --color-note-sand-line: #E6D6B4;
+  --color-note-sand-fg: #4A3A12;
+  --color-note-slate-bg: #E6ECF2;
+  --color-note-slate-line: #C9D5E0;
+  --color-note-slate-fg: #2F4458;
+
+  --font-serif: "Noto Serif KR", "Nanum Myeongjo", Batang, serif;
+  --font-sans: "Pretendard", "Noto Sans KR", system-ui, -apple-system,
+    "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  letter-spacing: -0.01em;
+}
+
+#root {
+  height: 100%;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--color-base);
+  outline-offset: 2px;
+}
+
+@keyframes growit-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
