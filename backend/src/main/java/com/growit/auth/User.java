@@ -55,6 +55,10 @@ public class User {
 		return displayName;
 	}
 
+	public void setDisplayName(String displayName) {
+		this.displayName = displayName;
+	}
+
 	public LocalDateTime getCreatedAt() {
 		return createdAt;
 	}

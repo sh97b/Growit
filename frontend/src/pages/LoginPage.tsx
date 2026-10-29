@@ -49,10 +49,11 @@ export function LoginPage() {
     try {
       if (mode === 'login') {
         await login(email, password)
+        navigate('/', { replace: true })
       } else {
         await signup(email, password)
+        navigate('/onboarding', { replace: true })
       }
-      navigate('/', { replace: true })
     } catch (error) {
       setServerError(error instanceof ApiError ? error.message : '잠시 후 다시 시도해 주세요')
     } finally {

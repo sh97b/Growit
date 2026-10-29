@@ -3,13 +3,23 @@ import { AppLayout } from './components/AppLayout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { ReviewSectionLayout } from './components/ReviewSectionLayout'
 import { LoginPage } from './pages/LoginPage'
+import { OnboardingPage } from './pages/OnboardingPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { HobbiesPage } from './pages/settings/HobbiesPage'
 
 function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route
+        path="/onboarding"
+        element={
+          <ProtectedRoute>
+            <OnboardingPage />
+          </ProtectedRoute>
+        }
+      />
       <Route
         element={
           <ProtectedRoute>
@@ -26,7 +36,7 @@ function App() {
         <Route path="/records/new" element={<PlaceholderPage title="기록 작성" />} />
         <Route path="/records/:id" element={<PlaceholderPage title="기록 상세" />} />
         <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/settings/hobbies" element={<PlaceholderPage title="활동 분야 관리" />} />
+        <Route path="/settings/hobbies" element={<HobbiesPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
