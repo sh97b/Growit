@@ -4,9 +4,22 @@ import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import App from './App.tsx'
+import { ApiError } from './lib/api.ts'
 import { AuthProvider } from './lib/auth.tsx'
 
-const queryClient = new QueryClient()
+function shouldRetry(failureCount: number, error: unknown): boolean {
+  if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
+    return false
+  }
+  return failureCount < 1
+}
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { retry: shouldRetry },
+    mutations: { retry: shouldRetry },
+  },
+})
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -143,7 +143,7 @@ export function LoginPage() {
         <div className="mx-auto hidden w-full max-w-[1200px] grid-cols-[1fr_380px] items-center gap-[140px] px-10 py-16 lg:grid">
           <div className="flex max-w-[440px] flex-col gap-4">
             <p className="font-serif text-[36px] font-semibold leading-[1.3]">
-              꾸준함이 눈에 보이고, 내가 쓴 말이 먼저 읽히는 곳
+              꾸준함이 눈에 보이고,<br/>내가 쓴 말이 먼저 읽히는 곳
             </p>
             <p className="text-[17px] leading-[1.75] text-ink-2">
               쉬어 간 날도 흐름의 일부예요. 오늘 한 줄이면 충분해요.
