@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "활동 분야", description = "활동 분야 등록·조회·수정·삭제")
@@ -36,10 +37,10 @@ public class HobbyController {
 		this.currentUserProvider = currentUserProvider;
 	}
 
-	@Operation(summary = "내 활동 분야 목록 조회")
+	@Operation(summary = "내 활동 분야 목록 조회 (기본은 보관된 분야 제외)")
 	@GetMapping
-	public List<HobbyResponse> list() {
-		return hobbyService.list(currentUserProvider.getCurrentUserId());
+	public List<HobbyResponse> list(@RequestParam(defaultValue = "false") boolean includeArchived) {
+		return hobbyService.list(currentUserProvider.getCurrentUserId(), includeArchived);
 	}
 
 	@Operation(summary = "활동 분야 등록")
@@ -51,7 +52,7 @@ public class HobbyController {
 		return ResponseEntity.status(HttpStatus.CREATED).body(response);
 	}
 
-	@Operation(summary = "활동 분야 수정 (보낸 칸만 수정)")
+	@Operation(summary = "활동 분야 수정 (보낸 칸만 수정, archived로 보관·되살리기)")
 	@ApiResponse(responseCode = "404", description = "내 활동 분야가 아님",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@PatchMapping("/{id}")

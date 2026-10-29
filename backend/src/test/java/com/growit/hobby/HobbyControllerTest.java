@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -18,6 +19,7 @@ import com.growit.common.CurrentUserProvider;
 import com.growit.common.ErrorCode;
 import com.growit.hobby.dto.HobbyCreateRequest;
 import com.growit.hobby.dto.HobbyResponse;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -45,7 +47,7 @@ class HobbyControllerTest {
 	@Test
 	void create_success_returnsCreated() throws Exception {
 		given(currentUserProvider.getCurrentUserId()).willReturn(1L);
-		given(hobbyService.create(eq(1L), any())).willReturn(new HobbyResponse(1L, "기타", "코드 전환 연습", 0));
+		given(hobbyService.create(eq(1L), any())).willReturn(new HobbyResponse(1L, "기타", "코드 전환 연습", 0, false));
 
 		mockMvc.perform(post("/api/hobbies")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -99,10 +101,21 @@ class HobbyControllerTest {
 	}
 
 	@Test
+	void list_includeArchivedTrue_passesFlagToService() throws Exception {
+		given(currentUserProvider.getCurrentUserId()).willReturn(1L);
+		given(hobbyService.list(1L, true))
+				.willReturn(List.of(new HobbyResponse(1L, "기타", null, 0, true)));
+
+		mockMvc.perform(get("/api/hobbies").param("includeArchived", "true"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0].archived", is(true)));
+	}
+
+	@Test
 	void update_returnsOk() throws Exception {
 		given(currentUserProvider.getCurrentUserId()).willReturn(1L);
 		given(hobbyService.update(eq(1L), anyLong(), any()))
-				.willReturn(new HobbyResponse(1L, "피아노", null, 0));
+				.willReturn(new HobbyResponse(1L, "피아노", null, 0, false));
 
 		mockMvc.perform(patch("/api/hobbies/{id}", 1L)
 						.contentType(MediaType.APPLICATION_JSON)

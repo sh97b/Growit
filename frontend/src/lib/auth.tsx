@@ -6,8 +6,8 @@ type LoginResponse = { accessToken: string }
 type AuthContextValue = {
   token: string | null
   isAuthenticated: boolean
-  login: (username: string, password: string) => Promise<void>
-  signup: (username: string, password: string) => Promise<void>
+  login: (email: string, password: string) => Promise<void>
+  signup: (email: string, password: string) => Promise<void>
   logout: () => void
 }
 
@@ -16,10 +16,10 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setTokenState] = useState<string | null>(() => getToken())
 
-  const login = useCallback(async (username: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     const result = await apiRequest<LoginResponse>('/api/auth/login', {
       method: 'POST',
-      body: { username, password },
+      body: { email, password },
       auth: false,
     })
     setToken(result.accessToken)
@@ -27,13 +27,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signup = useCallback(
-    async (username: string, password: string) => {
+    async (email: string, password: string) => {
       await apiRequest<void>('/api/auth/signup', {
         method: 'POST',
-        body: { username, password },
+        body: { email, password },
         auth: false,
       })
-      await login(username, password)
+      await login(email, password)
     },
     [login],
   )

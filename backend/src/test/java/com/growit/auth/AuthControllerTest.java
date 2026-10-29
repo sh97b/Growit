@@ -38,20 +38,21 @@ class AuthControllerTest {
 
 	@Test
 	void signup_success_returnsCreated() throws Exception {
-		given(authService.signup(any())).willReturn(new SignupResponse(1L, "growit_user"));
+		given(authService.signup(any())).willReturn(new SignupResponse(1L, "growit_user@example.com"));
 
 		mockMvc.perform(post("/api/auth/signup")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(new SignupRequest("growit_user", "password1234"))))
+						.content(objectMapper.writeValueAsString(
+								new SignupRequest("growit_user@example.com", "password1234"))))
 				.andExpect(status().isCreated())
-				.andExpect(jsonPath("$.username", is("growit_user")));
+				.andExpect(jsonPath("$.email", is("growit_user@example.com")));
 	}
 
 	@Test
-	void signup_uppercaseUsername_returnsValidationError() throws Exception {
+	void signup_invalidEmail_returnsValidationError() throws Exception {
 		mockMvc.perform(post("/api/auth/signup")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(new SignupRequest("Growit_User", "password1234"))))
+						.content(objectMapper.writeValueAsString(new SignupRequest("not-an-email", "password1234"))))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code", is("VALIDATION_ERROR")));
 	}
@@ -60,21 +61,23 @@ class AuthControllerTest {
 	void signup_shortPassword_returnsValidationError() throws Exception {
 		mockMvc.perform(post("/api/auth/signup")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(new SignupRequest("growit_user", "short"))))
+						.content(objectMapper.writeValueAsString(
+								new SignupRequest("growit_user@example.com", "short"))))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code", is("VALIDATION_ERROR")));
 	}
 
 	@Test
-	void signup_duplicateUsername_returnsConflict() throws Exception {
-		willThrow(new ApiException(ErrorCode.USERNAME_TAKEN, "이미 사용 중인 아이디예요"))
+	void signup_duplicateEmail_returnsConflict() throws Exception {
+		willThrow(new ApiException(ErrorCode.EMAIL_TAKEN, "이미 사용 중인 이메일이에요"))
 				.given(authService).signup(any());
 
 		mockMvc.perform(post("/api/auth/signup")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(new SignupRequest("growit_user", "password1234"))))
+						.content(objectMapper.writeValueAsString(
+								new SignupRequest("growit_user@example.com", "password1234"))))
 				.andExpect(status().isConflict())
-				.andExpect(jsonPath("$.code", is("USERNAME_TAKEN")));
+				.andExpect(jsonPath("$.code", is("EMAIL_TAKEN")));
 	}
 
 	@Test
@@ -83,19 +86,21 @@ class AuthControllerTest {
 
 		mockMvc.perform(post("/api/auth/login")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(new LoginRequest("growit_user", "password1234"))))
+						.content(objectMapper.writeValueAsString(
+								new LoginRequest("growit_user@example.com", "password1234"))))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.accessToken", is("jwt-token")));
 	}
 
 	@Test
 	void login_wrongPassword_returnsUnauthorized() throws Exception {
-		willThrow(new ApiException(ErrorCode.UNAUTHORIZED, "아이디 또는 비밀번호가 맞지 않아요"))
+		willThrow(new ApiException(ErrorCode.UNAUTHORIZED, "이메일 또는 비밀번호가 맞지 않아요"))
 				.given(authService).login(any());
 
 		mockMvc.perform(post("/api/auth/login")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(new LoginRequest("growit_user", "wrong-password"))))
+						.content(objectMapper.writeValueAsString(
+								new LoginRequest("growit_user@example.com", "wrong-password"))))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.code", is("UNAUTHORIZED")));
 	}

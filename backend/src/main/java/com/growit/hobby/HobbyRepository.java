@@ -8,6 +8,8 @@ public interface HobbyRepository extends JpaRepository<Hobby, Long> {
 
 	List<Hobby> findByUserIdOrderByIdAsc(Long userId);
 
+	List<Hobby> findByUserIdAndArchivedAtIsNullOrderByIdAsc(Long userId);
+
 	Optional<Hobby> findByIdAndUserId(Long id, Long userId);
 
 	boolean existsByUserIdAndName(Long userId, String name);

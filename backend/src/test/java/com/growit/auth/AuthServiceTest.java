@@ -31,54 +31,74 @@ class AuthServiceTest {
 	}
 
 	@Test
-	void signup_savesUserWithHashedPassword() {
+	void signup_savesUserWithHashedPasswordAndDisplayName() {
 		AuthService service = authService();
 
-		SignupResponse response = service.signup(new SignupRequest("growit_user", "password1234"));
+		SignupResponse response = service.signup(new SignupRequest("growit_user@example.com", "password1234"));
 
 		assertThat(response.id()).isNotNull();
-		assertThat(response.username()).isEqualTo("growit_user");
+		assertThat(response.email()).isEqualTo("growit_user@example.com");
 		User saved = userRepository.findById(response.id()).orElseThrow();
 		assertThat(saved.getPasswordHash()).isNotEqualTo("password1234");
 		assertThat(passwordEncoder.matches("password1234", saved.getPasswordHash())).isTrue();
+		assertThat(saved.getDisplayName()).isEqualTo("growit_user");
 	}
 
 	@Test
-	void signup_duplicateUsername_throwsUsernameTaken() {
+	void signup_uppercaseEmail_normalizedToLowercase() {
 		AuthService service = authService();
-		service.signup(new SignupRequest("growit_user", "password1234"));
 
-		assertThatThrownBy(() -> service.signup(new SignupRequest("growit_user", "password5678")))
+		SignupResponse response = service.signup(new SignupRequest("Growit_User@Example.com", "password1234"));
+
+		assertThat(response.email()).isEqualTo("growit_user@example.com");
+	}
+
+	@Test
+	void signup_duplicateEmail_throwsEmailTaken() {
+		AuthService service = authService();
+		service.signup(new SignupRequest("growit_user@example.com", "password1234"));
+
+		assertThatThrownBy(() -> service.signup(new SignupRequest("growit_user@example.com", "password5678")))
 				.isInstanceOfSatisfying(ApiException.class,
-						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.USERNAME_TAKEN));
+						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.EMAIL_TAKEN));
 	}
 
 	@Test
 	void login_correctPassword_returnsToken() {
 		AuthService service = authService();
-		service.signup(new SignupRequest("growit_user", "password1234"));
+		service.signup(new SignupRequest("growit_user@example.com", "password1234"));
 
-		LoginResponse response = service.login(new LoginRequest("growit_user", "password1234"));
+		LoginResponse response = service.login(new LoginRequest("growit_user@example.com", "password1234"));
 
 		assertThat(response.accessToken()).isNotBlank();
 		assertThat(jwtTokenProvider.parseUserId(response.accessToken())).isPresent();
 	}
 
 	@Test
+	void login_caseInsensitiveEmail_returnsToken() {
+		AuthService service = authService();
+		service.signup(new SignupRequest("growit_user@example.com", "password1234"));
+
+		LoginResponse response = service.login(new LoginRequest("Growit_User@Example.com", "password1234"));
+
+		assertThat(response.accessToken()).isNotBlank();
+	}
+
+	@Test
 	void login_wrongPassword_throwsUnauthorized() {
 		AuthService service = authService();
-		service.signup(new SignupRequest("growit_user", "password1234"));
+		service.signup(new SignupRequest("growit_user@example.com", "password1234"));
 
-		assertThatThrownBy(() -> service.login(new LoginRequest("growit_user", "wrong-password")))
+		assertThatThrownBy(() -> service.login(new LoginRequest("growit_user@example.com", "wrong-password")))
 				.isInstanceOfSatisfying(ApiException.class,
 						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.UNAUTHORIZED));
 	}
 
 	@Test
-	void login_unknownUsername_throwsUnauthorized() {
+	void login_unknownEmail_throwsUnauthorized() {
 		AuthService service = authService();
 
-		assertThatThrownBy(() -> service.login(new LoginRequest("nobody", "password1234")))
+		assertThatThrownBy(() -> service.login(new LoginRequest("nobody@example.com", "password1234")))
 				.isInstanceOfSatisfying(ApiException.class,
 						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.UNAUTHORIZED));
 	}

@@ -6,6 +6,7 @@ import com.growit.hobby.dto.HobbyCreateRequest;
 import com.growit.hobby.dto.HobbyResponse;
 import com.growit.hobby.dto.HobbyUpdateRequest;
 import com.growit.record.ActivityRecordRepository;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,10 +23,11 @@ public class HobbyService {
 		this.activityRecordRepository = activityRecordRepository;
 	}
 
-	public List<HobbyResponse> list(Long userId) {
-		return hobbyRepository.findByUserIdOrderByIdAsc(userId).stream()
-				.map(this::toResponse)
-				.toList();
+	public List<HobbyResponse> list(Long userId, boolean includeArchived) {
+		List<Hobby> hobbies = includeArchived
+				? hobbyRepository.findByUserIdOrderByIdAsc(userId)
+				: hobbyRepository.findByUserIdAndArchivedAtIsNullOrderByIdAsc(userId);
+		return hobbies.stream().map(this::toResponse).toList();
 	}
 
 	@Transactional
@@ -56,6 +58,13 @@ public class HobbyService {
 		if (request.goal() != null) {
 			hobby.setGoal(request.goal());
 		}
+		if (request.archived() != null) {
+			if (request.archived()) {
+				hobby.archive(LocalDateTime.now());
+			} else {
+				hobby.unarchive();
+			}
+		}
 		return toResponse(hobby);
 	}
 
@@ -75,6 +84,6 @@ public class HobbyService {
 
 	private HobbyResponse toResponse(Hobby hobby) {
 		long recordCount = activityRecordRepository.countByHobbyId(hobby.getId());
-		return new HobbyResponse(hobby.getId(), hobby.getName(), hobby.getGoal(), recordCount);
+		return new HobbyResponse(hobby.getId(), hobby.getName(), hobby.getGoal(), recordCount, hobby.isArchived());
 	}
 }

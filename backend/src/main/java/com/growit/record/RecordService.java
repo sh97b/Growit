@@ -2,6 +2,7 @@ package com.growit.record;
 
 import com.growit.common.ApiException;
 import com.growit.common.ErrorCode;
+import com.growit.hobby.Hobby;
 import com.growit.hobby.HobbyRepository;
 import com.growit.record.dto.RecordCreateRequest;
 import com.growit.record.dto.RecordListResponse;
@@ -53,7 +54,8 @@ public class RecordService {
 
 	@Transactional
 	public RecordResponse create(Long userId, RecordCreateRequest request) {
-		findOwnedHobby(userId, request.hobbyId());
+		Hobby hobby = findOwnedHobby(userId, request.hobbyId());
+		assertNotArchived(hobby);
 
 		ActivityRecord record = new ActivityRecord(
 				userId,
@@ -73,7 +75,8 @@ public class RecordService {
 		ActivityRecord record = findOwned(userId, id);
 
 		if (request.hobbyId() != null) {
-			findOwnedHobby(userId, request.hobbyId());
+			Hobby hobby = findOwnedHobby(userId, request.hobbyId());
+			assertNotArchived(hobby);
 			record.setHobbyId(request.hobbyId());
 		}
 		if (request.recordDate() != null) {
@@ -116,9 +119,15 @@ public class RecordService {
 				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "기록을 찾을 수 없어요"));
 	}
 
-	private void findOwnedHobby(Long userId, Long hobbyId) {
-		hobbyRepository.findByIdAndUserId(hobbyId, userId)
+	private Hobby findOwnedHobby(Long userId, Long hobbyId) {
+		return hobbyRepository.findByIdAndUserId(hobbyId, userId)
 				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "활동 분야를 찾을 수 없어요"));
+	}
+
+	private void assertNotArchived(Hobby hobby) {
+		if (hobby.isArchived()) {
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, "보관된 분야에는 새 기록을 쓸 수 없어요");
+		}
 	}
 
 	private Specification<ActivityRecord> buildSpec(Long userId, Long hobbyId, LocalDate from, LocalDate to) {

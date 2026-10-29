@@ -2,7 +2,7 @@ package com.growit.record;
 
 public enum Feeling {
 	PROUD,
-	REGRET,
 	STUCK,
+	RELIEVED,
 	NEUTRAL
 }

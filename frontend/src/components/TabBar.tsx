@@ -1,37 +1,35 @@
-import { NavLink } from 'react-router-dom'
-import { NAV_ITEMS } from './nav-items'
-import { PlusIcon } from './icons'
+import { Link, useLocation } from 'react-router-dom'
+import { isReviewPath } from './nav-items'
+import { HomeIcon, ListIcon, PlusIcon } from './icons'
 
 export function TabBar() {
+  const location = useLocation()
+  const homeActive = location.pathname === '/'
+  const reviewActive = isReviewPath(location.pathname)
+
   return (
     <nav
       aria-label="하단 메뉴"
-      className="grid flex-none grid-cols-5 border-t border-line bg-white md:hidden"
+      className="grid flex-none grid-cols-3 border-t border-line bg-white md:hidden"
       style={{ height: 64 }}
     >
-      {NAV_ITEMS.slice(0, 2).map(({ to, shortLabel, icon: ItemIcon, end }) => (
-        <NavLink
-          key={to}
-          to={to}
-          end={end}
-          className="flex flex-col items-center justify-center gap-0.5 text-[13px] font-medium text-ink no-underline"
+      <Link
+        to="/"
+        aria-current={homeActive ? 'page' : undefined}
+        className="flex flex-col items-center justify-center gap-0.5 text-[13px] font-medium text-ink no-underline"
+      >
+        <span
+          className={[
+            'flex h-7 w-12 items-center justify-center rounded-full',
+            homeActive ? 'bg-[color-mix(in_srgb,var(--color-base)_16%,white)]' : '',
+          ].join(' ')}
         >
-          {({ isActive }) => (
-            <>
-              <span
-                className={[
-                  'flex h-7 w-12 items-center justify-center rounded-full',
-                  isActive ? 'bg-[color-mix(in_srgb,var(--color-base)_16%,white)]' : '',
-                ].join(' ')}
-              >
-                <ItemIcon width={22} height={22} />
-              </span>
-              <span className={isActive ? 'font-semibold' : ''}>{shortLabel}</span>
-            </>
-          )}
-        </NavLink>
-      ))}
-      <NavLink
+          <HomeIcon width={22} height={22} />
+        </span>
+        <span className={homeActive ? 'font-semibold' : ''}>홈</span>
+      </Link>
+
+      <Link
         to="/records/new"
         className="flex flex-col items-center justify-center gap-0.5 text-[13px] font-semibold text-ink no-underline"
       >
@@ -39,29 +37,23 @@ export function TabBar() {
           <PlusIcon width={24} height={24} />
         </span>
         기록하기
-      </NavLink>
-      {NAV_ITEMS.slice(2).map(({ to, shortLabel, icon: ItemIcon, end }) => (
-        <NavLink
-          key={to}
-          to={to}
-          end={end}
-          className="flex flex-col items-center justify-center gap-0.5 text-[13px] font-medium text-ink no-underline"
+      </Link>
+
+      <Link
+        to="/records"
+        aria-current={reviewActive ? 'page' : undefined}
+        className="flex flex-col items-center justify-center gap-0.5 text-[13px] font-medium text-ink no-underline"
+      >
+        <span
+          className={[
+            'flex h-7 w-12 items-center justify-center rounded-full',
+            reviewActive ? 'bg-[color-mix(in_srgb,var(--color-base)_16%,white)]' : '',
+          ].join(' ')}
         >
-          {({ isActive }) => (
-            <>
-              <span
-                className={[
-                  'flex h-7 w-12 items-center justify-center rounded-full',
-                  isActive ? 'bg-[color-mix(in_srgb,var(--color-base)_16%,white)]' : '',
-                ].join(' ')}
-              >
-                <ItemIcon width={22} height={22} />
-              </span>
-              <span className={isActive ? 'font-semibold' : ''}>{shortLabel}</span>
-            </>
-          )}
-        </NavLink>
-      ))}
+          <ListIcon width={22} height={22} />
+        </span>
+        <span className={reviewActive ? 'font-semibold' : ''}>돌아보기</span>
+      </Link>
     </nav>
   )
 }

@@ -37,15 +37,16 @@ class SecurityIntegrationTest {
 	@Value("${app.jwt.secret}")
 	private String jwtSecret;
 
-	private String signupAndLogin(String username) throws Exception {
+	private String signupAndLogin(String localPart) throws Exception {
+		String email = localPart + "@example.com";
 		mockMvc.perform(post("/api/auth/signup")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"username\":\"" + username + "\",\"password\":\"password1234\"}"))
+						.content("{\"email\":\"" + email + "\",\"password\":\"password1234\"}"))
 				.andExpect(status().isCreated());
 
 		MvcResult result = mockMvc.perform(post("/api/auth/login")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"username\":\"" + username + "\",\"password\":\"password1234\"}"))
+						.content("{\"email\":\"" + email + "\",\"password\":\"password1234\"}"))
 				.andExpect(status().isOk())
 				.andReturn();
 
@@ -92,7 +93,8 @@ class SecurityIntegrationTest {
 
 		mockMvc.perform(get("/api/users/me").header("Authorization", "Bearer " + token))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.username", is("me_user")));
+				.andExpect(jsonPath("$.email", is("me_user@example.com")))
+				.andExpect(jsonPath("$.displayName", is("me_user")));
 	}
 
 	@Test

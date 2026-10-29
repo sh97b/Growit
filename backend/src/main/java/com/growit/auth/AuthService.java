@@ -13,7 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AuthService {
 
-	private static final String LOGIN_FAILED_MESSAGE = "아이디 또는 비밀번호가 맞지 않아요";
+	private static final String LOGIN_FAILED_MESSAGE = "이메일 또는 비밀번호가 맞지 않아요";
+	private static final int DISPLAY_NAME_MAX_LENGTH = 30;
 
 	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
@@ -28,21 +29,36 @@ public class AuthService {
 
 	@Transactional
 	public SignupResponse signup(SignupRequest request) {
-		if (userRepository.existsByUsername(request.username())) {
-			throw new ApiException(ErrorCode.USERNAME_TAKEN, "이미 사용 중인 아이디예요");
+		String email = normalizeEmail(request.email());
+		if (userRepository.existsByEmail(email)) {
+			throw new ApiException(ErrorCode.EMAIL_TAKEN, "이미 사용 중인 이메일이에요");
 		}
-		User user = new User(request.username(), passwordEncoder.encode(request.password()));
+		String displayName = defaultDisplayName(email);
+		User user = new User(email, passwordEncoder.encode(request.password()), displayName);
 		userRepository.save(user);
-		return new SignupResponse(user.getId(), user.getUsername());
+		return new SignupResponse(user.getId(), user.getEmail());
 	}
 
 	@Transactional(readOnly = true)
 	public LoginResponse login(LoginRequest request) {
-		User user = userRepository.findByUsername(request.username())
+		String email = normalizeEmail(request.email());
+		User user = userRepository.findByEmail(email)
 				.orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED, LOGIN_FAILED_MESSAGE));
 		if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
 			throw new ApiException(ErrorCode.UNAUTHORIZED, LOGIN_FAILED_MESSAGE);
 		}
 		return new LoginResponse(jwtTokenProvider.createToken(user.getId()));
+	}
+
+	private String normalizeEmail(String email) {
+		return email.trim().toLowerCase();
+	}
+
+	private String defaultDisplayName(String email) {
+		String localPart = email.substring(0, email.indexOf('@'));
+		if (localPart.length() > DISPLAY_NAME_MAX_LENGTH) {
+			return localPart.substring(0, DISPLAY_NAME_MAX_LENGTH);
+		}
+		return localPart;
 	}
 }

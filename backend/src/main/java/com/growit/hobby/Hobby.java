@@ -26,6 +26,9 @@ public class Hobby {
 	@Column(length = 200)
 	private String goal;
 
+	@Column(name = "archived_at")
+	private LocalDateTime archivedAt;
+
 	@CreationTimestamp
 	@Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "DATETIME")
 	private LocalDateTime createdAt;
@@ -61,6 +64,22 @@ public class Hobby {
 
 	public void setGoal(String goal) {
 		this.goal = goal;
+	}
+
+	public LocalDateTime getArchivedAt() {
+		return archivedAt;
+	}
+
+	public boolean isArchived() {
+		return archivedAt != null;
+	}
+
+	public void archive(LocalDateTime at) {
+		this.archivedAt = at;
+	}
+
+	public void unarchive() {
+		this.archivedAt = null;
 	}
 
 	public LocalDateTime getCreatedAt() {

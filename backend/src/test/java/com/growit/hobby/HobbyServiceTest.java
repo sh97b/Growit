@@ -66,7 +66,7 @@ class HobbyServiceTest {
 		HobbyService service = hobbyService();
 		HobbyResponse created = service.create(1L, new HobbyCreateRequest("기타", null));
 
-		assertThatThrownBy(() -> service.update(2L, created.id(), new HobbyUpdateRequest("피아노", null)))
+		assertThatThrownBy(() -> service.update(2L, created.id(), new HobbyUpdateRequest("피아노", null, null)))
 				.isInstanceOfSatisfying(ApiException.class,
 						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.NOT_FOUND));
 	}
@@ -91,5 +91,29 @@ class HobbyServiceTest {
 		service.delete(1L, created.id());
 
 		assertThat(hobbyRepository.findByIdAndUserId(created.id(), 1L)).isEmpty();
+	}
+
+	@Test
+	void list_excludesArchivedByDefault() {
+		HobbyService service = hobbyService();
+		HobbyResponse active = service.create(1L, new HobbyCreateRequest("기타", null));
+		HobbyResponse archived = service.create(1L, new HobbyCreateRequest("러닝", null));
+		service.update(1L, archived.id(), new HobbyUpdateRequest(null, null, true));
+
+		assertThat(service.list(1L, false)).extracting(HobbyResponse::id).containsExactly(active.id());
+		assertThat(service.list(1L, true)).extracting(HobbyResponse::id).containsExactlyInAnyOrder(active.id(),
+				archived.id());
+	}
+
+	@Test
+	void update_archiveThenUnarchive_togglesArchivedFlag() {
+		HobbyService service = hobbyService();
+		HobbyResponse created = service.create(1L, new HobbyCreateRequest("기타", null));
+
+		HobbyResponse archived = service.update(1L, created.id(), new HobbyUpdateRequest(null, null, true));
+		assertThat(archived.archived()).isTrue();
+
+		HobbyResponse restored = service.update(1L, created.id(), new HobbyUpdateRequest(null, null, false));
+		assertThat(restored.archived()).isFalse();
 	}
 }

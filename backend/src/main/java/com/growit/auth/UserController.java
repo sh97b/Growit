@@ -28,6 +28,6 @@ public class UserController {
 	public MeResponse me() {
 		User user = userRepository.findById(currentUserProvider.getCurrentUserId())
 				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "사용자를 찾을 수 없어요"));
-		return new MeResponse(user.getId(), user.getUsername(), user.getCreatedAt());
+		return new MeResponse(user.getId(), user.getEmail(), user.getDisplayName(), user.getCreatedAt());
 	}
 }

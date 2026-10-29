@@ -99,6 +99,37 @@ class RecordServiceTest {
 	}
 
 	@Test
+	void create_archivedHobby_throwsValidationError() {
+		RecordService service = recordService();
+		Long hobbyId = createHobby(1L, "기타");
+		Hobby hobby = hobbyRepository.findById(hobbyId).orElseThrow();
+		hobby.archive(java.time.LocalDateTime.now());
+		hobbyRepository.save(hobby);
+
+		assertThatThrownBy(() -> service.create(1L,
+				new RecordCreateRequest(hobbyId, LocalDate.now(), "연습했다", null, null, null, null)))
+				.isInstanceOfSatisfying(ApiException.class,
+						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
+	}
+
+	@Test
+	void update_moveToArchivedHobby_throwsValidationError() {
+		RecordService service = recordService();
+		Long hobbyId = createHobby(1L, "기타");
+		RecordResponse created = service.create(1L,
+				new RecordCreateRequest(hobbyId, LocalDate.now(), "연습했다", null, null, null, null));
+		Long archivedHobbyId = createHobby(1L, "러닝");
+		Hobby archivedHobby = hobbyRepository.findById(archivedHobbyId).orElseThrow();
+		archivedHobby.archive(java.time.LocalDateTime.now());
+		hobbyRepository.save(archivedHobby);
+
+		assertThatThrownBy(() -> service.update(1L, created.id(),
+				new RecordUpdateRequest(archivedHobbyId, null, null, null, null, null, null)))
+				.isInstanceOfSatisfying(ApiException.class,
+						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
+	}
+
+	@Test
 	void list_filtersByUserAndHobby() {
 		RecordService service = recordService();
 		Long hobbyId = createHobby(1L, "기타");

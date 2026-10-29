@@ -1,13 +1,17 @@
 import { useState } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
-import { NAV_ITEMS } from './nav-items'
+import { isReviewPath } from './nav-items'
 import { DotsIcon, PlusIcon } from './icons'
 
 export function Header() {
   const { logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
+
+  const homeActive = location.pathname === '/'
+  const reviewActive = isReviewPath(location.pathname)
 
   function handleLogout() {
     setMenuOpen(false)
@@ -21,22 +25,27 @@ export function Header() {
         <Link to="/" className="mr-11 font-serif text-xl font-semibold text-ink no-underline">
           Growit
         </Link>
-        <nav className="flex h-full gap-7">
-          {NAV_ITEMS.map(({ to, label, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) =>
-                [
-                  'flex items-center border-b-2 text-[15px] font-medium no-underline',
-                  isActive ? 'border-ink font-semibold text-ink' : 'border-transparent text-ink-2',
-                ].join(' ')
-              }
-            >
-              {label}
-            </NavLink>
-          ))}
+        <nav className="flex h-full gap-7" aria-label="주 메뉴">
+          <Link
+            to="/"
+            aria-current={homeActive ? 'page' : undefined}
+            className={[
+              'flex items-center border-b-2 text-[15px] font-medium no-underline',
+              homeActive ? 'border-ink font-semibold text-ink' : 'border-transparent text-ink-2',
+            ].join(' ')}
+          >
+            홈
+          </Link>
+          <Link
+            to="/records"
+            aria-current={reviewActive ? 'page' : undefined}
+            className={[
+              'flex items-center border-b-2 text-[15px] font-medium no-underline',
+              reviewActive ? 'border-ink font-semibold text-ink' : 'border-transparent text-ink-2',
+            ].join(' ')}
+          >
+            돌아보기
+          </Link>
         </nav>
         <div className="relative ml-auto flex items-center gap-2">
           <Link

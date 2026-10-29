@@ -8,13 +8,13 @@ import { PasswordField } from '../components/PasswordField'
 import { ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 
-const USERNAME_PATTERN = /^[a-z0-9_]{4,30}$/
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 type Mode = 'login' | 'signup'
 
 export function LoginPage() {
   const [mode, setMode] = useState<Mode>('login')
-  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fieldError, setFieldError] = useState<string | null>(null)
   const [serverError, setServerError] = useState<string | null>(null)
@@ -29,8 +29,8 @@ export function LoginPage() {
   }
 
   function validate(): string | null {
-    if (!USERNAME_PATTERN.test(username)) {
-      return '아이디는 영문 소문자, 숫자, 밑줄(_)로 4~30자로 입력해 주세요'
+    if (!EMAIL_PATTERN.test(email)) {
+      return '올바른 이메일 형식으로 입력해 주세요'
     }
     if (password.length < 8 || password.length > 72) {
       return '비밀번호는 8~72자로 입력해 주세요'
@@ -48,9 +48,9 @@ export function LoginPage() {
     setSubmitting(true)
     try {
       if (mode === 'login') {
-        await login(username, password)
+        await login(email, password)
       } else {
-        await signup(username, password)
+        await signup(email, password)
       }
       navigate('/', { replace: true })
     } catch (error) {
@@ -97,13 +97,14 @@ export function LoginPage() {
             {mode === 'login' ? '다시 만나서 반가워요' : '첫 기록을 시작해 볼까요'}
           </h1>
 
-          <Field label="아이디" htmlFor="username" hint="영문 소문자, 숫자, 밑줄(_)로 4~30자">
+          <Field label="이메일" htmlFor="email">
             <Input
-              id="username"
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              autoComplete="username"
-              placeholder="예: growit_user"
+              id="email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="email"
+              placeholder="name@example.com"
             />
           </Field>
 
