@@ -114,52 +114,64 @@ export function HobbiesPage() {
     )
   }
 
-  return (
-    <div className="flex flex-col gap-6">
-      <h1 className="font-serif text-xl font-semibold">활동 분야 관리</h1>
+  const listSection = isLoading ? (
+    <Loading />
+  ) : (
+    <>
+      <div className="flex flex-col">
+        {activeHobbies.map((hobby) => (
+          <HobbyRow key={hobby.id} hobby={hobby} onError={setErrorMessage} />
+        ))}
+      </div>
 
-      {errorMessage ? <Note variant="sand">{errorMessage}</Note> : null}
-
-      {isLoading ? (
-        <Loading />
-      ) : (
-        <>
+      {archivedHobbies.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          <h2 className="font-serif text-lg font-semibold">보관한 분야</h2>
           <div className="flex flex-col">
-            {activeHobbies.map((hobby) => (
+            {archivedHobbies.map((hobby) => (
               <HobbyRow key={hobby.id} hobby={hobby} onError={setErrorMessage} />
             ))}
           </div>
+        </div>
+      ) : null}
+    </>
+  )
 
-          {archivedHobbies.length > 0 ? (
-            <div className="flex flex-col gap-2">
-              <h2 className="font-serif text-lg font-semibold">보관한 분야</h2>
-              <div className="flex flex-col">
-                {archivedHobbies.map((hobby) => (
-                  <HobbyRow key={hobby.id} hobby={hobby} onError={setErrorMessage} />
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </>
-      )}
+  const addForm = (
+    <form className="flex flex-col gap-3" onSubmit={handleCreate}>
+      <h2 className="font-serif text-lg font-semibold">분야 추가</h2>
+      <Field label="분야 이름" htmlFor="new-hobby-name">
+        <Input
+          id="new-hobby-name"
+          value={newName}
+          onChange={(event) => setNewName(event.target.value)}
+          placeholder="예: 드로잉"
+        />
+      </Field>
+      <Button type="submit" disabled={createHobby.isPending} className="self-start">
+        추가하기
+      </Button>
+      <p className="text-[13px] text-ink-2">
+        분야를 보관해도 쓴 기록은 남아 있어요. 언제든 다시 꺼낼 수 있어요.
+      </p>
+    </form>
+  )
 
-      <form className="flex flex-col gap-3" onSubmit={handleCreate}>
-        <h2 className="font-serif text-lg font-semibold">분야 추가</h2>
-        <Field label="분야 이름" htmlFor="new-hobby-name">
-          <Input
-            id="new-hobby-name"
-            value={newName}
-            onChange={(event) => setNewName(event.target.value)}
-            placeholder="예: 드로잉"
-          />
-        </Field>
-        <Button type="submit" disabled={createHobby.isPending} className="self-start">
-          추가하기
-        </Button>
-        <p className="text-[13px] text-ink-2">
-          분야를 보관해도 쓴 기록은 남아 있어요. 언제든 다시 꺼낼 수 있어요.
-        </p>
-      </form>
+  return (
+    <div className="flex flex-col gap-4 lg:gap-5">
+      <nav aria-label="현재 위치" className="hidden items-center gap-1.5 text-[13px] text-ink-3 lg:flex">
+        <span>설정</span>
+        <span aria-hidden="true">›</span>
+        <span>활동 분야 관리</span>
+      </nav>
+      <h1 className="font-serif text-xl font-semibold lg:text-[30px]">활동 분야 관리</h1>
+
+      {errorMessage ? <Note variant="sand">{errorMessage}</Note> : null}
+
+      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[7fr_4fr] lg:items-start lg:gap-20">
+        <div className="flex flex-col gap-6">{listSection}</div>
+        {addForm}
+      </div>
     </div>
   )
 }

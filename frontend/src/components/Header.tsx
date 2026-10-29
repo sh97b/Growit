@@ -1,17 +1,20 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
+import { useCurrentUser } from '../hooks/useCurrentUser'
 import { isReviewPath } from './nav-items'
-import { DotsIcon, PlusIcon } from './icons'
+import { PlusIcon } from './icons'
 
 export function Header() {
   const { logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const { data: currentUser } = useCurrentUser()
   const [menuOpen, setMenuOpen] = useState(false)
 
   const homeActive = location.pathname === '/'
   const reviewActive = isReviewPath(location.pathname)
+  const avatarInitial = (currentUser?.displayName || currentUser?.email || '?').trim().charAt(0).toUpperCase()
 
   function handleLogout() {
     setMenuOpen(false)
@@ -20,8 +23,8 @@ export function Header() {
   }
 
   return (
-    <header className="hidden h-[68px] flex-none border-b border-line bg-paper md:block">
-      <div className="mx-auto flex h-full max-w-[1120px] items-center px-10">
+    <header className="hidden h-[68px] flex-none border-b border-line bg-paper lg:block">
+      <div className="mx-auto flex h-full w-full max-w-[1200px] items-center px-10">
         <Link to="/" className="mr-11 font-serif text-xl font-semibold text-ink no-underline">
           Growit
         </Link>
@@ -50,19 +53,19 @@ export function Header() {
         <div className="relative ml-auto flex items-center gap-2">
           <Link
             to="/records/new"
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-base px-5 text-[15px] font-medium text-white no-underline"
+            className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-base px-4 text-sm font-medium text-white no-underline"
           >
-            <PlusIcon width={18} height={18} />
+            <PlusIcon width={16} height={16} />
             기록하기
           </Link>
           <button
             type="button"
-            aria-label="설정 메뉴"
+            aria-label="내 계정 메뉴"
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((open) => !open)}
-            className="flex h-11 min-w-11 items-center justify-center rounded-full border-0 bg-transparent text-ink"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] text-sm font-semibold text-base-ink"
           >
-            <DotsIcon width={20} height={20} />
+            {avatarInitial}
           </button>
           {menuOpen ? (
             <div className="absolute right-0 top-14 z-10 flex w-[212px] flex-col gap-0.5 rounded-xl bg-white p-1.5 shadow-[0_8px_24px_-8px_rgba(43,40,35,0.18),0_0_0_1px_var(--color-line)]">

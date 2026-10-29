@@ -10,7 +10,7 @@ export function TabBar() {
   return (
     <nav
       aria-label="하단 메뉴"
-      className="grid flex-none grid-cols-3 border-t border-line bg-white md:hidden"
+      className="grid flex-none grid-cols-3 border-t border-line bg-white lg:hidden"
       style={{ height: 64 }}
     >
       <Link
