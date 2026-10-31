@@ -1,17 +1,35 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/AppLayout'
+import { GuestRoute } from './components/GuestRoute'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { ReviewSectionLayout } from './components/ReviewSectionLayout'
 import { LoginPage } from './pages/LoginPage'
 import { OnboardingPage } from './pages/OnboardingPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
+import { RecordNewPage } from './pages/RecordNewPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { SignupPage } from './pages/SignupPage'
 import { HobbiesPage } from './pages/settings/HobbiesPage'
 
 function App() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
+      <Route
+        path="/login"
+        element={
+          <GuestRoute>
+            <LoginPage />
+          </GuestRoute>
+        }
+      />
+      <Route
+        path="/signup"
+        element={
+          <GuestRoute>
+            <SignupPage />
+          </GuestRoute>
+        }
+      />
       <Route
         path="/onboarding"
         element={
@@ -33,7 +51,7 @@ function App() {
           <Route path="/changes" element={<PlaceholderPage title="나의 변화" />} />
           <Route path="/coach" element={<PlaceholderPage title="AI 회고" />} />
         </Route>
-        <Route path="/records/new" element={<PlaceholderPage title="기록 작성" />} />
+        <Route path="/records/new" element={<RecordNewPage />} />
         <Route path="/records/:id" element={<PlaceholderPage title="기록 상세" />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/settings/hobbies" element={<HobbiesPage />} />

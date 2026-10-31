@@ -1,26 +1,13 @@
-import { useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { useAuth } from '../lib/auth'
-import { useCurrentUser } from '../hooks/useCurrentUser'
+import { Link, useLocation } from 'react-router-dom'
+import { AccountMenu } from './AccountMenu'
 import { isReviewPath } from './nav-items'
 import { PlusIcon } from './icons'
 
 export function Header() {
-  const { logout } = useAuth()
-  const navigate = useNavigate()
   const location = useLocation()
-  const { data: currentUser } = useCurrentUser()
-  const [menuOpen, setMenuOpen] = useState(false)
 
   const homeActive = location.pathname === '/'
   const reviewActive = isReviewPath(location.pathname)
-  const avatarInitial = (currentUser?.displayName || currentUser?.email || '?').trim().charAt(0).toUpperCase()
-
-  function handleLogout() {
-    setMenuOpen(false)
-    logout()
-    navigate('/login', { replace: true })
-  }
 
   return (
     <header className="hidden h-[68px] flex-none border-b border-line bg-paper lg:block">
@@ -50,7 +37,7 @@ export function Header() {
             돌아보기
           </Link>
         </nav>
-        <div className="relative ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2">
           <Link
             to="/records/new"
             className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-base px-4 text-sm font-medium text-white no-underline"
@@ -58,40 +45,7 @@ export function Header() {
             <PlusIcon width={16} height={16} />
             기록하기
           </Link>
-          <button
-            type="button"
-            aria-label="내 계정 메뉴"
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((open) => !open)}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] text-sm font-semibold text-base-ink"
-          >
-            {avatarInitial}
-          </button>
-          {menuOpen ? (
-            <div className="absolute right-0 top-14 z-10 flex w-[212px] flex-col gap-0.5 rounded-xl bg-white p-1.5 shadow-[0_8px_24px_-8px_rgba(43,40,35,0.18),0_0_0_1px_var(--color-line)]">
-              <Link
-                to="/settings"
-                onClick={() => setMenuOpen(false)}
-                className="flex min-h-11 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium text-ink no-underline"
-              >
-                설정
-              </Link>
-              <Link
-                to="/settings/hobbies"
-                onClick={() => setMenuOpen(false)}
-                className="flex min-h-11 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium text-ink no-underline"
-              >
-                활동 분야 관리
-              </Link>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="flex min-h-11 items-center gap-2.5 rounded-lg border-0 bg-transparent px-2.5 text-left text-sm font-medium text-ink"
-              >
-                로그아웃
-              </button>
-            </div>
-          ) : null}
+          <AccountMenu size={40} />
         </div>
       </div>
     </header>
