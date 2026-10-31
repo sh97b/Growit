@@ -52,7 +52,7 @@ public class HobbyController {
 		return ResponseEntity.status(HttpStatus.CREATED).body(response);
 	}
 
-	@Operation(summary = "활동 분야 수정 (보낸 칸만 수정, archived로 보관·되살리기)")
+	@Operation(summary = "활동 분야 수정 (보낸 칸만 수정, goal을 null로 보내면 비움, archived로 보관·되살리기)")
 	@ApiResponse(responseCode = "404", description = "내 활동 분야가 아님",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@PatchMapping("/{id}")

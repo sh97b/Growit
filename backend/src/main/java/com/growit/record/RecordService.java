@@ -6,14 +6,17 @@ import com.growit.hobby.Hobby;
 import com.growit.hobby.HobbyRepository;
 import com.growit.record.dto.RecordCreateRequest;
 import com.growit.record.dto.RecordListResponse;
+import com.growit.record.dto.RecordNeighbor;
 import com.growit.record.dto.RecordResponse;
 import com.growit.record.dto.RecordUpdateRequest;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -25,6 +28,7 @@ public class RecordService {
 
 	private static final int DEFAULT_PAGE_SIZE = 20;
 	private static final int MAX_PAGE_SIZE = 100;
+	private static final ZoneId SERVER_ZONE = ZoneId.of("Asia/Seoul");
 
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
@@ -49,13 +53,17 @@ public class RecordService {
 	}
 
 	public RecordResponse get(Long userId, Long id) {
-		return toResponse(findOwned(userId, id));
+		ActivityRecord record = findOwned(userId, id);
+		RecordNeighbor previous = findPrevious(userId, record);
+		RecordNeighbor next = findNext(userId, record);
+		return toResponse(record, previous, next);
 	}
 
 	@Transactional
 	public RecordResponse create(Long userId, RecordCreateRequest request) {
 		Hobby hobby = findOwnedHobby(userId, request.hobbyId());
 		assertNotArchived(hobby);
+		assertNotFuture(request.recordDate());
 
 		ActivityRecord record = new ActivityRecord(
 				userId,
@@ -80,25 +88,28 @@ public class RecordService {
 			record.setHobbyId(request.hobbyId());
 		}
 		if (request.recordDate() != null) {
+			assertNotFuture(request.recordDate());
 			record.setRecordDate(request.recordDate());
 		}
-		if (request.content() != null) {
-			if (request.content().isBlank()) {
+		if (request.content() != null && request.content().isPresent()) {
+			String content = request.content().get();
+			if (content == null || content.isBlank()) {
 				throw new ApiException(ErrorCode.VALIDATION_ERROR, "한 일을 입력해 주세요");
 			}
-			record.setContent(request.content());
+			record.setContent(content);
 		}
-		if (request.minutes() != null) {
-			if (request.minutes() < 0) {
+		if (request.minutes() != null && request.minutes().isPresent()) {
+			Integer minutes = request.minutes().get();
+			if (minutes != null && minutes < 0) {
 				throw new ApiException(ErrorCode.VALIDATION_ERROR, "연습 시간은 0 이상이어야 해요");
 			}
-			record.setMinutes(request.minutes());
+			record.setMinutes(minutes);
 		}
-		if (request.difficulty() != null) {
-			record.setDifficulty(request.difficulty());
+		if (request.difficulty() != null && request.difficulty().isPresent()) {
+			record.setDifficulty(request.difficulty().get());
 		}
-		if (request.feeling() != null) {
-			record.setFeeling(request.feeling());
+		if (request.feeling() != null && request.feeling().isPresent()) {
+			record.setFeeling(request.feeling().get());
 		}
 		if (request.isMilestone() != null) {
 			record.setMilestone(request.isMilestone());
@@ -130,6 +141,28 @@ public class RecordService {
 		}
 	}
 
+	private void assertNotFuture(LocalDate recordDate) {
+		if (recordDate.isAfter(LocalDate.now(SERVER_ZONE))) {
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, "미래 날짜로는 기록할 수 없어요");
+		}
+	}
+
+	private RecordNeighbor findPrevious(Long userId, ActivityRecord record) {
+		List<ActivityRecord> result = activityRecordRepository.findPrevious(userId, record.getHobbyId(),
+				record.getRecordDate(), record.getId(), Pageable.ofSize(1));
+		return result.isEmpty() ? null : toNeighbor(result.get(0));
+	}
+
+	private RecordNeighbor findNext(Long userId, ActivityRecord record) {
+		List<ActivityRecord> result = activityRecordRepository.findNext(userId, record.getHobbyId(),
+				record.getRecordDate(), record.getId(), Pageable.ofSize(1));
+		return result.isEmpty() ? null : toNeighbor(result.get(0));
+	}
+
+	private RecordNeighbor toNeighbor(ActivityRecord record) {
+		return new RecordNeighbor(record.getId(), record.getRecordDate());
+	}
+
 	private Specification<ActivityRecord> buildSpec(Long userId, Long hobbyId, LocalDate from, LocalDate to) {
 		return (root, query, cb) -> {
 			List<Predicate> predicates = new ArrayList<>();
@@ -148,6 +181,10 @@ public class RecordService {
 	}
 
 	private RecordResponse toResponse(ActivityRecord record) {
+		return toResponse(record, null, null);
+	}
+
+	private RecordResponse toResponse(ActivityRecord record, RecordNeighbor previous, RecordNeighbor next) {
 		return new RecordResponse(
 				record.getId(),
 				record.getHobbyId(),
@@ -157,6 +194,8 @@ public class RecordService {
 				record.getDifficulty(),
 				record.getFeeling(),
 				record.isMilestone(),
-				null);
+				null,
+				previous,
+				next);
 	}
 }

@@ -50,7 +50,7 @@ public class RecordController {
 		return recordService.list(currentUserProvider.getCurrentUserId(), hobbyId, from, to, page, size);
 	}
 
-	@Operation(summary = "기록 상세 조회")
+	@Operation(summary = "기록 상세 조회 (같은 분야의 이전·다음 기록 포함)")
 	@ApiResponse(responseCode = "404", description = "내 기록이 아니거나 없음",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@GetMapping("/{id}")
@@ -59,7 +59,7 @@ public class RecordController {
 	}
 
 	@Operation(summary = "기록 등록")
-	@ApiResponse(responseCode = "400", description = "입력값 오류",
+	@ApiResponse(responseCode = "400", description = "입력값 오류 (미래 날짜, 내용 비어 있음 등)",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@PostMapping
 	public ResponseEntity<RecordResponse> create(@Valid @RequestBody RecordCreateRequest request) {
@@ -67,7 +67,9 @@ public class RecordController {
 		return ResponseEntity.status(HttpStatus.CREATED).body(response);
 	}
 
-	@Operation(summary = "기록 수정 (보낸 칸만 수정, ai_analysis는 초기화됨)")
+	@Operation(summary = "기록 수정 (보낸 칸만 수정, 값을 null로 보내면 minutes·difficulty·feeling은 비움, ai_analysis는 초기화됨)")
+	@ApiResponse(responseCode = "400", description = "입력값 오류 (미래 날짜, 내용 비어 있음 등)",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@ApiResponse(responseCode = "404", description = "내 기록이 아니거나 없음",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@PatchMapping("/{id}")

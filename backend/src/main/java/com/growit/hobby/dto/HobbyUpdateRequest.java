@@ -1,4 +1,6 @@
 package com.growit.hobby.dto;
 
-public record HobbyUpdateRequest(String name, String goal, Boolean archived) {
+import org.openapitools.jackson.nullable.JsonNullable;
+
+public record HobbyUpdateRequest(String name, JsonNullable<String> goal, Boolean archived) {
 }

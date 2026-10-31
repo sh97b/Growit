@@ -3,16 +3,16 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '../components/Button'
 import { EmptyState } from '../components/EmptyState'
-import { Field } from '../components/Field'
-import { Input } from '../components/Input'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
+import { RecordFormFields } from '../components/RecordFormFields'
 import { RecordSavedPanel } from '../components/RecordSavedPanel'
-import { ChevronDownIcon, PencilIcon, RefreshIcon } from '../components/icons'
+import { PencilIcon, RefreshIcon } from '../components/icons'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useHobbies } from '../hooks/useHobbies'
 import { ApiError } from '../lib/api'
 import { todayLocalDate, yesterdayLocalDate } from '../lib/date'
+import type { DateMode } from '../lib/recordForm'
 import {
   clearRecordDraft,
   isRecordDraftEmpty,
@@ -22,24 +22,8 @@ import {
 } from '../lib/recordDraft'
 import { createRecord, fetchRecords, type Feeling, type RecordItem } from '../lib/records'
 
-const MINUTE_PRESETS = [15, 30, 45, 60]
-const FEELINGS: { value: Feeling; label: string }[] = [
-  { value: 'PROUD', label: '뿌듯함' },
-  { value: 'STUCK', label: '답답함' },
-  { value: 'RELIEVED', label: '개운함' },
-  { value: 'NEUTRAL', label: '담담함' },
-]
 const DEFAULT_ERROR_MESSAGE = '저장하지 못했어요. 쓴 글은 이 기기에 남아 있어요.'
 const DRAFT_SAVE_DELAY_MS = 500
-
-type DateMode = 'today' | 'yesterday' | 'custom'
-
-function pickClass(active: boolean): string {
-  return [
-    'inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border px-4 text-sm font-medium whitespace-nowrap',
-    active ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)] text-ink' : 'border-line-2 bg-white text-ink',
-  ].join(' ')
-}
 
 export function RecordNewPage() {
   const navigate = useNavigate()
@@ -143,6 +127,8 @@ export function RecordNewPage() {
         hobbyName={activeHobbies.find((hobby) => hobby.id === savedRecord.hobbyId)?.name ?? selectedHobby.name}
         isFirstRecord={savedWasFirst}
         onHome={() => navigate('/')}
+        onViewDetail={() => navigate(`/records/${savedRecord.id}`)}
+        onEdit={() => navigate(`/records/${savedRecord.id}/edit`)}
       />
     )
   }
@@ -200,150 +186,40 @@ export function RecordNewPage() {
     <div className="flex flex-col gap-4 lg:max-w-[760px] lg:gap-4">
       <h1 className="font-serif text-xl font-semibold lg:text-[30px]">오늘의 기록</h1>
 
-      {draftRestored ? (
-        <div className="flex w-fit items-center gap-2 rounded-[10px] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] px-3 py-2 text-sm text-ink">
-          <PencilIcon width={16} height={16} />
-          쓰던 글이 남아 있어요
-        </div>
-      ) : null}
-
-      <textarea
-        value={content}
-        onChange={(event) => setContent(event.target.value)}
-        placeholder="오늘은 무엇을 했나요?"
-        aria-label="오늘 한 일을 한 줄로 적어 보세요"
-        className="h-[150px] w-full resize-none rounded-xl border border-input bg-white p-4 font-serif text-lg leading-[1.85] text-ink outline-none focus:border-base focus:shadow-[0_0_0_1px_var(--color-base)] lg:h-[150px]"
+      <RecordFormFields
+        activeHobbies={activeHobbies}
+        hobbyId={selectedHobby.id}
+        hobbyPickerOpen={hobbyPickerOpen}
+        onToggleHobbyPicker={() => setHobbyPickerOpen((open) => !open)}
+        onHobbyChange={(id) => {
+          setHobbyId(id)
+          setHobbyPickerOpen(false)
+        }}
+        content={content}
+        onContentChange={setContent}
+        moreOpen={moreOpen}
+        onToggleMore={() => setMoreOpen((open) => !open)}
+        dateMode={dateMode}
+        onDateModeChange={setDateMode}
+        customDate={customDate}
+        onCustomDateChange={setCustomDate}
+        today={today}
+        minutes={minutes}
+        onToggleMinutes={toggleMinutes}
+        onMinutesInput={handleMinutesInput}
+        difficulty={difficulty}
+        onDifficultyChange={setDifficulty}
+        feeling={feeling}
+        onToggleFeeling={toggleFeeling}
+        banner={
+          draftRestored ? (
+            <div className="flex w-fit items-center gap-2 rounded-[10px] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] px-3 py-2 text-sm text-ink">
+              <PencilIcon width={16} height={16} />
+              쓰던 글이 남아 있어요
+            </div>
+          ) : null
+        }
       />
-
-      <div className="relative flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          aria-pressed="true"
-          aria-expanded={hobbyPickerOpen}
-          aria-label={`분야 변경: ${selectedHobby.name}`}
-          onClick={() => setHobbyPickerOpen((open) => !open)}
-          className={pickClass(true)}
-        >
-          {selectedHobby.name}
-          <ChevronDownIcon width={16} height={16} className={hobbyPickerOpen ? 'rotate-180' : ''} />
-        </button>
-        {hobbyPickerOpen
-          ? activeHobbies
-              .filter((hobby) => hobby.id !== selectedHobby.id)
-              .map((hobby) => (
-                <button
-                  key={hobby.id}
-                  type="button"
-                  aria-pressed={false}
-                  onClick={() => {
-                    setHobbyId(hobby.id)
-                    setHobbyPickerOpen(false)
-                  }}
-                  className={pickClass(false)}
-                >
-                  {hobby.name}
-                </button>
-              ))
-          : null}
-      </div>
-
-      <button
-        type="button"
-        onClick={() => setMoreOpen((open) => !open)}
-        className="inline-flex min-h-11 w-fit items-center gap-1 border-0 bg-transparent p-0 text-sm font-medium text-base-ink"
-      >
-        <ChevronDownIcon width={14} height={14} className={moreOpen ? '' : 'rotate-[-90deg]'} />
-        {moreOpen ? '더 적기 접기' : '더 적기'}
-      </button>
-
-      {moreOpen ? (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-x-8 lg:gap-y-4">
-          <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium">날짜</span>
-            <div className="inline-flex w-fit gap-0.5 rounded-lg border border-line-2 bg-white p-[3px]">
-              {(['today', 'yesterday', 'custom'] as DateMode[]).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  aria-pressed={dateMode === mode}
-                  onClick={() => setDateMode(mode)}
-                  className={[
-                    'min-h-10 rounded-md px-3.5 text-sm font-medium whitespace-nowrap',
-                    dateMode === mode ? 'bg-ink text-white' : 'bg-transparent text-ink-2',
-                  ].join(' ')}
-                >
-                  {mode === 'today' ? '오늘' : mode === 'yesterday' ? '어제' : '직접'}
-                </button>
-              ))}
-            </div>
-            {dateMode === 'custom' ? (
-              <input
-                type="date"
-                value={customDate}
-                max={today}
-                onChange={(event) => setCustomDate(event.target.value)}
-                className="h-12 w-full rounded-lg border border-input bg-white px-3.5 text-[15px] text-ink outline-none"
-              />
-            ) : null}
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium">시간</span>
-            <div className="flex flex-wrap gap-1.5">
-              {MINUTE_PRESETS.map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  aria-pressed={minutes === preset}
-                  onClick={() => toggleMinutes(preset)}
-                  className={pickClass(minutes === preset)}
-                >
-                  {preset}분
-                </button>
-              ))}
-            </div>
-            <Input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              max={1440}
-              value={minutes ?? ''}
-              onChange={(event) => handleMinutesInput(event.target.value)}
-              placeholder="직접 입력(분)"
-              aria-label="연습 시간(분), 0에서 1440 사이"
-            />
-          </div>
-
-          <Field label="막힌 점이나 나아진 점" htmlFor="difficulty">
-            <Input
-              id="difficulty"
-              value={difficulty}
-              onChange={(event) => setDifficulty(event.target.value)}
-              placeholder="있다면 한 줄로"
-            />
-          </Field>
-
-          <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium">느낌</span>
-            <div className="flex flex-wrap gap-1.5">
-              {FEELINGS.map(({ value, label }) => (
-                <button
-                  key={value}
-                  type="button"
-                  aria-pressed={feeling === value}
-                  onClick={() => toggleFeeling(value)}
-                  className={[
-                    'inline-flex min-h-11 items-center justify-center rounded-full bg-tag-feel-bg px-3 text-sm font-medium text-tag-feel-fg',
-                    feeling === value ? 'shadow-[inset_0_0_0_2px_var(--color-tag-feel-fg)]' : '',
-                  ].join(' ')}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       {saveError ? (
         <div className="flex flex-col gap-3">

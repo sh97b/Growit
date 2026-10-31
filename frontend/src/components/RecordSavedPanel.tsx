@@ -8,11 +8,15 @@ export function RecordSavedPanel({
   hobbyName,
   isFirstRecord,
   onHome,
+  onViewDetail,
+  onEdit,
 }: {
   record: RecordItem
   hobbyName: string
   isFirstRecord: boolean
   onHome: () => void
+  onViewDetail: () => void
+  onEdit: () => void
 }) {
   return (
     <div className="flex flex-col gap-6 lg:max-w-[760px]">
@@ -42,9 +46,17 @@ export function RecordSavedPanel({
         </div>
       )}
 
-      <Button type="button" block onClick={onHome} className="lg:w-auto lg:self-start">
-        홈으로
-      </Button>
+      <div className="flex flex-col gap-2 lg:flex-row lg:self-start">
+        <Button type="button" block onClick={onHome} className="lg:w-auto">
+          홈으로
+        </Button>
+        <Button type="button" variant="secondary" block onClick={onViewDetail} className="lg:w-auto">
+          기록 상세 보기
+        </Button>
+        <Button type="button" variant="secondary" block onClick={onEdit} className="lg:w-auto">
+          고치기
+        </Button>
+      </div>
     </div>
   )
 }

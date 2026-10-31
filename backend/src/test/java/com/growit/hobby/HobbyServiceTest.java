@@ -13,6 +13,7 @@ import com.growit.record.ActivityRecordRepository;
 import com.growit.record.Feeling;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
+import org.openapitools.jackson.nullable.JsonNullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 
@@ -66,7 +67,8 @@ class HobbyServiceTest {
 		HobbyService service = hobbyService();
 		HobbyResponse created = service.create(1L, new HobbyCreateRequest("기타", null));
 
-		assertThatThrownBy(() -> service.update(2L, created.id(), new HobbyUpdateRequest("피아노", null, null)))
+		assertThatThrownBy(
+				() -> service.update(2L, created.id(), new HobbyUpdateRequest("피아노", JsonNullable.undefined(), null)))
 				.isInstanceOfSatisfying(ApiException.class,
 						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.NOT_FOUND));
 	}
@@ -98,7 +100,7 @@ class HobbyServiceTest {
 		HobbyService service = hobbyService();
 		HobbyResponse active = service.create(1L, new HobbyCreateRequest("기타", null));
 		HobbyResponse archived = service.create(1L, new HobbyCreateRequest("러닝", null));
-		service.update(1L, archived.id(), new HobbyUpdateRequest(null, null, true));
+		service.update(1L, archived.id(), new HobbyUpdateRequest(null, JsonNullable.undefined(), true));
 
 		assertThat(service.list(1L, false)).extracting(HobbyResponse::id).containsExactly(active.id());
 		assertThat(service.list(1L, true)).extracting(HobbyResponse::id).containsExactlyInAnyOrder(active.id(),
@@ -106,14 +108,38 @@ class HobbyServiceTest {
 	}
 
 	@Test
+	void update_goalOmitted_keepsExistingGoal() {
+		HobbyService service = hobbyService();
+		HobbyResponse created = service.create(1L, new HobbyCreateRequest("기타", "코드 전환 연습"));
+
+		HobbyResponse updated = service.update(1L, created.id(),
+				new HobbyUpdateRequest(null, JsonNullable.undefined(), null));
+
+		assertThat(updated.goal()).isEqualTo("코드 전환 연습");
+	}
+
+	@Test
+	void update_goalSetToNull_clearsGoal() {
+		HobbyService service = hobbyService();
+		HobbyResponse created = service.create(1L, new HobbyCreateRequest("기타", "코드 전환 연습"));
+
+		HobbyResponse updated = service.update(1L, created.id(),
+				new HobbyUpdateRequest(null, JsonNullable.of(null), null));
+
+		assertThat(updated.goal()).isNull();
+	}
+
+	@Test
 	void update_archiveThenUnarchive_togglesArchivedFlag() {
 		HobbyService service = hobbyService();
 		HobbyResponse created = service.create(1L, new HobbyCreateRequest("기타", null));
 
-		HobbyResponse archived = service.update(1L, created.id(), new HobbyUpdateRequest(null, null, true));
+		HobbyResponse archived = service.update(1L, created.id(),
+				new HobbyUpdateRequest(null, JsonNullable.undefined(), true));
 		assertThat(archived.archived()).isTrue();
 
-		HobbyResponse restored = service.update(1L, created.id(), new HobbyUpdateRequest(null, null, false));
+		HobbyResponse restored = service.update(1L, created.id(),
+				new HobbyUpdateRequest(null, JsonNullable.undefined(), false));
 		assertThat(restored.archived()).isFalse();
 	}
 }

@@ -12,5 +12,7 @@ public record RecordResponse(
 		String difficulty,
 		Feeling feeling,
 		boolean isMilestone,
-		Object analysis) {
+		Object analysis,
+		RecordNeighbor previousRecord,
+		RecordNeighbor nextRecord) {
 }

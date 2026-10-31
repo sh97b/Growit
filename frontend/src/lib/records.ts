@@ -14,14 +14,26 @@ export type RecordItem = {
   analysis: unknown
 }
 
+export type RecordNeighbor = { id: number; recordDate: string }
+
+export type RecordDetail = RecordItem & {
+  previousRecord: RecordNeighbor | null
+  nextRecord: RecordNeighbor | null
+}
+
 export type RecordListResult = { items: RecordItem[]; totalCount: number }
 
-export function fetchRecords(params: { hobbyId?: number; size?: number } = {}) {
+export function fetchRecords(params: { hobbyId?: number; page?: number; size?: number } = {}) {
   const query = new URLSearchParams()
   if (params.hobbyId != null) query.set('hobbyId', String(params.hobbyId))
+  if (params.page != null) query.set('page', String(params.page))
   if (params.size != null) query.set('size', String(params.size))
   const qs = query.toString()
   return apiRequest<RecordListResult>(`/api/records${qs ? `?${qs}` : ''}`)
+}
+
+export function fetchRecord(id: number) {
+  return apiRequest<RecordDetail>(`/api/records/${id}`)
 }
 
 export type RecordCreatePayload = {
@@ -38,4 +50,24 @@ export function createRecord(payload: RecordCreatePayload) {
     method: 'POST',
     body: payload,
   })
+}
+
+export type RecordUpdatePayload = {
+  hobbyId?: number
+  recordDate?: string
+  content?: string
+  minutes?: number | null
+  difficulty?: string | null
+  feeling?: Feeling | null
+}
+
+export function updateRecord(id: number, payload: RecordUpdatePayload) {
+  return apiRequest<RecordItem>(`/api/records/${id}`, {
+    method: 'PATCH',
+    body: payload,
+  })
+}
+
+export function deleteRecord(id: number) {
+  return apiRequest<void>(`/api/records/${id}`, { method: 'DELETE' })
 }

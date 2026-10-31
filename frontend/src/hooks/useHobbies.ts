@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createHobby, fetchHobbies, type HobbyPatch, updateHobby } from '../lib/hobbies'
+import { createHobby, fetchHobbies, type Hobby, type HobbyPatch, updateHobby } from '../lib/hobbies'
+
+export type { Hobby }
 
 export function useHobbies(includeArchived = false) {
   return useQuery({

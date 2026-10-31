@@ -50,7 +50,8 @@ class RecordControllerTest {
 	void create_success_returnsCreated() throws Exception {
 		given(currentUserProvider.getCurrentUserId()).willReturn(1L);
 		given(recordService.create(eq(1L), any())).willReturn(
-				new RecordResponse(1L, 10L, LocalDate.of(2026, 10, 28), "연습했다", 20, null, Feeling.PROUD, false, null));
+				new RecordResponse(1L, 10L, LocalDate.of(2026, 10, 28), "연습했다", 20, null, Feeling.PROUD, false, null,
+						null, null));
 
 		mockMvc.perform(post("/api/records")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -108,7 +109,7 @@ class RecordControllerTest {
 	void list_returnsItemsAndTotalCount() throws Exception {
 		given(currentUserProvider.getCurrentUserId()).willReturn(1L);
 		RecordResponse item = new RecordResponse(1L, 10L, LocalDate.of(2026, 10, 28), "연습했다", 20, null,
-				Feeling.PROUD, false, null);
+				Feeling.PROUD, false, null, null, null);
 		given(recordService.list(eq(1L), isNull(), isNull(), isNull(), any(), any()))
 				.willReturn(new RecordListResponse(List.of(item), 1));
 

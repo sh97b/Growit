@@ -55,8 +55,8 @@ public class HobbyService {
 			}
 			hobby.setName(name);
 		}
-		if (request.goal() != null) {
-			hobby.setGoal(request.goal());
+		if (request.goal() != null && request.goal().isPresent()) {
+			hobby.setGoal(request.goal().get());
 		}
 		if (request.archived() != null) {
 			if (request.archived()) {
