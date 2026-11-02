@@ -185,7 +185,7 @@ npm run dev
 ```text
 growit/
 ├─ frontend/        React + Vite + TypeScript 앱 (Tailwind CSS, React Router, TanStack Query)
-├─ backend/         Spring Boot 앱 (기능별 패키지: auth, hobby, record, stats, compare, ai, common)
+├─ backend/         Spring Boot 앱 (도메인별 패키지: auth, user, hobby, record, stats, ai, common. 도메인 안에서 controller/dto/entity/repository/service 등 계층별로 나눔)
 ├─ docs/            ERD, 구조도, 화면 이미지, 설계 문서
 ├─ docker-compose.yml   서버 배포(EC2)용 mysql·backend·nginx 컨테이너
 ├─ .env.example

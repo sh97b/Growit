@@ -1,6 +1,6 @@
 package com.growit.record.dto;
 
-import com.growit.record.Feeling;
+import com.growit.record.entity.Feeling;
 import java.time.LocalDate;
 
 public record RecordResponse(
