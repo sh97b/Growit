@@ -3,6 +3,7 @@ import { AppLayout } from './components/AppLayout'
 import { GuestRoute } from './components/GuestRoute'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { ReviewSectionLayout } from './components/ReviewSectionLayout'
+import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
 import { OnboardingPage } from './pages/OnboardingPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
@@ -48,7 +49,7 @@ function App() {
           </ProtectedRoute>
         }
       >
-        <Route path="/" element={<PlaceholderPage title="홈" />} />
+        <Route path="/" element={<HomePage />} />
         <Route element={<ReviewSectionLayout />}>
           <Route path="/records" element={<RecordsPage />} />
           <Route path="/changes" element={<PlaceholderPage title="나의 변화" />} />

@@ -10,6 +10,7 @@ function useInvalidateRecords() {
   return () => {
     queryClient.invalidateQueries({ queryKey: ['records'] })
     queryClient.invalidateQueries({ queryKey: ['hobbies'] })
+    queryClient.invalidateQueries({ queryKey: ['stats'] })
   }
 }
 

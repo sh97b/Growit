@@ -155,6 +155,7 @@ export function RecordNewPage() {
       if (currentUser) clearRecordDraft(currentUser.id)
       queryClient.invalidateQueries({ queryKey: ['records'] })
       queryClient.invalidateQueries({ queryKey: ['hobbies'] })
+      queryClient.invalidateQueries({ queryKey: ['stats'] })
       setSavedRecord(created)
       setSavedWasFirst(wasFirst)
     } catch (error) {

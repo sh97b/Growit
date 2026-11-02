@@ -1,0 +1,237 @@
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Band } from '../components/Card'
+import { Loading } from '../components/Loading'
+import { Note } from '../components/Note'
+import { WeekStrip, type WeekStripDay } from '../components/WeekStrip'
+import { PlusIcon } from '../components/icons'
+import { useCurrentUser } from '../hooks/useCurrentUser'
+import { useHobbies } from '../hooks/useHobbies'
+import { ApiError } from '../lib/api'
+import { addDays, formatMonthDay, formatMonthDayWeekday, startOfWeekLocal, todayLocalDate } from '../lib/date'
+import { createRecord, fetchRecords } from '../lib/records'
+import { fetchActivityMap, fetchSummary } from '../lib/stats'
+
+const primaryLinkClass =
+  'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-base px-5 text-[15px] font-medium text-white no-underline lg:w-fit'
+
+function displayNameOf(user: { displayName: string | null; email: string } | undefined): string {
+  if (!user) return ''
+  return user.displayName || user.email.split('@')[0]
+}
+
+export function HomePage() {
+  const { data: currentUser, isLoading: userLoading } = useCurrentUser()
+  const summaryQuery = useQuery({ queryKey: ['stats', 'summary'], queryFn: fetchSummary })
+  const [today] = useState(() => new Date())
+
+  if (userLoading || summaryQuery.isLoading) {
+    return <Loading />
+  }
+
+  if (summaryQuery.isError) {
+    return (
+      <div className="flex flex-col gap-3">
+        <Note variant="sand">잠시 후 다시 시도해 주세요.</Note>
+        <button
+          type="button"
+          onClick={() => summaryQuery.refetch()}
+          className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink underline underline-offset-4"
+        >
+          다시 불러오기
+        </button>
+      </div>
+    )
+  }
+
+  if (!summaryQuery.data) {
+    return <Loading />
+  }
+
+  const summary = summaryQuery.data
+  const name = displayNameOf(currentUser)
+
+  const state: 'first' | 'comeback' | 'done' | 'off' =
+    summary.recordedDays === 0
+      ? 'first'
+      : (summary.daysSinceLastRecord ?? 0) >= 7
+        ? 'comeback'
+        : summary.todayRecorded
+          ? 'done'
+          : 'off'
+
+  return (
+    <div className="flex flex-col gap-7 lg:max-w-[720px]">
+      <div className="flex flex-col gap-1.5">
+        <h1 className="font-serif text-2xl font-semibold lg:text-[32px]">
+          {state === 'comeback' ? `다시 오셨네요, ${name}님` : state === 'first' ? `${name}님, 환영합니다` : `안녕하세요, ${name}님`}
+        </h1>
+        <span className="text-sm text-ink-2">{formatMonthDayWeekday(today)}</span>
+        {state === 'first' ? (
+          <p className="text-[15px] text-ink-2">오늘 있었던 일을 한 줄만 적어도 첫 기록이 돼요.</p>
+        ) : null}
+        {state === 'comeback' && summary.lastRecordedDate ? (
+          <p className="text-[15px] text-ink-2">
+            마지막 기록은 {formatMonthDay(summary.lastRecordedDate)}이에요. 쌓아 둔 기록은 그대로 있어요.
+          </p>
+        ) : null}
+      </div>
+
+      {state === 'first' ? <FirstUseBoard /> : null}
+      {state === 'comeback' ? <ComebackBoard /> : null}
+      {state === 'done' ? <DoneBoard /> : null}
+      {state === 'off' ? <AiOffBoard /> : null}
+
+      {state === 'done' || state === 'off' ? <RecentWeekStrip /> : null}
+    </div>
+  )
+}
+
+function FirstUseBoard() {
+  return (
+    <Band className="flex flex-col items-start gap-3.5">
+      <h2 className="text-lg font-semibold">첫 기록을 남겨 볼까요?</h2>
+      <Link to="/records/new" className={primaryLinkClass}>
+        <PlusIcon width={18} height={18} />첫 기록 쓰기
+      </Link>
+    </Band>
+  )
+}
+
+function AiOffBoard() {
+  return (
+    <Band className="flex flex-col items-start gap-3.5">
+      <h2 className="text-lg font-semibold">오늘 한 줄 남겨 볼까요?</h2>
+      <Link to="/records/new" className={primaryLinkClass}>
+        <PlusIcon width={18} height={18} />기록하기
+      </Link>
+    </Band>
+  )
+}
+
+function DoneBoard() {
+  return (
+    <>
+      {/* AI 슬롯: "오늘 기록했어요" / "내일 해볼 것" 카드는 AI 단계에서 채운다 */}
+      <Link
+        to="/records/new"
+        className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink underline underline-offset-4"
+      >
+        한 개 더 쓰기
+      </Link>
+      {/* AI 슬롯: "진전 한 줄" 문단은 AI 단계에서 채운다 */}
+    </>
+  )
+}
+
+function ComebackBoard() {
+  const queryClient = useQueryClient()
+  const { data: activeHobbies, isLoading: hobbiesLoading } = useHobbies(false)
+  const recentQuery = useQuery({ queryKey: ['records', 'recent'], queryFn: () => fetchRecords({ size: 1 }) })
+
+  const [content, setContent] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [now] = useState(() => new Date())
+
+  const today = todayLocalDate()
+  const weekStart = startOfWeekLocal(now)
+  const weekCheckQuery = useQuery({
+    queryKey: ['stats', 'activity-map', 'week-check', weekStart, today],
+    queryFn: () => fetchActivityMap({ from: weekStart, to: today }),
+  })
+
+  if (hobbiesLoading || recentQuery.isLoading) {
+    return <Loading />
+  }
+
+  const activeIds = new Set((activeHobbies ?? []).map((hobby) => hobby.id))
+  const recentHobbyId = recentQuery.data?.items[0]?.hobbyId ?? null
+  const hobbyId =
+    recentHobbyId != null && activeIds.has(recentHobbyId) ? recentHobbyId : (activeHobbies?.[0]?.id ?? null)
+  const hobbyName = activeHobbies?.find((hobby) => hobby.id === hobbyId)?.name ?? ''
+  const restedWeek = (weekCheckQuery.data ?? []).length === 0
+
+  async function handleSave() {
+    if (submitting || hobbyId == null) return
+    const trimmed = content.trim()
+    if (!trimmed) {
+      setError('한 일을 입력해 주세요')
+      return
+    }
+    setSubmitting(true)
+    setError(null)
+    try {
+      await createRecord({ hobbyId, recordDate: todayLocalDate(), content: trimmed })
+      setContent('')
+      queryClient.invalidateQueries({ queryKey: ['stats'] })
+      queryClient.invalidateQueries({ queryKey: ['records'] })
+      queryClient.invalidateQueries({ queryKey: ['hobbies'] })
+    } catch (saveError) {
+      setError(saveError instanceof ApiError ? saveError.message : '저장하지 못했어요. 잠시 후 다시 시도해 주세요.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <>
+      {hobbyId == null ? (
+        <Link to="/records/new" className={primaryLinkClass}>
+          <PlusIcon width={18} height={18} />
+          기록하기
+        </Link>
+      ) : (
+        <div className="flex flex-col gap-2 rounded-xl bg-surface px-[18px] py-3.5">
+          <label htmlFor="quick-save" className="text-sm text-ink-2">
+            오늘 한 줄만 남겨도 충분해요 · 분야는 {hobbyName}예요
+          </label>
+          <div className="flex gap-2">
+            <input
+              id="quick-save"
+              value={content}
+              onChange={(event) => setContent(event.target.value)}
+              placeholder="오늘은 무엇을 했나요?"
+              className="h-12 flex-1 rounded-lg border border-input bg-white px-3.5 font-serif text-[15px] text-ink outline-none focus:border-base"
+            />
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={handleSave}
+              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-base px-5 text-[15px] font-medium text-white disabled:bg-line disabled:text-[#5F594F]"
+            >
+              저장
+            </button>
+          </div>
+          {error ? <span className="text-[13px] text-[#6B3F0F]">{error}</span> : null}
+        </div>
+      )}
+
+      {/* AI 슬롯: "가볍게 다시 시작하려면" 카드는 AI 단계에서 채운다 */}
+
+      {restedWeek ? <Note variant="calm">이번 주는 쉬어 간 주예요. 쉬는 시간도 흐름의 일부예요.</Note> : null}
+    </>
+  )
+}
+
+function RecentWeekStrip() {
+  const today = todayLocalDate()
+  const from = addDays(today, -6)
+  const query = useQuery({
+    queryKey: ['stats', 'activity-map', from, today],
+    queryFn: () => fetchActivityMap({ from, to: today }),
+  })
+
+  if (query.isLoading) {
+    return <Loading />
+  }
+
+  const datesWithRecord = new Set((query.data ?? []).map((entry) => entry.date))
+  const days: WeekStripDay[] = Array.from({ length: 7 }, (_, index) => {
+    const date = addDays(from, index)
+    return { date, isToday: date === today, hasRecord: datesWithRecord.has(date) }
+  })
+
+  return <WeekStrip days={days} />
+}

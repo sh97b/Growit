@@ -29,4 +29,21 @@ public interface ActivityRecordRepository
 			+ "order by r.recordDate asc, r.id asc")
 	List<ActivityRecord> findNext(@Param("userId") Long userId, @Param("hobbyId") Long hobbyId,
 			@Param("recordDate") LocalDate recordDate, @Param("id") Long id, Pageable pageable);
+
+	@Query("select count(distinct r.recordDate) from ActivityRecord r where r.userId = :userId")
+	long countDistinctRecordDateByUserId(@Param("userId") Long userId);
+
+	@Query("select coalesce(sum(r.minutes), 0) from ActivityRecord r where r.userId = :userId")
+	long sumMinutesByUserId(@Param("userId") Long userId);
+
+	@Query("select max(r.recordDate) from ActivityRecord r where r.userId = :userId")
+	LocalDate findMaxRecordDateByUserId(@Param("userId") Long userId);
+
+	@Query("select r.recordDate as recordDate, r.hobbyId as hobbyId, count(r) as recordCount, "
+			+ "coalesce(sum(r.minutes), 0) as totalMinutes from ActivityRecord r "
+			+ "where r.userId = :userId and r.recordDate between :from and :to "
+			+ "and (:hobbyId is null or r.hobbyId = :hobbyId) "
+			+ "group by r.recordDate, r.hobbyId order by r.recordDate asc")
+	List<ActivityMapRow> findActivityMap(@Param("userId") Long userId, @Param("from") LocalDate from,
+			@Param("to") LocalDate to, @Param("hobbyId") Long hobbyId);
 }

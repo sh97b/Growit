@@ -13,4 +13,6 @@ public interface HobbyRepository extends JpaRepository<Hobby, Long> {
 	Optional<Hobby> findByIdAndUserId(Long id, Long userId);
 
 	boolean existsByUserIdAndName(Long userId, String name);
+
+	long countByUserIdAndArchivedAtIsNull(Long userId);
 }
