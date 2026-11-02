@@ -13,9 +13,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * 가입과 로그인을 처리한다. {@link com.growit.auth.controller.AuthController}에서만 호출된다.
- */
 @Service
 public class AuthService {
 
@@ -33,11 +30,7 @@ public class AuthService {
 		this.jwtTokenProvider = jwtTokenProvider;
 	}
 
-	/**
-	 * 이메일을 소문자로 통일해 저장하고, 화면에 보일 이름은 이메일의 {@code @} 앞부분(최대 30자)으로 채운다.
-	 *
-	 * @throws ApiException {@link ErrorCode#EMAIL_TAKEN} 같은 이메일로 가입된 계정이 이미 있을 때
-	 */
+	/** 이메일은 대소문자만 다른 중복 가입을 막으려고 소문자로 통일해 저장하고, 이름은 입력받지 않아 이메일 앞부분을 기본값으로 쓴다. */
 	@Transactional
 	public SignupResponse signup(SignupRequest request) {
 		String email = normalizeEmail(request.email());
@@ -50,12 +43,7 @@ public class AuthService {
 		return new SignupResponse(user.getId(), user.getEmail());
 	}
 
-	/**
-	 * 이메일·비밀번호가 맞으면 사용자 id를 담은 JWT를 돌려준다.
-	 * <p>이메일이 없을 때와 비밀번호가 틀렸을 때 같은 메시지로 실패해서, 가입 여부를 알려주지 않는다.
-	 *
-	 * @throws ApiException {@link ErrorCode#UNAUTHORIZED} 이메일이 없거나 비밀번호가 맞지 않을 때
-	 */
+	/** 이메일이 없을 때와 비밀번호가 틀렸을 때 같은 메시지로 실패해서, 어느 쪽이 틀렸는지 알려주지 않는다. */
 	@Transactional(readOnly = true)
 	public LoginResponse login(LoginRequest request) {
 		String email = normalizeEmail(request.email());

@@ -13,8 +13,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * 사용자 id만 담는 HS256 JWT를 만들고 읽는다.
- * JWT_SECRET이 없거나 32바이트(HS256 최소 길이)보다 짧으면, 이 빈이 만들어지는 시점(서버 시작 시)에 실패한다.
+ * 토큰에는 사용자 id만 담아 개인정보 노출을 최소화한다. 유효기간은 {@code app.jwt.expiration-days}.
+ * JWT_SECRET이 없거나 32바이트(HS256 최소 길이)보다 짧으면 약한 키로 서명하지 않도록 서버 시작을 실패시킨다.
  */
 @Component
 public class JwtTokenProvider {
@@ -28,7 +28,6 @@ public class JwtTokenProvider {
 		this.expiration = Duration.ofDays(expirationDays);
 	}
 
-	/** 사용자 id를 subject로 담고, 생성 시각부터 {@code app.jwt.expiration-days}일 뒤 만료되는 토큰을 만든다. */
 	public String createToken(Long userId) {
 		Instant now = Instant.now();
 		return Jwts.builder()
@@ -39,9 +38,6 @@ public class JwtTokenProvider {
 				.compact();
 	}
 
-	/**
-	 * 토큰이 없거나 위조·만료됐으면 빈 값을 돌려준다. 예외를 던지지 않는다.
-	 */
 	public Optional<Long> parseUserId(String token) {
 		try {
 			String subject = Jwts.parser().verifyWith(key).build()

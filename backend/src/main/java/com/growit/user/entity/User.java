@@ -9,9 +9,6 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import org.hibernate.annotations.CreationTimestamp;
 
-/**
- * {@code users} 표에 대응하는 회원 엔티티.
- */
 @Entity
 @Table(name = "users")
 public class User {
@@ -20,15 +17,12 @@ public class User {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	/** 로그인 이메일. 항상 소문자로 저장하고 가입 시 중복을 검사한다. */
 	@Column(nullable = false)
 	private String email;
 
-	/** BCrypt로 암호화된 비밀번호. 원문은 어디에도 저장하지 않는다. */
 	@Column(name = "password_hash", nullable = false)
 	private String passwordHash;
 
-	/** 화면에 보일 이름, 1~30자. 가입 시 이메일의 {@code @} 앞부분으로 채워진다. */
 	@Column(name = "display_name", length = 30)
 	private String displayName;
 

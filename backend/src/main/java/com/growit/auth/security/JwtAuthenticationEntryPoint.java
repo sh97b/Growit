@@ -11,9 +11,6 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
 
-/**
- * 인증이 필요한데 토큰이 없거나 유효하지 않을 때 {"code","message"} 모양으로 401을 응답한다.
- */
 @Component
 public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 

@@ -13,8 +13,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Authorization: Bearer {토큰}을 읽어 유효하면 SecurityContext에 사용자 id를 심는다.
- * 토큰이 없거나 유효하지 않으면 그대로 다음 필터로 넘기고, 인증이 필요한 주소는 이후 단계에서 401로 막힌다.
+ * 토큰이 없거나 틀려도 여기서 막지 않고 그대로 다음 필터로 넘긴다.
+ * 인증이 필요한 주소에 인증 정보 없이 닿으면 {@link JwtAuthenticationEntryPoint}가 401로 응답한다.
  */
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 

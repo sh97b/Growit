@@ -25,9 +25,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * 활동 분야 등록·조회·수정·삭제 주소. 모든 메서드가 토큰의 사용자 id로만 범위를 제한한다.
- */
 @Tag(name = "활동 분야", description = "활동 분야 등록·조회·수정·삭제")
 @RestController
 @RequestMapping("/api/hobbies")
@@ -41,14 +38,13 @@ public class HobbyController {
 		this.currentUserProvider = currentUserProvider;
 	}
 
-	/** {@code GET /api/hobbies?includeArchived} — 200. */
 	@Operation(summary = "내 활동 분야 목록 조회 (기본은 보관된 분야 제외)")
 	@GetMapping
 	public List<HobbyResponse> list(@RequestParam(defaultValue = "false") boolean includeArchived) {
 		return hobbyService.list(currentUserProvider.getCurrentUserId(), includeArchived);
 	}
 
-	/** {@code POST /api/hobbies} — 성공 시 201, 이름 중복이면 HOBBY_NAME_TAKEN(409). */
+	/** 이름이 중복되면 HOBBY_NAME_TAKEN(409). */
 	@Operation(summary = "활동 분야 등록")
 	@ApiResponse(responseCode = "409", description = "이미 사용 중인 분야 이름",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
@@ -58,7 +54,7 @@ public class HobbyController {
 		return ResponseEntity.status(HttpStatus.CREATED).body(response);
 	}
 
-	/** {@code PATCH /api/hobbies/{id}} — 성공 시 200, 내 분야가 아니면 NOT_FOUND(404). */
+	/** 보낸 칸만 바뀐다(goal을 null로 보내면 비움). 내 분야가 아니면 NOT_FOUND(404). */
 	@Operation(summary = "활동 분야 수정 (보낸 칸만 수정, goal을 null로 보내면 비움, archived로 보관·되살리기)")
 	@ApiResponse(responseCode = "404", description = "내 활동 분야가 아님",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
@@ -67,7 +63,7 @@ public class HobbyController {
 		return hobbyService.update(currentUserProvider.getCurrentUserId(), id, request);
 	}
 
-	/** {@code DELETE /api/hobbies/{id}} — 성공 시 204, 기록이 있으면 HOBBY_HAS_RECORDS(409). */
+	/** 기록이 남아 있으면 HOBBY_HAS_RECORDS(409). */
 	@Operation(summary = "활동 분야 삭제")
 	@ApiResponse(responseCode = "409", description = "기록이 있는 분야는 삭제 불가",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))

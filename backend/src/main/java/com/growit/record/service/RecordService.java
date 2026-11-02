@@ -24,9 +24,6 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * 활동 기록 등록·조회·수정·삭제. {@link com.growit.record.controller.RecordController}에서만 호출된다.
- */
 @Service
 @Transactional(readOnly = true)
 public class RecordService {
@@ -43,10 +40,6 @@ public class RecordService {
 		this.hobbyRepository = hobbyRepository;
 	}
 
-	/**
-	 * 최신순(날짜 내림차순, 같은 날짜면 번호 내림차순) 목록. {@code hobbyId}·{@code from}·{@code to}는 선택 필터다.
-	 * {@code size}는 기본 20, 최대 100으로 제한한다. 목록 항목의 이전·다음 기록 링크는 채우지 않는다({@link #get}에서만 채움).
-	 */
 	public RecordListResponse list(Long userId, Long hobbyId, LocalDate from, LocalDate to, Integer page,
 			Integer size) {
 		int pageNumber = page == null || page < 0 ? 0 : page;
@@ -61,11 +54,6 @@ public class RecordService {
 		return new RecordListResponse(items, result.getTotalElements());
 	}
 
-	/**
-	 * 기록 상세. 같은 분야 안에서 {@code (recordDate, id)} 순서로 바로 앞·뒤 기록을 함께 찾아 채운다.
-	 *
-	 * @throws ApiException {@link ErrorCode#NOT_FOUND} 내 기록이 아니거나 없을 때(존재 여부를 숨기려고 404)
-	 */
 	public RecordResponse get(Long userId, Long id) {
 		ActivityRecord record = findOwned(userId, id);
 		RecordNeighbor previous = findPrevious(userId, record);
@@ -73,12 +61,6 @@ public class RecordService {
 		return toResponse(record, previous, next);
 	}
 
-	/**
-	 * 기록을 저장한다.
-	 *
-	 * @throws ApiException {@link ErrorCode#NOT_FOUND} 분야가 내 것이 아닐 때,
-	 *                       {@link ErrorCode#VALIDATION_ERROR} 분야가 보관됐거나 날짜가 서버 기준(Asia/Seoul) 오늘보다 미래일 때
-	 */
 	@Transactional
 	public RecordResponse create(Long userId, RecordCreateRequest request) {
 		Hobby hobby = findOwnedHobby(userId, request.hobbyId());
@@ -98,16 +80,7 @@ public class RecordService {
 		return toResponse(record);
 	}
 
-	/**
-	 * 보낸 칸만 바꾼다. {@code minutes}·{@code difficulty}·{@code feeling}은
-	 * {@link org.openapitools.jackson.nullable.JsonNullable}로 "안 보냄(유지)"과 "null로 보냄(비움)"을 구분한다.
-	 * {@code content}는 비울 수 없어서 null이거나 빈 값이면 거절한다. 무엇을 고치든 내용이 더는 맞지 않을 수 있으므로
-	 * {@code ai_analysis}는 항상 다시 비운다(새로 만들어질 때까지 null).
-	 *
-	 * @throws ApiException {@link ErrorCode#NOT_FOUND} 기록이나 바꾸려는 분야가 내 것이 아닐 때,
-	 *                       {@link ErrorCode#VALIDATION_ERROR} 내용을 비우려 하거나, 연습 시간이 음수이거나,
-	 *                       분야가 보관됐거나, 날짜가 서버 기준 오늘보다 미래일 때
-	 */
+	/** {@code minutes}·{@code difficulty}·{@code feeling}은 안 보내면 유지, null로 보내면 비운다(JsonNullable로 구분). */
 	@Transactional
 	public RecordResponse update(Long userId, Long id, RecordUpdateRequest request) {
 		ActivityRecord record = findOwned(userId, id);
@@ -144,22 +117,19 @@ public class RecordService {
 		if (request.isMilestone() != null) {
 			record.setMilestone(request.isMilestone());
 		}
+		// 어떤 칸을 고치든 AI 정리가 글과 어긋날 수 있으므로 다시 비운다(새로 만들어질 때까지 null).
 		record.clearAiAnalysis();
 
 		return toResponse(record);
 	}
 
-	/**
-	 * 기록을 완전히 삭제한다. 되돌릴 수 없고, 활동 분야와 달리 "보관" 같은 중간 상태가 없다.
-	 *
-	 * @throws ApiException {@link ErrorCode#NOT_FOUND} 내 기록이 아닐 때
-	 */
 	@Transactional
 	public void delete(Long userId, Long id) {
 		ActivityRecord record = findOwned(userId, id);
 		activityRecordRepository.delete(record);
 	}
 
+	/** 남의 기록은 있는지조차 알려주지 않으려고 403이 아닌 404로 응답한다. */
 	private ActivityRecord findOwned(Long userId, Long id) {
 		return activityRecordRepository.findByIdAndUserId(id, userId)
 				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "기록을 찾을 수 없어요"));
@@ -176,6 +146,7 @@ public class RecordService {
 		}
 	}
 
+	/** "오늘"의 기준은 서버 시간대(Asia/Seoul)다. 사용자의 로컬 시간이 아니다. */
 	private void assertNotFuture(LocalDate recordDate) {
 		if (recordDate.isAfter(LocalDate.now(SERVER_ZONE))) {
 			throw new ApiException(ErrorCode.VALIDATION_ERROR, "미래 날짜로는 기록할 수 없어요");

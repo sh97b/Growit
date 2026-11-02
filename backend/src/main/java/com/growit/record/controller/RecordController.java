@@ -27,9 +27,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * 활동 기록 등록·조회·수정·삭제 주소. 모든 메서드가 토큰의 사용자 id로만 범위를 제한한다.
- */
 @Tag(name = "기록", description = "활동 기록 등록·조회·수정·삭제")
 @RestController
 @RequestMapping("/api/records")
@@ -43,7 +40,6 @@ public class RecordController {
 		this.currentUserProvider = currentUserProvider;
 	}
 
-	/** {@code GET /api/records?hobbyId&from&to&page&size} — 200. */
 	@Operation(summary = "기록 목록 조회 (최신순, 분야·기간·페이지로 필터링)")
 	@GetMapping
 	public RecordListResponse list(
@@ -55,7 +51,6 @@ public class RecordController {
 		return recordService.list(currentUserProvider.getCurrentUserId(), hobbyId, from, to, page, size);
 	}
 
-	/** {@code GET /api/records/{id}} — 성공 시 200, 내 기록이 아니거나 없으면 NOT_FOUND(404). */
 	@Operation(summary = "기록 상세 조회 (같은 분야의 이전·다음 기록 포함)")
 	@ApiResponse(responseCode = "404", description = "내 기록이 아니거나 없음",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
@@ -64,7 +59,7 @@ public class RecordController {
 		return recordService.get(currentUserProvider.getCurrentUserId(), id);
 	}
 
-	/** {@code POST /api/records} — 성공 시 201, 입력값 오류면 VALIDATION_ERROR(400). */
+	/** 날짜가 서버 기준(Asia/Seoul) 오늘보다 미래거나 분야가 보관됐으면 VALIDATION_ERROR(400). */
 	@Operation(summary = "기록 등록")
 	@ApiResponse(responseCode = "400", description = "입력값 오류 (미래 날짜, 내용 비어 있음 등)",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
@@ -74,7 +69,7 @@ public class RecordController {
 		return ResponseEntity.status(HttpStatus.CREATED).body(response);
 	}
 
-	/** {@code PATCH /api/records/{id}} — 성공 시 200, 입력값 오류면 VALIDATION_ERROR(400), 내 기록이 아니면 NOT_FOUND(404). */
+	/** minutes·difficulty·feeling을 null로 보내면 비우고, 안 보내면 그대로 둔다. */
 	@Operation(summary = "기록 수정 (보낸 칸만 수정, 값을 null로 보내면 minutes·difficulty·feeling은 비움, ai_analysis는 초기화됨)")
 	@ApiResponse(responseCode = "400", description = "입력값 오류 (미래 날짜, 내용 비어 있음 등)",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
@@ -85,7 +80,6 @@ public class RecordController {
 		return recordService.update(currentUserProvider.getCurrentUserId(), id, request);
 	}
 
-	/** {@code DELETE /api/records/{id}} — 성공 시 204, 내 기록이 아니면 NOT_FOUND(404). */
 	@Operation(summary = "기록 삭제")
 	@DeleteMapping("/{id}")
 	public ResponseEntity<Void> delete(@PathVariable Long id) {
