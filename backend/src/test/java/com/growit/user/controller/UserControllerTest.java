@@ -1,18 +1,21 @@
 package com.growit.user.controller;
 
 import static org.hamcrest.Matchers.is;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.growit.auth.security.CurrentUserProvider;
-import com.growit.user.entity.User;
-import com.growit.user.repository.UserRepository;
-import java.util.Optional;
+import com.growit.common.exception.ApiException;
+import com.growit.common.exception.ErrorCode;
+import com.growit.user.dto.MeResponse;
+import com.growit.user.service.UserService;
+import java.time.LocalDateTime;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -32,57 +35,36 @@ class UserControllerTest {
 	private ObjectMapper objectMapper;
 
 	@MockBean
-	private UserRepository userRepository;
-
-	@MockBean
-	private CurrentUserProvider currentUserProvider;
-
-	private User user(String displayName) {
-		User user = new User("growit_user@example.com", "hashed", displayName);
-		return user;
-	}
+	private UserService userService;
 
 	@Test
-	void updateMe_trimsAndSavesDisplayName() throws Exception {
-		given(currentUserProvider.getCurrentUserId()).willReturn(1L);
-		given(userRepository.findById(anyLong())).willReturn(Optional.of(user("growit_user")));
+	void updateMe_returnsUpdatedName() throws Exception {
+		given(userService.updateMe(any()))
+				.willReturn(new MeResponse(1L, "growit_user@example.com", "서현", LocalDateTime.now()));
 
 		mockMvc.perform(patch("/api/users/me")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(java.util.Map.of("displayName", "  서현  "))))
+						.content(objectMapper.writeValueAsString(Map.of("displayName", "  서현  "))))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.displayName", is("서현")));
 	}
 
 	@Test
 	void updateMe_blankName_returnsValidationError() throws Exception {
-		given(currentUserProvider.getCurrentUserId()).willReturn(1L);
-		given(userRepository.findById(anyLong())).willReturn(Optional.of(user("growit_user")));
+		willThrow(new ApiException(ErrorCode.VALIDATION_ERROR, "이름을 입력해 주세요"))
+				.given(userService).updateMe(any());
 
 		mockMvc.perform(patch("/api/users/me")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(java.util.Map.of("displayName", "   "))))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.code", is("VALIDATION_ERROR")));
-	}
-
-	@Test
-	void updateMe_tooLongName_returnsValidationError() throws Exception {
-		given(currentUserProvider.getCurrentUserId()).willReturn(1L);
-		given(userRepository.findById(anyLong())).willReturn(Optional.of(user("growit_user")));
-
-		String tooLong = "가".repeat(31);
-		mockMvc.perform(patch("/api/users/me")
-						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(java.util.Map.of("displayName", tooLong))))
+						.content(objectMapper.writeValueAsString(Map.of("displayName", "   "))))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code", is("VALIDATION_ERROR")));
 	}
 
 	@Test
 	void me_returnsOwnInfo() throws Exception {
-		given(currentUserProvider.getCurrentUserId()).willReturn(1L);
-		given(userRepository.findById(anyLong())).willReturn(Optional.of(user("growit_user")));
+		given(userService.me())
+				.willReturn(new MeResponse(1L, "growit_user@example.com", "growit_user", LocalDateTime.now()));
 
 		mockMvc.perform(get("/api/users/me"))
 				.andExpect(status().isOk())
