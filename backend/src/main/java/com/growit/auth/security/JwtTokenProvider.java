@@ -28,6 +28,7 @@ public class JwtTokenProvider {
 		this.expiration = Duration.ofDays(expirationDays);
 	}
 
+	/** 사용자 id를 subject로 담고, 생성 시각부터 {@code app.jwt.expiration-days}일 뒤 만료되는 토큰을 만든다. */
 	public String createToken(Long userId) {
 		Instant now = Instant.now();
 		return Jwts.builder()

@@ -13,6 +13,9 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 홈 화면과 활동 지도에 쓰이는 집계를 계산한다. 모든 집계는 호출한 사용자의 기록·분야만 본다.
+ */
 @Service
 @Transactional(readOnly = true)
 public class StatsService {
@@ -28,6 +31,10 @@ public class StatsService {
 		this.hobbyRepository = hobbyRepository;
 	}
 
+	/**
+	 * "오늘"은 서버 시간대(Asia/Seoul)의 오늘이고, 쉰 일수·오늘 기록 여부도 이 날짜를 기준으로 계산한다.
+	 * 기록이 하나도 없으면 {@code lastRecordedDate}·{@code daysSinceLastRecord}는 null, {@code todayRecorded}는 false다.
+	 */
 	public StatsSummaryResponse summary(Long userId) {
 		LocalDate today = LocalDate.now(SERVER_ZONE);
 		long recordedDays = activityRecordRepository.countDistinctRecordDateByUserId(userId);
@@ -42,6 +49,13 @@ public class StatsService {
 				daysSinceLastRecord, todayRecorded, today);
 	}
 
+	/**
+	 * 날짜·분야별 기록 집계. 기록이 있는 날짜·분야 조합만 돌려준다(없는 날은 아예 포함 안 함).
+	 * 보관된 분야의 기록도 포함한다(지난 흐름을 그대로 보여주기 위함).
+	 *
+	 * @throws ApiException {@link ErrorCode#VALIDATION_ERROR} {@code from}이 {@code to}보다 늦거나
+	 *                       범위가 400일을 넘을 때, {@link ErrorCode#NOT_FOUND} {@code hobbyId}가 내 분야가 아닐 때
+	 */
 	public List<ActivityMapEntry> activityMap(Long userId, LocalDate from, LocalDate to, Long hobbyId) {
 		if (from.isAfter(to)) {
 			throw new ApiException(ErrorCode.VALIDATION_ERROR, "시작일이 끝일보다 늦을 수 없어요");

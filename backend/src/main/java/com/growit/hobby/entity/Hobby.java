@@ -9,6 +9,9 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import org.hibernate.annotations.CreationTimestamp;
 
+/**
+ * {@code hobbies} 표에 대응하는 활동 분야 엔티티. 한 사용자 안에서 {@code name}은 중복될 수 없다.
+ */
 @Entity
 @Table(name = "hobbies")
 public class Hobby {
@@ -23,9 +26,11 @@ public class Hobby {
 	@Column(nullable = false, length = 50)
 	private String name;
 
+	/** 목표 한 줄, 최대 200자. 선택 입력이라 null일 수 있다. */
 	@Column(length = 200)
 	private String goal;
 
+	/** 보관한 시각. null이면 보관하지 않은(활성) 분야다. {@link #archive}/{@link #unarchive}로만 바꾼다. */
 	@Column(name = "archived_at")
 	private LocalDateTime archivedAt;
 

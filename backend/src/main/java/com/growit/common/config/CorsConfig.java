@@ -11,13 +11,17 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /**
- * Spring Security 필터 체인에 연결되는 단일 CORS 설정.
- * MVC 쪽(WebMvcConfigurer)에 따로 CORS를 두면 보안 필터가 먼저 요청을 막아
+ * Spring Security 필터 체인에 연결하는 단일 CORS 설정을 만든다.
+ * <p>MVC 쪽({@code WebMvcConfigurer})에 따로 CORS를 두면 보안 필터가 먼저 요청을 막아
  * 사전 확인(OPTIONS) 요청이 인증 검사에 걸리므로, 이 설정 하나만 쓴다.
  */
 @Configuration
 public class CorsConfig {
 
+	/**
+	 * {@code app.cors.allowed-origins}(쉼표로 구분)에 등록된 출처만 {@code /api/**}에 대해 허용한다.
+	 * 자격 증명(쿠키)은 쓰지 않으므로 {@code allowCredentials}는 항상 false다.
+	 */
 	@Bean
 	public CorsConfigurationSource corsConfigurationSource(
 			@Value("${app.cors.allowed-origins}") String allowedOrigins) {

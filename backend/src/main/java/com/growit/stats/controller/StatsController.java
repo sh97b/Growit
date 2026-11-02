@@ -18,6 +18,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 홈 화면용 집계 주소. 토큰의 사용자 id로만 범위를 제한한다.
+ */
 @Tag(name = "통계", description = "활동 요약과 활동 지도 집계")
 @RestController
 @RequestMapping("/api/stats")
@@ -31,12 +34,17 @@ public class StatsController {
 		this.currentUserProvider = currentUserProvider;
 	}
 
+	/** {@code GET /api/stats/summary} — 200. */
 	@Operation(summary = "활동 요약 (기록한 날 수, 누적 시간, 분야 수, 마지막 기록, 쉰 일수, 오늘 기록 여부)")
 	@GetMapping("/summary")
 	public StatsSummaryResponse summary() {
 		return statsService.summary(currentUserProvider.getCurrentUserId());
 	}
 
+	/**
+	 * {@code GET /api/stats/activity-map?from&to&hobbyId} — 성공 시 200,
+	 * 날짜 범위가 잘못되면 VALIDATION_ERROR(400), hobbyId가 내 분야가 아니면 NOT_FOUND(404).
+	 */
 	@Operation(summary = "활동 지도 (날짜·분야별 기록 집계, 기록 있는 날만)")
 	@ApiResponse(responseCode = "400", description = "날짜 범위 오류",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
