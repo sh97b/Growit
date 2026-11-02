@@ -30,6 +30,15 @@ app:
     expiration-days: ${JWT_EXPIRATION_DAYS:7}
   swagger:
     enabled: ${SWAGGER_ENABLED:false}
+  ai:
+    api-key: ${AI_API_KEY:}
+    model: ${AI_MODEL:}
+    base-url: ${AI_BASE_URL:https://api.openai.com/v1}
+    timeout-seconds: ${AI_TIMEOUT_SECONDS:20}
+    max-output-tokens: ${AI_MAX_OUTPUT_TOKENS:600}
+    max-concurrency: ${AI_MAX_CONCURRENCY:2}
+    user-daily-limit: ${AI_USER_DAILY_LIMIT:5}
+    global-daily-limit: ${AI_GLOBAL_DAILY_LIMIT:100}
 
 springdoc:
   api-docs:

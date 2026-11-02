@@ -8,7 +8,10 @@ public enum ErrorCode {
 	NOT_FOUND(HttpStatus.NOT_FOUND),
 	EMAIL_TAKEN(HttpStatus.CONFLICT),
 	HOBBY_NAME_TAKEN(HttpStatus.CONFLICT),
-	HOBBY_HAS_RECORDS(HttpStatus.CONFLICT);
+	HOBBY_HAS_RECORDS(HttpStatus.CONFLICT),
+	AI_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS),
+	AI_BUSY(HttpStatus.SERVICE_UNAVAILABLE),
+	AI_FAILED(HttpStatus.SERVICE_UNAVAILABLE);
 
 	private final HttpStatus status;
 

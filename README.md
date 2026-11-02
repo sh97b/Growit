@@ -180,6 +180,10 @@ npm run dev
 
 환경변수는 `frontend/.env.development`의 `VITE_API_BASE_URL` 하나뿐이며(공개 값만 둔다), 로컬 기본값은 비워 두고 Vite 프록시로 `/api` 요청을 백엔드(`http://localhost:8080`)로 전달한다. 로그인 토큰은 브라우저 `localStorage`(`growit_token`)에 저장하고 요청마다 `Authorization: Bearer` 헤더로 보낸다.
 
+### 5) AI 설정
+
+`AI_API_KEY`, `AI_MODEL`이 비어 있으면 AI 기능은 꺼진 상태로 서버가 정상 시작한다(호출 시 `AI_FAILED`). IntelliJ 실행 설정에 `AI_API_KEY`, `AI_MODEL`을 입력하면 켜진다. 나머지 설정(`AI_BASE_URL`, `AI_TIMEOUT_SECONDS`, `AI_MAX_OUTPUT_TOKENS`, `AI_MAX_CONCURRENCY`, `AI_USER_DAILY_LIMIT`, `AI_GLOBAL_DAILY_LIMIT`)은 `.env.example`을 참고한다. 여러 명이 같이 쓰는 공용 키라 호출 한도는 낮게 시작하고, 실제 한도(과금 계획, rate limit)를 확인한 뒤 조정한다. 로그인 후 `GET /api/ai/usage`로 내 사용량을 확인할 수 있다.
+
 ## 10. 폴더 구조
 
 ```text

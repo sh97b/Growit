@@ -43,6 +43,16 @@ public class AiLog {
 	protected AiLog() {
 	}
 
+	public AiLog(Long userId, String resultType, String state, Integer responseMs, Integer tokenCount,
+			String errorMessage) {
+		this.userId = userId;
+		this.resultType = resultType;
+		this.state = state;
+		this.responseMs = responseMs;
+		this.tokenCount = tokenCount;
+		this.errorMessage = errorMessage;
+	}
+
 	public Long getId() {
 		return id;
 	}
