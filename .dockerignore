@@ -1,0 +1,14 @@
+.git
+.idea
+*.iml
+.vscode
+
+backend/build/
+backend/.gradle/
+backend/out/
+backend/bin/
+backend/HELP.md
+
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
