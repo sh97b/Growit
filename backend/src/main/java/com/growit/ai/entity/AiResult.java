@@ -55,6 +55,18 @@ public class AiResult {
 	protected AiResult() {
 	}
 
+	public AiResult(Long userId, Long hobbyId, String resultType, LocalDate startDate, LocalDate endDate,
+			String result, String recordIds, String cacheKey) {
+		this.userId = userId;
+		this.hobbyId = hobbyId;
+		this.resultType = resultType;
+		this.startDate = startDate;
+		this.endDate = endDate;
+		this.result = result;
+		this.recordIds = recordIds;
+		this.cacheKey = cacheKey;
+	}
+
 	public Long getId() {
 		return id;
 	}

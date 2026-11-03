@@ -26,6 +26,9 @@ public class User {
 	@Column(name = "display_name", length = 30)
 	private String displayName;
 
+	@Column(name = "ai_enabled", nullable = false)
+	private boolean aiEnabled = true;
+
 	@CreationTimestamp
 	@Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "DATETIME")
 	private LocalDateTime createdAt;
@@ -57,6 +60,14 @@ public class User {
 
 	public void setDisplayName(String displayName) {
 		this.displayName = displayName;
+	}
+
+	public boolean isAiEnabled() {
+		return aiEnabled;
+	}
+
+	public void setAiEnabled(boolean aiEnabled) {
+		this.aiEnabled = aiEnabled;
 	}
 
 	public LocalDateTime getCreatedAt() {

@@ -48,10 +48,18 @@ public class ActivityRecord {
 	@Column(name = "is_milestone", nullable = false, columnDefinition = "BOOLEAN")
 	private boolean isMilestone;
 
-	/** AI가 뽑은 주제·어려움(JSON, {@code {"topics":[],"difficulties":[]}} 모양). 아직 처리 전이거나 실패하면 null. */
+	/** AI가 뽑은 제목·태그·관련 기록·변화 설명(JSON). DONE 상태가 아니면 null. */
 	@JdbcTypeCode(SqlTypes.JSON)
 	@Column(name = "ai_analysis", columnDefinition = "JSON")
 	private String aiAnalysis;
+
+	@Enumerated(EnumType.STRING)
+	@Column(name = "ai_status", nullable = false, length = 10)
+	private AiStatus aiStatus = AiStatus.NONE;
+
+	/** PENDING으로 바뀐 시각. 3분이 지나도 그대로면 멈춘 작업으로 보고 읽을 때 FAILED로 바꾼다. */
+	@Column(name = "ai_requested_at")
+	private LocalDateTime aiRequestedAt;
 
 	@CreationTimestamp
 	@Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "DATETIME")
@@ -144,7 +152,40 @@ public class ActivityRecord {
 		return aiAnalysis;
 	}
 
-	public void clearAiAnalysis() {
+	public AiStatus getAiStatus() {
+		return aiStatus;
+	}
+
+	public LocalDateTime getAiRequestedAt() {
+		return aiRequestedAt;
+	}
+
+	public void markAnalysisPending(LocalDateTime requestedAt) {
+		this.aiStatus = AiStatus.PENDING;
+		this.aiRequestedAt = requestedAt;
+		this.aiAnalysis = null;
+	}
+
+	public void markAnalysisSkipped() {
+		this.aiStatus = AiStatus.SKIPPED;
+		this.aiRequestedAt = null;
+		this.aiAnalysis = null;
+	}
+
+	public void markAnalysisDone(String analysisJson) {
+		this.aiStatus = AiStatus.DONE;
+		this.aiAnalysis = analysisJson;
+	}
+
+	public void markAnalysisFailed() {
+		this.aiStatus = AiStatus.FAILED;
+	}
+
+	/** DELETE /api/ai/data 전용: SKIPPED는 그대로 두고, 그 외에는 NONE으로 되돌리며 분석 결과는 항상 비운다. */
+	public void resetAnalysisForDataDeletion() {
+		if (this.aiStatus != AiStatus.SKIPPED) {
+			this.aiStatus = AiStatus.NONE;
+		}
 		this.aiAnalysis = null;
 	}
 
