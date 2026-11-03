@@ -19,6 +19,14 @@ configurations {
 	}
 }
 
+sourceSets {
+	main {
+		resources {
+			srcDir '../prompts'
+		}
+	}
+}
+
 repositories {
 	mavenCentral()
 }

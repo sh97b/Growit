@@ -39,6 +39,7 @@ app:
     max-concurrency: ${AI_MAX_CONCURRENCY:2}
     user-daily-limit: ${AI_USER_DAILY_LIMIT:5}
     global-daily-limit: ${AI_GLOBAL_DAILY_LIMIT:100}
+    analysis-user-daily-limit: ${AI_ANALYSIS_USER_DAILY_LIMIT:30}
 
 springdoc:
   api-docs:

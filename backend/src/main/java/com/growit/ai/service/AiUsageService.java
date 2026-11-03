@@ -30,6 +30,7 @@ public class AiUsageService {
 	private LocalDate reservationDay = LocalDate.MIN;
 	private int globalReserved;
 	private final Map<Long, Integer> userReserved = new HashMap<>();
+	private final Map<Long, Integer> analysisReserved = new HashMap<>();
 
 	public AiUsageService(AiLogRepository aiLogRepository, AiProperties properties) {
 		this.aiLogRepository = aiLogRepository;
@@ -64,6 +65,16 @@ public class AiUsageService {
 							"오늘 쓸 수 있는 AI 횟수를 다 썼어요. 기록은 안전하게 저장돼 있어요. 내일 다시 써 보세요.");
 				}
 				userReserved.put(userId, reserved + 1);
+			} else if (type == AiResultType.ANALYSIS) {
+				long userAnalysisOk = aiLogRepository.countByUserAndStateAndResultTypesSince(
+						userId, AiLogState.OK.name(), List.of(AiResultType.ANALYSIS.name()), startOfDay);
+				int reserved = analysisReserved.getOrDefault(userId, 0);
+				if (userAnalysisOk + reserved >= properties.getAnalysisUserDailyLimit()) {
+					recordLimitLog(userId, type);
+					throw new ApiException(ErrorCode.AI_LIMIT_EXCEEDED,
+							"오늘 쓸 수 있는 기록 정리 횟수를 다 썼어요. 기록은 안전하게 저장돼 있어요.");
+				}
+				analysisReserved.put(userId, reserved + 1);
 			}
 
 			globalReserved++;
@@ -76,6 +87,8 @@ public class AiUsageService {
 			globalReserved = Math.max(0, globalReserved - 1);
 			if (USER_LIMITED_TYPES.contains(type.name())) {
 				userReserved.computeIfPresent(userId, (id, count) -> Math.max(0, count - 1));
+			} else if (type == AiResultType.ANALYSIS) {
+				analysisReserved.computeIfPresent(userId, (id, count) -> Math.max(0, count - 1));
 			}
 		}
 	}
@@ -94,6 +107,7 @@ public class AiUsageService {
 			reservationDay = today;
 			globalReserved = 0;
 			userReserved.clear();
+			analysisReserved.clear();
 		}
 	}
 

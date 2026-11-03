@@ -13,6 +13,7 @@ public class AiProperties {
 	private int maxConcurrency = 2;
 	private int userDailyLimit = 5;
 	private int globalDailyLimit = 100;
+	private int analysisUserDailyLimit = 30;
 
 	/** 키나 모델이 비어 있으면 AI 기능 전체가 꺼진 상태다. 이때도 서버는 정상적으로 시작한다. */
 	public boolean isEnabled() {
@@ -81,5 +82,13 @@ public class AiProperties {
 
 	public void setGlobalDailyLimit(int globalDailyLimit) {
 		this.globalDailyLimit = globalDailyLimit;
+	}
+
+	public int getAnalysisUserDailyLimit() {
+		return analysisUserDailyLimit;
+	}
+
+	public void setAnalysisUserDailyLimit(int analysisUserDailyLimit) {
+		this.analysisUserDailyLimit = analysisUserDailyLimit;
 	}
 }

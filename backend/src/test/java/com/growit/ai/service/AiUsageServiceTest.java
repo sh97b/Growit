@@ -45,6 +45,23 @@ class AiUsageServiceTest {
 	}
 
 	@Test
+	void reserve_analysisUserLimitReached_throwsLimitExceededWithoutAffectingCompareCoachLimit() {
+		Long userId = createUser();
+		AiProperties properties = properties(5, 100);
+		properties.setAnalysisUserDailyLimit(1);
+		AiUsageService service = new AiUsageService(aiLogRepository, properties);
+
+		service.reserve(userId, AiResultType.ANALYSIS);
+
+		assertThatThrownBy(() -> service.reserve(userId, AiResultType.ANALYSIS))
+				.isInstanceOfSatisfying(ApiException.class,
+						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.AI_LIMIT_EXCEEDED));
+
+		// COMPARE/COACH 한도는 ANALYSIS와 분리되어 그대로 쓸 수 있다.
+		service.reserve(userId, AiResultType.COMPARE);
+	}
+
+	@Test
 	void reserve_userLimitedType_blocksOnceLimitReached() {
 		Long userId = createUser();
 		AiUsageService service = new AiUsageService(aiLogRepository, properties(2, 100));
