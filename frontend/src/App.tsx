@@ -11,6 +11,7 @@ import { PlaceholderPage } from './pages/PlaceholderPage'
 import { RecordDetailPage } from './pages/RecordDetailPage'
 import { RecordEditPage } from './pages/RecordEditPage'
 import { RecordNewPage } from './pages/RecordNewPage'
+import { RecordSavedPage } from './pages/RecordSavedPage'
 import { RecordsPage } from './pages/RecordsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { SignupPage } from './pages/SignupPage'
@@ -58,6 +59,7 @@ function App() {
           <Route path="/coach" element={<PlaceholderPage title="AI 회고" />} />
         </Route>
         <Route path="/records/new" element={<RecordNewPage />} />
+        <Route path="/records/:id/saved" element={<RecordSavedPage />} />
         <Route path="/records/:id" element={<RecordDetailPage />} />
         <Route path="/records/:id/edit" element={<RecordEditPage />} />
         <Route path="/settings" element={<SettingsPage />} />

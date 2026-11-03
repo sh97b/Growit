@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Field } from './Field'
+import { HobbyInlineCreate } from './HobbyInlineCreate'
 import { Input } from './Input'
 import { ChevronDownIcon } from './icons'
 import { FEELINGS, MINUTE_PRESETS, pickClass } from '../lib/recordForm'
@@ -97,6 +98,10 @@ export function RecordFormFields({
               ))
           : null}
       </div>
+
+      {hobbyPickerOpen ? (
+        <HobbyInlineCreate onCreated={(hobby) => onHobbyChange(hobby.id)} />
+      ) : null}
 
       <button
         type="button"

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Band } from '../components/Card'
 import { Loading } from '../components/Loading'
@@ -126,6 +126,7 @@ function DoneBoard() {
 }
 
 function ComebackBoard() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { data: activeHobbies, isLoading: hobbiesLoading } = useHobbies(false)
   const recentQuery = useQuery({ queryKey: ['records', 'recent'], queryFn: () => fetchRecords({ size: 1 }) })
@@ -163,11 +164,12 @@ function ComebackBoard() {
     setSubmitting(true)
     setError(null)
     try {
-      await createRecord({ hobbyId, recordDate: todayLocalDate(), content: trimmed })
+      const created = await createRecord({ hobbyId, recordDate: todayLocalDate(), content: trimmed })
       setContent('')
       queryClient.invalidateQueries({ queryKey: ['stats'] })
       queryClient.invalidateQueries({ queryKey: ['records'] })
       queryClient.invalidateQueries({ queryKey: ['hobbies'] })
+      navigate(`/records/${created.id}/saved`, { replace: true })
     } catch (saveError) {
       setError(saveError instanceof ApiError ? saveError.message : '저장하지 못했어요. 잠시 후 다시 시도해 주세요.')
     } finally {

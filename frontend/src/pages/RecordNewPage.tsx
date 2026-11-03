@@ -3,10 +3,10 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '../components/Button'
 import { EmptyState } from '../components/EmptyState'
+import { HobbyInlineCreate } from '../components/HobbyInlineCreate'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
 import { RecordFormFields } from '../components/RecordFormFields'
-import { RecordSavedPanel } from '../components/RecordSavedPanel'
 import { PencilIcon, RefreshIcon } from '../components/icons'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useHobbies } from '../hooks/useHobbies'
@@ -20,7 +20,7 @@ import {
   saveRecordDraft,
   type RecordDraft,
 } from '../lib/recordDraft'
-import { createRecord, fetchRecords, type Feeling, type RecordDetail } from '../lib/records'
+import { createRecord, fetchRecords, type Feeling } from '../lib/records'
 
 const DEFAULT_ERROR_MESSAGE = '저장하지 못했어요. 쓴 글은 이 기기에 남아 있어요.'
 const DRAFT_SAVE_DELAY_MS = 500
@@ -47,8 +47,6 @@ export function RecordNewPage() {
 
   const [submitting, setSubmitting] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [savedRecord, setSavedRecord] = useState<RecordDetail | null>(null)
-  const [savedWasFirst, setSavedWasFirst] = useState(false)
 
   const initializedRef = useRef(false)
 
@@ -105,12 +103,17 @@ export function RecordNewPage() {
         title="아직 활동 분야가 없어요"
         description="기록을 쓰려면 먼저 활동 분야를 하나 만들어 주세요."
         action={
-          <Link
-            to="/settings/hobbies"
-            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-base px-5 text-[15px] font-medium text-white no-underline"
-          >
-            활동 분야 관리로 가기
-          </Link>
+          <div className="flex w-full max-w-xs flex-col items-center gap-3">
+            <div className="w-full">
+              <HobbyInlineCreate onCreated={(hobby) => setHobbyId(hobby.id)} autoFocus />
+            </div>
+            <Link
+              to="/settings/hobbies"
+              className="text-sm font-medium text-base-ink underline underline-offset-4"
+            >
+              활동 분야 관리로 가기
+            </Link>
+          </div>
         }
       />
     )
@@ -119,19 +122,6 @@ export function RecordNewPage() {
   const selectedHobby = activeHobbies.find((hobby) => hobby.id === hobbyId) ?? activeHobbies[0]
   const today = todayLocalDate()
   const recordDate = dateMode === 'today' ? today : dateMode === 'yesterday' ? yesterdayLocalDate() : customDate
-
-  if (savedRecord) {
-    return (
-      <RecordSavedPanel
-        record={savedRecord}
-        hobbyName={activeHobbies.find((hobby) => hobby.id === savedRecord.hobbyId)?.name ?? selectedHobby.name}
-        isFirstRecord={savedWasFirst}
-        onHome={() => navigate('/')}
-        onViewDetail={() => navigate(`/records/${savedRecord.id}`)}
-        onEdit={() => navigate(`/records/${savedRecord.id}/edit`)}
-      />
-    )
-  }
 
   async function handleSave() {
     if (submitting || !selectedHobby) return
@@ -142,7 +132,6 @@ export function RecordNewPage() {
     }
     setSaveError(null)
     setSubmitting(true)
-    const wasFirst = (recentQuery.data?.totalCount ?? 0) === 0
     try {
       const created = await createRecord({
         hobbyId: selectedHobby.id,
@@ -156,8 +145,7 @@ export function RecordNewPage() {
       queryClient.invalidateQueries({ queryKey: ['records'] })
       queryClient.invalidateQueries({ queryKey: ['hobbies'] })
       queryClient.invalidateQueries({ queryKey: ['stats'] })
-      setSavedRecord(created)
-      setSavedWasFirst(wasFirst)
+      navigate(`/records/${created.id}/saved`, { replace: true })
     } catch (error) {
       setSaveError(error instanceof ApiError ? error.message : DEFAULT_ERROR_MESSAGE)
     } finally {
