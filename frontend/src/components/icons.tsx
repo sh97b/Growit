@@ -128,3 +128,44 @@ export function RefreshIcon(props: SVGProps<SVGSVGElement>) {
     </Icon>
   )
 }
+
+export function SparkleIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />
+    </Icon>
+  )
+}
+
+export function ThumbsUpIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M7 11v9H4v-9zM7 11l4-8c2 0 3 1 3 3l-1 4h6a2 2 0 012 2l-1 6a2 2 0 01-2 2H7" />
+    </Icon>
+  )
+}
+
+export function ThumbsDownIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M7 13V4H4v9zM7 13l4 8c2 0 3-1 3-3l-1-4h6a2 2 0 002-2l-1-6a2 2 0 00-2-2H7" />
+    </Icon>
+  )
+}
+
+export function XIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M6 6l12 12M18 6L6 18" />
+    </Icon>
+  )
+}
+
+export function InfoIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5M12 8h.01" />
+    </Icon>
+  )
+}

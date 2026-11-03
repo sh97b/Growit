@@ -44,6 +44,13 @@ export function AccountMenu({ size = 40 }: { size?: number }) {
           >
             활동 분야 관리
           </Link>
+          <Link
+            to="/settings/ai"
+            onClick={() => setOpen(false)}
+            className="flex min-h-11 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium text-ink no-underline"
+          >
+            AI 정리
+          </Link>
           <button
             type="button"
             onClick={handleLogout}

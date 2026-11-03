@@ -1,15 +1,22 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { AiLabel } from '../components/AiLabel'
 import { Button } from '../components/Button'
+import { EvidenceChip } from '../components/EvidenceChip'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
 import { Tag } from '../components/Tag'
-import { ChevronLeftIcon, ChevronRightIcon, PencilIcon, TrashIcon } from '../components/icons'
+import { ChevronLeftIcon, ChevronRightIcon, PencilIcon, PlusIcon, RefreshIcon, TrashIcon, XIcon } from '../components/icons'
+import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useHobbies } from '../hooks/useHobbies'
-import { useDeleteRecord, useRecord } from '../hooks/useRecords'
+import { useDeleteRecord, useEditAnalysisTags, useReanalyzeRecord, useRecord, useSubmitAnalysisFeedback } from '../hooks/useRecords'
 import { ApiError } from '../lib/api'
 import { formatMonthDay } from '../lib/date'
 import { FEELINGS } from '../lib/recordForm'
+import type { RecordDetail } from '../lib/records'
+
+const TAG_MAX_LENGTH = 12
+const TAGS_MAX_COUNT = 3
 
 export function RecordDetailPage() {
   const { id } = useParams()
@@ -17,6 +24,7 @@ export function RecordDetailPage() {
   const navigate = useNavigate()
   const { data: record, isLoading, isError, error } = useRecord(recordId)
   const { data: hobbies } = useHobbies(true)
+  const { data: currentUser } = useCurrentUser()
   const deleteRecord = useDeleteRecord()
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
@@ -60,6 +68,9 @@ export function RecordDetailPage() {
           {formatMonthDay(record.recordDate)} · {hobbyName}
           {record.minutes != null ? ` · ${record.minutes}분` : ''}
         </span>
+        {record.aiStatus === 'DONE' && record.analysis?.title ? (
+          <h1 className="font-serif text-xl font-semibold lg:text-[26px]">{record.analysis.title}</h1>
+        ) : null}
         <p className="font-serif text-xl leading-[1.7] whitespace-pre-wrap">{record.content}</p>
 
         {feelingLabel ? (
@@ -98,6 +109,10 @@ export function RecordDetailPage() {
         </Note>
       ) : null}
 
+      <hr className="border-line" />
+
+      <AnalysisSection record={record} aiEnabled={currentUser?.aiEnabled ?? true} />
+
       {record.previousRecord || record.nextRecord ? (
         <div className="flex items-center justify-between border-t border-line pt-4 text-sm font-medium">
           {record.previousRecord ? (
@@ -122,6 +137,241 @@ export function RecordDetailPage() {
           ) : (
             <span />
           )}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnabled: boolean }) {
+  const reanalyze = useReanalyzeRecord()
+  const feedback = useSubmitAnalysisFeedback()
+  const editTags = useEditAnalysisTags()
+
+  const [tagsEditOpen, setTagsEditOpen] = useState(false)
+  const [tagDrafts, setTagDrafts] = useState<string[]>([])
+  const [newTagInput, setNewTagInput] = useState('')
+  const [tagsError, setTagsError] = useState<string | null>(null)
+
+  if (record.aiStatus === 'PENDING') {
+    return (
+      <div className="flex flex-col gap-2.5">
+        <AiLabel>정리하는 중이에요</AiLabel>
+        <div className="h-3.5 w-[70%] animate-pulse rounded-full bg-rest" />
+      </div>
+    )
+  }
+
+  if (record.aiStatus === 'FAILED') {
+    return (
+      <div className="flex flex-col gap-3">
+        <Note variant="sand">지금은 AI 정리를 할 수 없었어요. 기록은 그대로 남아 있어요.</Note>
+        {aiEnabled ? (
+          <button
+            type="button"
+            disabled={reanalyze.isPending}
+            onClick={() => reanalyze.mutate(record.id)}
+            className="inline-flex min-h-11 w-fit items-center gap-1.5 text-sm font-medium text-base-ink underline underline-offset-4"
+          >
+            <RefreshIcon width={16} height={16} />
+            다시 시도하기
+          </button>
+        ) : (
+          <Link to="/settings/ai" className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink underline underline-offset-4">
+            설정에서 AI 정리 켜기
+          </Link>
+        )}
+        {reanalyze.isError ? (
+          <Note variant="sand">
+            {reanalyze.error instanceof ApiError ? reanalyze.error.message : '잠시 후 다시 시도해 주세요'}
+          </Note>
+        ) : null}
+      </div>
+    )
+  }
+
+  if (record.aiStatus === 'SKIPPED') {
+    return (
+      <Note variant="calm">
+        <span>
+          AI 정리가 꺼져 있어요.{' '}
+          <Link to="/settings/ai" className="font-medium text-base-ink underline underline-offset-4">
+            설정에서 켤 수 있어요
+          </Link>
+        </span>
+      </Note>
+    )
+  }
+
+  if (record.aiStatus === 'NONE' || !record.analysis) {
+    return <Note variant="calm">이 기록은 아직 정리되지 않았어요.</Note>
+  }
+
+  const analysis = record.analysis
+
+  function openTagsEdit() {
+    setTagDrafts(analysis.tags)
+    setTagsError(null)
+    setNewTagInput('')
+    setTagsEditOpen(true)
+  }
+
+  function removeTagDraft(index: number) {
+    setTagDrafts((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  function addTagDraft() {
+    const trimmed = newTagInput.trim()
+    if (!trimmed) return
+    if (trimmed.length > TAG_MAX_LENGTH) {
+      setTagsError(`태그는 ${TAG_MAX_LENGTH}자 이하여야 해요`)
+      return
+    }
+    if (tagDrafts.includes(trimmed)) {
+      setNewTagInput('')
+      return
+    }
+    if (tagDrafts.length >= TAGS_MAX_COUNT) {
+      setTagsError(`태그는 최대 ${TAGS_MAX_COUNT}개예요`)
+      return
+    }
+    setTagDrafts((prev) => [...prev, trimmed])
+    setNewTagInput('')
+    setTagsError(null)
+  }
+
+  function saveTags() {
+    if (tagDrafts.length === 0) {
+      setTagsError('태그를 1개 이상 남겨 주세요')
+      return
+    }
+    editTags.mutate(
+      { id: record.id, tags: tagDrafts },
+      {
+        onSuccess: () => setTagsEditOpen(false),
+        onError: (mutationError) =>
+          setTagsError(mutationError instanceof ApiError ? mutationError.message : '고치지 못했어요'),
+      },
+    )
+  }
+
+  function handleDispute() {
+    feedback.mutate({ id: record.id, payload: { tags: 'DISPUTED' } })
+    openTagsEdit()
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <AiLabel>AI 정리</AiLabel>
+
+      {analysis.tags.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {analysis.tags.map((tag) => (
+            <Tag key={tag} variant="topic">
+              {tag}
+            </Tag>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm text-ink-2">태그가 맞나요?</span>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          aria-pressed={analysis.tagsFeedback === 'CONFIRMED'}
+          className={analysis.tagsFeedback === 'CONFIRMED' ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]' : ''}
+          disabled={feedback.isPending}
+          onClick={() => feedback.mutate({ id: record.id, payload: { tags: 'CONFIRMED' } })}
+        >
+          맞아요
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          aria-pressed={analysis.tagsFeedback === 'DISPUTED'}
+          className={analysis.tagsFeedback === 'DISPUTED' ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]' : ''}
+          disabled={feedback.isPending}
+          onClick={handleDispute}
+        >
+          달라요
+        </Button>
+        {!tagsEditOpen ? (
+          <button
+            type="button"
+            onClick={openTagsEdit}
+            className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink underline underline-offset-4"
+          >
+            태그 고치기
+          </button>
+        ) : null}
+        {analysis.tagsFeedback === 'EDITED' ? <span className="text-sm text-ink-2">태그를 고쳤어요</span> : null}
+      </div>
+
+      {tagsEditOpen ? (
+        <div className="flex flex-col gap-3 rounded-2xl bg-surface p-[18px]">
+          <div className="flex flex-wrap gap-2">
+            {tagDrafts.map((tag, index) => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => removeTagDraft(index)}
+                aria-label={`${tag} 태그 지우기`}
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink"
+              >
+                {tag}
+                <XIcon width={14} height={14} />
+              </button>
+            ))}
+            {tagDrafts.length < TAGS_MAX_COUNT ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  value={newTagInput}
+                  onChange={(event) => setNewTagInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      addTagDraft()
+                    }
+                  }}
+                  placeholder="태그 추가"
+                  maxLength={TAG_MAX_LENGTH}
+                  className="h-11 w-28 rounded-lg border border-input bg-white px-3 text-sm text-ink outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={addTagDraft}
+                  aria-label="태그 추가"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-line-2 bg-white text-ink"
+                >
+                  <PlusIcon width={16} height={16} />
+                </button>
+              </div>
+            ) : null}
+          </div>
+          {tagsError ? <p className="text-[13px] text-[#6B3F0F]">{tagsError}</p> : null}
+          <p className="text-sm text-ink-2">고친 내용은 이 기록의 태그에만 반영돼요. 쓰신 글은 바뀌지 않아요.</p>
+          <div className="flex gap-2">
+            <Button type="button" size="sm" disabled={editTags.isPending} onClick={saveTags}>
+              저장
+            </Button>
+            <Button type="button" variant="secondary" size="sm" onClick={() => setTagsEditOpen(false)}>
+              취소
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {analysis.relatedRecords.length > 0 ? (
+        <div className="flex flex-col gap-2 pt-2">
+          <h2 className="font-serif text-lg font-semibold">이어서 볼 기록</h2>
+          <div className="flex flex-col gap-2">
+            {analysis.relatedRecords.map((related) => (
+              <EvidenceChip key={related.id} record={related} block />
+            ))}
+          </div>
         </div>
       ) : null}
     </div>

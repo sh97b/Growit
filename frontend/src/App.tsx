@@ -13,6 +13,7 @@ import { RecordNewPage } from './pages/RecordNewPage'
 import { RecordsPage } from './pages/RecordsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { SignupPage } from './pages/SignupPage'
+import { AiPage } from './pages/settings/AiPage'
 import { HobbiesPage } from './pages/settings/HobbiesPage'
 
 function App() {
@@ -60,6 +61,7 @@ function App() {
         <Route path="/records/:id/edit" element={<RecordEditPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/settings/hobbies" element={<HobbiesPage />} />
+        <Route path="/settings/ai" element={<AiPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

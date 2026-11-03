@@ -90,18 +90,28 @@ export function RecordsPage() {
             <p className="py-6 text-center text-sm text-ink-2">아직 이 분야의 기록이 없어요.</p>
           ) : (
             <div className="flex flex-col">
-              {records.map((record) => (
-                <Link
-                  key={record.id}
-                  to={`/records/${record.id}`}
-                  className="flex flex-col gap-1.5 border-t border-line py-4 text-ink no-underline last:border-b"
-                >
-                  <span className="text-[13px] font-semibold text-ink-2">
-                    {formatMonthDay(record.recordDate)} · {hobbyNameById.get(record.hobbyId) ?? ''}
-                  </span>
-                  <p className="truncate font-serif text-lg text-ink">{record.content}</p>
-                </Link>
-              ))}
+              {records.map((record) => {
+                const firstTag = record.analysis?.tags[0]
+                return (
+                  <Link
+                    key={record.id}
+                    to={`/records/${record.id}`}
+                    className="flex flex-col gap-1.5 border-t border-line py-4 text-ink no-underline last:border-b"
+                  >
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="text-[13px] font-semibold text-ink-2">
+                        {formatMonthDay(record.recordDate)} · {hobbyNameById.get(record.hobbyId) ?? ''}
+                      </span>
+                      {firstTag ? (
+                        <span className="inline-flex h-6 flex-none items-center rounded-md bg-tag-topic-bg px-2 text-xs font-medium text-tag-topic-fg">
+                          {firstTag}
+                        </span>
+                      ) : null}
+                    </span>
+                    <p className="truncate font-serif text-lg text-ink">{record.content}</p>
+                  </Link>
+                )
+              })}
             </div>
           )}
 

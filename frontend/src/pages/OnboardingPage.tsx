@@ -264,6 +264,7 @@ export function OnboardingPage() {
                   </div>
                 ))}
               </div>
+              <Note variant="calm">내 기록은 AI 정리와 회고를 만드는 데 쓰여요. 설정에서 언제든 끌 수 있어요.</Note>
               <Button
                 type="button"
                 block

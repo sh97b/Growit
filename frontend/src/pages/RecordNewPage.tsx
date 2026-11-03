@@ -20,7 +20,7 @@ import {
   saveRecordDraft,
   type RecordDraft,
 } from '../lib/recordDraft'
-import { createRecord, fetchRecords, type Feeling, type RecordItem } from '../lib/records'
+import { createRecord, fetchRecords, type Feeling, type RecordDetail } from '../lib/records'
 
 const DEFAULT_ERROR_MESSAGE = '저장하지 못했어요. 쓴 글은 이 기기에 남아 있어요.'
 const DRAFT_SAVE_DELAY_MS = 500
@@ -47,7 +47,7 @@ export function RecordNewPage() {
 
   const [submitting, setSubmitting] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [savedRecord, setSavedRecord] = useState<RecordItem | null>(null)
+  const [savedRecord, setSavedRecord] = useState<RecordDetail | null>(null)
   const [savedWasFirst, setSavedWasFirst] = useState(false)
 
   const initializedRef = useRef(false)
