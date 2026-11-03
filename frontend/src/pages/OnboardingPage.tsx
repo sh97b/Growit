@@ -11,6 +11,7 @@ import { Note } from '../components/Note'
 import { StepDots } from '../components/StepDots'
 import { ApiError } from '../lib/api'
 import { createHobby, fetchHobbies, updateHobby } from '../lib/hobbies'
+import { clearOnboardingPending } from '../lib/onboarding'
 import { updateDisplayName } from '../lib/users'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 
@@ -47,6 +48,7 @@ export function OnboardingPage() {
   const [openGoalId, setOpenGoalId] = useState<number | null>(null)
 
   function finish() {
+    clearOnboardingPending()
     queryClient.invalidateQueries({ queryKey: ['hobbies'] })
     navigate('/', { replace: true })
   }

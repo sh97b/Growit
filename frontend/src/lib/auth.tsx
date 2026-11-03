@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import { apiRequest, clearToken, getToken, setToken } from './api'
+import { clearOnboardingPending, markOnboardingPending } from './onboarding'
 
 type LoginResponse = { accessToken: string }
 
@@ -26,20 +27,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setTokenState(result.accessToken)
   }, [])
 
-  const signup = useCallback(
-    async (email: string, password: string) => {
-      await apiRequest<void>('/api/auth/signup', {
-        method: 'POST',
-        body: { email, password },
-        auth: false,
-      })
-      await login(email, password)
-    },
-    [login],
-  )
+  const signup = useCallback(async (email: string, password: string) => {
+    await apiRequest<void>('/api/auth/signup', {
+      method: 'POST',
+      body: { email, password },
+      auth: false,
+    })
+    const result = await apiRequest<LoginResponse>('/api/auth/login', {
+      method: 'POST',
+      body: { email, password },
+      auth: false,
+    })
+    // 로그인 상태가 되는 순간 GuestRoute가 홈으로 보내버리기 전에, 먼저 온보딩 대기 표시를 남긴다.
+    markOnboardingPending()
+    setToken(result.accessToken)
+    setTokenState(result.accessToken)
+  }, [])
 
   const logout = useCallback(() => {
     clearToken()
+    clearOnboardingPending()
     setTokenState(null)
   }, [])
 

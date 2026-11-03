@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/AppLayout'
 import { GuestRoute } from './components/GuestRoute'
+import { OnboardingRoute } from './components/OnboardingRoute'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { ReviewSectionLayout } from './components/ReviewSectionLayout'
 import { HomePage } from './pages/HomePage'
@@ -38,9 +39,9 @@ function App() {
       <Route
         path="/onboarding"
         element={
-          <ProtectedRoute>
+          <OnboardingRoute>
             <OnboardingPage />
-          </ProtectedRoute>
+          </OnboardingRoute>
         }
       />
       <Route
