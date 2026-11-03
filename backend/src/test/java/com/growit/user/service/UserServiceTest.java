@@ -38,13 +38,33 @@ class UserServiceTest {
 
 		assertThat(response.email()).isEqualTo("growit_user@example.com");
 		assertThat(response.displayName()).isEqualTo("growit_user");
+		assertThat(response.aiEnabled()).isTrue();
+	}
+
+	@Test
+	void updateMe_aiEnabledFalse_turnsOffAiForNewRecords() {
+		Long userId = createUser("growit_user");
+
+		MeResponse response = userService(userId).updateMe(new UpdateMeRequest("growit_user", false));
+
+		assertThat(response.aiEnabled()).isFalse();
+	}
+
+	@Test
+	void updateMe_aiEnabledOmitted_keepsExistingValue() {
+		Long userId = createUser("growit_user");
+		userService(userId).updateMe(new UpdateMeRequest("growit_user", false));
+
+		MeResponse response = userService(userId).updateMe(new UpdateMeRequest("growit_user", null));
+
+		assertThat(response.aiEnabled()).isFalse();
 	}
 
 	@Test
 	void updateMe_trimsSurroundingWhitespace() {
 		Long userId = createUser("growit_user");
 
-		MeResponse response = userService(userId).updateMe(new UpdateMeRequest("  서현  "));
+		MeResponse response = userService(userId).updateMe(new UpdateMeRequest("  서현  ", null));
 
 		assertThat(response.displayName()).isEqualTo("서현");
 	}
@@ -53,7 +73,7 @@ class UserServiceTest {
 	void updateMe_blankName_throwsValidationError() {
 		Long userId = createUser("growit_user");
 
-		assertThatThrownBy(() -> userService(userId).updateMe(new UpdateMeRequest("   ")))
+		assertThatThrownBy(() -> userService(userId).updateMe(new UpdateMeRequest("   ", null)))
 				.isInstanceOfSatisfying(ApiException.class,
 						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
 	}
@@ -63,7 +83,7 @@ class UserServiceTest {
 		Long userId = createUser("growit_user");
 		String tooLong = "가".repeat(31);
 
-		assertThatThrownBy(() -> userService(userId).updateMe(new UpdateMeRequest(tooLong)))
+		assertThatThrownBy(() -> userService(userId).updateMe(new UpdateMeRequest(tooLong, null)))
 				.isInstanceOfSatisfying(ApiException.class,
 						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
 	}

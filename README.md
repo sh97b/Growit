@@ -135,8 +135,8 @@ Growit은 새로운 걸 배우거나 취미를 키울 때, **눈에 띄는 변�
 - [ ] 프로젝트 세팅과 배포 환경 (빈 앱 배포)
 - [ ] 활동 분야·기록 CRUD
 - [ ] 홈, 기록 작성, 기록 모아보기
-- [ ] AI 공통 모듈 (호출, 한도, 결과 재사용, 로그, 검증)
-- [ ] 기록 정리
+- [x] AI 공통 모듈 (호출, 한도, 로그, 검증) — ai_results 결과 재사용(cache_key)은 나의 변화·AI 회고와 함께 추가 예정
+- [x] 기록 정리
 - [ ] 나의 변화
 - [ ] AI 회고
 - [x] 로그인·회원가입
@@ -182,7 +182,7 @@ npm run dev
 
 ### 5) AI 설정
 
-`AI_API_KEY`, `AI_MODEL`이 비어 있으면 AI 기능은 꺼진 상태로 서버가 정상 시작한다(호출 시 `AI_FAILED`). IntelliJ 실행 설정에 `AI_API_KEY`, `AI_MODEL`을 입력하면 켜진다. 나머지 설정(`AI_BASE_URL`, `AI_TIMEOUT_SECONDS`, `AI_MAX_OUTPUT_TOKENS`, `AI_MAX_CONCURRENCY`, `AI_USER_DAILY_LIMIT`, `AI_GLOBAL_DAILY_LIMIT`)은 `.env.example`을 참고한다. 여러 명이 같이 쓰는 공용 키라 호출 한도는 낮게 시작하고, 실제 한도(과금 계획, rate limit)를 확인한 뒤 조정한다. 로그인 후 `GET /api/ai/usage`로 내 사용량을 확인할 수 있다.
+`AI_API_KEY`, `AI_MODEL`이 비어 있으면 AI 기능은 꺼진 상태로 서버가 정상 시작한다(호출 시 `AI_FAILED`). IntelliJ 실행 설정에 `AI_API_KEY`, `AI_MODEL`을 입력하면 켜진다. 나머지 설정(`AI_BASE_URL`, `AI_TIMEOUT_SECONDS`, `AI_MAX_OUTPUT_TOKENS`, `AI_MAX_CONCURRENCY`, `AI_USER_DAILY_LIMIT`, `AI_GLOBAL_DAILY_LIMIT`, `AI_ANALYSIS_USER_DAILY_LIMIT`)은 `.env.example`을 참고한다. 여러 명이 같이 쓰는 공용 키라 호출 한도는 낮게 시작하고, 실제 한도(과금 계획, rate limit)를 확인한 뒤 조정한다. 로그인 후 `GET /api/ai/usage`로 내 사용량을 확인할 수 있다.
 
 ## 10. 폴더 구조
 

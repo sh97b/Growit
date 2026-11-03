@@ -40,6 +40,9 @@ public class UserService {
 			throw new ApiException(ErrorCode.VALIDATION_ERROR, "이름은 30자 이하로 입력해 주세요");
 		}
 		user.setDisplayName(displayName);
+		if (request.aiEnabled() != null) {
+			user.setAiEnabled(request.aiEnabled());
+		}
 		return toResponse(user);
 	}
 
@@ -49,6 +52,7 @@ public class UserService {
 	}
 
 	private MeResponse toResponse(User user) {
-		return new MeResponse(user.getId(), user.getEmail(), user.getDisplayName(), user.getCreatedAt());
+		return new MeResponse(user.getId(), user.getEmail(), user.getDisplayName(), user.isAiEnabled(),
+				user.getCreatedAt());
 	}
 }

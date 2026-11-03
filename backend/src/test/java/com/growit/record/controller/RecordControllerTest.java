@@ -9,7 +9,9 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -17,9 +19,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.growit.common.exception.ApiException;
 import com.growit.auth.security.CurrentUserProvider;
 import com.growit.common.exception.ErrorCode;
+import com.growit.record.dto.AnalysisTagsEditRequest;
 import com.growit.record.dto.RecordCreateRequest;
 import com.growit.record.dto.RecordListResponse;
 import com.growit.record.dto.RecordResponse;
+import com.growit.record.dto.RecordSummaryResponse;
+import com.growit.record.entity.AiStatus;
 import com.growit.record.entity.Feeling;
 import com.growit.record.service.RecordService;
 import java.time.LocalDate;
@@ -52,8 +57,8 @@ class RecordControllerTest {
 	void create_success_returnsCreated() throws Exception {
 		given(currentUserProvider.getCurrentUserId()).willReturn(1L);
 		given(recordService.create(eq(1L), any())).willReturn(
-				new RecordResponse(1L, 10L, LocalDate.of(2026, 10, 28), "연습했다", 20, null, Feeling.PROUD, false, null,
-						null, null));
+				new RecordResponse(1L, 10L, LocalDate.of(2026, 10, 28), "연습했다", 20, null, Feeling.PROUD, false,
+						AiStatus.SKIPPED, null, null, null));
 
 		mockMvc.perform(post("/api/records")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -110,8 +115,8 @@ class RecordControllerTest {
 	@Test
 	void list_returnsItemsAndTotalCount() throws Exception {
 		given(currentUserProvider.getCurrentUserId()).willReturn(1L);
-		RecordResponse item = new RecordResponse(1L, 10L, LocalDate.of(2026, 10, 28), "연습했다", 20, null,
-				Feeling.PROUD, false, null, null, null);
+		RecordSummaryResponse item = new RecordSummaryResponse(1L, 10L, LocalDate.of(2026, 10, 28), "연습했다", 20, null,
+				Feeling.PROUD, false, AiStatus.SKIPPED, null);
 		given(recordService.list(eq(1L), isNull(), isNull(), isNull(), any(), any()))
 				.willReturn(new RecordListResponse(List.of(item), 1));
 
@@ -119,5 +124,55 @@ class RecordControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.totalCount", is(1)))
 				.andExpect(jsonPath("$.items[0].content", is("연습했다")));
+	}
+
+	@Test
+	void reanalyze_aiDisabled_returnsConflict() throws Exception {
+		given(currentUserProvider.getCurrentUserId()).willReturn(1L);
+		willThrow(new ApiException(ErrorCode.AI_DISABLED, "AI 기능이 꺼져 있어요"))
+				.given(recordService).reanalyze(eq(1L), anyLong());
+
+		mockMvc.perform(post("/api/records/{id}/analysis", 1L))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.code", is("AI_DISABLED")));
+	}
+
+	@Test
+	void reanalyze_success_returnsAccepted() throws Exception {
+		given(currentUserProvider.getCurrentUserId()).willReturn(1L);
+		given(recordService.reanalyze(eq(1L), anyLong())).willReturn(
+				new RecordResponse(1L, 10L, LocalDate.of(2026, 10, 28), "연습했다", 20, null, Feeling.PROUD, false,
+						AiStatus.PENDING, null, null, null));
+
+		mockMvc.perform(post("/api/records/{id}/analysis", 1L))
+				.andExpect(status().isAccepted())
+				.andExpect(jsonPath("$.aiStatus", is("PENDING")));
+	}
+
+	@Test
+	void editTags_notReady_returnsConflict() throws Exception {
+		given(currentUserProvider.getCurrentUserId()).willReturn(1L);
+		willThrow(new ApiException(ErrorCode.ANALYSIS_NOT_READY, "아직 분석이 끝나지 않았어요"))
+				.given(recordService).editTags(eq(1L), anyLong(), any());
+
+		mockMvc.perform(patch("/api/records/{id}/analysis/tags", 1L)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(new AnalysisTagsEditRequest(List.of("연습")))))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.code", is("ANALYSIS_NOT_READY")));
+	}
+
+	@Test
+	void submitFeedback_success_delegatesToService() throws Exception {
+		given(currentUserProvider.getCurrentUserId()).willReturn(1L);
+		given(recordService.submitFeedback(eq(1L), anyLong(), any())).willReturn(
+				new RecordResponse(1L, 10L, LocalDate.of(2026, 10, 28), "연습했다", 20, null, Feeling.PROUD, false,
+						AiStatus.DONE, null, null, null));
+
+		mockMvc.perform(put("/api/records/{id}/analysis/feedback", 1L)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"change\":\"HELPFUL\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.aiStatus", is("DONE")));
 	}
 }

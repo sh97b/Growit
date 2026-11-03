@@ -40,7 +40,7 @@ class UserControllerTest {
 	@Test
 	void updateMe_returnsUpdatedName() throws Exception {
 		given(userService.updateMe(any()))
-				.willReturn(new MeResponse(1L, "growit_user@example.com", "서현", LocalDateTime.now()));
+				.willReturn(new MeResponse(1L, "growit_user@example.com", "서현", true, LocalDateTime.now()));
 
 		mockMvc.perform(patch("/api/users/me")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -64,7 +64,7 @@ class UserControllerTest {
 	@Test
 	void me_returnsOwnInfo() throws Exception {
 		given(userService.me())
-				.willReturn(new MeResponse(1L, "growit_user@example.com", "growit_user", LocalDateTime.now()));
+				.willReturn(new MeResponse(1L, "growit_user@example.com", "growit_user", true, LocalDateTime.now()));
 
 		mockMvc.perform(get("/api/users/me"))
 				.andExpect(status().isOk())

@@ -1,5 +1,6 @@
 package com.growit.record.dto;
 
+import com.growit.record.entity.AiStatus;
 import com.growit.record.entity.Feeling;
 import java.time.LocalDate;
 
@@ -12,7 +13,8 @@ public record RecordResponse(
 		String difficulty,
 		Feeling feeling,
 		boolean isMilestone,
-		Object analysis,
+		AiStatus aiStatus,
+		RecordAnalysisResponse analysis,
 		RecordNeighbor previousRecord,
 		RecordNeighbor nextRecord) {
 }

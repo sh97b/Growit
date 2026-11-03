@@ -15,6 +15,8 @@ public interface ActivityRecordRepository
 
 	Optional<ActivityRecord> findByIdAndUserId(Long id, Long userId);
 
+	List<ActivityRecord> findByUserId(Long userId);
+
 	boolean existsByHobbyId(Long hobbyId);
 
 	long countByHobbyId(Long hobbyId);

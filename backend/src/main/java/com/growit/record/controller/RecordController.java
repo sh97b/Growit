@@ -2,6 +2,8 @@ package com.growit.record.controller;
 
 import com.growit.auth.security.CurrentUserProvider;
 import com.growit.common.exception.ErrorResponse;
+import com.growit.record.dto.AnalysisFeedbackRequest;
+import com.growit.record.dto.AnalysisTagsEditRequest;
 import com.growit.record.dto.RecordCreateRequest;
 import com.growit.record.dto.RecordListResponse;
 import com.growit.record.dto.RecordResponse;
@@ -22,6 +24,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -85,5 +88,33 @@ public class RecordController {
 	public ResponseEntity<Void> delete(@PathVariable Long id) {
 		recordService.delete(currentUserProvider.getCurrentUserId(), id);
 		return ResponseEntity.noContent().build();
+	}
+
+	/** 이미 PENDING이면 새로 요청하지 않고 그대로 돌려준다. AI가 꺼져 있으면 AI_DISABLED(409). */
+	@Operation(summary = "기록 정리 다시 요청 (PENDING이면 그대로 반환)")
+	@ApiResponse(responseCode = "409", description = "AI_DISABLED: 서버 또는 내 AI 설정이 꺼져 있음",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@PostMapping("/{id}/analysis")
+	public ResponseEntity<RecordResponse> reanalyze(@PathVariable Long id) {
+		RecordResponse response = recordService.reanalyze(currentUserProvider.getCurrentUserId(), id);
+		return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+	}
+
+	/** 분석이 DONE 상태가 아니면 ANALYSIS_NOT_READY(409). */
+	@Operation(summary = "기록 정리 결과에 피드백 남기기 (change·tags 중 하나 이상)")
+	@ApiResponse(responseCode = "409", description = "ANALYSIS_NOT_READY: 분석이 DONE 상태가 아님",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@PutMapping("/{id}/analysis/feedback")
+	public RecordResponse submitFeedback(@PathVariable Long id, @RequestBody AnalysisFeedbackRequest request) {
+		return recordService.submitFeedback(currentUserProvider.getCurrentUserId(), id, request);
+	}
+
+	/** 분석이 DONE 상태가 아니면 ANALYSIS_NOT_READY(409). */
+	@Operation(summary = "태그 직접 수정 (1~3개, 각 1~12자, tagsFeedback은 EDITED로 바뀜)")
+	@ApiResponse(responseCode = "409", description = "ANALYSIS_NOT_READY: 분석이 DONE 상태가 아님",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@PatchMapping("/{id}/analysis/tags")
+	public RecordResponse editTags(@PathVariable Long id, @RequestBody AnalysisTagsEditRequest request) {
+		return recordService.editTags(currentUserProvider.getCurrentUserId(), id, request);
 	}
 }

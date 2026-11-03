@@ -28,7 +28,7 @@ public class UserController {
 		return userService.me();
 	}
 
-	@Operation(summary = "내 이름 수정 (1~30자, 앞뒤 공백은 지움)")
+	@Operation(summary = "내 이름 수정 (1~30자, 앞뒤 공백은 지움), aiEnabled로 AI 기록 정리 켜고 끄기")
 	@PatchMapping("/me")
 	public MeResponse updateMe(@RequestBody UpdateMeRequest request) {
 		return userService.updateMe(request);
