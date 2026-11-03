@@ -3,7 +3,10 @@ package com.growit.record.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.growit.ai.entity.AiLog;
+import com.growit.ai.entity.AiLogState;
 import com.growit.ai.entity.AiResultType;
+import com.growit.ai.repository.AiLogRepository;
 import com.growit.ai.service.AiCallResult;
 import com.growit.ai.service.AiCallService;
 import com.growit.ai.service.AiResponseValidator;
@@ -15,18 +18,14 @@ import com.growit.record.entity.ActivityRecord;
 import com.growit.record.entity.AiStatus;
 import com.growit.record.repository.ActivityRecordRepository;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.util.StreamUtils;
 
 @Service
 public class RecordAnalysisService {
@@ -41,22 +40,27 @@ public class RecordAnalysisService {
 	private static final int CHANGE_TEXT_MAX = 60;
 	private static final List<String> FORBIDDEN_WORDS =
 			List.of("실력", "늘었", "향상", "잘했", "훌륭", "대단", "점수", "순위");
-	private static final String SYSTEM_PROMPT = loadSystemPrompt();
+	private static final String PROMPT_RESOURCE_NAME = "record-analysis-system.txt";
 
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
 	private final AiCallService aiCallService;
 	private final AiResponseValidator aiResponseValidator;
+	private final AiLogRepository aiLogRepository;
 	private final ObjectMapper objectMapper;
 	private final TransactionTemplate transactionTemplate;
 
+	/** 패키지 안 테스트에서만 다른 리소스 이름으로 바꿔 끼워 읽기 실패를 재현한다. */
+	SystemPromptLoader promptLoader = new SystemPromptLoader(PROMPT_RESOURCE_NAME);
+
 	public RecordAnalysisService(ActivityRecordRepository activityRecordRepository, HobbyRepository hobbyRepository,
-			AiCallService aiCallService, AiResponseValidator aiResponseValidator, ObjectMapper objectMapper,
-			PlatformTransactionManager transactionManager) {
+			AiCallService aiCallService, AiResponseValidator aiResponseValidator, AiLogRepository aiLogRepository,
+			ObjectMapper objectMapper, PlatformTransactionManager transactionManager) {
 		this.activityRecordRepository = activityRecordRepository;
 		this.hobbyRepository = hobbyRepository;
 		this.aiCallService = aiCallService;
 		this.aiResponseValidator = aiResponseValidator;
+		this.aiLogRepository = aiLogRepository;
 		this.objectMapper = objectMapper;
 		this.transactionTemplate = new TransactionTemplate(transactionManager);
 	}
@@ -78,9 +82,19 @@ public class RecordAnalysisService {
 			return;
 		}
 
+		String systemPrompt;
+		try {
+			systemPrompt = promptLoader.load();
+		} catch (IOException e) {
+			aiLogRepository.save(new AiLog(userId, AiResultType.ANALYSIS.name(), AiLogState.FAIL.name(), null, null,
+					"프롬프트 파일을 읽지 못함"));
+			transactionTemplate.executeWithoutResult(status -> markFailedIfPending(recordId, userId));
+			return;
+		}
+
 		StoredAnalysis analysis;
 		try {
-			AiCallResult result = aiCallService.call(userId, AiResultType.ANALYSIS, SYSTEM_PROMPT, input.payload());
+			AiCallResult result = aiCallService.call(userId, AiResultType.ANALYSIS, systemPrompt, input.payload());
 			analysis = validate(result.content(), input.allowedHistoryIds());
 		} catch (RuntimeException e) {
 			analysis = null;
@@ -252,14 +266,6 @@ public class RecordAnalysisService {
 			return objectMapper.readValue(json, StoredAnalysis.class);
 		} catch (JsonProcessingException e) {
 			throw new ApiException(ErrorCode.ANALYSIS_NOT_READY, "저장된 분석을 읽지 못했어요");
-		}
-	}
-
-	private static String loadSystemPrompt() {
-		try (InputStream in = new ClassPathResource("record-analysis-system.txt").getInputStream()) {
-			return StreamUtils.copyToString(in, StandardCharsets.UTF_8);
-		} catch (IOException e) {
-			throw new IllegalStateException("record-analysis-system.txt를 읽지 못함", e);
 		}
 	}
 }

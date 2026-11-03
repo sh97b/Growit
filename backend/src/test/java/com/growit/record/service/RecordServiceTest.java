@@ -76,7 +76,8 @@ class RecordServiceTest {
 		AiCallService callService = new AiCallService(properties, aiChatClient, aiLogRepository, usageService,
 				new ObjectMapper());
 		RecordAnalysisService analysisService = new RecordAnalysisService(activityRecordRepository, hobbyRepository,
-				callService, new AiResponseValidator(new ObjectMapper()), new ObjectMapper(), transactionManager);
+				callService, new AiResponseValidator(new ObjectMapper()), aiLogRepository, new ObjectMapper(),
+				transactionManager);
 		return new RecordService(activityRecordRepository, hobbyRepository, userRepository, properties,
 				eventPublisher, analysisService);
 	}

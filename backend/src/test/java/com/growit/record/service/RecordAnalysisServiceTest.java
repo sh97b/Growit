@@ -61,7 +61,7 @@ class RecordAnalysisServiceTest {
 				objectMapper);
 		AiResponseValidator validator = new AiResponseValidator(objectMapper);
 		return new RecordAnalysisService(activityRecordRepository, hobbyRepository, callService, validator,
-				objectMapper, transactionManager);
+				aiLogRepository, objectMapper, transactionManager);
 	}
 
 	private Long createHobby(Long userId) {
@@ -124,6 +124,23 @@ class RecordAnalysisServiceTest {
 
 		ActivityRecord result = activityRecordRepository.findById(current.getId()).orElseThrow();
 		assertThat(result.getAiStatus()).isEqualTo(AiStatus.FAILED);
+	}
+
+	@Test
+	void analyze_promptFileMissing_marksFailedAndLogsFailWithoutCallingProvider() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.now(), "연습");
+		RecordAnalysisService service = service(enabledProperties());
+		service.promptLoader = new SystemPromptLoader("does-not-exist.txt");
+
+		service.analyze(current.getId(), 1L);
+
+		ActivityRecord result = activityRecordRepository.findById(current.getId()).orElseThrow();
+		assertThat(result.getAiStatus()).isEqualTo(AiStatus.FAILED);
+		verifyNoInteractions(aiChatClient);
+		assertThat(aiLogRepository.findAll()).anyMatch(
+				log -> log.getResultType().equals(AiResultType.ANALYSIS.name())
+						&& log.getState().equals(AiLogState.FAIL.name()));
 	}
 
 	@Test
