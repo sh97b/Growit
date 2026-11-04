@@ -126,6 +126,47 @@ class CompareServiceTest {
 	}
 
 	@Test
+	void compare_minutesZeroOnBothSides_metricsStillComputed() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord past = activityRecordRepository.save(
+				new ActivityRecord(1L, hobbyId, LocalDate.now().minusDays(30), "예전 연습", null, null, null, false));
+		activityRecordRepository.save(
+				new ActivityRecord(1L, hobbyId, LocalDate.now().minusDays(5), "중간 연습", null, null, null, false));
+		ActivityRecord current = activityRecordRepository.save(
+				new ActivityRecord(1L, hobbyId, LocalDate.now(), "최신 연습", null, null, null, false));
+
+		stubAiResponse(("{\"interpretation\":\"기록상 연습 내용이 달라졌어요\",\"pastRecordIds\":[%d],"
+				+ "\"currentRecordIds\":[%d]}").formatted(past.getId(), current.getId()));
+
+		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "2W"));
+
+		assertThat(response.metrics().totalMinutes().past()).isEqualTo(0);
+		assertThat(response.metrics().totalMinutes().current()).isEqualTo(0);
+	}
+
+	@Test
+	void compare_doneRecordsWithTags_returnsTopTagsByFrequency() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord past = createRecord(1L, hobbyId, LocalDate.now().minusDays(30), "예전 연습");
+		ActivityRecord mid1 = createRecord(1L, hobbyId, LocalDate.now().minusDays(10), "중간1");
+		mid1.markAnalysisDone("{\"title\":\"t\",\"tags\":[\"박자\",\"호흡\"]}");
+		activityRecordRepository.save(mid1);
+		ActivityRecord mid2 = createRecord(1L, hobbyId, LocalDate.now().minusDays(5), "중간2");
+		mid2.markAnalysisDone("{\"title\":\"t\",\"tags\":[\"박자\"]}");
+		activityRecordRepository.save(mid2);
+		ActivityRecord current = createRecord(1L, hobbyId, LocalDate.now(), "최신 연습");
+
+		stubAiResponse(("{\"interpretation\":\"기록상 연습 내용이 달라졌어요\",\"pastRecordIds\":[%d],"
+				+ "\"currentRecordIds\":[%d]}").formatted(past.getId(), current.getId()));
+
+		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "2W"));
+
+		assertThat(response.metrics().topTags()).hasSize(2);
+		assertThat(response.metrics().topTags().get(0).tag()).isEqualTo("박자");
+		assertThat(response.metrics().topTags().get(0).count()).isEqualTo(2);
+	}
+
+	@Test
 	void compare_sameInputTwice_reusesStoredResultWithoutCallingProviderAgain() {
 		Long hobbyId = createHobby(1L);
 		ActivityRecord past = createRecord(1L, hobbyId, LocalDate.now().minusDays(20), "예전 연습");

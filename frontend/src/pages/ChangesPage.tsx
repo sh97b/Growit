@@ -28,7 +28,7 @@ export function ChangesPage() {
   const [result, setResult] = useState<CompareResult | null>(null)
 
   const mutation = useMutation({
-    mutationFn: () => fetchCompare({ hobbyId: hobbyId!, compareTo }),
+    mutationFn: () => fetchCompare({ hobbyId: effectiveHobbyId!, compareTo }),
     onSuccess: (data) => setResult(data),
   })
 
@@ -41,8 +41,10 @@ export function ChangesPage() {
     return <Loading />
   }
 
+  // hobbyId가 null이거나(처음 진입) 더 이상 활성 분야 목록에 없으면(분야가 보관되는 등) 첫 활성 분야로
+  // 보정한다. 화면에 보이는 선택과 요청에 실제로 쓰이는 값이 반드시 같은 값에서 나오게 한다.
   const hobby = activeHobbies?.find((h) => h.id === hobbyId) ?? activeHobbies?.[0] ?? null
-  const effectiveHobbyId = hobbyId ?? hobby?.id ?? null
+  const effectiveHobbyId = hobby?.id ?? null
 
   if (!currentUser?.aiEnabled) {
     return (
@@ -226,19 +228,40 @@ export function ChangesPage() {
           </div>
 
           {result.metrics ? (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <div className="flex flex-col gap-1 rounded-xl bg-surface p-4">
-                <span className="text-sm text-ink-2">기록한 날</span>
-                <span className="font-serif text-lg text-ink">
-                  {result.metrics.recordedDays.past}일 → {result.metrics.recordedDays.current}일
-                </span>
+            <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <div className="flex flex-col gap-1 rounded-xl bg-surface p-4">
+                  <span className="text-sm text-ink-2">기록한 날</span>
+                  <span className="font-serif text-lg text-ink">
+                    {result.metrics.recordedDays.past}일 → {result.metrics.recordedDays.current}일
+                  </span>
+                </div>
+                {result.metrics.totalMinutes.past === 0 && result.metrics.totalMinutes.current === 0 ? null : (
+                  <div className="flex flex-col gap-1 rounded-xl bg-surface p-4">
+                    <span className="text-sm text-ink-2">쌓인 시간</span>
+                    <span className="font-serif text-lg text-ink">
+                      {result.metrics.totalMinutes.past === 0 ? '기록 안 함' : formatDurationMinutes(result.metrics.totalMinutes.past)}
+                      {' → '}
+                      {result.metrics.totalMinutes.current === 0 ? '기록 안 함' : formatDurationMinutes(result.metrics.totalMinutes.current)}
+                    </span>
+                  </div>
+                )}
               </div>
-              <div className="flex flex-col gap-1 rounded-xl bg-surface p-4">
-                <span className="text-sm text-ink-2">쌓인 시간</span>
-                <span className="font-serif text-lg text-ink">
-                  {formatDurationMinutes(result.metrics.totalMinutes.past)} → {formatDurationMinutes(result.metrics.totalMinutes.current)}
-                </span>
-              </div>
+              {result.metrics.topTags && result.metrics.topTags.length > 0 ? (
+                <div className="flex flex-col gap-2 rounded-xl bg-surface p-4">
+                  <span className="text-sm text-ink-2">자주 나온 주제</span>
+                  <div className="flex flex-wrap gap-2">
+                    {result.metrics.topTags.map((topic) => (
+                      <span
+                        key={topic.tag}
+                        className="inline-flex h-7 items-center rounded-md bg-tag-topic-bg px-2.5 text-sm font-medium text-tag-topic-fg"
+                      >
+                        {topic.tag} · {topic.count}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : null}
 

@@ -23,6 +23,7 @@ export type CompareRecordCard = {
 export type CompareMetrics = {
   recordedDays: { past: number; current: number }
   totalMinutes: { past: number; current: number }
+  topTags: { tag: string; count: number }[]
 }
 
 export type CompareResult = {

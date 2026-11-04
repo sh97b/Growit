@@ -1,4 +1,6 @@
 package com.growit.ai.dto;
 
-public record CompareMetrics(MetricPair recordedDays, MetricPair totalMinutes) {
+import java.util.List;
+
+public record CompareMetrics(MetricPair recordedDays, MetricPair totalMinutes, List<TopicCount> topTags) {
 }

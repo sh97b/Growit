@@ -8,6 +8,7 @@ import com.growit.ai.dto.CompareMetrics;
 import com.growit.ai.dto.CompareRecordCard;
 import com.growit.ai.dto.CompareRequest;
 import com.growit.ai.dto.MetricPair;
+import com.growit.ai.dto.TopicCount;
 import com.growit.ai.entity.AiResult;
 import com.growit.ai.entity.AiResultType;
 import com.growit.ai.repository.AiResultRepository;
@@ -183,7 +184,29 @@ public class CompareService {
 				today);
 		long pastMinutes = activityRecordRepository.sumMinutesByUserIdAndHobbyIdUpTo(userId, hobbyId, pastDate);
 		long currentMinutes = activityRecordRepository.sumMinutesByUserIdAndHobbyIdUpTo(userId, hobbyId, today);
-		return new CompareMetrics(new MetricPair(pastDays, currentDays), new MetricPair(pastMinutes, currentMinutes));
+		List<TopicCount> topTags = computeTopTags(userId, hobbyId, pastDate, today);
+		return new CompareMetrics(new MetricPair(pastDays, currentDays), new MetricPair(pastMinutes, currentMinutes),
+				topTags);
+	}
+
+	/** 비교 기간(과거 시점~오늘) 안에서 ai_status=DONE인 기록의 analysis.tags로 주제 분포 상위 3개를 센다. */
+	private List<TopicCount> computeTopTags(Long userId, Long hobbyId, LocalDate pastDate, LocalDate today) {
+		List<ActivityRecord> periodRecords = activityRecordRepository
+				.findByUserIdAndHobbyIdAndRecordDateBetween(userId, hobbyId, pastDate, today);
+		Map<String, Long> counts = new java.util.LinkedHashMap<>();
+		for (ActivityRecord record : periodRecords) {
+			if (record.getAiStatus() != com.growit.record.entity.AiStatus.DONE) {
+				continue;
+			}
+			for (String tag : extractTags(record.getAiAnalysis())) {
+				counts.merge(tag, 1L, Long::sum);
+			}
+		}
+		return counts.entrySet().stream()
+				.sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+				.limit(3)
+				.map(entry -> new TopicCount(entry.getKey(), entry.getValue()))
+				.toList();
 	}
 
 	private String toJson(Object value) {
