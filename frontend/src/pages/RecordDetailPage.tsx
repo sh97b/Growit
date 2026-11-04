@@ -217,7 +217,9 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
   const feedback = useSubmitAnalysisFeedback()
   const editTags = useEditAnalysisTags()
 
-  const [tagsEditOpen, setTagsEditOpen] = useState(false)
+  // tagsEditOpen은 analysis.tagsFeedback에서 파생한다(펼침 여부가 선택 표시와 따로 노는 상태를 두지 않는다).
+  // null이면 파생값을 그대로 쓰고, true/false는 사용자가 직접 펼치거나 닫은 뒤부터 그 값을 우선한다.
+  const [tagsEditOverride, setTagsEditOverride] = useState<boolean | null>(null)
   const [tagDrafts, setTagDrafts] = useState<string[]>([])
   const [newTagInput, setNewTagInput] = useState('')
   const [tagsError, setTagsError] = useState<string | null>(null)
@@ -278,12 +280,13 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
   }
 
   const analysis = record.analysis
+  const tagsEditOpen = tagsEditOverride ?? analysis.tagsFeedback === 'DISPUTED'
 
   function openTagsEdit() {
     setTagDrafts(analysis.tags)
     setTagsError(null)
     setNewTagInput('')
-    setTagsEditOpen(true)
+    setTagsEditOverride(true)
   }
 
   function removeTagDraft(index: number) {
@@ -318,22 +321,26 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
     editTags.mutate(
       { id: record.id, tags: tagDrafts },
       {
-        onSuccess: () => setTagsEditOpen(false),
+        onSuccess: () => setTagsEditOverride(false),
         onError: (mutationError) =>
           setTagsError(mutationError instanceof ApiError ? mutationError.message : '고치지 못했어요'),
       },
     )
   }
 
+  // 선택 표시(낙관적 갱신)와 펼침 여부를 같은 클릭 안에서 함께 바꾼다. 실패하면 두 상태 모두
+  // 되돌린다(선택은 mutate의 롤백이, 펼침은 아래 onError가 override를 지워 파생값으로 되돌린다).
   function handleConfirm() {
     if (feedback.isPending) return
     setTagsFeedbackError(null)
+    setTagsEditOverride(false)
     feedback.mutate(
       { id: record.id, payload: { tags: 'CONFIRMED' } },
       {
-        onSuccess: () => setTagsEditOpen(false),
-        onError: (mutationError) =>
-          setTagsFeedbackError(mutationError instanceof ApiError ? mutationError.message : '잠시 후 다시 시도해 주세요'),
+        onError: (mutationError) => {
+          setTagsFeedbackError(mutationError instanceof ApiError ? mutationError.message : '잠시 후 다시 시도해 주세요')
+          setTagsEditOverride(null)
+        },
       },
     )
   }
@@ -341,12 +348,14 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
   function handleDispute() {
     if (feedback.isPending) return
     setTagsFeedbackError(null)
+    openTagsEdit()
     feedback.mutate(
       { id: record.id, payload: { tags: 'DISPUTED' } },
       {
-        onSuccess: () => openTagsEdit(),
-        onError: (mutationError) =>
-          setTagsFeedbackError(mutationError instanceof ApiError ? mutationError.message : '잠시 후 다시 시도해 주세요'),
+        onError: (mutationError) => {
+          setTagsFeedbackError(mutationError instanceof ApiError ? mutationError.message : '잠시 후 다시 시도해 주세요')
+          setTagsEditOverride(null)
+        },
       },
     )
   }
@@ -416,7 +425,6 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
               태그 고치기
             </button>
           ) : null}
-          {analysis.tagsFeedback === 'CONFIRMED' ? <span className="text-sm text-ink-2">이대로 둘게요</span> : null}
         </div>
       )}
 
@@ -471,7 +479,7 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
             <Button type="button" size="sm" disabled={editTags.isPending} onClick={saveTags}>
               저장
             </Button>
-            <Button type="button" variant="secondary" size="sm" onClick={() => setTagsEditOpen(false)}>
+            <Button type="button" variant="secondary" size="sm" onClick={() => setTagsEditOverride(false)}>
               취소
             </Button>
           </div>
