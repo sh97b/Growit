@@ -95,3 +95,8 @@ export function fetchCoachHistory(params: { page?: number; size?: number } = {})
 export function submitCoachReaction(id: number, value: 'TRIED' | 'REST_TODAY' | 'TOO_HARD') {
   return apiRequest<CoachResult>(`/api/ai/results/${id}/reaction`, { method: 'PUT', body: { value } })
 }
+
+/** 홈에서는 AI를 새로 부르지 않고 이미 저장된 최신 회고만 읽는다. 없으면(204) undefined. */
+export function fetchLatestCoach() {
+  return apiRequest<CoachResult | undefined>('/api/ai/results/latest?type=COACH')
+}

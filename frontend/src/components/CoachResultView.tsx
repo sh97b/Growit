@@ -14,7 +14,7 @@ import {
 } from '../lib/ai'
 import { formatMonthDay } from '../lib/date'
 
-function EvidenceRow({ evidence }: { evidence: CoachEvidenceItem[] }) {
+export function EvidenceRow({ evidence }: { evidence: CoachEvidenceItem[] }) {
   if (evidence.length === 0) return null
   return (
     <div className="flex flex-wrap gap-2">
