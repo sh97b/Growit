@@ -433,7 +433,34 @@ public class CoachService {
 				toActionResponse(currentComebackAction, userId, preloaded),
 				stored.recordsRead(),
 				result.getFeedback(),
-				result.getReaction());
+				result.getReaction(),
+				computeCardState(result, stored.simplifiedAction() != null));
+	}
+
+	/**
+	 * 홈에서 카드를 어떻게 보여줄지 서버 시간대(Asia/Seoul) 기준으로 정한다. 생성 후 7일이 지났거나
+	 * "해봤어요" 반응이 어제 이전이면 EXPIRED가 다른 상태보다 먼저다. "오늘은 쉴게요"는 그날 하루만
+	 * 카드를 접어 두고 다음 날엔 다시 ACTIVE로 돌아온다. 이미 한 번 줄였는데 또 "너무 어려워요"가
+	 * 오면 더 줄이는 루프를 만들지 않고 RESTING으로 끝맺는다.
+	 */
+	private String computeCardState(AiResult result, boolean alreadySimplified) {
+		LocalDate today = LocalDate.now(SERVER_ZONE);
+		LocalDate createdDate = result.getCreatedAt().toLocalDate();
+		if (ChronoUnit.DAYS.between(createdDate, today) > 7) {
+			return "EXPIRED";
+		}
+		String reaction = result.getReaction();
+		LocalDate reactedDate = result.getReactedAt() == null ? null : result.getReactedAt().toLocalDate();
+		if ("TRIED".equals(reaction)) {
+			return today.equals(reactedDate) ? "CELEBRATE" : "EXPIRED";
+		}
+		if ("REST_TODAY".equals(reaction)) {
+			return today.equals(reactedDate) ? "RESTING" : "ACTIVE";
+		}
+		if ("TOO_HARD".equals(reaction) && alreadySimplified) {
+			return "RESTING";
+		}
+		return "ACTIVE";
 	}
 
 	private CoachTextItemResponse toTextItemResponse(StoredCoachTextItem item, Long userId,

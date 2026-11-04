@@ -21,10 +21,12 @@ public record AiCoachResponse(
 		CoachActionResponse comebackAction,
 		Integer recordsRead,
 		String feedback,
-		String reaction) {
+		String reaction,
+		/** ACTIVE·CELEBRATE·RESTING·EXPIRED. 홈에서 카드를 어떻게 보여줄지 서버가 판단해 내려준다. */
+		String cardState) {
 
 	public static AiCoachResponse locked(int requiredCount, int currentCount) {
 		return new AiCoachResponse(true, requiredCount, currentCount, null, null, null, null, null, false, null,
-				null, null, null, null, null, null, null);
+				null, null, null, null, null, null, null, null);
 	}
 }

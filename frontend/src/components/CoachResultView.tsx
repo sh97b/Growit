@@ -100,7 +100,15 @@ export function CoachActionCard({
     setSimplifyError(null)
     simplifyMutation.mutate(undefined, {
       onSuccess: (updated) => onResultChange(updated),
-      onError: (error) => setSimplifyError(error instanceof ApiError ? error.message : '잠시 후 다시 시도해 주세요'),
+      onError: (error) => {
+        if (error instanceof ApiError && error.code === 'AI_ALREADY_SIMPLIFIED') {
+          // 이미 한 번 줄인 결과에서 또 너무 어렵다고 한 경우: 더 줄이는 대신 쉬어가는 상태로 끝맺는다.
+          setSimplifyError(error.message)
+          submitCoachReaction(result.id!, 'TOO_HARD').then((updated) => onResultChange(updated))
+          return
+        }
+        setSimplifyError(error instanceof ApiError ? error.message : '잠시 후 다시 시도해 주세요')
+      },
       onSettled: () => {
         simplifyPendingRef.current = false
       },

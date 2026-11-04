@@ -9,7 +9,8 @@ import { WeekStrip, type WeekStripDay } from '../components/WeekStrip'
 import { PlusIcon } from '../components/icons'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useHobbies } from '../hooks/useHobbies'
-import { fetchLatestCoach } from '../lib/ai'
+import { fetchLatestCoach, type CoachResult } from '../lib/ai'
+import { reactionLine } from '../lib/coachReaction'
 import { ApiError } from '../lib/api'
 import { addDays, formatMonthDay, formatMonthDayWeekday, startOfWeekLocal, todayLocalDate } from '../lib/date'
 import { createRecord, fetchRecords } from '../lib/records'
@@ -142,7 +143,8 @@ function HomeAiCard({ comeback }: { comeback: boolean }) {
 
   const action = data ? (comeback ? data.comebackAction : data.nextAction) : null
 
-  if (!data || !action) {
+  // EXPIRED(7일 지남 또는 "해봤어요"가 어제 이전)는 새 회고를 받도록 안내한다.
+  if (!data || !action || data.cardState === 'EXPIRED') {
     return (
       <Band className="flex flex-col items-start gap-3.5">
         <h2 className="text-lg font-semibold">AI 회고</h2>
@@ -151,6 +153,11 @@ function HomeAiCard({ comeback }: { comeback: boolean }) {
         </Link>
       </Band>
     )
+  }
+
+  // CELEBRATE·RESTING은 카드와 반응 버튼을 접고 짧은 응원 문구만 보여준다.
+  if (data.cardState === 'CELEBRATE' || data.cardState === 'RESTING') {
+    return <p className="text-[15px] text-ink-2">{encouragementLine(data)}</p>
   }
 
   return (
@@ -163,6 +170,12 @@ function HomeAiCard({ comeback }: { comeback: boolean }) {
       />
     </div>
   )
+}
+
+function encouragementLine(data: CoachResult): string {
+  if (data.cardState === 'CELEBRATE') return reactionLine('TRIED', data.id ?? 0)
+  if (data.reaction === 'REST_TODAY') return reactionLine('REST_TODAY', data.id ?? 0)
+  return '오늘은 여기까지면 충분해요.'
 }
 
 function ComebackBoard() {

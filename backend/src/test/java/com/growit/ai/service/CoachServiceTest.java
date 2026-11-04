@@ -28,6 +28,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
 class CoachServiceTest {
@@ -295,6 +296,102 @@ class CoachServiceTest {
 		assertThatThrownBy(() -> service(properties).simplify(1L, saved.getId())).isInstanceOfSatisfying(
 				ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.AI_LIMIT_EXCEEDED));
 		verifyNoInteractions(aiChatClient);
+	}
+
+	private void backdateCreatedAt(AiResult result, java.time.LocalDateTime createdAt) {
+		ReflectionTestUtils.setField(result, "createdAt", createdAt);
+		aiResultRepository.save(result);
+	}
+
+	@Test
+	void cardState_freshResultNoReaction_isActive() {
+		Long hobbyId = createHobby(1L);
+		AiResult saved = saveCoachResultWithNextAction(1L, hobbyId, List.of());
+
+		AiCoachResponse response = service(enabledProperties()).getById(1L, saved.getId());
+
+		assertThat(response.cardState()).isEqualTo("ACTIVE");
+	}
+
+	@Test
+	void cardState_triedToday_isCelebrate() {
+		Long hobbyId = createHobby(1L);
+		AiResult saved = saveCoachResultWithNextAction(1L, hobbyId, List.of());
+
+		AiCoachResponse response = service(enabledProperties()).submitReaction(1L, saved.getId(), "TRIED");
+
+		assertThat(response.cardState()).isEqualTo("CELEBRATE");
+	}
+
+	@Test
+	void cardState_triedYesterday_isExpired() {
+		Long hobbyId = createHobby(1L);
+		AiResult saved = saveCoachResultWithNextAction(1L, hobbyId, List.of());
+		saved.setReaction("TRIED", java.time.LocalDateTime.now().minusDays(1));
+		aiResultRepository.save(saved);
+
+		AiCoachResponse response = service(enabledProperties()).getById(1L, saved.getId());
+
+		assertThat(response.cardState()).isEqualTo("EXPIRED");
+	}
+
+	@Test
+	void cardState_restTodayToday_isResting() {
+		Long hobbyId = createHobby(1L);
+		AiResult saved = saveCoachResultWithNextAction(1L, hobbyId, List.of());
+
+		AiCoachResponse response = service(enabledProperties()).submitReaction(1L, saved.getId(), "REST_TODAY");
+
+		assertThat(response.cardState()).isEqualTo("RESTING");
+	}
+
+	@Test
+	void cardState_restTodayYesterday_isActiveAgain() {
+		Long hobbyId = createHobby(1L);
+		AiResult saved = saveCoachResultWithNextAction(1L, hobbyId, List.of());
+		saved.setReaction("REST_TODAY", java.time.LocalDateTime.now().minusDays(1));
+		aiResultRepository.save(saved);
+
+		AiCoachResponse response = service(enabledProperties()).getById(1L, saved.getId());
+
+		assertThat(response.cardState()).isEqualTo("ACTIVE");
+	}
+
+	@Test
+	void cardState_createdOverSevenDaysAgo_isExpired() {
+		Long hobbyId = createHobby(1L);
+		AiResult saved = saveCoachResultWithNextAction(1L, hobbyId, List.of());
+		backdateCreatedAt(saved, java.time.LocalDateTime.now().minusDays(8));
+
+		AiCoachResponse response = service(enabledProperties()).getById(1L, saved.getId());
+
+		assertThat(response.cardState()).isEqualTo("EXPIRED");
+	}
+
+	@Test
+	void cardState_createdExactlySevenDaysAgo_isStillActive() {
+		Long hobbyId = createHobby(1L);
+		AiResult saved = saveCoachResultWithNextAction(1L, hobbyId, List.of());
+		backdateCreatedAt(saved, java.time.LocalDateTime.now().minusDays(7));
+
+		AiCoachResponse response = service(enabledProperties()).getById(1L, saved.getId());
+
+		assertThat(response.cardState()).isEqualTo("ACTIVE");
+	}
+
+	@Test
+	void cardState_tooHardAfterSimplify_isResting() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord record = createRecord(1L, hobbyId, LocalDate.now(), "연습");
+		AiResult saved = saveCoachResultWithNextAction(1L, hobbyId, List.of(record.getId()));
+		stubAiResponse(("{\"title\":\"1분만 해보기\",\"minutes\":1,\"reason\":\"더 쉽게 시작하려고\",\"recordIds\":[%d]}")
+				.formatted(record.getId()));
+		CoachService service = service(enabledProperties());
+		service.simplify(1L, saved.getId());
+
+		AiCoachResponse response = service.submitReaction(1L, saved.getId(), "TOO_HARD");
+
+		assertThat(response.cardState()).isEqualTo("RESTING");
 	}
 
 	@Test

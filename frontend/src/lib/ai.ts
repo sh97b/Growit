@@ -76,6 +76,7 @@ export type CoachResult = {
   recordsRead: number | null
   feedback: 'HELPFUL' | 'NOT_HELPFUL' | null
   reaction: 'TRIED' | 'REST_TODAY' | 'TOO_HARD' | null
+  cardState: 'ACTIVE' | 'CELEBRATE' | 'RESTING' | 'EXPIRED' | null
 }
 
 export function fetchCoach(payload: { hobbyId?: number; period: CoachPeriod }) {
