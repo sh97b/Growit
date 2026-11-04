@@ -64,6 +64,7 @@ export function RecordSavedPanel({
   }
 
   function handleChangeFeedback(value: 'HELPFUL' | 'NOT_HELPFUL') {
+    if (feedbackMutation.isPending) return
     feedbackMutation.mutate({ id: record.id, payload: { change: value } })
   }
 
@@ -126,11 +127,12 @@ export function RecordSavedPanel({
                 type="button"
                 aria-label="도움이 됐어요"
                 aria-pressed={record.analysis.changeFeedback === 'HELPFUL'}
-                disabled={feedbackMutation.isPending}
                 onClick={() => handleChangeFeedback('HELPFUL')}
                 className={[
-                  'inline-flex h-11 w-11 items-center justify-center rounded-lg border bg-white text-ink',
-                  record.analysis.changeFeedback === 'HELPFUL' ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]' : 'border-line-2',
+                  'inline-flex h-11 w-11 items-center justify-center rounded-lg border text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
+                  record.analysis.changeFeedback === 'HELPFUL'
+                    ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
+                    : 'border-line-2 bg-white',
                 ].join(' ')}
               >
                 <ThumbsUpIcon width={20} height={20} />
@@ -139,11 +141,12 @@ export function RecordSavedPanel({
                 type="button"
                 aria-label="아쉬워요"
                 aria-pressed={record.analysis.changeFeedback === 'NOT_HELPFUL'}
-                disabled={feedbackMutation.isPending}
                 onClick={() => handleChangeFeedback('NOT_HELPFUL')}
                 className={[
-                  'inline-flex h-11 w-11 items-center justify-center rounded-lg border bg-white text-ink',
-                  record.analysis.changeFeedback === 'NOT_HELPFUL' ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]' : 'border-line-2',
+                  'inline-flex h-11 w-11 items-center justify-center rounded-lg border text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
+                  record.analysis.changeFeedback === 'NOT_HELPFUL'
+                    ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
+                    : 'border-line-2 bg-white',
                 ].join(' ')}
               >
                 <ThumbsDownIcon width={20} height={20} />

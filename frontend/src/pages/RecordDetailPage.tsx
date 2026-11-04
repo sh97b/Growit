@@ -159,6 +159,7 @@ function ChangeBlock({ record, analysis }: { record: RecordDetail; analysis: Rec
   if (!change) return null
 
   function handleChangeFeedback(value: 'HELPFUL' | 'NOT_HELPFUL') {
+    if (feedback.isPending) return
     feedback.mutate({ id: record.id, payload: { change: value } })
   }
 
@@ -176,11 +177,12 @@ function ChangeBlock({ record, analysis }: { record: RecordDetail; analysis: Rec
             type="button"
             aria-label="도움이 됐어요"
             aria-pressed={analysis.changeFeedback === 'HELPFUL'}
-            disabled={feedback.isPending}
             onClick={() => handleChangeFeedback('HELPFUL')}
             className={[
-              'inline-flex h-11 w-11 items-center justify-center rounded-lg border bg-white text-ink',
-              analysis.changeFeedback === 'HELPFUL' ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]' : 'border-line-2',
+              'inline-flex h-11 w-11 items-center justify-center rounded-lg border text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
+              analysis.changeFeedback === 'HELPFUL'
+                ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
+                : 'border-line-2 bg-white',
             ].join(' ')}
           >
             <ThumbsUpIcon width={20} height={20} />
@@ -189,11 +191,12 @@ function ChangeBlock({ record, analysis }: { record: RecordDetail; analysis: Rec
             type="button"
             aria-label="아쉬워요"
             aria-pressed={analysis.changeFeedback === 'NOT_HELPFUL'}
-            disabled={feedback.isPending}
             onClick={() => handleChangeFeedback('NOT_HELPFUL')}
             className={[
-              'inline-flex h-11 w-11 items-center justify-center rounded-lg border bg-white text-ink',
-              analysis.changeFeedback === 'NOT_HELPFUL' ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]' : 'border-line-2',
+              'inline-flex h-11 w-11 items-center justify-center rounded-lg border text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
+              analysis.changeFeedback === 'NOT_HELPFUL'
+                ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
+                : 'border-line-2 bg-white',
             ].join(' ')}
           >
             <ThumbsDownIcon width={20} height={20} />
@@ -323,6 +326,7 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
   }
 
   function handleConfirm() {
+    if (feedback.isPending) return
     setTagsFeedbackError(null)
     feedback.mutate(
       { id: record.id, payload: { tags: 'CONFIRMED' } },
@@ -335,6 +339,7 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
   }
 
   function handleDispute() {
+    if (feedback.isPending) return
     setTagsFeedbackError(null)
     feedback.mutate(
       { id: record.id, payload: { tags: 'DISPUTED' } },
@@ -379,10 +384,9 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
           <button
             type="button"
             aria-pressed={analysis.tagsFeedback === 'CONFIRMED'}
-            disabled={feedback.isPending}
             onClick={handleConfirm}
             className={[
-              'inline-flex min-h-10 items-center justify-center rounded-lg border px-4 text-sm font-medium text-ink disabled:cursor-default disabled:border-transparent disabled:bg-line disabled:text-[#5F594F]',
+              'inline-flex min-h-10 items-center justify-center rounded-lg border px-4 text-sm font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
               analysis.tagsFeedback === 'CONFIRMED'
                 ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
                 : 'border-line-2 bg-white',
@@ -393,10 +397,9 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
           <button
             type="button"
             aria-pressed={analysis.tagsFeedback === 'DISPUTED'}
-            disabled={feedback.isPending}
             onClick={handleDispute}
             className={[
-              'inline-flex min-h-10 items-center justify-center rounded-lg border px-4 text-sm font-medium text-ink disabled:cursor-default disabled:border-transparent disabled:bg-line disabled:text-[#5F594F]',
+              'inline-flex min-h-10 items-center justify-center rounded-lg border px-4 text-sm font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
               analysis.tagsFeedback === 'DISPUTED'
                 ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
                 : 'border-line-2 bg-white',

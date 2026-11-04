@@ -86,7 +86,7 @@ public class AiCallService {
 			int responseMs = (int) (System.currentTimeMillis() - startedAt);
 			aiLogRepository.save(new AiLog(userId, type.name(), AiLogState.OK.name(), responseMs,
 					response.tokenCount(), null));
-			return new AiCallResult(response.content());
+			return new AiCallResult(response.content(), response.model());
 		} finally {
 			concurrencyLimiter.release();
 			aiUsageService.release(userId, type);

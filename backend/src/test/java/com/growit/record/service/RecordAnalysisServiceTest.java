@@ -239,6 +239,29 @@ class RecordAnalysisServiceTest {
 	}
 
 	@Test
+	void analyze_success_storesPromptVersionAndModel() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.now(), "연습");
+		stubAiResponse("{\"title\":\"연습\",\"tags\":[],\"relatedRecordIds\":[],\"change\":null}");
+
+		service(enabledProperties()).analyze(current.getId(), 1L);
+
+		ActivityRecord result = activityRecordRepository.findById(current.getId()).orElseThrow();
+		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":1").contains("\"model\":\"model\"");
+	}
+
+	@Test
+	void readJson_missingPromptVersionAndModel_deserializesWithNulls() {
+		RecordAnalysisService service = service(enabledProperties());
+		StoredAnalysis stored = service.readJson("{\"title\":\"예전 결과\",\"tags\":[],\"relatedRecordIds\":[],"
+				+ "\"change\":null,\"tagsFeedback\":null,\"changeFeedback\":null}");
+
+		assertThat(stored.title()).isEqualTo("예전 결과");
+		assertThat(stored.promptVersion()).isNull();
+		assertThat(stored.model()).isNull();
+	}
+
+	@Test
 	void markQueueRejected_pendingRecord_marksFailed() {
 		Long hobbyId = createHobby(1L);
 		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.now(), "연습");

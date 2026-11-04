@@ -1,4 +1,4 @@
 package com.growit.ai.service;
 
-public record AiCallResult(String content) {
+public record AiCallResult(String content, String model) {
 }

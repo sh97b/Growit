@@ -63,11 +63,38 @@ export function useReanalyzeRecord() {
   })
 }
 
+/**
+ * 누르는 즉시 선택 표시를 바꾸는 낙관적 갱신을 쓴다. 실패하면 onMutate가 저장해 둔 이전 값으로 되돌린다
+ * (버튼 쪽은 isPending으로 화면을 회색 처리하지 않고, 중복 클릭만 내부에서 무시한다).
+ */
 export function useSubmitAnalysisFeedback() {
+  const queryClient = useQueryClient()
   const apply = useApplyAnalysisResult()
   return useMutation({
     mutationFn: ({ id, payload }: { id: number; payload: AnalysisFeedbackPayload }) =>
       submitAnalysisFeedback(id, payload),
+    onMutate: async ({ id, payload }) => {
+      const queryKey = ['records', id]
+      await queryClient.cancelQueries({ queryKey })
+      const previous = queryClient.getQueryData<RecordDetail>(queryKey)
+      queryClient.setQueryData<RecordDetail>(queryKey, (old) => {
+        if (!old || !old.analysis) return old
+        return {
+          ...old,
+          analysis: {
+            ...old.analysis,
+            ...(payload.change !== undefined ? { changeFeedback: payload.change } : {}),
+            ...(payload.tags !== undefined ? { tagsFeedback: payload.tags } : {}),
+          },
+        }
+      })
+      return { previous, id }
+    },
+    onError: (_error, _variables, context) => {
+      if (context) {
+        queryClient.setQueryData(['records', context.id], context.previous)
+      }
+    },
     onSuccess: apply,
   })
 }

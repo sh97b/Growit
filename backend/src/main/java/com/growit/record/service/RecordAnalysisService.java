@@ -41,6 +41,8 @@ public class RecordAnalysisService {
 	private static final List<String> FORBIDDEN_WORDS =
 			List.of("실력", "늘었", "향상", "잘했", "훌륭", "대단", "점수", "순위");
 	private static final String PROMPT_RESOURCE_NAME = "record-analysis-system.txt";
+	/** prompts/record-analysis-system.txt의 내용을 바꿀 때마다 올린다. 저장된 결과가 어떤 지시문으로 만들어졌는지 추적하기 위해서다. */
+	static final int PROMPT_VERSION = 1;
 
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
@@ -95,7 +97,7 @@ public class RecordAnalysisService {
 		StoredAnalysis analysis;
 		try {
 			AiCallResult result = aiCallService.call(userId, AiResultType.ANALYSIS, systemPrompt, input.payload());
-			analysis = validate(result.content(), input.allowedHistoryIds());
+			analysis = validate(result.content(), input.allowedHistoryIds(), result.model());
 		} catch (RuntimeException e) {
 			analysis = null;
 		}
@@ -155,7 +157,7 @@ public class RecordAnalysisService {
 				.ifPresent(ActivityRecord::markAnalysisFailed);
 	}
 
-	private StoredAnalysis validate(String rawJson, Set<Long> allowedHistoryIds) {
+	private StoredAnalysis validate(String rawJson, Set<Long> allowedHistoryIds, String model) {
 		JsonNode node = aiResponseValidator.parse(rawJson);
 		aiResponseValidator.requireFields(node, "title", "tags", "relatedRecordIds");
 
@@ -164,7 +166,7 @@ public class RecordAnalysisService {
 		List<Long> relatedRecordIds = sanitizeRelatedIds(node.path("relatedRecordIds"), allowedHistoryIds);
 		StoredChange change = sanitizeChange(node.path("change"), allowedHistoryIds);
 
-		return new StoredAnalysis(title, tags, relatedRecordIds, change, null, null);
+		return new StoredAnalysis(title, tags, relatedRecordIds, change, null, null, PROMPT_VERSION, model);
 	}
 
 	private String sanitizeTitle(JsonNode titleNode) {
