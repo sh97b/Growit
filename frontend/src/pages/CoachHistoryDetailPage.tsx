@@ -1,17 +1,19 @@
 import { Link, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeftIcon } from '../components/icons'
 import { CoachResultView } from '../components/CoachResultView'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
 import { ApiError } from '../lib/api'
-import { fetchCoachResult } from '../lib/ai'
+import { fetchCoachResult, type CoachResult } from '../lib/ai'
 
 export function CoachHistoryDetailPage() {
   const { id } = useParams()
   const resultId = Number(id)
+  const queryClient = useQueryClient()
+  const queryKey = ['ai', 'results', resultId]
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['ai', 'results', resultId],
+    queryKey,
     queryFn: () => fetchCoachResult(resultId),
   })
 
@@ -32,7 +34,12 @@ export function CoachHistoryDetailPage() {
             : '잠시 후 다시 시도해 주세요'}
         </Note>
       ) : null}
-      {data ? <CoachResultView result={data} /> : null}
+      {data ? (
+        <CoachResultView
+          result={data}
+          onResultChange={(updated: CoachResult) => queryClient.setQueryData(queryKey, updated)}
+        />
+      ) : null}
     </div>
   )
 }

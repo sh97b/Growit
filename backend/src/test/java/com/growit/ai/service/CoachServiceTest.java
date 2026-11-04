@@ -24,6 +24,7 @@ import com.growit.record.entity.ActivityRecord;
 import com.growit.record.entity.Feeling;
 import com.growit.record.repository.ActivityRecordRepository;
 import java.time.LocalDate;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
@@ -227,5 +228,85 @@ class CoachServiceTest {
 
 		assertThat(history).hasSize(1);
 		assertThat(history.get(0).id()).isEqualTo(older.getId());
+	}
+
+	private AiResult saveCoachResultWithNextAction(Long userId, Long hobbyId, List<Long> evidenceIds) {
+		String idsJson = evidenceIds.stream().map(String::valueOf).reduce((a, b) -> a + "," + b).orElse("");
+		return aiResultRepository.save(new AiResult(userId, hobbyId, "COACH", LocalDate.now(), LocalDate.now(),
+				"{\"mode\":\"NORMAL\",\"periodSummary\":\"기록상 꾸준했어요\",\"changes\":[],\"repeatedDifficulties\":[],"
+						+ "\"nextAction\":{\"title\":\"10분 연습하기\",\"minutes\":10,\"reason\":\"꾸준히 이어가려고\","
+						+ "\"recordIds\":[" + idsJson + "]},\"comebackAction\":null,\"recordsRead\":5}",
+				"[]", "s".repeat(64)));
+	}
+
+	@Test
+	void simplify_success_storesSimplifiedActionAsCurrentAndResetsReaction() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord record = createRecord(1L, hobbyId, LocalDate.now(), "연습");
+		AiResult saved = saveCoachResultWithNextAction(1L, hobbyId, List.of(record.getId()));
+		saved.setReaction("TOO_HARD", java.time.LocalDateTime.now());
+		aiResultRepository.save(saved);
+
+		stubAiResponse(("{\"title\":\"1분만 해보기\",\"minutes\":1,\"reason\":\"더 쉽게 시작하려고\",\"recordIds\":[%d]}")
+				.formatted(record.getId()));
+
+		AiCoachResponse response = service(enabledProperties()).simplify(1L, saved.getId());
+
+		assertThat(response.nextAction().title()).isEqualTo("1분만 해보기");
+		assertThat(response.nextAction().minutes()).isEqualTo(1);
+		assertThat(response.reaction()).isNull();
+	}
+
+	@Test
+	void simplify_secondCallOnSameResult_throwsAlreadySimplified() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord record = createRecord(1L, hobbyId, LocalDate.now(), "연습");
+		AiResult saved = saveCoachResultWithNextAction(1L, hobbyId, List.of(record.getId()));
+
+		stubAiResponse(("{\"title\":\"1분만 해보기\",\"minutes\":1,\"reason\":\"더 쉽게 시작하려고\",\"recordIds\":[%d]}")
+				.formatted(record.getId()));
+		CoachService service = service(enabledProperties());
+		service.simplify(1L, saved.getId());
+
+		assertThatThrownBy(() -> service.simplify(1L, saved.getId())).isInstanceOfSatisfying(ApiException.class,
+				e -> assertThat(e.getCode()).isEqualTo(ErrorCode.AI_ALREADY_SIMPLIFIED));
+	}
+
+	@Test
+	void simplify_anotherUsersResult_throwsNotFound() {
+		Long hobbyId = createHobby(2L);
+		ActivityRecord record = createRecord(2L, hobbyId, LocalDate.now(), "연습");
+		AiResult saved = saveCoachResultWithNextAction(2L, hobbyId, List.of(record.getId()));
+
+		assertThatThrownBy(() -> service(enabledProperties()).simplify(1L, saved.getId()))
+				.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.NOT_FOUND));
+		verifyNoInteractions(aiChatClient);
+	}
+
+	@Test
+	void simplify_dailyLimitExceeded_throwsLimitExceeded() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord record = createRecord(1L, hobbyId, LocalDate.now(), "연습");
+		AiResult saved = saveCoachResultWithNextAction(1L, hobbyId, List.of(record.getId()));
+
+		AiProperties properties = enabledProperties();
+		properties.setSimplifyUserDailyLimit(0);
+
+		assertThatThrownBy(() -> service(properties).simplify(1L, saved.getId())).isInstanceOfSatisfying(
+				ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.AI_LIMIT_EXCEEDED));
+		verifyNoInteractions(aiChatClient);
+	}
+
+	@Test
+	void simplify_bannedWordInOutput_throwsAiFailed() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord record = createRecord(1L, hobbyId, LocalDate.now(), "연습");
+		AiResult saved = saveCoachResultWithNextAction(1L, hobbyId, List.of(record.getId()));
+
+		stubAiResponse(("{\"title\":\"실력이 늘었으니 1분만\",\"minutes\":1,\"reason\":\"더 쉽게\",\"recordIds\":[%d]}")
+				.formatted(record.getId()));
+
+		assertThatThrownBy(() -> service(enabledProperties()).simplify(1L, saved.getId()))
+				.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.AI_FAILED));
 	}
 }

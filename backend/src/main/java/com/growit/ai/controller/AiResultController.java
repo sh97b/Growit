@@ -23,6 +23,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -116,6 +117,17 @@ public class AiResultController {
 			throw new ApiException(ErrorCode.VALIDATION_ERROR, "value는 TRIED·REST_TODAY·TOO_HARD 중 하나여야 해요");
 		}
 		return coachService.submitReaction(currentUserProvider.getCurrentUserId(), id, request.value());
+	}
+
+	/** 이미 한 번 줄였으면 AI_ALREADY_SIMPLIFIED(409). 성공하면 reaction을 비워 다시 반응할 수 있게 한다. */
+	@Operation(summary = "COACH의 다음 작은 행동을 더 작게 바꾸기 (결과당 1회, 내 것만)")
+	@ApiResponse(responseCode = "404", description = "내 결과가 아니거나 COACH가 아님",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "409", description = "AI_ALREADY_SIMPLIFIED: 이미 더 작게 바꿨음",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@PostMapping("/{id}/simplify")
+	public AiCoachResponse simplify(@PathVariable Long id) {
+		return coachService.simplify(currentUserProvider.getCurrentUserId(), id);
 	}
 
 	private String resultTypeOf(Long userId, Long id) {

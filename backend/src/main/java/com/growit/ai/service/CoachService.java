@@ -47,6 +47,14 @@ public class CoachService {
 	static final int PROMPT_VERSION = 1;
 	private static final List<String> FORBIDDEN_WORDS =
 			List.of("실력", "늘었", "향상", "잘했", "훌륭", "대단", "점수", "순위", "반드시", "오늘 안에");
+	private static final String SIMPLIFY_PROMPT_RESOURCE_NAME = "ai-simplify-system.txt";
+	/** prompts/ai-simplify-system.txt를 바꿀 때마다 올린다. */
+	static final int SIMPLIFY_PROMPT_VERSION = 1;
+	private static final int MAX_SIMPLIFY_EVIDENCE = 5;
+	private static final int SIMPLIFY_MIN_MINUTES = 1;
+	private static final int SIMPLIFY_MAX_MINUTES = 3;
+
+	PromptResourceLoader simplifyPromptLoader = new PromptResourceLoader(SIMPLIFY_PROMPT_RESOURCE_NAME);
 
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
@@ -313,6 +321,82 @@ public class CoachService {
 		return results.stream().map(r -> toResponse(r, true, userId)).toList();
 	}
 
+	/**
+	 * "너무 어려워요"를 실제로 반영한다. 결과당 1회만 되고(이미 줄였으면 409),
+	 * 근거는 원래 행동의 recordIds 중 최대 5개로 좁혀 모델에 넘긴다(새 근거를 만들지 않는다).
+	 */
+	@Transactional
+	public AiCoachResponse simplify(Long userId, Long id) {
+		AiResult result = aiResultRepository.findByIdAndUserId(id, userId)
+				.filter(r -> r.getResultType().equals(AiResultType.COACH.name()))
+				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "결과를 찾을 수 없어요"));
+
+		StoredCoachResult stored = readJson(result.getResult());
+		if (stored.simplifiedAction() != null) {
+			throw new ApiException(ErrorCode.AI_ALREADY_SIMPLIFIED, "이미 더 작게 바꿨어요. 지금은 쉬어도 괜찮아요.");
+		}
+		StoredCoachAction original = stored.nextAction() != null ? stored.nextAction() : stored.comebackAction();
+		if (original == null) {
+			throw new ApiException(ErrorCode.NOT_FOUND, "더 작게 바꿀 행동이 없어요");
+		}
+
+		List<Long> evidenceIds = original.recordIds().stream().limit(MAX_SIMPLIFY_EVIDENCE).toList();
+		List<ActivityRecord> evidenceRecords = evidenceIds.stream()
+				.map(evidenceId -> activityRecordRepository.findByIdAndUserId(evidenceId, userId).orElse(null))
+				.filter(java.util.Objects::nonNull)
+				.toList();
+
+		String systemPrompt;
+		try {
+			systemPrompt = simplifyPromptLoader.load();
+		} catch (java.io.IOException e) {
+			throw new ApiException(ErrorCode.AI_FAILED, "지금은 AI를 쓸 수 없어요. 기록은 안전하게 저장돼 있어요.");
+		}
+
+		List<ComparePayloadRecord> payloadRecords = evidenceRecords.stream()
+				.map(r -> new ComparePayloadRecord(r.getId(), r.getRecordDate().toString(),
+						truncate(r.getContent(), CONTENT_MAX), truncate(r.getDifficulty(), DIFFICULTY_MAX)))
+				.toList();
+		SimplifyPayload payload = new SimplifyPayload(original.title(), original.minutes(), original.reason(),
+				payloadRecords);
+
+		AiCallResult callResult = aiCallService.call(userId, AiResultType.SIMPLIFY, systemPrompt, payload);
+		Set<Long> allowedIds = new java.util.HashSet<>(evidenceIds);
+		StoredCoachAction simplified = validateSimplifiedAction(callResult.content(), allowedIds, evidenceIds);
+
+		StoredCoachResult updated = new StoredCoachResult(stored.mode(), stored.periodSummary(), stored.changes(),
+				stored.repeatedDifficulties(), stored.nextAction(), stored.comebackAction(), stored.recordsRead(),
+				simplified);
+		result.setResult(toJson(updated));
+		result.setReaction(null, null);
+		return toResponse(result, true, userId);
+	}
+
+	private StoredCoachAction validateSimplifiedAction(String rawJson, Set<Long> allowedIds,
+			List<Long> fallbackIds) {
+		JsonNode node = aiResponseValidator.parse(rawJson);
+		aiResponseValidator.requireFields(node, "title", "minutes", "reason");
+
+		JsonNode titleNode = node.path("title");
+		JsonNode reasonNode = node.path("reason");
+		if (!titleNode.isTextual()) {
+			throw new ApiException(ErrorCode.AI_FAILED, "지금은 AI를 쓸 수 없어요. 기록은 안전하게 저장돼 있어요.");
+		}
+		String title = titleNode.asText().trim();
+		String reason = reasonNode.isTextual() ? reasonNode.asText().trim() : "";
+		if (title.isEmpty() || title.length() > ACTION_TITLE_MAX || containsForbiddenWord(title)
+				|| reason.length() > ACTION_REASON_MAX || containsForbiddenWord(reason)) {
+			throw new ApiException(ErrorCode.AI_FAILED, "지금은 AI를 쓸 수 없어요. 기록은 안전하게 저장돼 있어요.");
+		}
+		int minutesRaw = node.path("minutes").asInt(SIMPLIFY_MIN_MINUTES);
+		int minutes = Math.min(Math.max(minutesRaw, SIMPLIFY_MIN_MINUTES), SIMPLIFY_MAX_MINUTES);
+		List<Long> ids = sanitizeIds(node.path("recordIds"), allowedIds);
+		if (ids.isEmpty()) {
+			ids = fallbackIds;
+		}
+		return new StoredCoachAction(title, minutes, reason, ids);
+	}
+
 	@Transactional(readOnly = true)
 	public AiCoachResponse latest(Long userId) {
 		List<AiResult> results = aiResultRepository.findByUserIdAndResultTypeOrderByCreatedAtDesc(userId,
@@ -327,6 +411,13 @@ public class CoachService {
 
 	private AiCoachResponse toResponse(AiResult result, boolean reused, Long userId, StoredCoachResult stored,
 			Map<Long, ActivityRecord> preloaded) {
+		// simplifiedAction이 있으면 그 자리(nextAction 또는 comebackAction, 원래 둘 중 하나만 채워져 있다)를
+		// 현재 행동으로 보여준다. 원래 행동은 stored JSON에는 그대로 남아 있지만 응답에는 내보내지 않는다.
+		boolean nextIsActive = stored.nextAction() != null;
+		StoredCoachAction currentNextAction = nextIsActive && stored.simplifiedAction() != null
+				? stored.simplifiedAction() : stored.nextAction();
+		StoredCoachAction currentComebackAction = !nextIsActive && stored.simplifiedAction() != null
+				? stored.simplifiedAction() : stored.comebackAction();
 		return new AiCoachResponse(
 				false, null, null,
 				result.getId(),
@@ -338,8 +429,8 @@ public class CoachService {
 				stored.periodSummary(),
 				stored.changes().stream().map(item -> toTextItemResponse(item, userId, preloaded)).toList(),
 				stored.repeatedDifficulties().stream().map(item -> toTextItemResponse(item, userId, preloaded)).toList(),
-				toActionResponse(stored.nextAction(), userId, preloaded),
-				toActionResponse(stored.comebackAction(), userId, preloaded),
+				toActionResponse(currentNextAction, userId, preloaded),
+				toActionResponse(currentComebackAction, userId, preloaded),
 				stored.recordsRead(),
 				result.getFeedback(),
 				result.getReaction());

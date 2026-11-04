@@ -13,7 +13,8 @@ public enum ErrorCode {
 	AI_BUSY(HttpStatus.SERVICE_UNAVAILABLE),
 	AI_FAILED(HttpStatus.SERVICE_UNAVAILABLE),
 	AI_DISABLED(HttpStatus.CONFLICT),
-	ANALYSIS_NOT_READY(HttpStatus.CONFLICT);
+	ANALYSIS_NOT_READY(HttpStatus.CONFLICT),
+	AI_ALREADY_SIMPLIFIED(HttpStatus.CONFLICT);
 
 	private final HttpStatus status;
 

@@ -10,5 +10,13 @@ record StoredCoachResult(
 		List<StoredCoachTextItem> repeatedDifficulties,
 		StoredCoachAction nextAction,
 		StoredCoachAction comebackAction,
-		int recordsRead) {
+		int recordsRead,
+		/** 더 작게 바꾼 행동. 없으면(과거 결과 포함) null이고 nextAction/comebackAction이 그대로 현재 행동이다. */
+		StoredCoachAction simplifiedAction) {
+
+	StoredCoachResult(String mode, String periodSummary, List<StoredCoachTextItem> changes,
+			List<StoredCoachTextItem> repeatedDifficulties, StoredCoachAction nextAction,
+			StoredCoachAction comebackAction, int recordsRead) {
+		this(mode, periodSummary, changes, repeatedDifficulties, nextAction, comebackAction, recordsRead, null);
+	}
 }

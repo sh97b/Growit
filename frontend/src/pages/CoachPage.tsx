@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { CoachResultView } from '../components/CoachResultView'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
 import { useCurrentUser } from '../hooks/useCurrentUser'
+import { useHobbies } from '../hooks/useHobbies'
 import { ApiError } from '../lib/api'
-import { fetchCoach, type CoachPeriod, type CoachResult } from '../lib/ai'
+import { fetchCoach, fetchLatestCoach, type CoachPeriod, type CoachResult } from '../lib/ai'
 import { pickClass } from '../lib/recordForm'
 
 const PERIODS: { value: CoachPeriod; label: string }[] = [
@@ -15,17 +16,38 @@ const PERIODS: { value: CoachPeriod; label: string }[] = [
   { value: '1M', label: '한 달' },
 ]
 
+const LATEST_VALID_DAYS = 7
+
+function isRecentEnough(createdAt: string | null): boolean {
+  if (!createdAt) return false
+  const ageMs = Date.now() - new Date(createdAt).getTime()
+  return ageMs < LATEST_VALID_DAYS * 24 * 60 * 60 * 1000
+}
+
 export function CoachPage() {
   const { data: currentUser, isLoading: userLoading } = useCurrentUser()
+  const { data: activeHobbies, isLoading: hobbiesLoading } = useHobbies(false)
+  const [hobbyId, setHobbyId] = useState<number | null>(null)
   const [period, setPeriod] = useState<CoachPeriod>('2W')
   const [result, setResult] = useState<CoachResult | null>(null)
 
+  // 전체(null)를 기본으로 하고, 특정 분야를 고르면 그 값을 쓴다. 분야 목록이 바뀌어 더 이상
+  // 활성 목록에 없는 분야가 선택돼 있으면(보관 등) 전체로 되돌린다.
+  const effectiveHobbyId =
+    hobbyId != null && activeHobbies?.some((hobby) => hobby.id === hobbyId) ? hobbyId : null
+
+  const latestQuery = useQuery({
+    queryKey: ['ai', 'coach', 'latest'],
+    queryFn: fetchLatestCoach,
+    enabled: !!currentUser?.aiEnabled,
+  })
+
   const mutation = useMutation({
-    mutationFn: () => fetchCoach({ period }),
+    mutationFn: () => fetchCoach({ hobbyId: effectiveHobbyId ?? undefined, period }),
     onSuccess: (data) => setResult(data),
   })
 
-  if (userLoading) {
+  if (userLoading || hobbiesLoading || latestQuery.isLoading) {
     return <Loading />
   }
 
@@ -45,6 +67,8 @@ export function CoachPage() {
     )
   }
 
+  const shownResult = result ?? (latestQuery.data && isRecentEnough(latestQuery.data.createdAt) ? latestQuery.data : null)
+
   return (
     <div className="flex flex-col gap-5 lg:max-w-[920px]">
       <div className="flex items-center justify-between gap-3">
@@ -53,6 +77,36 @@ export function CoachPage() {
           이전 회고 목록
         </Link>
       </div>
+
+      {activeHobbies && activeHobbies.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            aria-pressed={effectiveHobbyId === null}
+            onClick={() => {
+              setHobbyId(null)
+              setResult(null)
+            }}
+            className={pickClass(effectiveHobbyId === null)}
+          >
+            전체
+          </button>
+          {activeHobbies.map((hobby) => (
+            <button
+              key={hobby.id}
+              type="button"
+              aria-pressed={effectiveHobbyId === hobby.id}
+              onClick={() => {
+                setHobbyId(hobby.id)
+                setResult(null)
+              }}
+              className={pickClass(effectiveHobbyId === hobby.id)}
+            >
+              {hobby.name}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
         {PERIODS.map((item) => (
@@ -71,7 +125,7 @@ export function CoachPage() {
         ))}
       </div>
 
-      {!result ? (
+      {!shownResult ? (
         <button
           type="button"
           disabled={mutation.isPending}
@@ -80,7 +134,16 @@ export function CoachPage() {
         >
           회고 받기
         </button>
-      ) : null}
+      ) : (
+        <button
+          type="button"
+          disabled={mutation.isPending}
+          onClick={() => mutation.mutate()}
+          className="inline-flex min-h-11 w-fit items-center justify-center rounded-lg border border-line-2 bg-white px-5 text-[15px] font-medium text-ink disabled:bg-line disabled:text-[#5F594F]"
+        >
+          새 회고 받기
+        </button>
+      )}
 
       {mutation.isPending ? (
         <div className="flex flex-col gap-3.5 rounded-2xl bg-surface p-7">
@@ -105,17 +168,19 @@ export function CoachPage() {
         </div>
       ) : null}
 
-      {result?.locked ? (
+      {shownResult?.locked ? (
         <div className="flex flex-col items-start gap-3 rounded-2xl bg-surface p-7">
           <p className="text-ink">기록이 5개 쌓이면 첫 회고를 받아요</p>
-          <p className="text-sm font-medium text-ink-2">{result.currentCount ?? 0}/{result.requiredCount ?? 5}</p>
+          <p className="text-sm font-medium text-ink-2">{shownResult.currentCount ?? 0}/{shownResult.requiredCount ?? 5}</p>
           <Link to="/records/new" className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink underline underline-offset-4">
             기록하기
           </Link>
         </div>
       ) : null}
 
-      {result && !result.locked ? <CoachResultView result={result} /> : null}
+      {shownResult && !shownResult.locked ? (
+        <CoachResultView result={shownResult} onResultChange={(updated) => setResult(updated)} />
+      ) : null}
     </div>
   )
 }

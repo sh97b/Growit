@@ -119,6 +119,11 @@ public class AiResult {
 		return result;
 	}
 
+	/** 더 작게 바꾼 행동(simplifiedAction)을 결과 JSON에 반영할 때만 쓴다. */
+	public void setResult(String result) {
+		this.result = result;
+	}
+
 	public String getRecordIds() {
 		return recordIds;
 	}

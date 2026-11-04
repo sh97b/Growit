@@ -1,17 +1,19 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { AiLabel } from './AiLabel'
 import { Note } from './Note'
 import { ThumbsDownIcon, ThumbsUpIcon } from './icons'
+import { ApiError } from '../lib/api'
 import {
+  simplifyCoachAction,
   submitAiResultFeedback,
   submitCoachReaction,
-  type CoachAction,
   type CoachEvidenceItem,
   type CoachResult,
   type CoachTextItem,
 } from '../lib/ai'
+import { reactionLine } from '../lib/coachReaction'
 import { formatMonthDay } from '../lib/date'
 
 export function EvidenceRow({ evidence }: { evidence: CoachEvidenceItem[] }) {
@@ -48,29 +50,71 @@ function TextItemBlock({ title, items }: { title: string; items: CoachTextItem[]
   )
 }
 
-function ActionBlock({ action, coachId, mode }: { action: CoachAction; coachId: number | null; mode: string | null }) {
-  const [reaction, setReaction] = useState<CoachResult['reaction']>(null)
+/**
+ * 다음 작은 행동(또는 복귀 행동) 카드. 해봤어요·오늘은 쉴게요는 반응만 남기는 낙관적 갱신이고,
+ * 너무 어려워요는 실제로 더 작은 행동을 받아오는 호출(POST .../simplify)이라 결과가 통째로 바뀐다.
+ * 그래서 상태를 이 컴포넌트 안에 두지 않고 result 전체를 부모에게서 받아 onResultChange로만 바꾼다.
+ */
+export function CoachActionCard({
+  result,
+  comeback,
+  onResultChange,
+}: {
+  result: CoachResult
+  comeback: boolean
+  onResultChange: (updated: CoachResult) => void
+}) {
+  const action = comeback ? result.comebackAction : result.nextAction
+  const [simplifyError, setSimplifyError] = useState<string | null>(null)
+  const reactionPendingRef = useRef(false)
+  const simplifyPendingRef = useRef(false)
+
   const reactionMutation = useMutation({
-    mutationFn: ({ value }: { value: 'TRIED' | 'REST_TODAY' | 'TOO_HARD' }) => submitCoachReaction(coachId!, value),
+    mutationFn: ({ value }: { value: 'TRIED' | 'REST_TODAY' }) => submitCoachReaction(result.id!, value),
+  })
+  const simplifyMutation = useMutation({
+    mutationFn: () => simplifyCoachAction(result.id!),
   })
 
-  function handleReaction(value: 'TRIED' | 'REST_TODAY' | 'TOO_HARD') {
-    if (!coachId || reactionMutation.isPending) return
-    const previous = reaction
-    setReaction(value)
-    reactionMutation.mutate({ value }, { onError: () => setReaction(previous) })
+  if (!action) return null
+
+  function handleReaction(value: 'TRIED' | 'REST_TODAY') {
+    if (!result.id || reactionPendingRef.current) return
+    reactionPendingRef.current = true
+    const previous = result.reaction
+    onResultChange({ ...result, reaction: value })
+    reactionMutation.mutate(
+      { value },
+      {
+        onSettled: () => {
+          reactionPendingRef.current = false
+        },
+        onError: () => onResultChange({ ...result, reaction: previous }),
+      },
+    )
+  }
+
+  function handleSimplify() {
+    if (!result.id || simplifyPendingRef.current) return
+    simplifyPendingRef.current = true
+    setSimplifyError(null)
+    simplifyMutation.mutate(undefined, {
+      onSuccess: (updated) => onResultChange(updated),
+      onError: (error) => setSimplifyError(error instanceof ApiError ? error.message : '잠시 후 다시 시도해 주세요'),
+      onSettled: () => {
+        simplifyPendingRef.current = false
+      },
+    })
   }
 
   return (
     <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-7">
-      <AiLabel>{mode === 'COMEBACK' ? '가볍게 다시 시작하려면' : '다음 작은 행동'}</AiLabel>
+      <AiLabel>{comeback ? '가볍게 다시 시작하려면' : '다음 작은 행동'}</AiLabel>
       <p className="font-serif text-lg leading-[1.55] lg:text-[24px]">{action.title}</p>
       <span className="text-sm text-ink-2">{action.minutes}분 · {action.reason}</span>
       <EvidenceRow evidence={action.evidence} />
-      {reaction ? (
-        <p className="text-sm text-ink-2">
-          {reaction === 'TRIED' ? '해봤어요' : reaction === 'REST_TODAY' ? '오늘은 쉴게요' : '더 작게 바꿨어요'}
-        </p>
+      {result.reaction === 'TRIED' || result.reaction === 'REST_TODAY' ? (
+        <p className="text-sm text-ink-2">{reactionLine(result.reaction, result.id ?? 0)}</p>
       ) : (
         <div className="flex flex-wrap gap-2">
           <button
@@ -89,32 +133,46 @@ function ActionBlock({ action, coachId, mode }: { action: CoachAction; coachId: 
           </button>
           <button
             type="button"
-            onClick={() => handleReaction('TOO_HARD')}
+            onClick={handleSimplify}
             className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]"
           >
             너무 어려워요
           </button>
         </div>
       )}
+      {simplifyError ? <Note variant="sand">{simplifyError}</Note> : null}
     </div>
   )
 }
 
-export function CoachResultView({ result }: { result: CoachResult }) {
-  const [feedback, setFeedback] = useState(result.feedback)
+export function CoachResultView({
+  result,
+  onResultChange,
+}: {
+  result: CoachResult
+  onResultChange: (updated: CoachResult) => void
+}) {
+  const feedbackPendingRef = useRef(false)
   const feedbackMutation = useMutation({
     mutationFn: ({ value }: { value: 'HELPFUL' | 'NOT_HELPFUL' }) =>
       submitAiResultFeedback<CoachResult>(result.id!, value),
   })
 
   function handleFeedback(value: 'HELPFUL' | 'NOT_HELPFUL') {
-    if (!result.id || feedbackMutation.isPending) return
-    const previous = feedback
-    setFeedback(value)
-    feedbackMutation.mutate({ value }, { onError: () => setFeedback(previous) })
+    if (!result.id || feedbackPendingRef.current) return
+    feedbackPendingRef.current = true
+    const previous = result.feedback
+    onResultChange({ ...result, feedback: value })
+    feedbackMutation.mutate(
+      { value },
+      {
+        onError: () => onResultChange({ ...result, feedback: previous }),
+        onSettled: () => {
+          feedbackPendingRef.current = false
+        },
+      },
+    )
   }
-
-  const action = result.mode === 'COMEBACK' ? result.comebackAction : result.nextAction
 
   return (
     <div className="flex flex-col gap-5">
@@ -133,11 +191,11 @@ export function CoachResultView({ result }: { result: CoachResult }) {
             <button
               type="button"
               aria-label="도움이 됐어요"
-              aria-pressed={feedback === 'HELPFUL'}
+              aria-pressed={result.feedback === 'HELPFUL'}
               onClick={() => handleFeedback('HELPFUL')}
               className={[
                 'inline-flex h-11 w-11 items-center justify-center rounded-lg border text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
-                feedback === 'HELPFUL'
+                result.feedback === 'HELPFUL'
                   ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
                   : 'border-line-2 bg-white',
               ].join(' ')}
@@ -147,11 +205,11 @@ export function CoachResultView({ result }: { result: CoachResult }) {
             <button
               type="button"
               aria-label="아쉬워요"
-              aria-pressed={feedback === 'NOT_HELPFUL'}
+              aria-pressed={result.feedback === 'NOT_HELPFUL'}
               onClick={() => handleFeedback('NOT_HELPFUL')}
               className={[
                 'inline-flex h-11 w-11 items-center justify-center rounded-lg border text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
-                feedback === 'NOT_HELPFUL'
+                result.feedback === 'NOT_HELPFUL'
                   ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
                   : 'border-line-2 bg-white',
               ].join(' ')}
@@ -165,7 +223,7 @@ export function CoachResultView({ result }: { result: CoachResult }) {
       <TextItemBlock title="새로 해 본 것 · 나아진 점" items={result.changes} />
       <TextItemBlock title="아직 남은 어려움" items={result.repeatedDifficulties} />
 
-      {action ? <ActionBlock action={action} coachId={result.id} mode={result.mode} /> : null}
+      <CoachActionCard result={result} comeback={result.mode === 'COMEBACK'} onResultChange={onResultChange} />
 
       {result.recordsRead != null ? (
         <p className="text-sm text-ink-2">기록 {result.recordsRead}개를 읽었어요</p>

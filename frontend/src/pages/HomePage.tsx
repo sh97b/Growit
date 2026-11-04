@@ -1,16 +1,15 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AiLabel } from '../components/AiLabel'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Band } from '../components/Card'
-import { EvidenceRow } from '../components/CoachResultView'
+import { CoachActionCard } from '../components/CoachResultView'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
 import { WeekStrip, type WeekStripDay } from '../components/WeekStrip'
 import { PlusIcon } from '../components/icons'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useHobbies } from '../hooks/useHobbies'
-import { fetchLatestCoach, submitCoachReaction, type CoachResult } from '../lib/ai'
+import { fetchLatestCoach } from '../lib/ai'
 import { ApiError } from '../lib/api'
 import { addDays, formatMonthDay, formatMonthDayWeekday, startOfWeekLocal, todayLocalDate } from '../lib/date'
 import { createRecord, fetchRecords } from '../lib/records'
@@ -134,12 +133,8 @@ function DoneBoard() {
  * 버튼만 보여준다. 홈에서는 비용 보호를 위해 AI를 새로 부르지 않고 저장된 최신 결과만 읽는다.
  */
 function HomeAiCard({ comeback }: { comeback: boolean }) {
+  const queryClient = useQueryClient()
   const { data, isLoading } = useQuery({ queryKey: ['ai', 'coach', 'latest'], queryFn: fetchLatestCoach })
-  const [reaction, setReaction] = useState<CoachResult['reaction']>(null)
-  const reactionMutation = useMutation({
-    mutationFn: ({ id, value }: { id: number; value: 'TRIED' | 'REST_TODAY' | 'TOO_HARD' }) =>
-      submitCoachReaction(id, value),
-  })
 
   if (isLoading) {
     return <Loading />
@@ -158,57 +153,14 @@ function HomeAiCard({ comeback }: { comeback: boolean }) {
     )
   }
 
-  const currentReaction = reaction ?? data.reaction
-
-  function handleReaction(value: 'TRIED' | 'REST_TODAY' | 'TOO_HARD') {
-    if (reactionMutation.isPending) return
-    const previous = currentReaction
-    setReaction(value)
-    reactionMutation.mutate({ id: data!.id!, value }, { onError: () => setReaction(previous) })
-  }
-
   return (
-    <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-7">
-      <AiLabel>{comeback ? '가볍게 다시 시작하려면' : '다음 작은 행동'}</AiLabel>
-      <p className="font-serif text-lg leading-[1.55] lg:text-[24px]">{action.title}</p>
-      <span className="text-sm text-ink-2">
-        {action.minutes}분 · {action.reason}
-      </span>
-      <EvidenceRow evidence={action.evidence} />
+    <div className="flex flex-col gap-2">
       {!comeback && data.periodSummary ? <p className="text-sm text-ink-2">{data.periodSummary}</p> : null}
-      {currentReaction ? (
-        <p className="text-sm text-ink-2">
-          {currentReaction === 'TRIED'
-            ? '해봤어요'
-            : currentReaction === 'REST_TODAY'
-              ? '오늘은 쉴게요'
-              : '더 작게 바꿨어요'}
-        </p>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => handleReaction('TRIED')}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]"
-          >
-            해봤어요
-          </button>
-          <button
-            type="button"
-            onClick={() => handleReaction('REST_TODAY')}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]"
-          >
-            오늘은 쉴게요
-          </button>
-          <button
-            type="button"
-            onClick={() => handleReaction('TOO_HARD')}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]"
-          >
-            너무 어려워요
-          </button>
-        </div>
-      )}
+      <CoachActionCard
+        result={data}
+        comeback={comeback}
+        onResultChange={(updated) => queryClient.setQueryData(['ai', 'coach', 'latest'], updated)}
+      />
     </div>
   )
 }

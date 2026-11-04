@@ -4,5 +4,6 @@ public enum AiResultType {
 	ANALYSIS,
 	WEEKLY,
 	COMPARE,
-	COACH
+	COACH,
+	SIMPLIFY
 }

@@ -97,6 +97,11 @@ export function submitCoachReaction(id: number, value: 'TRIED' | 'REST_TODAY' | 
   return apiRequest<CoachResult>(`/api/ai/results/${id}/reaction`, { method: 'PUT', body: { value } })
 }
 
+/** "너무 어려워요"를 실제로 반영한다. 결과당 1회만 되고, 성공하면 reaction이 비워져 다시 반응할 수 있다. */
+export function simplifyCoachAction(id: number) {
+  return apiRequest<CoachResult>(`/api/ai/results/${id}/simplify`, { method: 'POST' })
+}
+
 /** 홈에서는 AI를 새로 부르지 않고 이미 저장된 최신 회고만 읽는다. 없으면(204) undefined. */
 export function fetchLatestCoach() {
   return apiRequest<CoachResult | undefined>('/api/ai/results/latest?type=COACH')

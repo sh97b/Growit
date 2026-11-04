@@ -31,6 +31,7 @@ public class AiUsageService {
 	private int globalReserved;
 	private final Map<Long, Integer> userReserved = new HashMap<>();
 	private final Map<Long, Integer> analysisReserved = new HashMap<>();
+	private final Map<Long, Integer> simplifyReserved = new HashMap<>();
 
 	public AiUsageService(AiLogRepository aiLogRepository, AiProperties properties) {
 		this.aiLogRepository = aiLogRepository;
@@ -75,6 +76,16 @@ public class AiUsageService {
 							"오늘 쓸 수 있는 기록 정리 횟수를 다 썼어요. 기록은 안전하게 저장돼 있어요.");
 				}
 				analysisReserved.put(userId, reserved + 1);
+			} else if (type == AiResultType.SIMPLIFY) {
+				long userSimplifyOk = aiLogRepository.countByUserAndStateAndResultTypesSince(
+						userId, AiLogState.OK.name(), List.of(AiResultType.SIMPLIFY.name()), startOfDay);
+				int reserved = simplifyReserved.getOrDefault(userId, 0);
+				if (userSimplifyOk + reserved >= properties.getSimplifyUserDailyLimit()) {
+					recordLimitLog(userId, type);
+					throw new ApiException(ErrorCode.AI_LIMIT_EXCEEDED,
+							"오늘 더 작게 바꿀 수 있는 횟수를 다 썼어요. 기록은 안전하게 저장돼 있어요.");
+				}
+				simplifyReserved.put(userId, reserved + 1);
 			}
 
 			globalReserved++;
@@ -89,6 +100,8 @@ public class AiUsageService {
 				userReserved.computeIfPresent(userId, (id, count) -> Math.max(0, count - 1));
 			} else if (type == AiResultType.ANALYSIS) {
 				analysisReserved.computeIfPresent(userId, (id, count) -> Math.max(0, count - 1));
+			} else if (type == AiResultType.SIMPLIFY) {
+				simplifyReserved.computeIfPresent(userId, (id, count) -> Math.max(0, count - 1));
 			}
 		}
 	}
@@ -108,6 +121,7 @@ public class AiUsageService {
 			globalReserved = 0;
 			userReserved.clear();
 			analysisReserved.clear();
+			simplifyReserved.clear();
 		}
 	}
 
