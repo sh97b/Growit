@@ -6,14 +6,24 @@ import { EvidenceChip } from '../components/EvidenceChip'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
 import { Tag } from '../components/Tag'
-import { ChevronLeftIcon, ChevronRightIcon, PencilIcon, PlusIcon, RefreshIcon, TrashIcon, XIcon } from '../components/icons'
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  PencilIcon,
+  PlusIcon,
+  RefreshIcon,
+  ThumbsDownIcon,
+  ThumbsUpIcon,
+  TrashIcon,
+  XIcon,
+} from '../components/icons'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useHobbies } from '../hooks/useHobbies'
 import { useDeleteRecord, useEditAnalysisTags, useReanalyzeRecord, useRecord, useSubmitAnalysisFeedback } from '../hooks/useRecords'
 import { ApiError } from '../lib/api'
 import { formatMonthDay } from '../lib/date'
 import { FEELINGS } from '../lib/recordForm'
-import type { RecordDetail } from '../lib/records'
+import type { RecordAnalysis, RecordDetail } from '../lib/records'
 
 const TAG_MAX_LENGTH = 12
 const TAGS_MAX_COUNT = 3
@@ -143,6 +153,62 @@ export function RecordDetailPage() {
   )
 }
 
+function ChangeBlock({ record, analysis }: { record: RecordDetail; analysis: RecordAnalysis }) {
+  const feedback = useSubmitAnalysisFeedback()
+  const change = analysis.change
+  if (!change) return null
+
+  function handleChangeFeedback(value: 'HELPFUL' | 'NOT_HELPFUL') {
+    feedback.mutate({ id: record.id, payload: { change: value } })
+  }
+
+  return (
+    <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-6">
+      <AiLabel>달라진 점</AiLabel>
+      <p className="font-serif text-lg leading-[1.55]">{change.text}</p>
+      <div>
+        <EvidenceChip record={change.evidence} />
+      </div>
+      <div className="flex items-center justify-between gap-3 border-t border-[color-mix(in_srgb,var(--color-base)_28%,white)] pt-2">
+        <span className="text-sm text-ink">이 한 줄이 도움됐나요?</span>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            aria-label="도움이 됐어요"
+            aria-pressed={analysis.changeFeedback === 'HELPFUL'}
+            disabled={feedback.isPending}
+            onClick={() => handleChangeFeedback('HELPFUL')}
+            className={[
+              'inline-flex h-11 w-11 items-center justify-center rounded-lg border bg-white text-ink',
+              analysis.changeFeedback === 'HELPFUL' ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]' : 'border-line-2',
+            ].join(' ')}
+          >
+            <ThumbsUpIcon width={20} height={20} />
+          </button>
+          <button
+            type="button"
+            aria-label="아쉬워요"
+            aria-pressed={analysis.changeFeedback === 'NOT_HELPFUL'}
+            disabled={feedback.isPending}
+            onClick={() => handleChangeFeedback('NOT_HELPFUL')}
+            className={[
+              'inline-flex h-11 w-11 items-center justify-center rounded-lg border bg-white text-ink',
+              analysis.changeFeedback === 'NOT_HELPFUL' ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]' : 'border-line-2',
+            ].join(' ')}
+          >
+            <ThumbsDownIcon width={20} height={20} />
+          </button>
+        </div>
+      </div>
+      {feedback.isError ? (
+        <Note variant="sand">
+          {feedback.error instanceof ApiError ? feedback.error.message : '잠시 후 다시 시도해 주세요'}
+        </Note>
+      ) : null}
+    </div>
+  )
+}
+
 function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnabled: boolean }) {
   const reanalyze = useReanalyzeRecord()
   const feedback = useSubmitAnalysisFeedback()
@@ -152,6 +218,7 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
   const [tagDrafts, setTagDrafts] = useState<string[]>([])
   const [newTagInput, setNewTagInput] = useState('')
   const [tagsError, setTagsError] = useState<string | null>(null)
+  const [tagsFeedbackError, setTagsFeedbackError] = useState<string | null>(null)
 
   if (record.aiStatus === 'PENDING') {
     return (
@@ -255,13 +322,34 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
     )
   }
 
+  function handleConfirm() {
+    setTagsFeedbackError(null)
+    feedback.mutate(
+      { id: record.id, payload: { tags: 'CONFIRMED' } },
+      {
+        onSuccess: () => setTagsEditOpen(false),
+        onError: (mutationError) =>
+          setTagsFeedbackError(mutationError instanceof ApiError ? mutationError.message : '잠시 후 다시 시도해 주세요'),
+      },
+    )
+  }
+
   function handleDispute() {
-    feedback.mutate({ id: record.id, payload: { tags: 'DISPUTED' } })
-    openTagsEdit()
+    setTagsFeedbackError(null)
+    feedback.mutate(
+      { id: record.id, payload: { tags: 'DISPUTED' } },
+      {
+        onSuccess: () => openTagsEdit(),
+        onError: (mutationError) =>
+          setTagsFeedbackError(mutationError instanceof ApiError ? mutationError.message : '잠시 후 다시 시도해 주세요'),
+      },
+    )
   }
 
   return (
     <div className="flex flex-col gap-3">
+      <ChangeBlock record={record} analysis={analysis} />
+
       <AiLabel>AI 정리</AiLabel>
 
       {analysis.tags.length > 0 ? (
@@ -274,44 +362,60 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm text-ink-2">태그가 맞나요?</span>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          aria-pressed={analysis.tagsFeedback === 'CONFIRMED'}
-          className={analysis.tagsFeedback === 'CONFIRMED' ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]' : ''}
-          disabled={feedback.isPending}
-          onClick={() => feedback.mutate({ id: record.id, payload: { tags: 'CONFIRMED' } })}
-        >
-          맞아요
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          aria-pressed={analysis.tagsFeedback === 'DISPUTED'}
-          className={analysis.tagsFeedback === 'DISPUTED' ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]' : ''}
-          disabled={feedback.isPending}
-          onClick={handleDispute}
-        >
-          달라요
-        </Button>
-        {!tagsEditOpen ? (
+      {analysis.tagsFeedback === 'EDITED' && !tagsEditOpen ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-ink-2">내가 고친 태그예요</span>
           <button
             type="button"
             onClick={openTagsEdit}
             className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink underline underline-offset-4"
           >
-            태그 고치기
+            다시 고치기
           </button>
-        ) : null}
-        {analysis.tagsFeedback === 'EDITED' ? <span className="text-sm text-ink-2">태그를 고쳤어요</span> : null}
-      </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-ink-2">태그가 맞나요?</span>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            aria-pressed={analysis.tagsFeedback === 'CONFIRMED'}
+            className={analysis.tagsFeedback === 'CONFIRMED' ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]' : ''}
+            disabled={feedback.isPending}
+            onClick={handleConfirm}
+          >
+            맞아요
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            aria-pressed={analysis.tagsFeedback === 'DISPUTED'}
+            className={analysis.tagsFeedback === 'DISPUTED' ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]' : ''}
+            disabled={feedback.isPending}
+            onClick={handleDispute}
+          >
+            달라요
+          </Button>
+          {!tagsEditOpen ? (
+            <button
+              type="button"
+              onClick={openTagsEdit}
+              className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink underline underline-offset-4"
+            >
+              태그 고치기
+            </button>
+          ) : null}
+          {analysis.tagsFeedback === 'CONFIRMED' ? <span className="text-sm text-ink-2">이대로 둘게요</span> : null}
+        </div>
+      )}
+
+      {tagsFeedbackError ? <Note variant="sand">{tagsFeedbackError}</Note> : null}
 
       {tagsEditOpen ? (
         <div className="flex flex-col gap-3 rounded-2xl bg-surface p-[18px]">
+          {analysis.tagsFeedback === 'DISPUTED' ? <p className="text-sm font-medium text-ink">어떻게 고칠까요?</p> : null}
           <div className="flex flex-wrap gap-2">
             {tagDrafts.map((tag, index) => (
               <button
@@ -338,6 +442,7 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
                   }}
                   placeholder="태그 추가"
                   maxLength={TAG_MAX_LENGTH}
+                  autoFocus
                   className="h-11 w-28 rounded-lg border border-input bg-white px-3 text-sm text-ink outline-none"
                 />
                 <button

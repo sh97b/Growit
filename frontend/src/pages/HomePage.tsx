@@ -84,6 +84,8 @@ export function HomePage() {
       {state === 'off' ? <AiOffBoard /> : null}
 
       {state === 'done' || state === 'off' ? <RecentWeekStrip /> : null}
+
+      {state !== 'first' ? <RecentRecords /> : null}
     </div>
   )
 }
@@ -214,6 +216,59 @@ function ComebackBoard() {
 
       {restedWeek ? <Note variant="calm">이번 주는 쉬어 간 주예요. 쉬는 시간도 흐름의 일부예요.</Note> : null}
     </>
+  )
+}
+
+function RecentRecords() {
+  const listQuery = useQuery({ queryKey: ['records', 'home-recent'], queryFn: () => fetchRecords({ size: 3 }) })
+  const { data: hobbies } = useHobbies(true)
+
+  if (listQuery.isLoading) {
+    return <Loading />
+  }
+
+  if (listQuery.isError || !listQuery.data || listQuery.data.items.length === 0) {
+    return null
+  }
+
+  const hobbyNameById = new Map((hobbies ?? []).map((hobby) => [hobby.id, hobby.name]))
+  const today = todayLocalDate()
+
+  return (
+    <div className="flex flex-col gap-3">
+      <h2 className="font-serif text-lg font-semibold">최근 기록</h2>
+      <div className="flex flex-col">
+        {listQuery.data.items.map((record) => {
+          const firstTag = record.analysis?.tags[0]
+          const isToday = record.recordDate === today
+          return (
+            <Link
+              key={record.id}
+              to={`/records/${record.id}`}
+              className="flex flex-col gap-1.5 border-t border-line py-4 text-ink no-underline last:border-b"
+            >
+              <span className="flex items-center justify-between gap-2">
+                <span className="text-[13px] font-semibold text-ink-2">
+                  {isToday ? '오늘' : formatMonthDay(record.recordDate)} · {hobbyNameById.get(record.hobbyId) ?? ''}
+                </span>
+                {firstTag ? (
+                  <span className="inline-flex h-6 flex-none items-center rounded-md bg-tag-topic-bg px-2 text-xs font-medium text-tag-topic-fg">
+                    {firstTag}
+                  </span>
+                ) : null}
+              </span>
+              <p className="truncate font-serif text-lg text-ink">{record.content}</p>
+            </Link>
+          )
+        })}
+      </div>
+      <Link
+        to="/records"
+        className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink underline underline-offset-4"
+      >
+        지난 기록 모두 보기
+      </Link>
+    </div>
   )
 }
 

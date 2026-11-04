@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { Button } from './Button'
 import { AiLabel } from './AiLabel'
 import { EvidenceChip } from './EvidenceChip'
@@ -9,13 +9,12 @@ import { CheckIcon, RefreshIcon, ThumbsDownIcon, ThumbsUpIcon } from './icons'
 import { ApiError } from '../lib/api'
 import { formatMonthDay } from '../lib/date'
 import { useReanalyzeRecord, useSubmitAnalysisFeedback } from '../hooks/useRecords'
-import { fetchRecord, type RecordDetail } from '../lib/records'
+import type { RecordDetail } from '../lib/records'
 
 const POLL_TIMEOUT_MS = 30_000
-const POLL_INTERVAL_MS = 2000
 
 export function RecordSavedPanel({
-  record: initialRecord,
+  record,
   hobbyName,
   isFirstRecord,
   onHome,
@@ -39,16 +38,9 @@ export function RecordSavedPanel({
   const feedbackMutation = useSubmitAnalysisFeedback()
   const reanalyzeMutation = useReanalyzeRecord()
 
-  const { data: record = initialRecord } = useQuery({
-    queryKey: ['records', initialRecord.id],
-    queryFn: () => fetchRecord(initialRecord.id),
-    initialData: initialRecord,
-    refetchInterval: (query) => {
-      if (query.state.data?.aiStatus !== 'PENDING') return false
-      return Date.now() < deadlineRef.current! ? POLL_INTERVAL_MS : false
-    },
-  })
-
+  // record는 부모(RecordSavedPage)의 useRecord(id)가 폴링하며 계속 갱신해 주는 값을 그대로 받는다.
+  // 여기서 따로 같은 키로 또 폴링을 돌리면(과거에 그랬다) 두 폴러가 서로 다른 타임아웃을 들고
+  // 따로 움직여 분석이 실제로 끝났는데도 이 화면만 멈춰 보이는 문제가 생길 수 있어 없앴다.
   useEffect(() => {
     if (record.aiStatus !== 'PENDING') return
     const remaining = deadlineRef.current! - Date.now()
@@ -166,6 +158,11 @@ export function RecordSavedPanel({
             >
               기록 상세에서 AI 결과 고치기
             </button>
+          ) : null}
+          {feedbackMutation.isError ? (
+            <Note variant="sand">
+              {feedbackMutation.error instanceof ApiError ? feedbackMutation.error.message : '잠시 후 다시 시도해 주세요'}
+            </Note>
           ) : null}
         </div>
       ) : record.aiStatus === 'DONE' ? (
