@@ -34,7 +34,7 @@ export function ChangesPage() {
 
   const feedbackMutation = useMutation({
     mutationFn: ({ id, value }: { id: number; value: 'HELPFUL' | 'NOT_HELPFUL' }) =>
-      submitAiResultFeedback(id, value),
+      submitAiResultFeedback<CompareResult>(id, value),
   })
 
   if (userLoading || hobbiesLoading) {

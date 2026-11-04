@@ -45,6 +45,53 @@ export function fetchCompare(payload: { hobbyId: number; compareTo: CompareTo })
   return apiRequest<CompareResult>('/api/ai/compare', { method: 'POST', body: payload })
 }
 
-export function submitAiResultFeedback(id: number, value: 'HELPFUL' | 'NOT_HELPFUL') {
-  return apiRequest<CompareResult>(`/api/ai/results/${id}/feedback`, { method: 'PUT', body: { value } })
+export function submitAiResultFeedback<T>(id: number, value: 'HELPFUL' | 'NOT_HELPFUL') {
+  return apiRequest<T>(`/api/ai/results/${id}/feedback`, { method: 'PUT', body: { value } })
+}
+
+export type CoachPeriod = 'THIS_WEEK' | '2W' | '1M'
+
+export type CoachEvidenceItem = { recordId: number; recordDate: string; content: string }
+
+export type CoachTextItem = { text: string; evidence: CoachEvidenceItem[] }
+
+export type CoachAction = { title: string; minutes: number; reason: string; evidence: CoachEvidenceItem[] }
+
+export type CoachResult = {
+  locked: boolean
+  requiredCount: number | null
+  currentCount: number | null
+  id: number | null
+  mode: 'NORMAL' | 'COMEBACK' | null
+  startDate: string | null
+  endDate: string | null
+  createdAt: string | null
+  reused: boolean
+  periodSummary: string | null
+  changes: CoachTextItem[]
+  repeatedDifficulties: CoachTextItem[]
+  nextAction: CoachAction | null
+  comebackAction: CoachAction | null
+  recordsRead: number | null
+  feedback: 'HELPFUL' | 'NOT_HELPFUL' | null
+  reaction: 'TRIED' | 'REST_TODAY' | 'TOO_HARD' | null
+}
+
+export function fetchCoach(payload: { hobbyId?: number; period: CoachPeriod }) {
+  return apiRequest<CoachResult>('/api/ai/coach', { method: 'POST', body: payload })
+}
+
+export function fetchCoachResult(id: number) {
+  return apiRequest<CoachResult>(`/api/ai/results/${id}`)
+}
+
+export function fetchCoachHistory(params: { page?: number; size?: number } = {}) {
+  const query = new URLSearchParams({ type: 'COACH' })
+  if (params.page != null) query.set('page', String(params.page))
+  if (params.size != null) query.set('size', String(params.size))
+  return apiRequest<CoachResult[]>(`/api/ai/results?${query.toString()}`)
+}
+
+export function submitCoachReaction(id: number, value: 'TRIED' | 'REST_TODAY' | 'TOO_HARD') {
+  return apiRequest<CoachResult>(`/api/ai/results/${id}/reaction`, { method: 'PUT', body: { value } })
 }

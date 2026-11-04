@@ -5,10 +5,12 @@ import { OnboardingRoute } from './components/OnboardingRoute'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { ReviewSectionLayout } from './components/ReviewSectionLayout'
 import { ChangesPage } from './pages/ChangesPage'
+import { CoachHistoryDetailPage } from './pages/CoachHistoryDetailPage'
+import { CoachHistoryPage } from './pages/CoachHistoryPage'
+import { CoachPage } from './pages/CoachPage'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
 import { OnboardingPage } from './pages/OnboardingPage'
-import { PlaceholderPage } from './pages/PlaceholderPage'
 import { RecordDetailPage } from './pages/RecordDetailPage'
 import { RecordEditPage } from './pages/RecordEditPage'
 import { RecordNewPage } from './pages/RecordNewPage'
@@ -57,8 +59,10 @@ function App() {
         <Route element={<ReviewSectionLayout />}>
           <Route path="/records" element={<RecordsPage />} />
           <Route path="/changes" element={<ChangesPage />} />
-          <Route path="/coach" element={<PlaceholderPage title="AI 회고" />} />
+          <Route path="/coach" element={<CoachPage />} />
         </Route>
+        <Route path="/coach/history" element={<CoachHistoryPage />} />
+        <Route path="/coach/history/:id" element={<CoachHistoryDetailPage />} />
         <Route path="/records/new" element={<RecordNewPage />} />
         <Route path="/records/:id/saved" element={<RecordSavedPage />} />
         <Route path="/records/:id" element={<RecordDetailPage />} />
