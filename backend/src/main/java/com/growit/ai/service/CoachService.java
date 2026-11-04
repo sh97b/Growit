@@ -44,7 +44,7 @@ public class CoachService {
 	private static final int ACTION_REASON_MAX = 200;
 	private static final String PROMPT_RESOURCE_NAME = "ai-coach-system.txt";
 	/** prompts/ai-coach-system.txt를 바꿀 때마다 올린다. */
-	static final int PROMPT_VERSION = 1;
+	static final int PROMPT_VERSION = 2;
 	private static final List<String> FORBIDDEN_WORDS =
 			List.of("실력", "늘었", "향상", "잘했", "훌륭", "대단", "점수", "순위", "반드시", "오늘 안에");
 	private static final String SIMPLIFY_PROMPT_RESOURCE_NAME = "ai-simplify-system.txt";

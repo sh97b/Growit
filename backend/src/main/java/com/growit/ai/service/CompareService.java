@@ -37,7 +37,7 @@ public class CompareService {
 	private static final int INTERPRETATION_MAX = 200;
 	private static final String PROMPT_RESOURCE_NAME = "ai-compare-system.txt";
 	/** prompts/ai-compare-system.txt를 바꿀 때마다 올린다. */
-	static final int PROMPT_VERSION = 1;
+	static final int PROMPT_VERSION = 2;
 	private static final Map<String, Integer> OFFSET_DAYS =
 			Map.of("1W", 7, "2W", 14, "1M", 30, "3M", 90);
 	private static final List<String> FORBIDDEN_WORDS =

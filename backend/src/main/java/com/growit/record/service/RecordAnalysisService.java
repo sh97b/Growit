@@ -42,7 +42,7 @@ public class RecordAnalysisService {
 			List.of("실력", "늘었", "향상", "잘했", "훌륭", "대단", "점수", "순위");
 	private static final String PROMPT_RESOURCE_NAME = "record-analysis-system.txt";
 	/** prompts/record-analysis-system.txt의 내용을 바꿀 때마다 올린다. 저장된 결과가 어떤 지시문으로 만들어졌는지 추적하기 위해서다. */
-	static final int PROMPT_VERSION = 1;
+	static final int PROMPT_VERSION = 2;
 
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
