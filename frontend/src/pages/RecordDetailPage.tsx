@@ -376,28 +376,34 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
       ) : (
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-ink-2">태그가 맞나요?</span>
-          <Button
+          <button
             type="button"
-            variant="secondary"
-            size="sm"
             aria-pressed={analysis.tagsFeedback === 'CONFIRMED'}
-            className={analysis.tagsFeedback === 'CONFIRMED' ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]' : ''}
             disabled={feedback.isPending}
             onClick={handleConfirm}
+            className={[
+              'inline-flex min-h-10 items-center justify-center rounded-lg border px-4 text-sm font-medium text-ink disabled:cursor-default disabled:border-transparent disabled:bg-line disabled:text-[#5F594F]',
+              analysis.tagsFeedback === 'CONFIRMED'
+                ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
+                : 'border-line-2 bg-white',
+            ].join(' ')}
           >
             맞아요
-          </Button>
-          <Button
+          </button>
+          <button
             type="button"
-            variant="secondary"
-            size="sm"
             aria-pressed={analysis.tagsFeedback === 'DISPUTED'}
-            className={analysis.tagsFeedback === 'DISPUTED' ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]' : ''}
             disabled={feedback.isPending}
             onClick={handleDispute}
+            className={[
+              'inline-flex min-h-10 items-center justify-center rounded-lg border px-4 text-sm font-medium text-ink disabled:cursor-default disabled:border-transparent disabled:bg-line disabled:text-[#5F594F]',
+              analysis.tagsFeedback === 'DISPUTED'
+                ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
+                : 'border-line-2 bg-white',
+            ].join(' ')}
           >
             달라요
-          </Button>
+          </button>
           {!tagsEditOpen ? (
             <button
               type="button"
