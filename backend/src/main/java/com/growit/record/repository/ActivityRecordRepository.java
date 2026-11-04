@@ -66,6 +66,9 @@ public interface ActivityRecordRepository
 	List<ActivityRecord> findByUserIdAndHobbyIdAndRecordDateBetween(Long userId, Long hobbyId, LocalDate from,
 			LocalDate to);
 
+	@Query("select max(r.recordDate) from ActivityRecord r where r.userId = :userId and r.hobbyId = :hobbyId")
+	LocalDate findMaxRecordDateByUserIdAndHobbyId(@Param("userId") Long userId, @Param("hobbyId") Long hobbyId);
+
 	/** 날짜·분야별로 묶어 집계한다. 보관된 분야의 기록도 포함해서, 지난 흐름이 끊겨 보이지 않게 한다. */
 	@Query("select r.recordDate as recordDate, r.hobbyId as hobbyId, count(r) as recordCount, "
 			+ "coalesce(sum(r.minutes), 0) as totalMinutes from ActivityRecord r "

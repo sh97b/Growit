@@ -1,0 +1,374 @@
+package com.growit.ai.service;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.growit.ai.dto.AiCoachResponse;
+import com.growit.ai.dto.CoachActionResponse;
+import com.growit.ai.dto.CoachEvidence;
+import com.growit.ai.dto.CoachRequest;
+import com.growit.ai.dto.CoachTextItemResponse;
+import com.growit.ai.entity.AiResult;
+import com.growit.ai.entity.AiResultType;
+import com.growit.ai.repository.AiResultRepository;
+import com.growit.common.exception.ApiException;
+import com.growit.common.exception.ErrorCode;
+import com.growit.hobby.entity.Hobby;
+import com.growit.hobby.repository.HobbyRepository;
+import com.growit.record.entity.ActivityRecord;
+import com.growit.record.repository.ActivityRecordRepository;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class CoachService {
+
+	private static final ZoneId SERVER_ZONE = ZoneId.of("Asia/Seoul");
+	private static final int REQUIRED_RECORD_COUNT = 5;
+	private static final int MAX_INPUT_RECORDS = 30;
+	private static final int CONTENT_MAX = 300;
+	private static final int DIFFICULTY_MAX = 200;
+	private static final int COMEBACK_THRESHOLD_DAYS = 7;
+	private static final int PERIOD_SUMMARY_MAX = 200;
+	private static final int TEXT_ITEM_MAX = 200;
+	private static final int ACTION_TITLE_MAX = 40;
+	private static final int ACTION_REASON_MAX = 200;
+	private static final String PROMPT_RESOURCE_NAME = "ai-coach-system.txt";
+	/** prompts/ai-coach-system.txt를 바꿀 때마다 올린다. */
+	static final int PROMPT_VERSION = 1;
+	private static final List<String> FORBIDDEN_WORDS =
+			List.of("실력", "늘었", "향상", "잘했", "훌륭", "대단", "점수", "순위", "반드시", "오늘 안에");
+
+	private final ActivityRecordRepository activityRecordRepository;
+	private final HobbyRepository hobbyRepository;
+	private final AiResultRepository aiResultRepository;
+	private final AiCallService aiCallService;
+	private final AiResponseValidator aiResponseValidator;
+	private final ObjectMapper objectMapper;
+
+	PromptResourceLoader promptLoader = new PromptResourceLoader(PROMPT_RESOURCE_NAME);
+
+	public CoachService(ActivityRecordRepository activityRecordRepository, HobbyRepository hobbyRepository,
+			AiResultRepository aiResultRepository, AiCallService aiCallService,
+			AiResponseValidator aiResponseValidator, ObjectMapper objectMapper) {
+		this.activityRecordRepository = activityRecordRepository;
+		this.hobbyRepository = hobbyRepository;
+		this.aiResultRepository = aiResultRepository;
+		this.aiCallService = aiCallService;
+		this.aiResponseValidator = aiResponseValidator;
+		this.objectMapper = objectMapper;
+	}
+
+	@Transactional
+	public AiCoachResponse coach(Long userId, CoachRequest request) {
+		Hobby hobby = null;
+		if (request.hobbyId() != null) {
+			hobby = hobbyRepository.findByIdAndUserId(request.hobbyId(), userId)
+					.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "활동 분야를 찾을 수 없어요"));
+		}
+
+		LocalDate today = LocalDate.now(SERVER_ZONE);
+		LocalDate start = periodStart(request.period(), today);
+
+		List<ActivityRecord> periodRecords = hobby != null
+				? activityRecordRepository.findByUserIdAndHobbyIdAndRecordDateBetween(userId, hobby.getId(), start, today)
+				: activityRecordRepository.findByUserIdAndRecordDateBetween(userId, start, today);
+
+		if (periodRecords.size() < REQUIRED_RECORD_COUNT) {
+			return AiCoachResponse.locked(REQUIRED_RECORD_COUNT, periodRecords.size());
+		}
+
+		List<ActivityRecord> inputRecords = periodRecords.stream()
+				.sorted(Comparator.comparing(ActivityRecord::getRecordDate).reversed()
+						.thenComparing(Comparator.comparing(ActivityRecord::getId).reversed()))
+				.limit(MAX_INPUT_RECORDS)
+				.toList();
+
+		LocalDate lastRecordDate = hobby != null
+				? activityRecordRepository.findMaxRecordDateByUserIdAndHobbyId(userId, hobby.getId())
+				: activityRecordRepository.findMaxRecordDateByUserId(userId);
+		long daysSinceLastRecord = ChronoUnit.DAYS.between(lastRecordDate, today);
+		String mode = daysSinceLastRecord >= COMEBACK_THRESHOLD_DAYS ? "COMEBACK" : "NORMAL";
+
+		Map<Long, ActivityRecord> inputById = new LinkedHashMap<>();
+		inputRecords.forEach(r -> inputById.put(r.getId(), r));
+
+		String cacheKey = CacheKeys.sha256(PROMPT_VERSION + "|COACH|" + (hobby == null ? "ALL" : hobby.getId())
+				+ "|" + start + "|" + today + "|"
+				+ inputRecords.stream().sorted(Comparator.comparing(ActivityRecord::getId))
+						.map(r -> r.getId() + ":" + r.getUpdatedAt()).reduce("", (a, b) -> a + "," + b));
+
+		AiResult existing = aiResultRepository.findByUserIdAndCacheKey(userId, cacheKey).orElse(null);
+		if (existing != null) {
+			return toResponse(existing, true, userId);
+		}
+
+		String systemPrompt;
+		try {
+			systemPrompt = promptLoader.load();
+		} catch (java.io.IOException e) {
+			throw new ApiException(ErrorCode.AI_FAILED, "지금은 AI를 쓸 수 없어요. 기록은 안전하게 저장돼 있어요.");
+		}
+
+		List<ComparePayloadHobby> hobbies = hobby != null
+				? List.of(new ComparePayloadHobby(hobby.getName(), hobby.getGoal()))
+				: distinctHobbies(userId, inputRecords);
+
+		List<ComparePayloadRecord> payloadRecords = inputRecords.stream()
+				.map(r -> new ComparePayloadRecord(r.getId(), r.getRecordDate().toString(),
+						truncate(r.getContent(), CONTENT_MAX), truncate(r.getDifficulty(), DIFFICULTY_MAX)))
+				.toList();
+
+		CoachPayload payload = new CoachPayload(mode, hobbies, (int) daysSinceLastRecord, payloadRecords);
+
+		AiCallResult result = aiCallService.call(userId, AiResultType.COACH, systemPrompt, payload);
+		StoredCoachResult stored = validate(result.content(), mode, inputById.keySet(), inputRecords.size());
+
+		AiResult saved = new AiResult(userId, hobby == null ? null : hobby.getId(), AiResultType.COACH.name(), start,
+				today, toJson(stored), toJson(inputRecords.stream().map(ActivityRecord::getId).toList()), cacheKey,
+				PROMPT_VERSION, result.model());
+		aiResultRepository.save(saved);
+
+		return toResponse(saved, false, userId, stored, inputById);
+	}
+
+	private List<ComparePayloadHobby> distinctHobbies(Long userId, List<ActivityRecord> records) {
+		Set<Long> hobbyIds = new java.util.LinkedHashSet<>();
+		records.forEach(r -> hobbyIds.add(r.getHobbyId()));
+		List<ComparePayloadHobby> hobbies = new ArrayList<>();
+		for (Long hobbyId : hobbyIds) {
+			hobbyRepository.findByIdAndUserId(hobbyId, userId)
+					.ifPresent(h -> hobbies.add(new ComparePayloadHobby(h.getName(), h.getGoal())));
+		}
+		return hobbies;
+	}
+
+	private LocalDate periodStart(String period, LocalDate today) {
+		return switch (period) {
+			case "THIS_WEEK" -> today.minusDays(today.getDayOfWeek().getValue() - 1L);
+			case "2W" -> today.minusDays(13);
+			case "1M" -> today.minusDays(29);
+			default -> throw new ApiException(ErrorCode.VALIDATION_ERROR, "period 값이 올바르지 않아요");
+		};
+	}
+
+	private StoredCoachResult validate(String rawJson, String mode, Set<Long> allowedIds, int recordsRead) {
+		JsonNode node = aiResponseValidator.parse(rawJson);
+		aiResponseValidator.requireFields(node, "periodSummary", "changes", "repeatedDifficulties", "action");
+
+		JsonNode summaryNode = node.path("periodSummary");
+		if (!summaryNode.isTextual()) {
+			throw new ApiException(ErrorCode.AI_FAILED, "지금은 AI를 쓸 수 없어요. 기록은 안전하게 저장돼 있어요.");
+		}
+		String periodSummary = summaryNode.asText().trim();
+		if (periodSummary.isEmpty() || periodSummary.length() > PERIOD_SUMMARY_MAX
+				|| containsForbiddenWord(periodSummary)) {
+			throw new ApiException(ErrorCode.AI_FAILED, "지금은 AI를 쓸 수 없어요. 기록은 안전하게 저장돼 있어요.");
+		}
+
+		List<StoredCoachTextItem> changes = sanitizeTextItems(node.path("changes"), allowedIds);
+		List<StoredCoachTextItem> repeatedDifficulties = sanitizeTextItems(node.path("repeatedDifficulties"), allowedIds);
+		StoredCoachAction action = sanitizeAction(node.path("action"), mode, allowedIds);
+
+		StoredCoachAction nextAction = mode.equals("NORMAL") ? action : null;
+		StoredCoachAction comebackAction = mode.equals("COMEBACK") ? action : null;
+
+		return new StoredCoachResult(mode, periodSummary, changes, repeatedDifficulties, nextAction, comebackAction,
+				recordsRead);
+	}
+
+	private List<StoredCoachTextItem> sanitizeTextItems(JsonNode arrayNode, Set<Long> allowedIds) {
+		List<StoredCoachTextItem> result = new ArrayList<>();
+		if (!arrayNode.isArray()) {
+			return result;
+		}
+		for (JsonNode itemNode : arrayNode) {
+			JsonNode textNode = itemNode.path("text");
+			if (!textNode.isTextual()) {
+				continue;
+			}
+			String text = textNode.asText().trim();
+			if (text.isEmpty() || text.length() > TEXT_ITEM_MAX || containsForbiddenWord(text)) {
+				continue;
+			}
+			List<Long> ids = sanitizeIds(itemNode.path("recordIds"), allowedIds);
+			if (ids.isEmpty()) {
+				continue;
+			}
+			result.add(new StoredCoachTextItem(text, ids));
+		}
+		return result;
+	}
+
+	private StoredCoachAction sanitizeAction(JsonNode actionNode, String mode, Set<Long> allowedIds) {
+		if (actionNode.isMissingNode() || !actionNode.isObject()) {
+			return null;
+		}
+		JsonNode titleNode = actionNode.path("title");
+		JsonNode reasonNode = actionNode.path("reason");
+		if (!titleNode.isTextual()) {
+			return null;
+		}
+		String title = titleNode.asText().trim();
+		String reason = reasonNode.isTextual() ? reasonNode.asText().trim() : "";
+		if (title.isEmpty() || title.length() > ACTION_TITLE_MAX || containsForbiddenWord(title)
+				|| reason.length() > ACTION_REASON_MAX || containsForbiddenWord(reason)) {
+			return null;
+		}
+		int minutesRaw = actionNode.path("minutes").asInt(0);
+		int[] range = mode.equals("COMEBACK") ? new int[] {1, 5} : new int[] {5, 10};
+		int minutes = Math.min(Math.max(minutesRaw, range[0]), range[1]);
+		List<Long> ids = sanitizeIds(actionNode.path("recordIds"), allowedIds);
+		return new StoredCoachAction(title, minutes, reason, ids);
+	}
+
+	private List<Long> sanitizeIds(JsonNode idsNode, Set<Long> allowedIds) {
+		List<Long> result = new ArrayList<>();
+		if (!idsNode.isArray()) {
+			return result;
+		}
+		for (JsonNode idNode : idsNode) {
+			if (!idNode.canConvertToLong()) {
+				continue;
+			}
+			long id = idNode.asLong();
+			if (allowedIds.contains(id) && !result.contains(id)) {
+				result.add(id);
+			}
+		}
+		return result;
+	}
+
+	private boolean containsForbiddenWord(String text) {
+		return FORBIDDEN_WORDS.stream().anyMatch(text::contains);
+	}
+
+	private String truncate(String text, int maxLength) {
+		if (text == null) {
+			return null;
+		}
+		return text.length() > maxLength ? text.substring(0, maxLength) : text;
+	}
+
+	private String toJson(Object value) {
+		try {
+			return objectMapper.writeValueAsString(value);
+		} catch (JsonProcessingException e) {
+			throw new IllegalStateException("COACH 결과를 JSON으로 바꾸지 못함", e);
+		}
+	}
+
+	private StoredCoachResult readJson(String json) {
+		try {
+			return objectMapper.readValue(json, StoredCoachResult.class);
+		} catch (JsonProcessingException e) {
+			throw new ApiException(ErrorCode.NOT_FOUND, "저장된 결과를 읽지 못했어요");
+		}
+	}
+
+	@Transactional(readOnly = true)
+	public AiCoachResponse getById(Long userId, Long id) {
+		AiResult result = aiResultRepository.findByIdAndUserId(id, userId)
+				.filter(r -> r.getResultType().equals(AiResultType.COACH.name()))
+				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "결과를 찾을 수 없어요"));
+		return toResponse(result, true, userId);
+	}
+
+	@Transactional
+	public AiCoachResponse submitFeedback(Long userId, Long id, String value) {
+		AiResult result = aiResultRepository.findByIdAndUserId(id, userId)
+				.filter(r -> r.getResultType().equals(AiResultType.COACH.name()))
+				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "결과를 찾을 수 없어요"));
+		result.setFeedback(value);
+		return toResponse(result, true, userId);
+	}
+
+	/** nextAction의 "해봤어요·오늘은 쉴게요·너무 어려워요" 반응. 내 결과에만, 값은 그대로 저장한다. */
+	@Transactional
+	public AiCoachResponse submitReaction(Long userId, Long id, String value) {
+		AiResult result = aiResultRepository.findByIdAndUserId(id, userId)
+				.filter(r -> r.getResultType().equals(AiResultType.COACH.name()))
+				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "결과를 찾을 수 없어요"));
+		result.setReaction(value, java.time.LocalDateTime.now(SERVER_ZONE));
+		return toResponse(result, true, userId);
+	}
+
+	@Transactional(readOnly = true)
+	public List<AiCoachResponse> history(Long userId, Long hobbyId, int page, int size) {
+		var pageable = org.springframework.data.domain.PageRequest.of(page, size);
+		List<AiResult> results = hobbyId != null
+				? aiResultRepository.findByUserIdAndResultTypeAndHobbyIdOrderByCreatedAtDesc(userId,
+						AiResultType.COACH.name(), hobbyId, pageable)
+				: aiResultRepository.findByUserIdAndResultTypeOrderByCreatedAtDesc(userId, AiResultType.COACH.name(),
+						pageable);
+		return results.stream().map(r -> toResponse(r, true, userId)).toList();
+	}
+
+	@Transactional(readOnly = true)
+	public AiCoachResponse latest(Long userId) {
+		List<AiResult> results = aiResultRepository.findByUserIdAndResultTypeOrderByCreatedAtDesc(userId,
+				AiResultType.COACH.name(), org.springframework.data.domain.PageRequest.of(0, 1));
+		return results.isEmpty() ? null : toResponse(results.get(0), true, userId);
+	}
+
+	private AiCoachResponse toResponse(AiResult result, boolean reused, Long userId) {
+		StoredCoachResult stored = readJson(result.getResult());
+		return toResponse(result, reused, userId, stored, null);
+	}
+
+	private AiCoachResponse toResponse(AiResult result, boolean reused, Long userId, StoredCoachResult stored,
+			Map<Long, ActivityRecord> preloaded) {
+		return new AiCoachResponse(
+				false, null, null,
+				result.getId(),
+				stored.mode(),
+				result.getStartDate(),
+				result.getEndDate(),
+				result.getCreatedAt(),
+				reused,
+				stored.periodSummary(),
+				stored.changes().stream().map(item -> toTextItemResponse(item, userId, preloaded)).toList(),
+				stored.repeatedDifficulties().stream().map(item -> toTextItemResponse(item, userId, preloaded)).toList(),
+				toActionResponse(stored.nextAction(), userId, preloaded),
+				toActionResponse(stored.comebackAction(), userId, preloaded),
+				stored.recordsRead(),
+				result.getFeedback(),
+				result.getReaction());
+	}
+
+	private CoachTextItemResponse toTextItemResponse(StoredCoachTextItem item, Long userId,
+			Map<Long, ActivityRecord> preloaded) {
+		return new CoachTextItemResponse(item.text(), toEvidence(item.recordIds(), userId, preloaded));
+	}
+
+	private CoachActionResponse toActionResponse(StoredCoachAction action, Long userId,
+			Map<Long, ActivityRecord> preloaded) {
+		if (action == null) {
+			return null;
+		}
+		return new CoachActionResponse(action.title(), action.minutes(), action.reason(),
+				toEvidence(action.recordIds(), userId, preloaded));
+	}
+
+	private List<CoachEvidence> toEvidence(List<Long> ids, Long userId, Map<Long, ActivityRecord> preloaded) {
+		List<CoachEvidence> evidence = new ArrayList<>();
+		for (Long id : ids) {
+			ActivityRecord record = preloaded != null && preloaded.containsKey(id)
+					? preloaded.get(id)
+					: activityRecordRepository.findByIdAndUserId(id, userId).orElse(null);
+			if (record != null) {
+				evidence.add(new CoachEvidence(record.getId(), record.getRecordDate(), record.getContent()));
+			}
+		}
+		return evidence;
+	}
+}
