@@ -44,6 +44,28 @@ public interface ActivityRecordRepository
 	@Query("select max(r.recordDate) from ActivityRecord r where r.userId = :userId")
 	LocalDate findMaxRecordDateByUserId(@Param("userId") Long userId);
 
+	Optional<ActivityRecord> findFirstByUserIdAndHobbyIdOrderByRecordDateDescIdDesc(Long userId, Long hobbyId);
+
+	Optional<ActivityRecord> findFirstByUserIdAndHobbyIdAndRecordDateLessThanEqualOrderByRecordDateDescIdDesc(
+			Long userId, Long hobbyId, LocalDate recordDate);
+
+	@Query("select count(distinct r.recordDate) from ActivityRecord r "
+			+ "where r.userId = :userId and r.hobbyId = :hobbyId and r.recordDate <= :onOrBefore")
+	long countDistinctRecordDateByUserIdAndHobbyIdUpTo(@Param("userId") Long userId, @Param("hobbyId") Long hobbyId,
+			@Param("onOrBefore") LocalDate onOrBefore);
+
+	@Query("select coalesce(sum(r.minutes), 0) from ActivityRecord r "
+			+ "where r.userId = :userId and r.hobbyId = :hobbyId and r.recordDate <= :onOrBefore")
+	long sumMinutesByUserIdAndHobbyIdUpTo(@Param("userId") Long userId, @Param("hobbyId") Long hobbyId,
+			@Param("onOrBefore") LocalDate onOrBefore);
+
+	long countByUserIdAndHobbyId(Long userId, Long hobbyId);
+
+	List<ActivityRecord> findByUserIdAndRecordDateBetween(Long userId, LocalDate from, LocalDate to);
+
+	List<ActivityRecord> findByUserIdAndHobbyIdAndRecordDateBetween(Long userId, Long hobbyId, LocalDate from,
+			LocalDate to);
+
 	/** 날짜·분야별로 묶어 집계한다. 보관된 분야의 기록도 포함해서, 지난 흐름이 끊겨 보이지 않게 한다. */
 	@Query("select r.recordDate as recordDate, r.hobbyId as hobbyId, count(r) as recordCount, "
 			+ "coalesce(sum(r.minutes), 0) as totalMinutes from ActivityRecord r "
