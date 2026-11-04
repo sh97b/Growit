@@ -1,0 +1,256 @@
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useMutation } from '@tanstack/react-query'
+import { AiLabel } from '../components/AiLabel'
+import { EvidenceChip } from '../components/EvidenceChip'
+import { Loading } from '../components/Loading'
+import { Note } from '../components/Note'
+import { ThumbsDownIcon, ThumbsUpIcon } from '../components/icons'
+import { useCurrentUser } from '../hooks/useCurrentUser'
+import { useHobbies } from '../hooks/useHobbies'
+import { ApiError } from '../lib/api'
+import { fetchCompare, submitAiResultFeedback, type CompareResult, type CompareTo } from '../lib/ai'
+import { formatDurationMinutes, formatMonthDay } from '../lib/date'
+import { pickClass } from '../lib/recordForm'
+
+const PERIODS: { value: CompareTo; label: string }[] = [
+  { value: '1W', label: '1주 전' },
+  { value: '2W', label: '2주 전' },
+  { value: '1M', label: '한 달 전' },
+  { value: '3M', label: '3개월 전' },
+]
+
+export function ChangesPage() {
+  const { data: currentUser, isLoading: userLoading } = useCurrentUser()
+  const { data: activeHobbies, isLoading: hobbiesLoading } = useHobbies(false)
+  const [hobbyId, setHobbyId] = useState<number | null>(null)
+  const [compareTo, setCompareTo] = useState<CompareTo>('1M')
+  const [result, setResult] = useState<CompareResult | null>(null)
+
+  const mutation = useMutation({
+    mutationFn: () => fetchCompare({ hobbyId: hobbyId!, compareTo }),
+    onSuccess: (data) => setResult(data),
+  })
+
+  const feedbackMutation = useMutation({
+    mutationFn: ({ id, value }: { id: number; value: 'HELPFUL' | 'NOT_HELPFUL' }) =>
+      submitAiResultFeedback(id, value),
+  })
+
+  if (userLoading || hobbiesLoading) {
+    return <Loading />
+  }
+
+  const hobby = activeHobbies?.find((h) => h.id === hobbyId) ?? activeHobbies?.[0] ?? null
+  const effectiveHobbyId = hobbyId ?? hobby?.id ?? null
+
+  if (!currentUser?.aiEnabled) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className="font-serif text-xl font-semibold lg:text-[26px]">나의 변화</h1>
+        <Note variant="calm">
+          <span>
+            AI 정리가 꺼져 있어요. 켜면 기록을 비교해 달라진 점을 보여드려요.{' '}
+            <Link to="/settings/ai" className="font-medium text-base-ink underline underline-offset-4">
+              켜기
+            </Link>
+          </span>
+        </Note>
+      </div>
+    )
+  }
+
+  if (!activeHobbies || activeHobbies.length === 0) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className="font-serif text-xl font-semibold lg:text-[26px]">나의 변화</h1>
+        <Note variant="calm">활동 분야를 먼저 만들어 주세요.</Note>
+      </div>
+    )
+  }
+
+  function handleFeedback(value: 'HELPFUL' | 'NOT_HELPFUL') {
+    if (!result?.id || feedbackMutation.isPending) return
+    setResult((prev) => (prev ? { ...prev, feedback: value } : prev))
+    feedbackMutation.mutate(
+      { id: result.id, value },
+      {
+        onError: () => setResult((prev) => (prev ? { ...prev, feedback: result.feedback } : prev)),
+      },
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-5 lg:max-w-[920px]">
+      <h1 className="font-serif text-xl font-semibold lg:text-[26px]">나의 변화</h1>
+
+      <div className="flex flex-wrap gap-2">
+        {activeHobbies.map((h) => (
+          <button
+            key={h.id}
+            type="button"
+            aria-pressed={effectiveHobbyId === h.id}
+            onClick={() => {
+              setHobbyId(h.id)
+              setResult(null)
+            }}
+            className={pickClass(effectiveHobbyId === h.id)}
+          >
+            {h.name}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {PERIODS.map((period) => (
+          <button
+            key={period.value}
+            type="button"
+            aria-pressed={compareTo === period.value}
+            onClick={() => {
+              setCompareTo(period.value)
+              setResult(null)
+            }}
+            className={pickClass(compareTo === period.value)}
+          >
+            {period.label}
+          </button>
+        ))}
+      </div>
+
+      {!result ? (
+        <button
+          type="button"
+          disabled={mutation.isPending || effectiveHobbyId == null}
+          onClick={() => mutation.mutate()}
+          className="inline-flex min-h-11 w-fit items-center justify-center rounded-lg bg-base px-5 text-[15px] font-medium text-white disabled:bg-line disabled:text-[#5F594F]"
+        >
+          변화 보기
+        </button>
+      ) : null}
+
+      {mutation.isPending ? (
+        <div className="flex flex-col gap-3.5 rounded-2xl bg-surface p-7">
+          <AiLabel>기록을 천천히 읽고 있어요</AiLabel>
+          <div className="h-3.5 w-[80%] animate-pulse rounded-full bg-rest" />
+          <div className="h-3.5 w-full animate-pulse rounded-full bg-rest" />
+        </div>
+      ) : null}
+
+      {mutation.isError ? (
+        <div className="flex flex-col gap-3">
+          <Note variant="sand">
+            {mutation.error instanceof ApiError ? mutation.error.message : '잠시 후 다시 시도해 주세요'}
+          </Note>
+          <button
+            type="button"
+            onClick={() => mutation.mutate()}
+            className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink underline underline-offset-4"
+          >
+            다시 받기
+          </button>
+        </div>
+      ) : null}
+
+      {result?.locked ? (
+        <div className="flex flex-col items-start gap-3 rounded-2xl bg-surface p-7">
+          <p className="text-ink">기록이 3개 쌓이면 비교가 열려요</p>
+          <p className="text-sm font-medium text-ink-2">{result.currentCount ?? 0}/{result.requiredCount ?? 3}</p>
+          <Link to="/records/new" className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink underline underline-offset-4">
+            기록하기
+          </Link>
+        </div>
+      ) : null}
+
+      {result && !result.locked ? (
+        <div className="flex flex-col gap-5">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {result.pastRecord ? (
+              <div className="flex flex-col gap-2 rounded-xl border border-line bg-white p-4">
+                <span className="text-[13px] font-semibold text-ink-2">
+                  {result.pastDate ? formatMonthDay(result.pastDate) : ''} 전후
+                </span>
+                <p className="font-serif text-lg text-ink">{result.pastRecord.content}</p>
+              </div>
+            ) : null}
+            {result.currentRecord ? (
+              <div className="flex flex-col gap-2 rounded-xl border border-line bg-white p-4">
+                <span className="text-[13px] font-semibold text-ink-2">
+                  최근 · {result.currentDate ? formatMonthDay(result.currentDate) : ''}
+                </span>
+                <p className="font-serif text-lg text-ink">{result.currentRecord.content}</p>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-7">
+            <AiLabel>변화 해석</AiLabel>
+            <p className="font-serif text-lg leading-[1.55]">{result.interpretation}</p>
+            <div className="flex flex-wrap gap-2">
+              {result.pastRecord ? <EvidenceChip record={result.pastRecord} /> : null}
+              {result.currentRecord ? <EvidenceChip record={result.currentRecord} /> : null}
+            </div>
+            <div className="flex items-center justify-between gap-3 border-t border-[color-mix(in_srgb,var(--color-base)_28%,white)] pt-2">
+              <span className="text-sm text-ink">이 해석이 맞나요?</span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  aria-label="도움이 됐어요"
+                  aria-pressed={result.feedback === 'HELPFUL'}
+                  onClick={() => handleFeedback('HELPFUL')}
+                  className={[
+                    'inline-flex h-11 w-11 items-center justify-center rounded-lg border text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
+                    result.feedback === 'HELPFUL'
+                      ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
+                      : 'border-line-2 bg-white',
+                  ].join(' ')}
+                >
+                  <ThumbsUpIcon width={20} height={20} />
+                </button>
+                <button
+                  type="button"
+                  aria-label="아쉬워요"
+                  aria-pressed={result.feedback === 'NOT_HELPFUL'}
+                  onClick={() => handleFeedback('NOT_HELPFUL')}
+                  className={[
+                    'inline-flex h-11 w-11 items-center justify-center rounded-lg border text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
+                    result.feedback === 'NOT_HELPFUL'
+                      ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
+                      : 'border-line-2 bg-white',
+                  ].join(' ')}
+                >
+                  <ThumbsDownIcon width={20} height={20} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {result.metrics ? (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="flex flex-col gap-1 rounded-xl bg-surface p-4">
+                <span className="text-sm text-ink-2">기록한 날</span>
+                <span className="font-serif text-lg text-ink">
+                  {result.metrics.recordedDays.past}일 → {result.metrics.recordedDays.current}일
+                </span>
+              </div>
+              <div className="flex flex-col gap-1 rounded-xl bg-surface p-4">
+                <span className="text-sm text-ink-2">쌓인 시간</span>
+                <span className="font-serif text-lg text-ink">
+                  {formatDurationMinutes(result.metrics.totalMinutes.past)} → {formatDurationMinutes(result.metrics.totalMinutes.current)}
+                </span>
+              </div>
+            </div>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={() => setResult(null)}
+            className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink underline underline-offset-4"
+          >
+            다시 비교하기
+          </button>
+        </div>
+      ) : null}
+    </div>
+  )
+}

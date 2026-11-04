@@ -37,6 +37,14 @@ export function addDays(isoDate: string, amount: number): string {
   return formatLocalDate(date)
 }
 
+export function formatDurationMinutes(totalMinutes: number): string {
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  if (hours === 0) return `${minutes}분`
+  if (minutes === 0) return `${hours}시간`
+  return `${hours}시간 ${minutes}분`
+}
+
 export function startOfWeekLocal(date: Date): string {
   const day = date.getDay()
   const diffToMonday = day === 0 ? -6 : 1 - day

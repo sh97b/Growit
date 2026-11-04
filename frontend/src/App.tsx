@@ -4,6 +4,7 @@ import { GuestRoute } from './components/GuestRoute'
 import { OnboardingRoute } from './components/OnboardingRoute'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { ReviewSectionLayout } from './components/ReviewSectionLayout'
+import { ChangesPage } from './pages/ChangesPage'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
 import { OnboardingPage } from './pages/OnboardingPage'
@@ -55,7 +56,7 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route element={<ReviewSectionLayout />}>
           <Route path="/records" element={<RecordsPage />} />
-          <Route path="/changes" element={<PlaceholderPage title="나의 변화" />} />
+          <Route path="/changes" element={<ChangesPage />} />
           <Route path="/coach" element={<PlaceholderPage title="AI 회고" />} />
         </Route>
         <Route path="/records/new" element={<RecordNewPage />} />
