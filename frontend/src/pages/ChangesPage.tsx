@@ -5,6 +5,7 @@ import { AiLabel } from '../components/AiLabel'
 import { EvidenceChip } from '../components/EvidenceChip'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
+import { RecordPairCards } from '../components/RecordPairCards'
 import { ThumbsDownIcon, ThumbsUpIcon } from '../components/icons'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useHobbies } from '../hooks/useHobbies'
@@ -166,24 +167,18 @@ export function ChangesPage() {
 
       {result && !result.locked ? (
         <div className="flex flex-col gap-5">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {result.pastRecord ? (
-              <div className="flex flex-col gap-2 rounded-xl border border-line bg-white p-4">
-                <span className="text-[13px] font-semibold text-ink-2">
-                  {result.pastDate ? formatMonthDay(result.pastDate) : ''} 전후
-                </span>
-                <p className="font-serif text-lg text-ink">{result.pastRecord.content}</p>
-              </div>
-            ) : null}
-            {result.currentRecord ? (
-              <div className="flex flex-col gap-2 rounded-xl border border-line bg-white p-4">
-                <span className="text-[13px] font-semibold text-ink-2">
-                  최근 · {result.currentDate ? formatMonthDay(result.currentDate) : ''}
-                </span>
-                <p className="font-serif text-lg text-ink">{result.currentRecord.content}</p>
-              </div>
-            ) : null}
-          </div>
+          <RecordPairCards
+            left={
+              result.pastRecord
+                ? { id: result.pastRecord.id, label: `${result.pastDate ? formatMonthDay(result.pastDate) : ''} 전후`, content: result.pastRecord.content }
+                : null
+            }
+            right={
+              result.currentRecord
+                ? { id: result.currentRecord.id, label: `최근 · ${result.currentDate ? formatMonthDay(result.currentDate) : ''}`, content: result.currentRecord.content }
+                : null
+            }
+          />
 
           <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-7">
             <AiLabel>변화 해석</AiLabel>
