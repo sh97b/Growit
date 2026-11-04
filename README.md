@@ -117,7 +117,7 @@ Growit은 새로운 걸 배우거나 취미를 키울 때, **눈에 띄는 변�
 | `users` | 회원 정보 |
 | `hobbies` | 활동 분야와 목표 한 줄 |
 | `records` | 활동 기록 (한 일, 시간, 어려웠던 점, 느낌, 의미 있는 순간, AI 정리 결과) |
-| `ai_results` | AI 결과 (WEEKLY, COMPARE, COACH). 같은 입력이면 재사용 |
+| `ai_results` | AI 결과 (WEEKLY, COMPARE, COACH). 같은 입력이면 재사용(`cache_key`), 어떤 지시문 버전·모델이 만들었는지(`prompt_version`, `model`)와 사용자 피드백·반응(`feedback`, `reaction`)도 함께 저장 |
 | `ai_logs` | AI 호출 기록 (한도 계산, 성공률·응답 속도 측정) |
 
 ---
@@ -135,10 +135,10 @@ Growit은 새로운 걸 배우거나 취미를 키울 때, **눈에 띄는 변�
 - [ ] 프로젝트 세팅과 배포 환경 (빈 앱 배포)
 - [ ] 활동 분야·기록 CRUD
 - [ ] 홈, 기록 작성, 기록 모아보기
-- [x] AI 공통 모듈 (호출, 한도, 로그, 검증) — ai_results 결과 재사용(cache_key)은 나의 변화·AI 회고와 함께 추가 예정
+- [x] AI 공통 모듈 (호출, 한도, 로그, 검증)
 - [x] 기록 정리
-- [ ] 나의 변화
-- [ ] AI 회고
+- [x] 나의 변화 (/changes, `POST /api/ai/compare`)
+- [x] AI 회고 (/coach, /coach/history, `POST /api/ai/coach`), 홈 AI 카드
 - [x] 로그인·회원가입
 - [ ] 베타 오픈, 사용자 테스트, 설문
 - [ ] 최종 발표
