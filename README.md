@@ -66,6 +66,7 @@ Growit은 새로운 걸 배우거나 취미를 키울 때, **눈에 띄는 변�
 | 주간 한 줄 요약 | 홈 | 이번 주 기록과 정리 결과 | 한 줄 요약과 근거 기록 | `ai_results` (WEEKLY) | 하루 첫 접속 시 1회, 같은 기록이면 재사용 |
 | 변화 비교 해석 | 나의 변화 | 그때와 오늘의 기록, 정리 결과, 느낌 | 달라진 점의 짧은 해석과 근거 기록 | `ai_results` (COMPARE) | 비교 요청 시, 같은 기록이면 재사용 |
 | AI 회고 | AI 회고, 홈 | 선택 기간의 기록, 정리 결과, 목표, 마지막 기록 후 경과 일수 | 기간 요약, 반복되는 어려움, 다음 작은 행동, 복귀 제안, 근거 기록 | `ai_results` (COACH) | 회고 요청 시, 같은 기록이면 재사용 |
+| 다음 행동 더 작게 바꾸기 | AI 회고, 홈 | 원래 다음 행동과 근거 기록(최대 5개) | 1~3분짜리 더 작은 행동 하나 | `ai_results.result`의 `simplifiedAction` (결과당 1회) | "너무 어려워요" 반응 시 (`POST /api/ai/results/{id}/simplify`) |
 
 ### AI 호출 흐름과 안정성
 1. 요청 → 로그인 확인 → 해당 기간 기록 조회
@@ -117,7 +118,7 @@ Growit은 새로운 걸 배우거나 취미를 키울 때, **눈에 띄는 변�
 | `users` | 회원 정보 |
 | `hobbies` | 활동 분야와 목표 한 줄 |
 | `records` | 활동 기록 (한 일, 시간, 어려웠던 점, 느낌, 의미 있는 순간, AI 정리 결과) |
-| `ai_results` | AI 결과 (WEEKLY, COMPARE, COACH). 같은 입력이면 재사용(`cache_key`), 어떤 지시문 버전·모델이 만들었는지(`prompt_version`, `model`)와 사용자 피드백·반응(`feedback`, `reaction`)도 함께 저장 |
+| `ai_results` | AI 결과 (WEEKLY, COMPARE, COACH). 같은 입력이면 재사용(`cache_key`), 어떤 지시문 버전·모델이 만들었는지(`prompt_version`, `model`)와 사용자 피드백·반응(`feedback`, `reaction`)도 함께 저장. COACH는 "너무 어려워요"로 더 작게 바꾼 행동을 결과 JSON의 `simplifiedAction`에 보관(원래 행동은 그대로 둠)하고, 홈 카드를 어떻게 보여줄지는 `reaction`·`reacted_at`·생성일로 서버가 매번 계산(`cardState`: ACTIVE·CELEBRATE·RESTING·EXPIRED) |
 | `ai_logs` | AI 호출 기록 (한도 계산, 성공률·응답 속도 측정) |
 
 ---
