@@ -121,9 +121,12 @@ class CorsIntegrationTest {
 				Arguments.of("/api/ai/usage", "GET"),
 				Arguments.of("/api/ai/compare", "POST"),
 				Arguments.of("/api/ai/coach", "POST"),
+				Arguments.of("/api/ai/weekly", "POST"),
+				Arguments.of("/api/ai/metrics", "POST"),
 				Arguments.of("/api/ai/results/1", "GET"),
 				Arguments.of("/api/ai/results/1/feedback", "PUT"),
 				Arguments.of("/api/ai/results/1/reaction", "PUT"),
+				Arguments.of("/api/ai/results/1/text", "PATCH"),
 				Arguments.of("/api/ai/results", "GET"),
 				Arguments.of("/api/ai/results/latest", "GET"),
 				Arguments.of("/api/ai/results/1/simplify", "POST"));

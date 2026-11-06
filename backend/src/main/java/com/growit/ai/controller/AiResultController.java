@@ -3,11 +3,15 @@ package com.growit.ai.controller;
 import com.growit.ai.dto.AiCoachResponse;
 import com.growit.ai.dto.AiResultFeedbackRequest;
 import com.growit.ai.dto.AiResultReactionRequest;
+import com.growit.ai.dto.AiResultTextEditRequest;
+import com.growit.ai.dto.AiViewResponse;
 import com.growit.ai.entity.AiResult;
 import com.growit.ai.entity.AiResultType;
 import com.growit.ai.repository.AiResultRepository;
 import com.growit.ai.service.CoachService;
 import com.growit.ai.service.CompareService;
+import com.growit.ai.service.MetricsService;
+import com.growit.ai.service.WeeklyService;
 import com.growit.auth.security.CurrentUserProvider;
 import com.growit.common.exception.ApiException;
 import com.growit.common.exception.ErrorCode;
@@ -22,6 +26,7 @@ import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -36,19 +41,25 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/ai/results")
 public class AiResultController {
 
-	private static final Set<String> VALID_FEEDBACK = Set.of("HELPFUL", "NOT_HELPFUL");
+	private static final Set<String> VALID_FEEDBACK =
+			Set.of("HELPFUL", "NOT_HELPFUL", "CONFIRMED", "DISPUTED");
 	private static final Set<String> VALID_REACTION = Set.of("TRIED", "REST_TODAY", "TOO_HARD");
 
 	private final AiResultRepository aiResultRepository;
 	private final CompareService compareService;
 	private final CoachService coachService;
+	private final WeeklyService weeklyService;
+	private final MetricsService metricsService;
 	private final CurrentUserProvider currentUserProvider;
 
 	public AiResultController(AiResultRepository aiResultRepository, CompareService compareService,
-			CoachService coachService, CurrentUserProvider currentUserProvider) {
+			CoachService coachService, WeeklyService weeklyService, MetricsService metricsService,
+			CurrentUserProvider currentUserProvider) {
 		this.aiResultRepository = aiResultRepository;
 		this.compareService = compareService;
 		this.coachService = coachService;
+		this.weeklyService = weeklyService;
+		this.metricsService = metricsService;
 		this.currentUserProvider = currentUserProvider;
 	}
 
@@ -86,16 +97,23 @@ public class AiResultController {
 		if (type.equals(AiResultType.COACH.name())) {
 			return coachService.getById(userId, id);
 		}
+		if (type.equals(AiResultType.WEEKLY.name())) {
+			return weeklyService.getById(userId, id);
+		}
+		if (type.equals(AiResultType.METRICS.name())) {
+			return metricsService.getById(userId, id);
+		}
 		throw new ApiException(ErrorCode.NOT_FOUND, "결과를 찾을 수 없어요");
 	}
 
-	@Operation(summary = "AI 결과 해석에 대한 피드백 (HELPFUL 또는 NOT_HELPFUL, 내 것만)")
+	@Operation(summary = "AI 결과 해석에 대한 피드백 (HELPFUL·NOT_HELPFUL·CONFIRMED·DISPUTED, 내 것만)")
 	@ApiResponse(responseCode = "404", description = "내 결과가 아니거나 없음",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@PutMapping("/{id}/feedback")
 	public Object submitFeedback(@PathVariable Long id, @RequestBody AiResultFeedbackRequest request) {
 		if (!VALID_FEEDBACK.contains(request.value())) {
-			throw new ApiException(ErrorCode.VALIDATION_ERROR, "value는 HELPFUL 또는 NOT_HELPFUL이어야 해요");
+			throw new ApiException(ErrorCode.VALIDATION_ERROR,
+					"value는 HELPFUL·NOT_HELPFUL·CONFIRMED·DISPUTED 중 하나여야 해요");
 		}
 		Long userId = currentUserProvider.getCurrentUserId();
 		String type = resultTypeOf(userId, id);
@@ -104,6 +122,32 @@ public class AiResultController {
 		}
 		if (type.equals(AiResultType.COACH.name())) {
 			return coachService.submitFeedback(userId, id, request.value());
+		}
+		if (type.equals(AiResultType.WEEKLY.name())) {
+			return weeklyService.submitFeedback(userId, id, request.value());
+		}
+		if (type.equals(AiResultType.METRICS.name())) {
+			return metricsService.submitFeedback(userId, id, request.value());
+		}
+		throw new ApiException(ErrorCode.NOT_FOUND, "결과를 찾을 수 없어요");
+	}
+
+	/** 내가 고친 문장을 editedText로 저장하고(원문 보존) feedback을 EDITED로 바꾼다. WEEKLY·METRICS만 지원한다. */
+	@Operation(summary = "AI 한 줄 고치기 (1~80자, WEEKLY·METRICS만, 내 것만)")
+	@ApiResponse(responseCode = "404", description = "내 결과가 아니거나 없음",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@PatchMapping("/{id}/text")
+	public AiViewResponse editText(@PathVariable Long id, @RequestBody AiResultTextEditRequest request) {
+		if (request.text() == null || request.text().isBlank() || request.text().length() > 80) {
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, "text는 1~80자여야 해요");
+		}
+		Long userId = currentUserProvider.getCurrentUserId();
+		String type = resultTypeOf(userId, id);
+		if (type.equals(AiResultType.WEEKLY.name())) {
+			return weeklyService.editText(userId, id, request.text().trim());
+		}
+		if (type.equals(AiResultType.METRICS.name())) {
+			return metricsService.editText(userId, id, request.text().trim());
 		}
 		throw new ApiException(ErrorCode.NOT_FOUND, "결과를 찾을 수 없어요");
 	}

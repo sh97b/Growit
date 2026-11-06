@@ -22,6 +22,8 @@ public class AiUsageService {
 	private static final ZoneId SERVER_ZONE = ZoneId.of("Asia/Seoul");
 	private static final List<String> USER_LIMITED_TYPES = List.of(
 			AiResultType.COMPARE.name(), AiResultType.COACH.name());
+	private static final List<String> VIEW_LIMITED_TYPES = List.of(
+			AiResultType.WEEKLY.name(), AiResultType.METRICS.name());
 
 	private final AiLogRepository aiLogRepository;
 	private final AiProperties properties;
@@ -32,6 +34,7 @@ public class AiUsageService {
 	private final Map<Long, Integer> userReserved = new HashMap<>();
 	private final Map<Long, Integer> analysisReserved = new HashMap<>();
 	private final Map<Long, Integer> simplifyReserved = new HashMap<>();
+	private final Map<Long, Integer> viewReserved = new HashMap<>();
 
 	public AiUsageService(AiLogRepository aiLogRepository, AiProperties properties) {
 		this.aiLogRepository = aiLogRepository;
@@ -86,6 +89,16 @@ public class AiUsageService {
 							"오늘 더 작게 바꿀 수 있는 횟수를 다 썼어요. 기록은 안전하게 저장돼 있어요.");
 				}
 				simplifyReserved.put(userId, reserved + 1);
+			} else if (VIEW_LIMITED_TYPES.contains(type.name())) {
+				long userViewOk = aiLogRepository.countByUserAndStateAndResultTypesSince(
+						userId, AiLogState.OK.name(), VIEW_LIMITED_TYPES, startOfDay);
+				int reserved = viewReserved.getOrDefault(userId, 0);
+				if (userViewOk + reserved >= properties.getViewUserDailyLimit()) {
+					recordLimitLog(userId, type);
+					throw new ApiException(ErrorCode.AI_LIMIT_EXCEEDED,
+							"오늘 쓸 수 있는 AI 횟수를 다 썼어요. 기록은 안전하게 저장돼 있어요. 내일 다시 써 보세요.");
+				}
+				viewReserved.put(userId, reserved + 1);
 			}
 
 			globalReserved++;
@@ -102,6 +115,8 @@ public class AiUsageService {
 				analysisReserved.computeIfPresent(userId, (id, count) -> Math.max(0, count - 1));
 			} else if (type == AiResultType.SIMPLIFY) {
 				simplifyReserved.computeIfPresent(userId, (id, count) -> Math.max(0, count - 1));
+			} else if (VIEW_LIMITED_TYPES.contains(type.name())) {
+				viewReserved.computeIfPresent(userId, (id, count) -> Math.max(0, count - 1));
 			}
 		}
 	}
@@ -122,6 +137,7 @@ public class AiUsageService {
 			userReserved.clear();
 			analysisReserved.clear();
 			simplifyReserved.clear();
+			viewReserved.clear();
 		}
 	}
 
