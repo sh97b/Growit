@@ -3,6 +3,7 @@ package com.growit.auth.config;
 import com.growit.auth.security.JwtAuthenticationEntryPoint;
 import com.growit.auth.security.JwtAuthenticationFilter;
 import com.growit.auth.security.JwtTokenProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -32,9 +33,10 @@ public class SecurityConfig {
 			"/swagger-ui.html"
 	};
 
+	/** 비용(cost)은 설정값으로 받는다. 로그인 성공 시 저장된 해시의 비용이 더 낮으면 새 비용으로 다시 저장한다. */
 	@Bean
-	public PasswordEncoder passwordEncoder() {
-		return new BCryptPasswordEncoder();
+	public PasswordEncoder passwordEncoder(@Value("${app.password.bcrypt-cost:10}") int bcryptCost) {
+		return new BCryptPasswordEncoder(bcryptCost);
 	}
 
 	@Bean

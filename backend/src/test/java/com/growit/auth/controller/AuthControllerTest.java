@@ -59,11 +59,11 @@ class AuthControllerTest {
 	}
 
 	@Test
-	void signup_shortPassword_returnsValidationError() throws Exception {
+	void signup_blankPassword_returnsValidationError() throws Exception {
 		mockMvc.perform(post("/api/auth/signup")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(
-								new SignupRequest("growit_user@example.com", "short"))))
+								new SignupRequest("growit_user@example.com", ""))))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code", is("VALIDATION_ERROR")));
 	}

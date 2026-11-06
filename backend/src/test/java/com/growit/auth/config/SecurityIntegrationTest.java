@@ -42,12 +42,12 @@ class SecurityIntegrationTest {
 		String email = localPart + "@example.com";
 		mockMvc.perform(post("/api/auth/signup")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"email\":\"" + email + "\",\"password\":\"password1234\"}"))
+						.content("{\"email\":\"" + email + "\",\"password\":\"Gr0wit-Journal9\"}"))
 				.andExpect(status().isCreated());
 
 		MvcResult result = mockMvc.perform(post("/api/auth/login")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"email\":\"" + email + "\",\"password\":\"password1234\"}"))
+						.content("{\"email\":\"" + email + "\",\"password\":\"Gr0wit-Journal9\"}"))
 				.andExpect(status().isOk())
 				.andReturn();
 

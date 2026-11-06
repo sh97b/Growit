@@ -28,6 +28,8 @@ app:
   jwt:
     secret: ${JWT_SECRET}
     expiration-days: ${JWT_EXPIRATION_DAYS:7}
+  password:
+    bcrypt-cost: ${PASSWORD_BCRYPT_COST:10}
   swagger:
     enabled: ${SWAGGER_ENABLED:false}
   ai:
