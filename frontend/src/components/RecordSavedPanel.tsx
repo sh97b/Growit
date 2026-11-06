@@ -3,14 +3,15 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from './Button'
 import { AiLabel } from './AiLabel'
+import { ChangeFeedbackRow } from './ChangeFeedbackRow'
 import { EvidenceChip } from './EvidenceChip'
 import { Note } from './Note'
 import { RecordPairCards } from './RecordPairCards'
-import { CheckIcon, RefreshIcon, ThumbsDownIcon, ThumbsUpIcon } from './icons'
+import { CheckIcon, RefreshIcon } from './icons'
 import { ApiError } from '../lib/api'
 import { formatMonthDay } from '../lib/date'
-import { useReanalyzeRecord, useSubmitAnalysisFeedback } from '../hooks/useRecords'
-import { fetchRecord, type RecordDetail } from '../lib/records'
+import { useReanalyzeRecord } from '../hooks/useRecords'
+import { fetchRecord, type RecordAnalysis, type RecordDetail } from '../lib/records'
 
 const COMPARISON_CONTENT_MAX = 120
 
@@ -38,7 +39,6 @@ export function RecordSavedPanel({
     deadlineRef.current = Date.now() + POLL_TIMEOUT_MS
   }
   const [timedOut, setTimedOut] = useState(false)
-  const feedbackMutation = useSubmitAnalysisFeedback()
   const reanalyzeMutation = useReanalyzeRecord()
 
   // 같은 분야의 직전 기록이 있으면 AI를 기다리지 않고 바로 비교 카드를 보여준다(디자인에 없는 추가).
@@ -75,11 +75,6 @@ export function RecordSavedPanel({
     }
   }
 
-  function handleChangeFeedback(value: 'HELPFUL' | 'NOT_HELPFUL') {
-    if (feedbackMutation.isPending) return
-    feedbackMutation.mutate({ id: record.id, payload: { change: value } })
-  }
-
   const showFailed = record.aiStatus === 'FAILED' || (record.aiStatus === 'PENDING' && timedOut)
 
   const header = (
@@ -108,86 +103,60 @@ export function RecordSavedPanel({
     </div>
   )
 
-  const changeBlock =
-    record.aiStatus === 'DONE' && record.analysis?.change ? (
-      <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-7">
-        <AiLabel>달라진 점</AiLabel>
-        <p className="font-serif text-lg leading-[1.55] lg:text-[24px]">{record.analysis.change.text}</p>
-        <div>
-          <EvidenceChip record={record.analysis.change.evidence} />
-        </div>
-        <div className="flex items-center justify-between gap-3 border-t border-[color-mix(in_srgb,var(--color-base)_28%,white)] pt-2">
-          <span className="text-sm text-ink">이 한 줄이 도움됐나요?</span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              aria-label="도움이 됐어요"
-              aria-pressed={record.analysis.changeFeedback === 'HELPFUL'}
-              onClick={() => handleChangeFeedback('HELPFUL')}
-              className={[
-                'inline-flex h-11 w-11 items-center justify-center rounded-lg border text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
-                record.analysis.changeFeedback === 'HELPFUL'
-                  ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
-                  : 'border-line-2 bg-white',
-              ].join(' ')}
-            >
-              <ThumbsUpIcon width={20} height={20} />
-            </button>
-            <button
-              type="button"
-              aria-label="아쉬워요"
-              aria-pressed={record.analysis.changeFeedback === 'NOT_HELPFUL'}
-              onClick={() => handleChangeFeedback('NOT_HELPFUL')}
-              className={[
-                'inline-flex h-11 w-11 items-center justify-center rounded-lg border text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
-                record.analysis.changeFeedback === 'NOT_HELPFUL'
-                  ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
-                  : 'border-line-2 bg-white',
-              ].join(' ')}
-            >
-              <ThumbsDownIcon width={20} height={20} />
-            </button>
-          </div>
-        </div>
-        {record.analysis.changeFeedback === 'NOT_HELPFUL' ? (
-          <button
-            type="button"
-            onClick={onViewDetail}
-            className="inline-flex min-h-11 w-fit items-center gap-1.5 self-start text-sm font-medium text-base-ink underline underline-offset-4"
-          >
-            기록 상세에서 AI 결과 고치기
-          </button>
-        ) : null}
-        {feedbackMutation.isError ? (
-          <Note variant="sand">
-            {feedbackMutation.error instanceof ApiError ? feedbackMutation.error.message : '잠시 후 다시 시도해 주세요'}
-          </Note>
-        ) : null}
+  const change = record.aiStatus === 'DONE' ? (record.analysis?.change ?? null) : null
+
+  // 비교 카드가 없을 때(직전 기록이 없음)만 쓰는, 근거 칩이 딸린 온전한 "달라진 점" 카드.
+  const changeBlock = change ? (
+    <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-7">
+      <AiLabel>달라진 점</AiLabel>
+      <p className="font-serif text-lg leading-[1.55] lg:text-[24px]">{change.text}</p>
+      <div>
+        <EvidenceChip record={change.evidence} />
       </div>
-    ) : null
+      <ChangeFeedbackRow record={record} analysis={record.analysis as RecordAnalysis} onNotHelpfulAction={onViewDetail} />
+    </div>
+  ) : null
+
+  // 비교 카드가 이미 같은 근거 기록을 보여주므로, 여기서는 AI 문장과 피드백만 두고 근거 칩은 만들지 않는다.
+  const changeSentenceBlock = (
+    <div className={['grid-collapse', change ? '' : 'is-collapsed'].join(' ')}>
+      <div>
+        <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-7">
+          <AiLabel>달라진 점</AiLabel>
+          {change ? <p className="font-serif text-lg leading-[1.55] lg:text-[24px]">{change.text}</p> : null}
+          {change ? (
+            <ChangeFeedbackRow record={record} analysis={record.analysis as RecordAnalysis} onNotHelpfulAction={onViewDetail} />
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
 
   // 같은 분야의 직전 기록이 있으면: AI를 기다리지 않고 비교 카드를 바로 보여주고, AI는 도착하면 위에
   // 한 줄로 얹는다. 실패·시간 초과·꺼짐·달라진 점 없음은 비교 카드가 이미 있으니 조용히 사라진다
   // (화면이 완전히 비어 보이는 "실패" 모양은 비교 카드가 없을 때만 쓴다).
   if (previousId != null) {
+    // change가 있으면 비교 카드의 왼쪽을 그 근거 기록으로 바꾸고 라벨도 "지난번" 대신 날짜로 바꾼다
+    // (AI 문장 쪽에 이미 같은 근거 칩이 있어 아래 비교 카드와 중복으로 보이지 않게).
+    const leftSource = change ? change.evidence : previousQuery.data
+    const left = leftSource
+      ? {
+          id: leftSource.id,
+          label: change ? formatMonthDay(leftSource.recordDate) : `지난번 · ${formatMonthDay(leftSource.recordDate)}`,
+          content: leftSource.content,
+          maxLength: COMPARISON_CONTENT_MAX,
+        }
+      : null
+
     return (
       <div className="flex flex-col gap-6 lg:max-w-[760px]">
         {header}
 
-        {changeBlock}
+        {changeSentenceBlock}
 
-        {!previousQuery.isLoading ? (
+        {!previousQuery.isLoading || change ? (
           <RecordPairCards
-            left={
-              previousQuery.data
-                ? {
-                    id: previousQuery.data.id,
-                    label: `지난번 · ${formatMonthDay(previousQuery.data.recordDate)}`,
-                    content: previousQuery.data.content,
-                    maxLength: COMPARISON_CONTENT_MAX,
-                  }
-                : null
-            }
+            left={left}
             right={{
               label: `오늘 · ${formatMonthDay(record.recordDate)}`,
               content: record.content,

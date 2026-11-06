@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AiLabel } from '../components/AiLabel'
 import { Button } from '../components/Button'
+import { ChangeFeedbackRow } from '../components/ChangeFeedbackRow'
 import { EvidenceChip } from '../components/EvidenceChip'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
@@ -12,8 +13,6 @@ import {
   PencilIcon,
   PlusIcon,
   RefreshIcon,
-  ThumbsDownIcon,
-  ThumbsUpIcon,
   TrashIcon,
   XIcon,
 } from '../components/icons'
@@ -153,15 +152,13 @@ export function RecordDetailPage() {
   )
 }
 
+/**
+ * "아쉬워요" 안내 링크를 따로 두지 않는다. 같은 페이지 아래에 태그 맞아요/달라요·태그 고치기
+ * 영역이 이미 보이므로, 저장 직후 화면과 달리 여기서 또 안내 링크를 만들면 중복이 된다.
+ */
 function ChangeBlock({ record, analysis }: { record: RecordDetail; analysis: RecordAnalysis }) {
-  const feedback = useSubmitAnalysisFeedback()
   const change = analysis.change
   if (!change) return null
-
-  function handleChangeFeedback(value: 'HELPFUL' | 'NOT_HELPFUL') {
-    if (feedback.isPending) return
-    feedback.mutate({ id: record.id, payload: { change: value } })
-  }
 
   return (
     <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-6">
@@ -170,44 +167,7 @@ function ChangeBlock({ record, analysis }: { record: RecordDetail; analysis: Rec
       <div>
         <EvidenceChip record={change.evidence} />
       </div>
-      <div className="flex items-center justify-between gap-3 border-t border-[color-mix(in_srgb,var(--color-base)_28%,white)] pt-2">
-        <span className="text-sm text-ink">이 한 줄이 도움됐나요?</span>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            aria-label="도움이 됐어요"
-            aria-pressed={analysis.changeFeedback === 'HELPFUL'}
-            onClick={() => handleChangeFeedback('HELPFUL')}
-            className={[
-              'inline-flex h-11 w-11 items-center justify-center rounded-lg border text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
-              analysis.changeFeedback === 'HELPFUL'
-                ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
-                : 'border-line-2 bg-white',
-            ].join(' ')}
-          >
-            <ThumbsUpIcon width={20} height={20} />
-          </button>
-          <button
-            type="button"
-            aria-label="아쉬워요"
-            aria-pressed={analysis.changeFeedback === 'NOT_HELPFUL'}
-            onClick={() => handleChangeFeedback('NOT_HELPFUL')}
-            className={[
-              'inline-flex h-11 w-11 items-center justify-center rounded-lg border text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
-              analysis.changeFeedback === 'NOT_HELPFUL'
-                ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
-                : 'border-line-2 bg-white',
-            ].join(' ')}
-          >
-            <ThumbsDownIcon width={20} height={20} />
-          </button>
-        </div>
-      </div>
-      {feedback.isError ? (
-        <Note variant="sand">
-          {feedback.error instanceof ApiError ? feedback.error.message : '잠시 후 다시 시도해 주세요'}
-        </Note>
-      ) : null}
+      <ChangeFeedbackRow record={record} analysis={analysis} />
     </div>
   )
 }

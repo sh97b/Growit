@@ -77,5 +77,20 @@ select:focus-visible {
   * {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
+}
+
+/* 높이가 있는 콘텐츠를 부드럽게 접고 펴는 데 쓰는 grid 트릭(JS로 높이를 재지 않아도 된다). */
+.grid-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 200ms ease;
+}
+.grid-collapse.is-collapsed {
+  grid-template-rows: 0fr;
+}
+.grid-collapse > div {
+  overflow: hidden;
+  min-height: 0;
 }
