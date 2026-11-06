@@ -107,3 +107,36 @@ export function simplifyCoachAction(id: number) {
 export function fetchLatestCoach() {
   return apiRequest<CoachResult | undefined>('/api/ai/results/latest?type=COACH')
 }
+
+export type AiViewResult = {
+  locked: boolean
+  requiredWeeks: number | null
+  currentWeeks: number | null
+  empty: boolean
+  id: number | null
+  startDate: string | null
+  endDate: string | null
+  createdAt: string | null
+  reused: boolean
+  text: string | null
+  editedText: string | null
+  displayText: string | null
+  evidence: CompareRecordCard[]
+  feedback: 'CONFIRMED' | 'DISPUTED' | 'EDITED' | null
+}
+
+export function fetchWeeklyOneLiner(payload: { weekStart: string; hobbyId?: number }) {
+  return apiRequest<AiViewResult>('/api/ai/weekly', { method: 'POST', body: payload })
+}
+
+export function fetchMetricsInterpretation(payload: { hobbyId?: number; from: string; to: string }) {
+  return apiRequest<AiViewResult>('/api/ai/metrics', { method: 'POST', body: payload })
+}
+
+export function submitViewFeedback(id: number, value: 'CONFIRMED' | 'DISPUTED') {
+  return apiRequest<AiViewResult>(`/api/ai/results/${id}/feedback`, { method: 'PUT', body: { value } })
+}
+
+export function editViewText(id: number, text: string) {
+  return apiRequest<AiViewResult>(`/api/ai/results/${id}/text`, { method: 'PATCH', body: { text } })
+}

@@ -85,7 +85,12 @@ export function ChangesPage() {
 
   return (
     <div className="flex flex-col gap-5 lg:max-w-[920px]">
-      <h1 className="font-serif text-xl font-semibold lg:text-[26px]">나의 변화</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="font-serif text-xl font-semibold lg:text-[26px]">나의 변화</h1>
+        <Link to="/changes/metrics" className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink no-underline underline underline-offset-4">
+          변화 지표 상세 보기
+        </Link>
+      </div>
 
       <div className="flex flex-wrap gap-2">
         {activeHobbies.map((h) => (

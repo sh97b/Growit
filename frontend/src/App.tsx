@@ -10,6 +10,7 @@ import { CoachHistoryPage } from './pages/CoachHistoryPage'
 import { CoachPage } from './pages/CoachPage'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
+import { MetricsDetailPage } from './pages/MetricsDetailPage'
 import { OnboardingPage } from './pages/OnboardingPage'
 import { PrivacyPage } from './pages/PrivacyPage'
 import { RecordDetailPage } from './pages/RecordDetailPage'
@@ -19,6 +20,7 @@ import { RecordSavedPage } from './pages/RecordSavedPage'
 import { RecordsPage } from './pages/RecordsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { SignupPage } from './pages/SignupPage'
+import { WeekDetailPage } from './pages/WeekDetailPage'
 import { AiPage } from './pages/settings/AiPage'
 import { DeleteAccountPage } from './pages/settings/DeleteAccountPage'
 import { HobbiesPage } from './pages/settings/HobbiesPage'
@@ -67,6 +69,8 @@ function App() {
         </Route>
         <Route path="/coach/history" element={<CoachHistoryPage />} />
         <Route path="/coach/history/:id" element={<CoachHistoryDetailPage />} />
+        <Route path="/changes/metrics" element={<MetricsDetailPage />} />
+        <Route path="/weeks/:weekStart" element={<WeekDetailPage />} />
         <Route path="/records/new" element={<RecordNewPage />} />
         <Route path="/records/:id/saved" element={<RecordSavedPage />} />
         <Route path="/records/:id" element={<RecordDetailPage />} />

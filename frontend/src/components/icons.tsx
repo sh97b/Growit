@@ -120,6 +120,14 @@ export function ChevronRightIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function RestIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M20 14A8 8 0 019.5 4 8 8 0 1020 14z" />
+    </Icon>
+  )
+}
+
 export function RefreshIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>
