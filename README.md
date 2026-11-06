@@ -115,7 +115,7 @@ Growit은 새로운 걸 배우거나 취미를 키울 때, **눈에 띄는 변�
 
 | 테이블 | 설명 |
 |---|---|
-| `users` | 회원 정보 |
+| `users` | 회원 정보. `token_version`을 비밀번호를 바꿀 때마다 올려, 그 전에 발급된 토큰(다른 기기 포함)을 무효화한다 |
 | `hobbies` | 활동 분야와 목표 한 줄 |
 | `records` | 활동 기록 (한 일, 시간, 어려웠던 점, 느낌, 의미 있는 순간, AI 정리 결과) |
 | `ai_results` | AI 결과 (WEEKLY, COMPARE, COACH). 같은 입력이면 재사용(`cache_key`), 어떤 지시문 버전·모델이 만들었는지(`prompt_version`, `model`)와 사용자 피드백·반응(`feedback`, `reaction`)도 함께 저장. COACH는 "너무 어려워요"로 더 작게 바꾼 행동을 결과 JSON의 `simplifiedAction`에 보관(원래 행동은 그대로 둠)하고, 홈 카드를 어떻게 보여줄지는 `reaction`·`reacted_at`·생성일로 서버가 매번 계산(`cardState`: ACTIVE·CELEBRATE·RESTING·EXPIRED) |
@@ -184,6 +184,14 @@ npm run dev
 ### 5) AI 설정
 
 `AI_API_KEY`, `AI_MODEL`이 비어 있으면 AI 기능은 꺼진 상태로 서버가 정상 시작한다(호출 시 `AI_FAILED`). IntelliJ 실행 설정에 `AI_API_KEY`, `AI_MODEL`을 입력하면 켜진다. 나머지 설정(`AI_BASE_URL`, `AI_TIMEOUT_SECONDS`, `AI_MAX_OUTPUT_TOKENS`, `AI_MAX_CONCURRENCY`, `AI_USER_DAILY_LIMIT`, `AI_GLOBAL_DAILY_LIMIT`, `AI_ANALYSIS_USER_DAILY_LIMIT`)은 `.env.example`을 참고한다. 여러 명이 같이 쓰는 공용 키라 호출 한도는 낮게 시작하고, 실제 한도(과금 계획, rate limit)를 확인한 뒤 조정한다. 로그인 후 `GET /api/ai/usage`로 내 사용량을 확인할 수 있다.
+
+### 6) 계정 보안
+
+- **비밀번호 정책**: 최소 8자(유니코드 문자 수)·최대 72바이트(UTF-8, BCrypt가 72바이트까지만 읽음), 흔한 비밀번호(`backend/src/main/resources/password-blocklist.txt`, 500개 이상) 차단, 이메일 포함/일치·한 글자 반복·순서대로 이어지는 비밀번호 차단. 가입(`POST /api/auth/signup`)과 비밀번호 변경(`PATCH /api/users/me/password`)이 같은 규칙(`PasswordPolicy`)을 쓴다.
+- **BCrypt 비용**: `PASSWORD_BCRYPT_COST`(기본 10). 올리면 다음 로그인부터 기존 사용자의 해시도 새 비용으로 자동으로 다시 저장된다.
+- **로그인 시도 제한**: 같은 이메일로 10분 안에 5번, 같은 IP로 10분 안에 30번 실패하면 5분 동안 막는다(메모리 기반, 서버 재시작하면 초기화됨). 막히면 `429 LOGIN_LOCKED`와 `Retry-After` 헤더를 돌려준다. 서버 배포에서는 Nginx도 `/api/auth/` 요청을 IP당 분당 10건(버스트 10)으로 따로 제한한다.
+- **계정 삭제**: `DELETE /api/users/me {password}` — 비밀번호 확인 후 내 AI 결과·기록·활동 분야·계정을 한 번에 지운다(되돌릴 수 없음).
+- 프론트 계정 메뉴(`/settings`)에 "비밀번호 바꾸기"(`/settings/password`)와 "계정 삭제"(`/settings/delete`)가 있다. 가입·로그인 화면 하단의 "개인정보 처리방침"은 로그인 없이 볼 수 있는 `/privacy` 페이지로 연결된다.
 
 ## 10. 폴더 구조
 
