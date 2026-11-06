@@ -1,3 +1,8 @@
+# 로그인 시도 제한(백엔드의 이메일·IP 집계)이 기대는 실제 클라이언트 IP를 nginx가 꼭 쥐고 있어야 해서,
+# 요청에 X-Forwarded-For가 이미 있어도(위조 가능) 덧붙이지 않고 $remote_addr로 덮어쓴다(아래 모든 location).
+# 이 nginx가 유일한 진입점(단일 인스턴스, 앞에 다른 프록시 없음)이라 안전하다.
+limit_req_zone $binary_remote_addr zone=auth_zone:10m rate=10r/m;
+
 server {
     listen 80;
     server_name ${DOMAIN};
@@ -12,11 +17,23 @@ server {
     ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
 
+    # 인증 주소만 따로 더 촘촘히 막는다(가입·로그인 폭주 방지). IP당 분당 10건, 버스트 10까지 대기 없이 바로 처리하고
+    # 그 이상은 429로 거절한다(기본은 503이라 명시적으로 바꿔 둠).
+    location /api/auth/ {
+        limit_req zone=auth_zone burst=10 nodelay;
+        limit_req_status 429;
+        proxy_pass http://backend:8080/api/auth/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     location /api/ {
         proxy_pass http://backend:8080/api/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
@@ -26,7 +43,7 @@ server {
         proxy_pass http://backend:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
@@ -34,7 +51,7 @@ server {
         proxy_pass http://backend:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
@@ -42,7 +59,7 @@ server {
         proxy_pass http://backend:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 

@@ -83,7 +83,7 @@ class AuthControllerTest {
 
 	@Test
 	void login_success_returnsToken() throws Exception {
-		given(authService.login(any())).willReturn(new LoginResponse("jwt-token"));
+		given(authService.login(any(), any())).willReturn(new LoginResponse("jwt-token"));
 
 		mockMvc.perform(post("/api/auth/login")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -96,7 +96,7 @@ class AuthControllerTest {
 	@Test
 	void login_wrongPassword_returnsUnauthorized() throws Exception {
 		willThrow(new ApiException(ErrorCode.UNAUTHORIZED, "이메일 또는 비밀번호가 맞지 않아요"))
-				.given(authService).login(any());
+				.given(authService).login(any(), any());
 
 		mockMvc.perform(post("/api/auth/login")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -104,5 +104,20 @@ class AuthControllerTest {
 								new LoginRequest("growit_user@example.com", "wrong-password"))))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.code", is("UNAUTHORIZED")));
+	}
+
+	@Test
+	void login_locked_returnsTooManyRequestsWithRetryAfter() throws Exception {
+		willThrow(new ApiException(ErrorCode.LOGIN_LOCKED, "로그인 시도가 너무 많아요. 잠시 후 다시 시도해 주세요", 120L))
+				.given(authService).login(any(), any());
+
+		mockMvc.perform(post("/api/auth/login")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(
+								new LoginRequest("growit_user@example.com", "wrong-password"))))
+				.andExpect(status().isTooManyRequests())
+				.andExpect(jsonPath("$.code", is("LOGIN_LOCKED")))
+				.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+						.string("Retry-After", "120"));
 	}
 }

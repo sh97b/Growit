@@ -8,11 +8,13 @@ import com.growit.auth.dto.LoginResponse;
 import com.growit.auth.dto.SignupRequest;
 import com.growit.auth.dto.SignupResponse;
 import com.growit.auth.security.JwtTokenProvider;
+import com.growit.auth.security.LoginAttemptLimiter;
 import com.growit.auth.security.PasswordPolicy;
 import com.growit.common.exception.ApiException;
 import com.growit.common.exception.ErrorCode;
 import com.growit.user.entity.User;
 import com.growit.user.repository.UserRepository;
+import java.time.Clock;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
@@ -31,8 +33,11 @@ class AuthServiceTest {
 	private final JwtTokenProvider jwtTokenProvider = new JwtTokenProvider(TEST_SECRET, 7);
 	private final PasswordPolicy passwordPolicy = new PasswordPolicy();
 
+	private static final String TEST_IP = "203.0.113.1";
+
 	private AuthService authService() {
-		return new AuthService(userRepository, passwordEncoder, jwtTokenProvider, passwordPolicy, 10);
+		return new AuthService(userRepository, passwordEncoder, jwtTokenProvider, passwordPolicy,
+				new LoginAttemptLimiter(Clock.systemUTC()), 10);
 	}
 
 	@Test
@@ -73,7 +78,7 @@ class AuthServiceTest {
 		AuthService service = authService();
 		service.signup(new SignupRequest("growit_user@example.com", "Gr0wit-Journal9"));
 
-		LoginResponse response = service.login(new LoginRequest("growit_user@example.com", "Gr0wit-Journal9"));
+		LoginResponse response = service.login(new LoginRequest("growit_user@example.com", "Gr0wit-Journal9"), TEST_IP);
 
 		assertThat(response.accessToken()).isNotBlank();
 		assertThat(jwtTokenProvider.parseUserId(response.accessToken())).isPresent();
@@ -84,7 +89,7 @@ class AuthServiceTest {
 		AuthService service = authService();
 		service.signup(new SignupRequest("growit_user@example.com", "Gr0wit-Journal9"));
 
-		LoginResponse response = service.login(new LoginRequest("Growit_User@Example.com", "Gr0wit-Journal9"));
+		LoginResponse response = service.login(new LoginRequest("Growit_User@Example.com", "Gr0wit-Journal9"), TEST_IP);
 
 		assertThat(response.accessToken()).isNotBlank();
 	}
@@ -94,7 +99,7 @@ class AuthServiceTest {
 		AuthService service = authService();
 		service.signup(new SignupRequest("growit_user@example.com", "Gr0wit-Journal9"));
 
-		assertThatThrownBy(() -> service.login(new LoginRequest("growit_user@example.com", "wrong-password")))
+		assertThatThrownBy(() -> service.login(new LoginRequest("growit_user@example.com", "wrong-password"), TEST_IP))
 				.isInstanceOfSatisfying(ApiException.class,
 						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.UNAUTHORIZED));
 	}
@@ -103,7 +108,7 @@ class AuthServiceTest {
 	void login_unknownEmail_throwsUnauthorized() {
 		AuthService service = authService();
 
-		assertThatThrownBy(() -> service.login(new LoginRequest("nobody@example.com", "Gr0wit-Journal9")))
+		assertThatThrownBy(() -> service.login(new LoginRequest("nobody@example.com", "Gr0wit-Journal9"), TEST_IP))
 				.isInstanceOfSatisfying(ApiException.class,
 						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.UNAUTHORIZED));
 	}
@@ -114,9 +119,9 @@ class AuthServiceTest {
 		User user = new User("growit_user@example.com", lowCostEncoder.encode("Gr0wit-Journal9"), "growit_user");
 		userRepository.save(user);
 		String oldHash = user.getPasswordHash();
-		AuthService service = new AuthService(userRepository, passwordEncoder, jwtTokenProvider, passwordPolicy, 10);
+		AuthService service = authService();
 
-		service.login(new LoginRequest("growit_user@example.com", "Gr0wit-Journal9"));
+		service.login(new LoginRequest("growit_user@example.com", "Gr0wit-Journal9"), TEST_IP);
 
 		User reloaded = userRepository.findById(user.getId()).orElseThrow();
 		assertThat(reloaded.getPasswordHash()).isNotEqualTo(oldHash);

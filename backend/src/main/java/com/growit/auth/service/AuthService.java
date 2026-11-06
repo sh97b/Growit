@@ -5,6 +5,7 @@ import com.growit.auth.dto.LoginResponse;
 import com.growit.auth.dto.SignupRequest;
 import com.growit.auth.dto.SignupResponse;
 import com.growit.auth.security.JwtTokenProvider;
+import com.growit.auth.security.LoginAttemptLimiter;
 import com.growit.auth.security.PasswordPolicy;
 import com.growit.common.exception.ApiException;
 import com.growit.common.exception.ErrorCode;
@@ -25,15 +26,17 @@ public class AuthService {
 	private final PasswordEncoder passwordEncoder;
 	private final JwtTokenProvider jwtTokenProvider;
 	private final PasswordPolicy passwordPolicy;
+	private final LoginAttemptLimiter loginAttemptLimiter;
 	private final int bcryptCost;
 
 	public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,
 			JwtTokenProvider jwtTokenProvider, PasswordPolicy passwordPolicy,
-			@Value("${app.password.bcrypt-cost:10}") int bcryptCost) {
+			LoginAttemptLimiter loginAttemptLimiter, @Value("${app.password.bcrypt-cost:10}") int bcryptCost) {
 		this.userRepository = userRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtTokenProvider = jwtTokenProvider;
 		this.passwordPolicy = passwordPolicy;
+		this.loginAttemptLimiter = loginAttemptLimiter;
 		this.bcryptCost = bcryptCost;
 	}
 
@@ -53,16 +56,20 @@ public class AuthService {
 
 	/**
 	 * 이메일이 없을 때와 비밀번호가 틀렸을 때 같은 메시지로 실패해서, 어느 쪽이 틀렸는지 알려주지 않는다.
+	 * 이메일이 존재하지 않아도 실패 횟수에 똑같이 반영해 계정 존재 여부가 드러나지 않게 한다.
 	 * 쓰기(비용이 낮은 해시 재저장)가 있을 수 있어 읽기 전용 트랜잭션으로 두지 않는다.
 	 */
 	@Transactional
-	public LoginResponse login(LoginRequest request) {
+	public LoginResponse login(LoginRequest request, String clientIp) {
 		String email = normalizeEmail(request.email());
-		User user = userRepository.findByEmail(email)
-				.orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED, LOGIN_FAILED_MESSAGE));
-		if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+		loginAttemptLimiter.checkAllowed(email, clientIp);
+
+		User user = userRepository.findByEmail(email).orElse(null);
+		if (user == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+			loginAttemptLimiter.recordFailure(email, clientIp);
 			throw new ApiException(ErrorCode.UNAUTHORIZED, LOGIN_FAILED_MESSAGE);
 		}
+		loginAttemptLimiter.recordSuccess(email);
 		rehashIfCostIsLow(user, request.password());
 		return new LoginResponse(jwtTokenProvider.createToken(user.getId()));
 	}

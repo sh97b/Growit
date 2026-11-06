@@ -14,7 +14,8 @@ public enum ErrorCode {
 	AI_FAILED(HttpStatus.SERVICE_UNAVAILABLE),
 	AI_DISABLED(HttpStatus.CONFLICT),
 	ANALYSIS_NOT_READY(HttpStatus.CONFLICT),
-	AI_ALREADY_SIMPLIFIED(HttpStatus.CONFLICT);
+	AI_ALREADY_SIMPLIFIED(HttpStatus.CONFLICT),
+	LOGIN_LOCKED(HttpStatus.TOO_MANY_REQUESTS);
 
 	private final HttpStatus status;
 
