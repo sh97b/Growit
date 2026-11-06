@@ -23,9 +23,21 @@ export function SettingsPage() {
         </Link>
         <Link
           to="/settings/ai"
-          className="flex min-h-11 items-center border-t border-line py-3 text-ink no-underline last:border-b"
+          className="flex min-h-11 items-center border-t border-line py-3 text-ink no-underline"
         >
           AI 정리
+        </Link>
+        <Link
+          to="/settings/password"
+          className="flex min-h-11 items-center border-t border-line py-3 text-ink no-underline"
+        >
+          비밀번호 바꾸기
+        </Link>
+        <Link
+          to="/settings/delete"
+          className="flex min-h-11 items-center border-t border-line py-3 text-ink no-underline last:border-b"
+        >
+          계정 삭제
         </Link>
       </div>
       <Button type="button" variant="secondary" onClick={handleLogout} className="self-start">

@@ -11,6 +11,7 @@ import { CoachPage } from './pages/CoachPage'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
 import { OnboardingPage } from './pages/OnboardingPage'
+import { PrivacyPage } from './pages/PrivacyPage'
 import { RecordDetailPage } from './pages/RecordDetailPage'
 import { RecordEditPage } from './pages/RecordEditPage'
 import { RecordNewPage } from './pages/RecordNewPage'
@@ -19,7 +20,9 @@ import { RecordsPage } from './pages/RecordsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { SignupPage } from './pages/SignupPage'
 import { AiPage } from './pages/settings/AiPage'
+import { DeleteAccountPage } from './pages/settings/DeleteAccountPage'
 import { HobbiesPage } from './pages/settings/HobbiesPage'
+import { PasswordPage } from './pages/settings/PasswordPage'
 
 function App() {
   return (
@@ -48,6 +51,7 @@ function App() {
           </OnboardingRoute>
         }
       />
+      <Route path="/privacy" element={<PrivacyPage />} />
       <Route
         element={
           <ProtectedRoute>
@@ -70,6 +74,8 @@ function App() {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/settings/hobbies" element={<HobbiesPage />} />
         <Route path="/settings/ai" element={<AiPage />} />
+        <Route path="/settings/password" element={<PasswordPage />} />
+        <Route path="/settings/delete" element={<DeleteAccountPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

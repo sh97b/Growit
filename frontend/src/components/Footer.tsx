@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 export function Footer() {
   return (
     <footer className="hidden h-[52px] flex-none items-center border-t border-line bg-paper lg:flex">
@@ -5,7 +7,9 @@ export function Footer() {
         <span>© 2026 Growit</span>
         <nav className="flex gap-5">
           <span>이용약관</span>
-          <span>개인정보 처리방침</span>
+          <Link to="/privacy" className="text-ink-3">
+            개인정보 처리방침
+          </Link>
           <span>문의</span>
         </nav>
       </div>

@@ -10,6 +10,7 @@ type AuthContextValue = {
   login: (email: string, password: string) => Promise<void>
   signup: (email: string, password: string) => Promise<void>
   logout: () => void
+  setSessionToken: (token: string) => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -50,9 +51,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setTokenState(null)
   }, [])
 
+  // 비밀번호를 바꾸면 서버가 새 토큰을 바로 돌려준다 - 다시 로그인하지 않고 그 토큰으로 이어서 쓴다.
+  const setSessionToken = useCallback((newToken: string) => {
+    setToken(newToken)
+    setTokenState(newToken)
+  }, [])
+
   const value = useMemo<AuthContextValue>(
-    () => ({ token, isAuthenticated: token !== null, login, signup, logout }),
-    [token, login, signup, logout],
+    () => ({ token, isAuthenticated: token !== null, login, signup, logout, setSessionToken }),
+    [token, login, signup, logout, setSessionToken],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

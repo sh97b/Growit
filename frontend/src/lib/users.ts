@@ -24,3 +24,19 @@ export function updateMe(payload: UpdateMePayload) {
 export function updateDisplayName(displayName: string) {
   return updateMe({ displayName })
 }
+
+export type ChangePasswordPayload = { currentPassword: string; newPassword: string }
+
+export function changePassword(payload: ChangePasswordPayload) {
+  return apiRequest<{ accessToken: string }>('/api/users/me/password', {
+    method: 'PATCH',
+    body: payload,
+  })
+}
+
+export function deleteAccount(password: string) {
+  return apiRequest<void>('/api/users/me', {
+    method: 'DELETE',
+    body: { password },
+  })
+}

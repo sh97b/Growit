@@ -7,10 +7,16 @@ import { Input } from '../components/Input'
 import { LinkButton } from '../components/LinkButton'
 import { Note } from '../components/Note'
 import { PasswordField } from '../components/PasswordField'
+import { PasswordStrengthMeter } from '../components/PasswordStrengthMeter'
 import { ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const PASSWORD_MAX_BYTES = 72
+
+function passwordByteLength(password: string): number {
+  return new TextEncoder().encode(password).length
+}
 
 export function SignupPage() {
   const [email, setEmail] = useState('')
@@ -25,8 +31,11 @@ export function SignupPage() {
     if (!EMAIL_PATTERN.test(email)) {
       return '올바른 이메일 형식으로 입력해 주세요'
     }
-    if (password.length < 8 || password.length > 72) {
-      return '비밀번호는 8~72자로 입력해 주세요'
+    if (password.length < 8) {
+      return '비밀번호는 8자 이상으로 입력해 주세요'
+    }
+    if (passwordByteLength(password) > PASSWORD_MAX_BYTES) {
+      return '비밀번호가 너무 길어요(영문 기준 72자, 한글은 약 24자까지예요)'
     }
     return null
   }
@@ -65,14 +74,17 @@ export function SignupPage() {
           />
         </Field>
 
-        <PasswordField
-          id="signup-password"
-          label="비밀번호"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          autoComplete="new-password"
-          hint="8~72자로 입력해 주세요"
-        />
+        <div className="flex flex-col gap-1.5">
+          <PasswordField
+            id="signup-password"
+            label="비밀번호"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            autoComplete="new-password"
+            hint="8자 이상으로 입력해 주세요"
+          />
+          <PasswordStrengthMeter password={password} email={email} />
+        </div>
 
         {fieldError ? <Note variant="sand">{fieldError}</Note> : null}
         {serverError ? <Note variant="sand">{serverError}</Note> : null}
@@ -83,6 +95,10 @@ export function SignupPage() {
 
         <p className="text-center text-sm text-ink-2">
           이미 계정이 있나요? <LinkButton to="/login">로그인</LinkButton>
+        </p>
+
+        <p className="text-center text-[13px] text-ink-3">
+          가입하면 내 기록이 AI 정리를 위해 외부 AI 서비스(OpenAI)로 전송돼요. 설정에서 언제든 끌 수 있어요.
         </p>
       </form>
     </AuthShell>

@@ -25,8 +25,8 @@ export function LoginPage() {
     if (!EMAIL_PATTERN.test(email)) {
       return '올바른 이메일 형식으로 입력해 주세요'
     }
-    if (password.length < 8 || password.length > 72) {
-      return '비밀번호는 8~72자로 입력해 주세요'
+    if (password.length === 0) {
+      return '비밀번호를 입력해 주세요'
     }
     return null
   }
