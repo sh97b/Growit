@@ -4,6 +4,8 @@ import com.growit.auth.security.CurrentUserProvider;
 import com.growit.common.exception.ErrorResponse;
 import com.growit.stats.dto.ActivityMapEntry;
 import com.growit.stats.dto.StatsSummaryResponse;
+import com.growit.stats.dto.WeekDetailResponse;
+import com.growit.stats.dto.WeekSummaryResponse;
 import com.growit.stats.service.StatsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -14,6 +16,7 @@ import java.time.LocalDate;
 import java.util.List;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -49,5 +52,32 @@ public class StatsController {
 			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
 			@RequestParam(required = false) Long hobbyId) {
 		return statsService.activityMap(currentUserProvider.getCurrentUserId(), from, to, hobbyId);
+	}
+
+	/** from이 to보다 늦거나 범위가 400일을 넘으면 VALIDATION_ERROR(400), hobbyId가 내 분야가 아니면 NOT_FOUND(404). */
+	@Operation(summary = "주별 집계 (월요일 시작, 기록 없는 주도 0으로 채워 반환)")
+	@ApiResponse(responseCode = "400", description = "날짜 범위 오류",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "404", description = "내 활동 분야가 아님",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@GetMapping("/weeks")
+	public List<WeekSummaryResponse> weeks(
+			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+			@RequestParam(required = false) Long hobbyId) {
+		return statsService.weeks(currentUserProvider.getCurrentUserId(), from, to, hobbyId);
+	}
+
+	/** weekStart가 월요일이 아니면 VALIDATION_ERROR(400), hobbyId가 내 분야가 아니면 NOT_FOUND(404). */
+	@Operation(summary = "주 상세 (요일별 기록, 이전·다음 주 이동)")
+	@ApiResponse(responseCode = "400", description = "weekStart가 월요일이 아님",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "404", description = "내 활동 분야가 아님",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@GetMapping("/weeks/{weekStart}")
+	public WeekDetailResponse weekDetail(
+			@PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weekStart,
+			@RequestParam(required = false) Long hobbyId) {
+		return statsService.weekDetail(currentUserProvider.getCurrentUserId(), weekStart, hobbyId);
 	}
 }

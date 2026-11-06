@@ -15,6 +15,8 @@ import com.growit.auth.security.CurrentUserProvider;
 import com.growit.common.exception.ErrorCode;
 import com.growit.stats.dto.ActivityMapEntry;
 import com.growit.stats.dto.StatsSummaryResponse;
+import com.growit.stats.dto.WeekDetailResponse;
+import com.growit.stats.dto.WeekSummaryResponse;
 import com.growit.stats.service.StatsService;
 import java.time.LocalDate;
 import java.util.List;
@@ -85,5 +87,52 @@ class StatsControllerTest {
 						.param("hobbyId", "999"))
 				.andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.code", is("NOT_FOUND")));
+	}
+
+	@Test
+	void weeks_returnsOk() throws Exception {
+		given(currentUserProvider.getCurrentUserId()).willReturn(1L);
+		given(statsService.weeks(eq(1L), eq(LocalDate.of(2026, 11, 2)), eq(LocalDate.of(2026, 11, 8)), isNull()))
+				.willReturn(List.of(new WeekSummaryResponse(LocalDate.of(2026, 11, 2), 2, 3, 60, List.of(),
+						new com.growit.stats.dto.WeekFeelingCounts(1, 0, 1, 0))));
+
+		mockMvc.perform(get("/api/stats/weeks").param("from", "2026-11-02").param("to", "2026-11-08"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0].recordedDays", is(2)));
+	}
+
+	@Test
+	void weeks_invalidRange_returnsValidationError() throws Exception {
+		given(currentUserProvider.getCurrentUserId()).willReturn(1L);
+		willThrow(new ApiException(ErrorCode.VALIDATION_ERROR, "시작일이 끝일보다 늦을 수 없어요"))
+				.given(statsService).weeks(eq(1L), any(), any(), isNull());
+
+		mockMvc.perform(get("/api/stats/weeks").param("from", "2026-11-10").param("to", "2026-11-01"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code", is("VALIDATION_ERROR")));
+	}
+
+	@Test
+	void weekDetail_returnsOk() throws Exception {
+		given(currentUserProvider.getCurrentUserId()).willReturn(1L);
+		LocalDate monday = LocalDate.of(2026, 11, 2);
+		given(statsService.weekDetail(eq(1L), eq(monday), isNull()))
+				.willReturn(new WeekDetailResponse(monday, monday.plusDays(6), 1, 10, 1, List.of(),
+						monday.minusDays(7), monday.plusDays(7)));
+
+		mockMvc.perform(get("/api/stats/weeks/2026-11-02"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.recordedDays", is(1)));
+	}
+
+	@Test
+	void weekDetail_notMonday_returnsValidationError() throws Exception {
+		given(currentUserProvider.getCurrentUserId()).willReturn(1L);
+		willThrow(new ApiException(ErrorCode.VALIDATION_ERROR, "weekStart는 월요일이어야 해요"))
+				.given(statsService).weekDetail(eq(1L), any(), isNull());
+
+		mockMvc.perform(get("/api/stats/weeks/2026-11-03"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code", is("VALIDATION_ERROR")));
 	}
 }
