@@ -8,7 +8,8 @@ RUN chmod +x gradlew
 
 COPY backend/src src
 COPY prompts /prompts
-RUN ./gradlew bootJar --no-daemon -x test
+ENV GRADLE_OPTS="-Xmx512m -Dorg.gradle.daemon=false"
+RUN ./gradlew bootJar --no-daemon -x test && rm -rf /root/.gradle/caches/*/generated-gradle-jars /root/.gradle/caches/transforms-* /root/.gradle/wrapper/dists/*/*.zip
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
