@@ -70,11 +70,31 @@ class SecurityIntegrationTest {
 	@Test
 	void hobbies_withTamperedToken_returnsUnauthorized() throws Exception {
 		String token = signupAndLogin("tamper_user");
-		String tampered = token.substring(0, token.length() - 1) + (token.endsWith("a") ? "b" : "a");
 
-		mockMvc.perform(get("/api/hobbies").header("Authorization", "Bearer " + tampered))
+		mockMvc.perform(get("/api/hobbies").header("Authorization", "Bearer " + tamperSignature(token)))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.code", is("UNAUTHORIZED")));
+	}
+
+	@Test
+	void hobbies_withTamperedToken_returnsUnauthorized_repeated() throws Exception {
+		// 서명 끝 글자를 바꾸던 예전 방식은 base64url의 사용되지 않는 비트 때문에 같은 서명으로
+		// 디코딩되는 경우가 있어 간헐적으로 실패했다. 20회 반복해 안정적으로 401이 나는지 확인한다.
+		for (int i = 0; i < 20; i++) {
+			String token = signupAndLogin("tamper_repeat_user_" + i);
+			mockMvc.perform(get("/api/hobbies").header("Authorization", "Bearer " + tamperSignature(token)))
+					.andExpect(status().isUnauthorized())
+					.andExpect(jsonPath("$.code", is("UNAUTHORIZED")));
+		}
+	}
+
+	/** 서명 세그먼트의 첫 글자를 바꾼다. 첫 글자는 base64url에서 패딩·미사용 비트가 없어 항상 실제로 다른 바이트로 디코딩된다. */
+	private static String tamperSignature(String token) {
+		int lastDot = token.lastIndexOf('.');
+		String head = token.substring(0, lastDot + 1);
+		String signature = token.substring(lastDot + 1);
+		char replacement = signature.charAt(0) == 'A' ? 'B' : 'A';
+		return head + replacement + signature.substring(1);
 	}
 
 	@Test
