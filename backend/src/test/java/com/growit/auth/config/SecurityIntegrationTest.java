@@ -119,6 +119,92 @@ class SecurityIntegrationTest {
 	}
 
 	@Test
+	void hobbies_withTokenHavingNoVersionClaim_stillAuthenticates() throws Exception {
+		// 배포 전에 발급된(tv 클레임이 없는) 토큰도 DB의 token_version이 기본값 0이면 그대로 통한다.
+		String token = signupAndLogin("legacy_token_user");
+		long userId = objectMapper.readTree(mockMvc.perform(get("/api/users/me")
+						.header("Authorization", "Bearer " + token))
+				.andReturn().getResponse().getContentAsString()).get("id").asLong();
+		String legacyToken = new JwtTokenProvider(jwtSecret, 7).createToken(userId);
+
+		mockMvc.perform(get("/api/hobbies").header("Authorization", "Bearer " + legacyToken))
+				.andExpect(status().isOk());
+	}
+
+	@Test
+	void changePassword_invalidatesOldTokenButNewTokenKeepsWorking() throws Exception {
+		String oldToken = signupAndLogin("change_pw_user");
+
+		MvcResult changeResult = mockMvc.perform(patch("/api/users/me/password")
+						.header("Authorization", "Bearer " + oldToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"currentPassword\":\"Gr0wit-Journal9\",\"newPassword\":\"Another-Secure7\"}"))
+				.andExpect(status().isOk())
+				.andReturn();
+		String newToken = objectMapper.readTree(changeResult.getResponse().getContentAsString())
+				.get("accessToken").asText();
+
+		mockMvc.perform(get("/api/users/me").header("Authorization", "Bearer " + oldToken))
+				.andExpect(status().isUnauthorized());
+		mockMvc.perform(get("/api/users/me").header("Authorization", "Bearer " + newToken))
+				.andExpect(status().isOk());
+	}
+
+	@Test
+	void changePassword_wrongCurrentPassword_returnsUnauthorized() throws Exception {
+		String token = signupAndLogin("change_pw_wrong_user");
+
+		mockMvc.perform(patch("/api/users/me/password")
+						.header("Authorization", "Bearer " + token)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"currentPassword\":\"wrong-password\",\"newPassword\":\"Another-Secure7\"}"))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code", is("UNAUTHORIZED")));
+	}
+
+	@Test
+	void deleteAccount_thenSameTokenReturnsUnauthorizedAndEmailCanSignUpAgain() throws Exception {
+		String email = "delete_account_user@example.com";
+		mockMvc.perform(post("/api/auth/signup")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"email\":\"" + email + "\",\"password\":\"Gr0wit-Journal9\"}"))
+				.andExpect(status().isCreated());
+		MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"email\":\"" + email + "\",\"password\":\"Gr0wit-Journal9\"}"))
+				.andExpect(status().isOk())
+				.andReturn();
+		String token = objectMapper.readTree(loginResult.getResponse().getContentAsString())
+				.get("accessToken").asText();
+
+		mockMvc.perform(delete("/api/users/me")
+						.header("Authorization", "Bearer " + token)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"password\":\"Gr0wit-Journal9\"}"))
+				.andExpect(status().isNoContent());
+
+		mockMvc.perform(get("/api/users/me").header("Authorization", "Bearer " + token))
+				.andExpect(status().isUnauthorized());
+
+		mockMvc.perform(post("/api/auth/signup")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"email\":\"" + email + "\",\"password\":\"Gr0wit-Journal9\"}"))
+				.andExpect(status().isCreated());
+	}
+
+	@Test
+	void deleteAccount_wrongPassword_returnsUnauthorized() throws Exception {
+		String token = signupAndLogin("delete_wrong_pw_user");
+
+		mockMvc.perform(delete("/api/users/me")
+						.header("Authorization", "Bearer " + token)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"password\":\"wrong-password\"}"))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code", is("UNAUTHORIZED")));
+	}
+
+	@Test
 	void twoAccounts_cannotSeeOrTouchEachOthersData() throws Exception {
 		String aliceToken = signupAndLogin("alice_user");
 		String bobToken = signupAndLogin("bob_user");

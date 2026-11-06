@@ -9,6 +9,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface AiLogRepository extends JpaRepository<AiLog, Long> {
 
+	void deleteByUserId(Long userId);
+
 	@Query("select count(l) from AiLog l where l.state = :state and l.createdAt >= :from")
 	long countByStateSince(@Param("state") String state, @Param("from") LocalDateTime from);
 

@@ -29,6 +29,10 @@ public class User {
 	@Column(name = "ai_enabled", nullable = false)
 	private boolean aiEnabled = true;
 
+	/** 비밀번호를 바꿀 때마다 올려서, 그 전에 발급된 토큰(다른 기기 포함)을 전부 무효로 만든다. */
+	@Column(name = "token_version", nullable = false)
+	private int tokenVersion = 0;
+
 	@CreationTimestamp
 	@Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "DATETIME")
 	private LocalDateTime createdAt;
@@ -76,5 +80,13 @@ public class User {
 
 	public LocalDateTime getCreatedAt() {
 		return createdAt;
+	}
+
+	public int getTokenVersion() {
+		return tokenVersion;
+	}
+
+	public void incrementTokenVersion() {
+		this.tokenVersion++;
 	}
 }

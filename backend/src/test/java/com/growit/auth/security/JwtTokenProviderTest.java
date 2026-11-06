@@ -49,6 +49,32 @@ class JwtTokenProviderTest {
 	}
 
 	@Test
+	void createToken_withTokenVersion_roundTrips() {
+		JwtTokenProvider provider = new JwtTokenProvider(SECRET, 7);
+
+		String token = provider.createToken(42L, 3);
+
+		assertThat(provider.parseTokenVersion(token)).isEqualTo(3);
+	}
+
+	@Test
+	void createToken_withoutTokenVersion_defaultsToZero() {
+		JwtTokenProvider provider = new JwtTokenProvider(SECRET, 7);
+
+		String token = provider.createToken(42L);
+
+		assertThat(provider.parseTokenVersion(token)).isZero();
+	}
+
+	@Test
+	void parseTokenVersion_tamperedToken_returnsZero() {
+		JwtTokenProvider provider = new JwtTokenProvider(SECRET, 7);
+		String token = provider.createToken(42L, 5);
+
+		assertThat(provider.parseTokenVersion(tamperSignature(token))).isZero();
+	}
+
+	@Test
 	void parseUserId_expiredToken_returnsEmpty() {
 		JwtTokenProvider provider = new JwtTokenProvider(SECRET, -1);
 		String token = provider.createToken(42L);

@@ -71,7 +71,7 @@ public class AuthService {
 		}
 		loginAttemptLimiter.recordSuccess(email);
 		rehashIfCostIsLow(user, request.password());
-		return new LoginResponse(jwtTokenProvider.createToken(user.getId()));
+		return new LoginResponse(jwtTokenProvider.createToken(user.getId(), user.getTokenVersion()));
 	}
 
 	/** PASSWORD_BCRYPT_COST를 올린 뒤에도 기존 사용자의 해시 비용이 낮은 채로 남지 않도록, 로그인할 때마다 확인해 다시 저장한다. */

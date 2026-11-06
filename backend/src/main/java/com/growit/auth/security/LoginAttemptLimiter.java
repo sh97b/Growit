@@ -21,13 +21,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class LoginAttemptLimiter {
 
-	static final Duration EMAIL_WINDOW = Duration.ofMinutes(10);
-	static final int EMAIL_MAX_FAILURES = 5;
-	static final Duration EMAIL_LOCK_DURATION = Duration.ofMinutes(5);
+	public static final Duration EMAIL_WINDOW = Duration.ofMinutes(10);
+	public static final int EMAIL_MAX_FAILURES = 5;
+	public static final Duration EMAIL_LOCK_DURATION = Duration.ofMinutes(5);
 
-	static final Duration IP_WINDOW = Duration.ofMinutes(10);
-	static final int IP_MAX_FAILURES = 30;
-	static final Duration IP_LOCK_DURATION = Duration.ofMinutes(5);
+	public static final Duration IP_WINDOW = Duration.ofMinutes(10);
+	public static final int IP_MAX_FAILURES = 30;
+	public static final Duration IP_LOCK_DURATION = Duration.ofMinutes(5);
 
 	private static final int MAX_TRACKED_KEYS = 20_000;
 	private static final String LOCKED_MESSAGE = "로그인 시도가 너무 많아요. 잠시 후 다시 시도해 주세요";

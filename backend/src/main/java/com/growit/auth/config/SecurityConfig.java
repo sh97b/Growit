@@ -3,6 +3,7 @@ package com.growit.auth.config;
 import com.growit.auth.security.JwtAuthenticationEntryPoint;
 import com.growit.auth.security.JwtAuthenticationFilter;
 import com.growit.auth.security.JwtTokenProvider;
+import com.growit.user.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -41,8 +42,8 @@ public class SecurityConfig {
 
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtTokenProvider jwtTokenProvider,
-			JwtAuthenticationEntryPoint entryPoint, CorsConfigurationSource corsConfigurationSource)
-			throws Exception {
+			JwtAuthenticationEntryPoint entryPoint, CorsConfigurationSource corsConfigurationSource,
+			UserRepository userRepository) throws Exception {
 		http
 				.cors(cors -> cors.configurationSource(corsConfigurationSource))
 				.csrf(AbstractHttpConfigurer::disable)
@@ -54,7 +55,7 @@ public class SecurityConfig {
 						.requestMatchers(PUBLIC_PATHS).permitAll()
 						.anyRequest().authenticated())
 				.exceptionHandling(exception -> exception.authenticationEntryPoint(entryPoint))
-				.addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider),
+				.addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider, userRepository),
 						UsernamePasswordAuthenticationFilter.class);
 		return http.build();
 	}

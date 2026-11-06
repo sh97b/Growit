@@ -109,6 +109,8 @@ class CorsIntegrationTest {
 				Arguments.of("/api/health", "GET"),
 				Arguments.of("/api/users/me", "GET"),
 				Arguments.of("/api/users/me", "PATCH"),
+				Arguments.of("/api/users/me/password", "PATCH"),
+				Arguments.of("/api/users/me", "DELETE"),
 				Arguments.of("/api/auth/signup", "POST"),
 				Arguments.of("/api/auth/login", "POST"),
 				Arguments.of("/api/stats/summary", "GET"),
@@ -121,7 +123,8 @@ class CorsIntegrationTest {
 				Arguments.of("/api/ai/results/1/feedback", "PUT"),
 				Arguments.of("/api/ai/results/1/reaction", "PUT"),
 				Arguments.of("/api/ai/results", "GET"),
-				Arguments.of("/api/ai/results/latest", "GET"));
+				Arguments.of("/api/ai/results/latest", "GET"),
+				Arguments.of("/api/ai/results/1/simplify", "POST"));
 	}
 
 	@ParameterizedTest(name = "{1} {0} 사전 확인 통과")

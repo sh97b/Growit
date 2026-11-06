@@ -17,6 +17,8 @@ public interface ActivityRecordRepository
 
 	List<ActivityRecord> findByUserId(Long userId);
 
+	void deleteByUserId(Long userId);
+
 	boolean existsByHobbyId(Long hobbyId);
 
 	long countByHobbyId(Long hobbyId);
