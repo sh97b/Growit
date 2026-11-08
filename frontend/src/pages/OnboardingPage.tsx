@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '../components/Button'
 import { Field } from '../components/Field'
-import { Footer } from '../components/Footer'
 import { Input } from '../components/Input'
 import { LinkButton } from '../components/LinkButton'
 import { Loading } from '../components/Loading'
@@ -47,27 +46,38 @@ export function OnboardingPage() {
 
   const [draftLoaded] = useState(() => loadOnboardingDraft())
 
-  const [step, setStep] = useState(draftLoaded?.step ?? 1)
+  const [step, setStep] = useState(1)
   const [submitting, setSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  const [name, setName] = useState(draftLoaded?.name ?? '')
-  const [nameInitialized, setNameInitialized] = useState(draftLoaded != null)
-  if (!nameInitialized && currentUser) {
-    setName(currentUser.displayName ?? '')
-    setNameInitialized(true)
-  }
-
-  const [selectedHobbies, setSelectedHobbies] = useState<string[]>(draftLoaded?.selectedHobbies ?? [])
-  const [lockedHobbyNames, setLockedHobbyNames] = useState<string[]>(draftLoaded?.lockedHobbyNames ?? [])
+  const [name, setName] = useState('')
+  const [selectedHobbies, setSelectedHobbies] = useState<string[]>([])
+  const [lockedHobbyNames, setLockedHobbyNames] = useState<string[]>([])
   const [customHobby, setCustomHobby] = useState('')
 
-  const [goalDrafts, setGoalDrafts] = useState<Record<number, string>>(draftLoaded?.goalDrafts ?? {})
+  const [goalDrafts, setGoalDrafts] = useState<Record<number, string>>({})
   const [openGoalId, setOpenGoalId] = useState<number | null>(null)
 
+  // 임시 상태에 저장된 userId가 지금 로그인한 사용자와 다르면(계정 전환) 버리고, 이름칸은 항상 서버 값으로 되돌린다.
+  const [draftChecked, setDraftChecked] = useState(false)
+  if (!draftChecked && currentUser) {
+    if (draftLoaded && draftLoaded.userId === currentUser.id) {
+      setStep(draftLoaded.step)
+      setName(draftLoaded.name)
+      setSelectedHobbies(draftLoaded.selectedHobbies)
+      setLockedHobbyNames(draftLoaded.lockedHobbyNames)
+      setGoalDrafts(draftLoaded.goalDrafts)
+    } else {
+      setName(currentUser.displayName ?? '')
+      if (draftLoaded) clearOnboardingDraft()
+    }
+    setDraftChecked(true)
+  }
+
   useEffect(() => {
-    saveOnboardingDraft({ step, name, selectedHobbies, lockedHobbyNames, goalDrafts })
-  }, [step, name, selectedHobbies, lockedHobbyNames, goalDrafts])
+    if (!draftChecked || !currentUser) return
+    saveOnboardingDraft({ userId: currentUser.id, step, name, selectedHobbies, lockedHobbyNames, goalDrafts })
+  }, [draftChecked, currentUser, step, name, selectedHobbies, lockedHobbyNames, goalDrafts])
 
   function finish() {
     clearOnboardingPending()
@@ -176,7 +186,7 @@ export function OnboardingPage() {
           {errorMessage ? <Note variant="sand">{errorMessage}</Note> : null}
 
           {step === 1 ? (
-            isUserLoading ? (
+            isUserLoading || !draftChecked ? (
               <Loading />
             ) : (
               <form className="flex flex-col gap-5" onSubmit={handleNameSubmit}>
@@ -299,8 +309,6 @@ export function OnboardingPage() {
           ) : null}
         </div>
       </main>
-
-      <Footer />
     </div>
   )
 }

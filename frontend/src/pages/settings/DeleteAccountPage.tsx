@@ -6,7 +6,7 @@ import { Note } from '../../components/Note'
 import { PasswordField } from '../../components/PasswordField'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
-import { clearAllGrowitStorage } from '../../lib/accountStorage'
+import { resetSessionState } from '../../lib/sessionReset'
 import { deleteAccount } from '../../lib/users'
 
 export function DeleteAccountPage() {
@@ -18,7 +18,7 @@ export function DeleteAccountPage() {
   const mutation = useMutation({
     mutationFn: deleteAccount,
     onSuccess: () => {
-      clearAllGrowitStorage()
+      resetSessionState(null)
       logout()
       navigate('/login', { replace: true })
     },

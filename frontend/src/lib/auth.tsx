@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import { apiRequest, clearToken, getToken, setToken } from './api'
+import { decodeTokenUserId } from './jwt'
 import { clearOnboardingPending, markOnboardingPending } from './onboarding'
+import { resetSessionState } from './sessionReset'
 
 type LoginResponse = { accessToken: string }
 
@@ -24,6 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       body: { email, password },
       auth: false,
     })
+    resetSessionState(decodeTokenUserId(result.accessToken))
     setToken(result.accessToken)
     setTokenState(result.accessToken)
   }, [])
@@ -39,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       body: { email, password },
       auth: false,
     })
+    resetSessionState(decodeTokenUserId(result.accessToken))
     // 로그인 상태가 되는 순간 GuestRoute가 홈으로 보내버리기 전에, 먼저 온보딩 대기 표시를 남긴다.
     markOnboardingPending()
     setToken(result.accessToken)
@@ -46,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const logout = useCallback(() => {
+    resetSessionState(null)
     clearToken()
     clearOnboardingPending()
     setTokenState(null)

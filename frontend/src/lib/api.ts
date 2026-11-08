@@ -1,3 +1,5 @@
+import { resetSessionState } from './sessionReset'
+
 const TOKEN_KEY = 'growit_token'
 
 export function getToken(): string | null {
@@ -61,6 +63,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   })
 
   if (response.status === 401) {
+    resetSessionState(null)
     clearToken()
     if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
       window.location.href = '/login'

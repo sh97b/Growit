@@ -6,6 +6,7 @@ import './index.css'
 import App from './App.tsx'
 import { ApiError } from './lib/api.ts'
 import { AuthProvider } from './lib/auth.tsx'
+import { registerQueryClient } from './lib/sessionReset.ts'
 
 function shouldRetry(failureCount: number, error: unknown): boolean {
   if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
@@ -20,6 +21,7 @@ const queryClient = new QueryClient({
     mutations: { retry: shouldRetry },
   },
 })
+registerQueryClient(queryClient)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

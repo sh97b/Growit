@@ -1,4 +1,5 @@
 export type OnboardingDraft = {
+  userId: number
   step: number
   name: string
   selectedHobbies: string[]
