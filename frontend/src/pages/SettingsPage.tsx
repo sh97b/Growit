@@ -35,9 +35,15 @@ export function SettingsPage() {
         </Link>
         <Link
           to="/settings/delete"
-          className="flex min-h-11 items-center border-t border-line py-3 text-ink no-underline last:border-b"
+          className="flex min-h-11 items-center border-t border-line py-3 text-ink no-underline"
         >
           계정 삭제
+        </Link>
+        <Link
+          to="/privacy"
+          className="flex min-h-11 items-center border-t border-line py-3 text-ink no-underline last:border-b"
+        >
+          개인정보 안내
         </Link>
       </div>
       <Button type="button" variant="secondary" onClick={handleLogout} className="self-start">

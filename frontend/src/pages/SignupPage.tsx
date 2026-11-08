@@ -6,17 +6,14 @@ import { Field } from '../components/Field'
 import { Input } from '../components/Input'
 import { LinkButton } from '../components/LinkButton'
 import { Note } from '../components/Note'
+import { PasswordChecklist } from '../components/PasswordChecklist'
 import { PasswordField } from '../components/PasswordField'
-import { PasswordStrengthMeter } from '../components/PasswordStrengthMeter'
 import { ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const PASSWORD_MAX_BYTES = 72
-
-function passwordByteLength(password: string): number {
-  return new TextEncoder().encode(password).length
-}
+const PASSWORD_MIN_LENGTH = 8
+const PASSWORD_MAX_LENGTH = 64
 
 export function SignupPage() {
   const [email, setEmail] = useState('')
@@ -31,11 +28,8 @@ export function SignupPage() {
     if (!EMAIL_PATTERN.test(email)) {
       return '올바른 이메일 형식으로 입력해 주세요'
     }
-    if (password.length < 8) {
-      return '비밀번호는 8자 이상으로 입력해 주세요'
-    }
-    if (passwordByteLength(password) > PASSWORD_MAX_BYTES) {
-      return '비밀번호가 너무 길어요(영문 기준 72자, 한글은 약 24자까지예요)'
+    if (password.length < PASSWORD_MIN_LENGTH || password.length > PASSWORD_MAX_LENGTH) {
+      return '비밀번호는 8자 이상 64자 이하로 입력해 주세요'
     }
     return null
   }
@@ -81,9 +75,9 @@ export function SignupPage() {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             autoComplete="new-password"
-            hint="8자 이상으로 입력해 주세요"
+            hint="8자 이상 64자 이하, 영문·숫자·특수문자를 섞어 주세요"
           />
-          <PasswordStrengthMeter password={password} email={email} />
+          <PasswordChecklist password={password} />
         </div>
 
         {fieldError ? <Note variant="sand">{fieldError}</Note> : null}
@@ -98,7 +92,15 @@ export function SignupPage() {
         </p>
 
         <p className="text-center text-[13px] text-ink-3">
-          가입하면 내 기록이 AI 정리를 위해 외부 AI 서비스(OpenAI)로 전송돼요. 설정에서 언제든 끌 수 있어요.
+          가입하면 내 기록이 AI 정리를 위해 외부 AI 서비스(OpenAI)로 전송돼요. 설정에서 언제든 끌 수 있어요.{' '}
+          <a
+            href="/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2"
+          >
+            자세히 보기
+          </a>
         </p>
       </form>
     </AuthShell>
