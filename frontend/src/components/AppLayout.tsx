@@ -1,6 +1,5 @@
 import { Outlet } from 'react-router-dom'
 import { AccountMenu } from './AccountMenu'
-import { Footer } from './Footer'
 import { Header } from './Header'
 import { TabBar } from './TabBar'
 
@@ -16,7 +15,6 @@ export function AppLayout() {
           <Outlet />
         </div>
       </main>
-      <Footer />
       <TabBar />
     </div>
   )

@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { Footer } from './Footer'
 
 export function AuthShell({ children }: { children: ReactNode }) {
   return (
@@ -28,8 +27,6 @@ export function AuthShell({ children }: { children: ReactNode }) {
           <div className="flex flex-col gap-4">{children}</div>
         </div>
       </main>
-
-      <Footer />
     </div>
   )
 }
