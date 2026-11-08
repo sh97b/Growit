@@ -192,11 +192,12 @@ npm run dev
 
 ### 6) 계정 보안
 
-- **비밀번호 정책**: 최소 8자(유니코드 문자 수)·최대 72바이트(UTF-8, BCrypt가 72바이트까지만 읽음), 흔한 비밀번호(`backend/src/main/resources/password-blocklist.txt`, 500개 이상) 차단, 이메일 포함/일치·한 글자 반복·순서대로 이어지는 비밀번호 차단. 가입(`POST /api/auth/signup`)과 비밀번호 변경(`PATCH /api/users/me/password`)이 같은 규칙(`PasswordPolicy`)을 쓴다.
+- **비밀번호 정책**(ASCII 문자만 허용): 8~64자 → 허용 문자(영문·숫자·`! @ # $ % ^ & * ( ) - _ = + . , ?`)만 → 영문 포함 → 숫자 포함 → 특수문자 포함 → 이메일 아이디 포함/일치 금지 → 같은 문자 반복·연속 4글자 이상 금지(부분 문자열 기준) → 흔한 비밀번호(`backend/src/main/resources/password-blocklist.txt`, 650개 이상) 차단, 이 순서대로 검사해 가장 먼저 걸린 이유만 안내한다. 가입(`POST /api/auth/signup`)과 비밀번호 변경(`PATCH /api/users/me/password`)이 같은 규칙(`PasswordPolicy`)을 쓰고, 기존 계정은 로그인에서 이 규칙을 검사하지 않는다. 프론트(`lib/passwordRules.ts`)는 같은 규칙을 실시간 체크 목록으로 보여주되 입력 자체를 막지는 않는다.
 - **BCrypt 비용**: `PASSWORD_BCRYPT_COST`(기본 10). 올리면 다음 로그인부터 기존 사용자의 해시도 새 비용으로 자동으로 다시 저장된다.
 - **로그인 시도 제한**: 같은 이메일로 10분 안에 5번, 같은 IP로 10분 안에 30번 실패하면 5분 동안 막는다(메모리 기반, 서버 재시작하면 초기화됨). 막히면 `429 LOGIN_LOCKED`와 `Retry-After` 헤더를 돌려준다. 서버 배포에서는 Nginx도 `/api/auth/` 요청을 IP당 분당 10건(버스트 10)으로 따로 제한한다.
 - **계정 삭제**: `DELETE /api/users/me {password}` — 비밀번호 확인 후 내 AI 결과·기록·활동 분야·계정을 한 번에 지운다(되돌릴 수 없음).
-- 프론트 계정 메뉴(`/settings`)에 "비밀번호 바꾸기"(`/settings/password`)와 "계정 삭제"(`/settings/delete`)가 있다. 가입·로그인 화면 하단의 "개인정보 처리방침"은 로그인 없이 볼 수 있는 `/privacy` 페이지로 연결된다.
+- 설정 메뉴(`/settings`)에 "비밀번호 바꾸기"(`/settings/password`), "계정 삭제"(`/settings/delete`), "개인정보 안내"(`/privacy`)가 있다. 가입 화면의 AI 전송 안내 문구에도 `/privacy`로 가는 "자세히 보기" 링크(새 탭)가 있다. 모든 화면의 하단 푸터는 삭제했다.
+- **계정 전환 시 데이터 정리**: 로그인·가입·로그아웃·계정 삭제·401 자동 로그아웃(비밀번호 변경은 제외)마다 `lib/sessionReset.ts`가 TanStack Query 캐시를 모두 지우고, `sessionStorage`의 `growit_` 키 전부와 `localStorage`의 `growit_draft_*` 중 새 사용자 것이 아닌 항목을 지운다. 온보딩 임시 상태(`growit_onboarding_draft`)에는 사용자 id를 같이 저장해, 다른 사용자 것이면 버린다(이전에는 사용자 id 없이 저장돼 계정 전환 시 온보딩 이름칸에 이전 사용자 이름이 남는 문제가 있었다).
 
 ## 10. 폴더 구조
 
