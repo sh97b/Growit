@@ -127,4 +127,20 @@ class AuthServiceTest {
 		assertThat(reloaded.getPasswordHash()).isNotEqualTo(oldHash);
 		assertThat(passwordEncoder.matches("Gr0wit-Journal9", reloaded.getPasswordHash())).isTrue();
 	}
+
+	/**
+	 * 로그인은 비밀번호 정책을 검사하지 않는다 - 정책이 8~72자·한글 허용이던 때 가입한 기존 계정도
+	 * 20자 상한·ASCII 전용으로 바뀐 지금 규칙과 무관하게 그대로 로그인할 수 있어야 한다.
+	 */
+	@Test
+	void login_legacyPasswordLongerThan20CharsWithKorean_returnsToken() {
+		String legacyPassword = "그로잇비밀번호매우깁니다0123456789";
+		User user = new User("growit_user@example.com", passwordEncoder.encode(legacyPassword), "growit_user");
+		userRepository.save(user);
+		AuthService service = authService();
+
+		LoginResponse response = service.login(new LoginRequest("growit_user@example.com", legacyPassword), TEST_IP);
+
+		assertThat(response.accessToken()).isNotBlank();
+	}
 }

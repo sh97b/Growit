@@ -181,6 +181,21 @@ class UserServiceTest {
 						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
 	}
 
+	/** 현재 비밀번호 칸은 정책을 검사하지 않는다 - 옛 정책(8~72자, 한글 허용)으로 가입된 계정도 비밀번호를 바꿀 수 있어야 한다. */
+	@Test
+	void changePassword_legacyCurrentPasswordLongerThan20CharsWithKorean_updatesHash() {
+		String legacyPassword = "그로잇비밀번호매우깁니다0123456789";
+		Long userId = createUserWithPassword("growit_user", legacyPassword);
+		UserService service = userService(userId);
+
+		ChangePasswordResponse response = service.changePassword(
+				new ChangePasswordRequest(legacyPassword, "Another-Secure7"), TEST_IP);
+
+		assertThat(response.accessToken()).isNotBlank();
+		User reloaded = userRepository.findById(userId).orElseThrow();
+		assertThat(passwordEncoder.matches("Another-Secure7", reloaded.getPasswordHash())).isTrue();
+	}
+
 	@Test
 	void changePassword_repeatedWrongCurrentPassword_eventuallyLocksLogin() {
 		Long userId = createUserWithPassword("growit_user", CURRENT_PASSWORD);

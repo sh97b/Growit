@@ -93,7 +93,7 @@ public class UserService {
 		}
 		loginAttemptLimiter.recordSuccess(user.getEmail());
 
-		passwordPolicy.validate(user.getEmail(), request.newPassword());
+		passwordPolicy.validate(request.newPassword());
 		if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
 			throw new ApiException(ErrorCode.VALIDATION_ERROR, "현재 비밀번호와 다른 비밀번호를 써 주세요");
 		}

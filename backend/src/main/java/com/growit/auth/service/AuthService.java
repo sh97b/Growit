@@ -47,7 +47,7 @@ public class AuthService {
 		if (userRepository.existsByEmail(email)) {
 			throw new ApiException(ErrorCode.EMAIL_TAKEN, "이미 사용 중인 이메일이에요");
 		}
-		passwordPolicy.validate(email, request.password());
+		passwordPolicy.validate(request.password());
 		String displayName = defaultDisplayName(email);
 		User user = new User(email, passwordEncoder.encode(request.password()), displayName);
 		userRepository.save(user);
