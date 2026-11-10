@@ -8,16 +8,18 @@ import { LinkButton } from '../components/LinkButton'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
 import { StepDots } from '../components/StepDots'
-import { ChevronLeftIcon } from '../components/icons'
+import { Switch } from '../components/Switch'
+import { ChevronLeftIcon, InfoIcon } from '../components/icons'
 import { useHobbies } from '../hooks/useHobbies'
 import { ApiError } from '../lib/api'
 import { createHobby, updateHobby } from '../lib/hobbies'
 import { clearOnboardingPending } from '../lib/onboarding'
 import { clearOnboardingDraft, loadOnboardingDraft, saveOnboardingDraft } from '../lib/onboardingDraft'
+import { enablePush, fetchNotificationSettings, updateNotificationSettings } from '../lib/push'
 import { updateDisplayName } from '../lib/users'
-import { useCurrentUser } from '../hooks/useCurrentUser'
+import { useCurrentUser, useUpdateAiEnabled } from '../hooks/useCurrentUser'
 
-const TOTAL_STEPS = 3
+const TOTAL_STEPS = 4
 const SUGGESTED_HOBBIES = ['기타', '러닝', '코딩', '피아노', '그림', '요가', '영어 회화']
 const GOAL_MAX_LENGTH = 200
 
@@ -158,11 +160,36 @@ export function OnboardingPage() {
           await updateHobby(hobby.id, { goal })
         }
       }
-      finish()
+      setStep(4)
     } catch (error) {
       setErrorMessage(error instanceof ApiError ? error.message : '잠시 후 다시 시도해 주세요')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const updateAiEnabled = useUpdateAiEnabled()
+  const [enablingNotifications, setEnablingNotifications] = useState(false)
+
+  function toggleAiEnabled() {
+    if (!currentUser) return
+    updateAiEnabled.mutate({ displayName: currentUser.displayName ?? '', aiEnabled: !currentUser.aiEnabled })
+  }
+
+  /** 거절·미지원이어도 온보딩을 막지 않는다 — 결과와 상관없이 홈으로 끝맺는다. */
+  async function handleEnableNotifications() {
+    setEnablingNotifications(true)
+    try {
+      const result = await enablePush()
+      if (result === 'granted') {
+        const settings = await fetchNotificationSettings()
+        await updateNotificationSettings({ ...settings, enabled: true })
+      }
+    } catch {
+      // 조용히 넘어간다 — 설정 화면에서 나중에 다시 켤 수 있다.
+    } finally {
+      setEnablingNotifications(false)
+      finish()
     }
   }
 
@@ -304,6 +331,51 @@ export function OnboardingPage() {
                 <Button type="button" disabled={submitting} onClick={handleGoalsSubmit} className={NEXT_BUTTON_CLASS}>
                   다음
                 </Button>
+              </div>
+            </div>
+          ) : null}
+
+          {step === 4 ? (
+            <div className="flex flex-col items-start gap-5">
+              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[color-mix(in_srgb,var(--color-base)_12%,white)] text-base-ink">
+                <InfoIcon width={28} height={28} />
+              </span>
+              <h1 className={STEP_HEADING_CLASS}>알림을 받아 볼까요?</h1>
+              <p className="text-[17px] text-ink-2">
+                하루 한 번, 정한 시간에만 알려요. 안 쓴 날을 알려주는 알림은 보내지 않아요.
+              </p>
+
+              {/* 디자인에 없는 추가: 116 보드는 알림만 다루지만, 지시문에 따라 AI 정리 켜기도 이 단계에 포함한다. */}
+              <div className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl bg-surface px-4 py-3">
+                <span>AI 정리 켜기</span>
+                <Switch
+                  checked={currentUser?.aiEnabled ?? false}
+                  onChange={toggleAiEnabled}
+                  label="AI 정리 켜기"
+                  disabled={updateAiEnabled.isPending}
+                />
+              </div>
+
+              <div className="flex w-full flex-col gap-2 pt-2">
+                <Button
+                  type="button"
+                  block
+                  disabled={enablingNotifications}
+                  onClick={handleEnableNotifications}
+                  className="lg:w-full"
+                >
+                  알림 받기
+                </Button>
+                <LinkButton
+                  to="/"
+                  onClick={(event) => {
+                    event.preventDefault()
+                    finish()
+                  }}
+                  className="mx-auto"
+                >
+                  나중에
+                </LinkButton>
               </div>
             </div>
           ) : null}
