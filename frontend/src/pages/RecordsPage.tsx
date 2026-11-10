@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { ActivityMapExpand } from '../components/ActivityMapExpand'
 import { Button } from '../components/Button'
 import { Loading } from '../components/Loading'
 import { PlusIcon } from '../components/icons'
@@ -89,7 +90,10 @@ export function RecordsPage() {
           </div>
         ) : (
           <>
-            <div className="lg:hidden">{hobbyFilter}</div>
+            <div className="flex flex-col gap-4 lg:hidden">
+              {hobbyFilter}
+              <ActivityMapExpand weekCount={8} />
+            </div>
 
             {totalCount === 0 ? (
             <p className="py-6 text-center text-sm text-ink-2">아직 이 분야의 기록이 없어요.</p>
@@ -135,7 +139,12 @@ export function RecordsPage() {
         )}
       </div>
 
-      {noRecordsAtAll ? null : <aside className="hidden lg:block">{hobbyFilter}</aside>}
+      {noRecordsAtAll ? null : (
+        <aside className="hidden flex-col gap-5 lg:flex">
+          {hobbyFilter}
+          <ActivityMapExpand weekCount={12} />
+        </aside>
+      )}
     </div>
   )
 }
