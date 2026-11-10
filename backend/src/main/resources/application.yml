@@ -46,6 +46,11 @@ app:
     view-user-daily-limit: ${AI_VIEW_USER_DAILY_LIMIT:20}
     auto-user-daily-limit: ${AI_AUTO_USER_DAILY_LIMIT:1}
 
+  web-push:
+    public-key: ${WEB_PUSH_PUBLIC_KEY:}
+    private-key: ${WEB_PUSH_PRIVATE_KEY:}
+    subject: ${WEB_PUSH_SUBJECT:}
+
 springdoc:
   api-docs:
     enabled: ${app.swagger.enabled}

@@ -9,6 +9,8 @@ import com.growit.auth.security.PasswordPolicy;
 import com.growit.common.exception.ApiException;
 import com.growit.common.exception.ErrorCode;
 import com.growit.hobby.repository.HobbyRepository;
+import com.growit.notification.repository.NotificationSettingsRepository;
+import com.growit.notification.repository.PushSubscriptionRepository;
 import com.growit.record.repository.ActivityRecordRepository;
 import com.growit.user.dto.ChangePasswordRequest;
 import com.growit.user.dto.ChangePasswordResponse;
@@ -39,11 +41,15 @@ public class UserService {
 	private final AiLogRepository aiLogRepository;
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
+	private final NotificationSettingsRepository notificationSettingsRepository;
+	private final PushSubscriptionRepository pushSubscriptionRepository;
 
 	public UserService(UserRepository userRepository, CurrentUserProvider currentUserProvider,
 			PasswordEncoder passwordEncoder, PasswordPolicy passwordPolicy, LoginAttemptLimiter loginAttemptLimiter,
 			JwtTokenProvider jwtTokenProvider, AiResultRepository aiResultRepository, AiLogRepository aiLogRepository,
-			ActivityRecordRepository activityRecordRepository, HobbyRepository hobbyRepository) {
+			ActivityRecordRepository activityRecordRepository, HobbyRepository hobbyRepository,
+			NotificationSettingsRepository notificationSettingsRepository,
+			PushSubscriptionRepository pushSubscriptionRepository) {
 		this.userRepository = userRepository;
 		this.currentUserProvider = currentUserProvider;
 		this.passwordEncoder = passwordEncoder;
@@ -54,6 +60,8 @@ public class UserService {
 		this.aiLogRepository = aiLogRepository;
 		this.activityRecordRepository = activityRecordRepository;
 		this.hobbyRepository = hobbyRepository;
+		this.notificationSettingsRepository = notificationSettingsRepository;
+		this.pushSubscriptionRepository = pushSubscriptionRepository;
 	}
 
 	public MeResponse me() {
@@ -117,6 +125,8 @@ public class UserService {
 			throw new ApiException(ErrorCode.UNAUTHORIZED, DELETE_PASSWORD_WRONG_MESSAGE);
 		}
 		Long userId = user.getId();
+		pushSubscriptionRepository.deleteByUserId(userId);
+		notificationSettingsRepository.deleteByUserId(userId);
 		aiResultRepository.deleteByUserId(userId);
 		aiLogRepository.deleteByUserId(userId);
 		activityRecordRepository.deleteByUserId(userId);

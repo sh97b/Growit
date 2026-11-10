@@ -14,6 +14,8 @@ import com.growit.common.exception.ApiException;
 import com.growit.common.exception.ErrorCode;
 import com.growit.hobby.entity.Hobby;
 import com.growit.hobby.repository.HobbyRepository;
+import com.growit.notification.repository.NotificationSettingsRepository;
+import com.growit.notification.repository.PushSubscriptionRepository;
 import com.growit.record.entity.ActivityRecord;
 import com.growit.record.entity.Feeling;
 import com.growit.record.repository.ActivityRecordRepository;
@@ -54,6 +56,12 @@ class UserServiceTest {
 	@Autowired
 	private HobbyRepository hobbyRepository;
 
+	@Autowired
+	private NotificationSettingsRepository notificationSettingsRepository;
+
+	@Autowired
+	private PushSubscriptionRepository pushSubscriptionRepository;
+
 	private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 	private final PasswordPolicy passwordPolicy = new PasswordPolicy();
 	private final JwtTokenProvider jwtTokenProvider = new JwtTokenProvider(TEST_SECRET, 7);
@@ -72,7 +80,7 @@ class UserServiceTest {
 		CurrentUserProvider currentUserProvider = () -> currentUserId;
 		return new UserService(userRepository, currentUserProvider, passwordEncoder, passwordPolicy,
 				new LoginAttemptLimiter(Clock.systemUTC()), jwtTokenProvider, aiResultRepository, aiLogRepository,
-				activityRecordRepository, hobbyRepository);
+				activityRecordRepository, hobbyRepository, notificationSettingsRepository, pushSubscriptionRepository);
 	}
 
 	@Test
