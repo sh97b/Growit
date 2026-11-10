@@ -23,6 +23,14 @@ const queryClient = new QueryClient({
 })
 registerQueryClient(queryClient)
 
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // 등록 실패는 조용히 넘어간다 — 알림을 못 받을 뿐 앱 사용에는 지장이 없다.
+    })
+  })
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>

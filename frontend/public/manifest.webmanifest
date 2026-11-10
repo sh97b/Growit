@@ -1,0 +1,14 @@
+{
+  "name": "Growit",
+  "short_name": "Growit",
+  "description": "쌓인 기록을 읽고, 다음 작은 행동을 찾는 AI 성장 노트",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FBF9F5",
+  "theme_color": "#3E7C68",
+  "lang": "ko",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
