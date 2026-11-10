@@ -68,10 +68,16 @@ Growit은 새로운 걸 배우거나 취미를 키울 때, **눈에 띄는 변�
 | 변화 비교 해석 | 나의 변화 | 그때와 오늘의 기록, 정리 결과, 느낌 | 달라진 점의 짧은 해석과 근거 기록 | `ai_results` (COMPARE) | 비교 요청 시, 같은 기록이면 재사용 |
 | AI 회고 | AI 회고, 홈 | 선택 기간의 기록, 정리 결과, 목표, 마지막 기록 후 경과 일수 | 기간 요약, 반복되는 어려움, 다음 작은 행동, 복귀 제안, 근거 기록 | `ai_results` (COACH) | 회고 요청 시, 같은 기록이면 재사용 |
 | 다음 행동 더 작게 바꾸기 | AI 회고, 홈 | 원래 다음 행동과 근거 기록(최대 5개) | 1~3분짜리 더 작은 행동 하나 | `ai_results.result`의 `simplifiedAction` (결과당 1회) | "너무 어려워요" 반응 시 (`POST /api/ai/results/{id}/simplify`) |
+| 주간 자동 회고 | 홈 | 최근 14일 기록(전체 분야) | AI 회고와 동일(기간 요약~다음 작은 행동) | `ai_results` (COACH, `is_auto=true`) | 그 주에 처음 접속할 때 홈이 하루 1회 호출(`POST /api/ai/coach/auto`), 조건(AI 켜짐·기록 5개 이상·이번 주 결과 없음) 미충족 시 조용히 건너뜀 |
 
 이 주의 한 줄·지표 해석은 "해석이 맞나요?" 피드백(`PUT /api/ai/results/{id}/feedback`에 `CONFIRMED`·`DISPUTED`)과
 문장 고치기(`PATCH /api/ai/results/{id}/text`, 1~80자, 원문은 `editedText`와 별도로 보존)를 지원한다.
 두 기능 모두 사용자별 호출 한도는 COMPARE·COACH와 별개인 `AI_VIEW_USER_DAILY_LIMIT`(기본 20, 합산)을 쓴다.
+이 주의 한 줄(`WEEKLY`, promptVersion 2부터)은 "이어진 것"(continued, 필수)과 "아직 남은 어려움"(remaining,
+없을 수 있음) 두 섹션으로 나뉜다. "고치기"는 continued 문장만 대상이다.
+주간 자동 회고는 사용자별 호출 한도가 `AI_AUTO_USER_DAILY_LIMIT`(기본 1, COMPARE·COACH·WEEKLY·METRICS 한도와
+별개)이고, 자동 생성된 결과를 사용자가 아직 안 열어봤으면 `GET /api/ai/results/latest?type=COACH` 응답의
+`isNew`가 true다(열어보면 `PUT /api/ai/results/{id}/viewed`로 꺼진다).
 
 ### AI 호출 흐름과 안정성
 1. 요청 → 로그인 확인 → 해당 기간 기록 조회
