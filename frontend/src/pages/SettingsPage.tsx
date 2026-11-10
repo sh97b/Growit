@@ -28,6 +28,12 @@ export function SettingsPage() {
           AI 정리
         </Link>
         <Link
+          to="/settings/notifications"
+          className="flex min-h-11 items-center border-t border-line py-3 text-ink no-underline"
+        >
+          알림 설정
+        </Link>
+        <Link
           to="/settings/password"
           className="flex min-h-11 items-center border-t border-line py-3 text-ink no-underline"
         >

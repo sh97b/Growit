@@ -24,6 +24,7 @@ import { WeekDetailPage } from './pages/WeekDetailPage'
 import { AiPage } from './pages/settings/AiPage'
 import { DeleteAccountPage } from './pages/settings/DeleteAccountPage'
 import { HobbiesPage } from './pages/settings/HobbiesPage'
+import { NotificationsPage } from './pages/settings/NotificationsPage'
 import { PasswordPage } from './pages/settings/PasswordPage'
 
 function App() {
@@ -78,6 +79,7 @@ function App() {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/settings/hobbies" element={<HobbiesPage />} />
         <Route path="/settings/ai" element={<AiPage />} />
+        <Route path="/settings/notifications" element={<NotificationsPage />} />
         <Route path="/settings/password" element={<PasswordPage />} />
         <Route path="/settings/delete" element={<DeleteAccountPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

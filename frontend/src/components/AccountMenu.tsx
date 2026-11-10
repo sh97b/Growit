@@ -51,6 +51,13 @@ export function AccountMenu({ size = 40 }: { size?: number }) {
           >
             AI 정리
           </Link>
+          <Link
+            to="/settings/notifications"
+            onClick={() => setOpen(false)}
+            className="flex min-h-11 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium text-ink no-underline"
+          >
+            알림 설정
+          </Link>
           <button
             type="button"
             onClick={handleLogout}
