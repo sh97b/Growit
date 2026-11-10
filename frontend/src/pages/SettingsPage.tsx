@@ -12,7 +12,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 lg:mx-auto lg:max-w-[720px]">
       <h1 className="font-serif text-xl font-semibold">설정</h1>
       <div className="flex flex-col">
         <Link

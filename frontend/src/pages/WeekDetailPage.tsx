@@ -45,8 +45,26 @@ export function WeekDetailPage() {
   const detail = detailQuery.data
   if (!detail) return null
 
+  const summary = (
+    <>
+      <div className="flex flex-col">
+        <b className="font-serif text-lg">{detail.recordedDays}일</b>
+        <span className="text-sm text-ink-2">기록한 날</span>
+      </div>
+      <div className="flex flex-col">
+        <b className="font-serif text-lg">{formatDurationMinutes(detail.totalMinutes)}</b>
+        <span className="text-sm text-ink-2">쌓인 시간</span>
+      </div>
+      <div className="flex flex-col">
+        <b className="font-serif text-lg">{detail.hobbyCount}개</b>
+        <span className="text-sm text-ink-2">활동 분야</span>
+      </div>
+    </>
+  )
+
   return (
-    <div className="flex flex-col gap-5 lg:max-w-[920px]">
+    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-12">
+      <div className="flex flex-col gap-5">
       <nav className="text-sm text-ink-2">
         <Link to="/records" className="inline-flex items-center gap-1 text-ink-2 no-underline">
           <ChevronLeftIcon width={16} height={16} />
@@ -58,20 +76,7 @@ export function WeekDetailPage() {
         {formatMonthDay(detail.weekStart)} – {formatMonthDay(detail.weekEnd)}
       </h1>
 
-      <div className="flex gap-10">
-        <div className="flex flex-col">
-          <b className="font-serif text-lg">{detail.recordedDays}일</b>
-          <span className="text-sm text-ink-2">기록한 날</span>
-        </div>
-        <div className="flex flex-col">
-          <b className="font-serif text-lg">{formatDurationMinutes(detail.totalMinutes)}</b>
-          <span className="text-sm text-ink-2">쌓인 시간</span>
-        </div>
-        <div className="flex flex-col">
-          <b className="font-serif text-lg">{detail.hobbyCount}개</b>
-          <span className="text-sm text-ink-2">활동 분야</span>
-        </div>
-      </div>
+      <div className="flex gap-10 lg:hidden">{summary}</div>
 
       {hasRecords ? (
         <AiViewCard
@@ -136,6 +141,9 @@ export function WeekDetailPage() {
           <span />
         )}
       </div>
+      </div>
+
+      <aside className="hidden flex-col gap-4 lg:flex">{summary}</aside>
     </div>
   )
 }

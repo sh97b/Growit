@@ -149,7 +149,7 @@ export function RecordSavedPanel({
       : null
 
     return (
-      <div className="flex flex-col gap-6 lg:max-w-[760px]">
+      <div className="flex flex-col gap-6 lg:mx-auto lg:max-w-[720px]">
         {header}
 
         {changeSentenceBlock}
@@ -173,7 +173,7 @@ export function RecordSavedPanel({
   }
 
   return (
-    <div className="flex flex-col gap-6 lg:max-w-[760px]">
+    <div className="flex flex-col gap-6 lg:mx-auto lg:max-w-[720px]">
       {header}
 
       {showFailed ? (

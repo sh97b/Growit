@@ -47,46 +47,51 @@ export function RecordsPage() {
   const records = listQuery.data?.pages.flatMap((page) => page.items) ?? []
   const totalCount = listQuery.data?.pages[0]?.totalCount ?? 0
 
+  const hobbyFilter = (
+    <div className="flex flex-wrap gap-2">
+      <button
+        type="button"
+        aria-pressed={hobbyId === null}
+        onClick={() => setHobbyId(null)}
+        className={filterPillClass(hobbyId === null)}
+      >
+        전체
+      </button>
+      {(activeHobbies ?? []).map((hobby) => (
+        <button
+          key={hobby.id}
+          type="button"
+          aria-pressed={hobbyId === hobby.id}
+          onClick={() => setHobbyId(hobby.id)}
+          className={filterPillClass(hobbyId === hobby.id)}
+        >
+          {hobby.name}
+        </button>
+      ))}
+    </div>
+  )
+
   return (
-    <div className="flex flex-col gap-5 lg:max-w-[840px]">
-      <h1 className="font-serif text-xl font-semibold lg:text-[30px]">지난 기록</h1>
+    <div className={noRecordsAtAll ? undefined : 'lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-12'}>
+      <div className="flex flex-col gap-5">
+        <h1 className="font-serif text-xl font-semibold lg:text-[30px]">지난 기록</h1>
 
-      {noRecordsAtAll ? (
-        <div className="flex max-w-[720px] flex-col items-start gap-4 rounded-2xl bg-surface p-5">
-          <p className="text-[17px] text-ink">아직 기록이 없어요. 첫 기록이 여기에 쌓여요.</p>
-          <Link
-            to="/records/new"
-            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-base px-5 text-[15px] font-medium text-white no-underline lg:w-auto"
-          >
-            <PlusIcon width={18} height={18} />
-            기록하기
-          </Link>
-        </div>
-      ) : (
-        <>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              aria-pressed={hobbyId === null}
-              onClick={() => setHobbyId(null)}
-              className={filterPillClass(hobbyId === null)}
+        {noRecordsAtAll ? (
+          <div className="flex max-w-[720px] flex-col items-start gap-4 rounded-2xl bg-surface p-5">
+            <p className="text-[17px] text-ink">아직 기록이 없어요. 첫 기록이 여기에 쌓여요.</p>
+            <Link
+              to="/records/new"
+              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-base px-5 text-[15px] font-medium text-white no-underline lg:w-auto"
             >
-              전체
-            </button>
-            {(activeHobbies ?? []).map((hobby) => (
-              <button
-                key={hobby.id}
-                type="button"
-                aria-pressed={hobbyId === hobby.id}
-                onClick={() => setHobbyId(hobby.id)}
-                className={filterPillClass(hobbyId === hobby.id)}
-              >
-                {hobby.name}
-              </button>
-            ))}
+              <PlusIcon width={18} height={18} />
+              기록하기
+            </Link>
           </div>
+        ) : (
+          <>
+            <div className="lg:hidden">{hobbyFilter}</div>
 
-          {totalCount === 0 ? (
+            {totalCount === 0 ? (
             <p className="py-6 text-center text-sm text-ink-2">아직 이 분야의 기록이 없어요.</p>
           ) : (
             <div className="flex flex-col">
@@ -115,19 +120,22 @@ export function RecordsPage() {
             </div>
           )}
 
-          {listQuery.hasNextPage ? (
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => listQuery.fetchNextPage()}
-              disabled={listQuery.isFetchingNextPage}
-              className="self-center"
-            >
-              더 보기
-            </Button>
-          ) : null}
-        </>
-      )}
+            {listQuery.hasNextPage ? (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => listQuery.fetchNextPage()}
+                disabled={listQuery.isFetchingNextPage}
+                className="self-center"
+              >
+                더 보기
+              </Button>
+            ) : null}
+          </>
+        )}
+      </div>
+
+      {noRecordsAtAll ? null : <aside className="hidden lg:block">{hobbyFilter}</aside>}
     </div>
   )
 }

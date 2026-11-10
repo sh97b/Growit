@@ -57,8 +57,30 @@ export function MetricsDetailPage() {
 
   if (hobbiesLoading) return <Loading />
 
+  const selectedWeekSummary = selectedWeek ? (
+    <div className="flex flex-col gap-1.5 rounded-2xl bg-surface p-4">
+      <span className="text-sm font-semibold text-ink">
+        선택한 주 · {formatMonthDay(selectedWeek.weekStart)} – {formatMonthDay(addWeeks(selectedWeek.weekStart, 1))
+          .replace(/^0/, '')}
+      </span>
+      <span className="tabular-nums text-sm text-ink-2">
+        기록한 날 {selectedWeek.recordedDays}일
+        {selectedWeek.hobbies.length > 0
+          ? ` · ${selectedWeek.hobbies.map((h) => `${activeHobbies?.find((a) => a.id === h.hobbyId)?.name ?? '분야'} ${h.recordedDays}`).join(', ')}`
+          : ''}
+        {' · '}
+        {formatDurationMinutes(selectedWeek.totalMinutes)}
+      </span>
+      <Link to={`/weeks/${selectedWeek.weekStart}`} className="inline-flex min-h-9 w-fit items-center gap-1 text-sm font-medium text-base-ink no-underline underline underline-offset-4">
+        주 상세 보기
+        <ChevronRightIcon width={16} height={16} />
+      </Link>
+    </div>
+  ) : null
+
   return (
-    <div className="flex flex-col gap-5 lg:max-w-[920px]">
+    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-12">
+      <div className="flex flex-col gap-5">
       <nav className="text-sm text-ink-2">
         <Link to="/changes" className="inline-flex items-center gap-1 text-ink-2 no-underline">
           <ChevronLeftIcon width={16} height={16} />
@@ -122,26 +144,7 @@ export function MetricsDetailPage() {
             </div>
           </div>
 
-          {selectedWeek ? (
-            <div className="flex flex-col gap-1.5 rounded-2xl bg-surface p-4">
-              <span className="text-sm font-semibold text-ink">
-                선택한 주 · {formatMonthDay(selectedWeek.weekStart)} – {formatMonthDay(addWeeks(selectedWeek.weekStart, 1))
-                  .replace(/^0/, '')}
-              </span>
-              <span className="tabular-nums text-sm text-ink-2">
-                기록한 날 {selectedWeek.recordedDays}일
-                {selectedWeek.hobbies.length > 0
-                  ? ` · ${selectedWeek.hobbies.map((h) => `${activeHobbies?.find((a) => a.id === h.hobbyId)?.name ?? '분야'} ${h.recordedDays}`).join(', ')}`
-                  : ''}
-                {' · '}
-                {formatDurationMinutes(selectedWeek.totalMinutes)}
-              </span>
-              <Link to={`/weeks/${selectedWeek.weekStart}`} className="inline-flex min-h-9 w-fit items-center gap-1 text-sm font-medium text-base-ink no-underline underline underline-offset-4">
-                주 상세 보기
-                <ChevronRightIcon width={16} height={16} />
-              </Link>
-            </div>
-          ) : null}
+          <div className="lg:hidden">{selectedWeekSummary}</div>
 
           <AiViewCard
             label="지표 해석"
@@ -165,6 +168,9 @@ export function MetricsDetailPage() {
           </div>
         </>
       ) : null}
+      </div>
+
+      <aside className="hidden lg:block">{selectedWeekSummary}</aside>
     </div>
   )
 }

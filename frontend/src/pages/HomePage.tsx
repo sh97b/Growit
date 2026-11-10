@@ -64,31 +64,45 @@ export function HomePage() {
           ? 'done'
           : 'off'
 
+  const showWeekStrip = state === 'done' || state === 'off'
+
   return (
-    <div className="flex flex-col gap-7 lg:max-w-[720px]">
-      <div className="flex flex-col gap-1.5">
-        <h1 className="font-serif text-2xl font-semibold lg:text-[32px]">
-          {state === 'comeback' ? `다시 오셨네요, ${name}님` : state === 'first' ? `${name}님, 환영합니다` : `안녕하세요, ${name}님`}
-        </h1>
-        <span className="text-sm text-ink-2">{formatMonthDayWeekday(today)}</span>
-        {state === 'first' ? (
-          <p className="text-[15px] text-ink-2">오늘 있었던 일을 한 줄만 적어도 첫 기록이 돼요.</p>
+    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-12">
+      <div className="flex flex-col gap-7">
+        <div className="flex flex-col gap-1.5">
+          <h1 className="font-serif text-2xl font-semibold lg:text-[32px]">
+            {state === 'comeback' ? `다시 오셨네요, ${name}님` : state === 'first' ? `${name}님, 환영합니다` : `안녕하세요, ${name}님`}
+          </h1>
+          <span className="text-sm text-ink-2">{formatMonthDayWeekday(today)}</span>
+          {state === 'first' ? (
+            <p className="text-[15px] text-ink-2">오늘 있었던 일을 한 줄만 적어도 첫 기록이 돼요.</p>
+          ) : null}
+          {state === 'comeback' && summary.lastRecordedDate ? (
+            <p className="text-[15px] text-ink-2">
+              마지막 기록은 {formatMonthDay(summary.lastRecordedDate)}이에요. 쌓아 둔 기록은 그대로 있어요.
+            </p>
+          ) : null}
+        </div>
+
+        {state === 'first' ? <FirstUseBoard /> : null}
+        {state === 'comeback' ? <ComebackBoard /> : null}
+        {state === 'done' ? <DoneBoard /> : null}
+        {state === 'off' ? <AiOffBoard /> : null}
+
+        {showWeekStrip ? (
+          <div className="lg:hidden">
+            <RecentWeekStrip />
+          </div>
         ) : null}
-        {state === 'comeback' && summary.lastRecordedDate ? (
-          <p className="text-[15px] text-ink-2">
-            마지막 기록은 {formatMonthDay(summary.lastRecordedDate)}이에요. 쌓아 둔 기록은 그대로 있어요.
-          </p>
-        ) : null}
+
+        {state !== 'first' ? <RecentRecords /> : null}
       </div>
 
-      {state === 'first' ? <FirstUseBoard /> : null}
-      {state === 'comeback' ? <ComebackBoard /> : null}
-      {state === 'done' ? <DoneBoard /> : null}
-      {state === 'off' ? <AiOffBoard /> : null}
-
-      {state === 'done' || state === 'off' ? <RecentWeekStrip /> : null}
-
-      {state !== 'first' ? <RecentRecords /> : null}
+      {showWeekStrip ? (
+        <aside className="hidden lg:block">
+          <RecentWeekStrip />
+        </aside>
+      ) : null}
     </div>
   )
 }

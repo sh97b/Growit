@@ -64,7 +64,7 @@ export function RecordDetailPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 lg:max-w-[760px]">
+    <div className="flex flex-col gap-6 lg:mx-auto lg:max-w-[720px]">
       <nav className="text-sm text-ink-2">
         <Link to="/records" className="text-ink-2 no-underline">
           지난 기록
