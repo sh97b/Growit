@@ -32,6 +32,7 @@ export function RecordFormFields({
   feeling,
   onToggleFeeling,
   banner,
+  suggestionChip,
 }: {
   activeHobbies: Hobby[]
   hobbyId: number
@@ -55,6 +56,7 @@ export function RecordFormFields({
   feeling: Feeling | null
   onToggleFeeling: (value: Feeling) => void
   banner?: ReactNode
+  suggestionChip?: ReactNode
 }) {
   const selectedHobby = activeHobbies.find((hobby) => hobby.id === hobbyId) ?? activeHobbies[0]
 
@@ -69,6 +71,8 @@ export function RecordFormFields({
         aria-label="오늘 한 일을 한 줄로 적어 보세요"
         className="h-[150px] w-full resize-none rounded-xl border border-input bg-white p-4 font-serif text-lg leading-[1.85] text-ink outline-none focus:border-base focus:shadow-[0_0_0_1px_var(--color-base)] lg:h-[150px]"
       />
+
+      {suggestionChip}
 
       <div className="relative flex flex-wrap items-center gap-2">
         <button

@@ -7,9 +7,10 @@ import { HobbyInlineCreate } from '../components/HobbyInlineCreate'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
 import { RecordFormFields } from '../components/RecordFormFields'
-import { PencilIcon, RefreshIcon } from '../components/icons'
+import { PencilIcon, RefreshIcon, SparkleIcon } from '../components/icons'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useHobbies } from '../hooks/useHobbies'
+import { fetchLatestCoach, submitCoachReaction } from '../lib/ai'
 import { ApiError } from '../lib/api'
 import { todayLocalDate, yesterdayLocalDate } from '../lib/date'
 import type { DateMode } from '../lib/recordForm'
@@ -31,6 +32,7 @@ export function RecordNewPage() {
   const { data: currentUser, isLoading: userLoading } = useCurrentUser()
   const { data: hobbies, isLoading: hobbiesLoading } = useHobbies(false)
   const recentQuery = useQuery({ queryKey: ['records', 'recent'], queryFn: () => fetchRecords({ size: 1 }) })
+  const latestCoachQuery = useQuery({ queryKey: ['ai', 'coach', 'latest'], queryFn: fetchLatestCoach })
 
   const activeHobbies = hobbies ?? []
 
@@ -44,6 +46,7 @@ export function RecordNewPage() {
   const [difficulty, setDifficulty] = useState('')
   const [feeling, setFeeling] = useState<Feeling | null>(null)
   const [draftRestored, setDraftRestored] = useState(false)
+  const [suggestionOn, setSuggestionOn] = useState(true)
 
   const [submitting, setSubmitting] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -122,6 +125,10 @@ export function RecordNewPage() {
   const selectedHobby = activeHobbies.find((hobby) => hobby.id === hobbyId) ?? activeHobbies[0]
   const today = todayLocalDate()
   const recordDate = dateMode === 'today' ? today : dateMode === 'yesterday' ? yesterdayLocalDate() : customDate
+  const suggestion =
+    latestCoachQuery.data?.cardState === 'ACTIVE' && latestCoachQuery.data.nextAction
+      ? latestCoachQuery.data.nextAction
+      : null
 
   async function handleSave() {
     if (submitting || !selectedHobby) return
@@ -142,6 +149,13 @@ export function RecordNewPage() {
         feeling: feeling ?? undefined,
       })
       if (currentUser) clearRecordDraft(currentUser.id)
+      if (suggestion && suggestionOn && latestCoachQuery.data?.id != null) {
+        submitCoachReaction(latestCoachQuery.data.id, 'TRIED')
+          .then((updated) => queryClient.setQueryData(['ai', 'coach', 'latest'], updated))
+          .catch(() => {
+            // 반응 저장이 실패해도 기록 저장 자체는 이미 성공했으니 조용히 넘어간다.
+          })
+      }
       queryClient.invalidateQueries({ queryKey: ['records'] })
       queryClient.invalidateQueries({ queryKey: ['hobbies'] })
       queryClient.invalidateQueries({ queryKey: ['stats'] })
@@ -205,6 +219,27 @@ export function RecordNewPage() {
             <div className="flex w-fit items-center gap-2 rounded-[10px] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] px-3 py-2 text-sm text-ink">
               <PencilIcon width={16} height={16} />
               쓰던 글이 남아 있어요
+            </div>
+          ) : null
+        }
+        suggestionChip={
+          suggestion ? (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                aria-pressed={suggestionOn}
+                aria-label={`지난 제안: ${suggestion.title}`}
+                onClick={() => setSuggestionOn((prev) => !prev)}
+                className={[
+                  'inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-4 text-sm font-medium',
+                  suggestionOn
+                    ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_9%,white)] text-base-ink'
+                    : 'border-line-2 bg-white text-ink-2',
+                ].join(' ')}
+              >
+                <SparkleIcon width={14} height={14} />
+                {suggestion.title}
+              </button>
             </div>
           ) : null
         }
