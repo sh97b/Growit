@@ -77,6 +77,7 @@ export type CoachResult = {
   feedback: 'HELPFUL' | 'NOT_HELPFUL' | null
   reaction: 'TRIED' | 'REST_TODAY' | 'TOO_HARD' | null
   cardState: 'ACTIVE' | 'CELEBRATE' | 'RESTING' | 'EXPIRED' | null
+  isNew: boolean
 }
 
 export function fetchCoach(payload: { hobbyId?: number; period: CoachPeriod }) {
@@ -106,6 +107,16 @@ export function simplifyCoachAction(id: number) {
 /** 홈에서는 AI를 새로 부르지 않고 이미 저장된 최신 회고만 읽는다. 없으면(204) undefined. */
 export function fetchLatestCoach() {
   return apiRequest<CoachResult | undefined>('/api/ai/results/latest?type=COACH')
+}
+
+/** 그 주에 처음 접속할 때 홈이 하루 1회만 호출한다(서버가 조건에 맞을 때만 생성, 멱등). */
+export function generateAutoCoach() {
+  return apiRequest<CoachResult>('/api/ai/coach/auto', { method: 'POST' })
+}
+
+/** 자동 회고를 처음 열어봤다고 표시한다(isNew를 끈다). */
+export function markCoachViewed(id: number) {
+  return apiRequest<CoachResult>(`/api/ai/results/${id}/viewed`, { method: 'PUT' })
 }
 
 export type AiViewResult = {

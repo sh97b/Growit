@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { AiLabel } from '../components/AiLabel'
 import { Band } from '../components/Card'
 import { CoachActionCard } from '../components/CoachResultView'
 import { Loading } from '../components/Loading'
@@ -9,7 +10,7 @@ import { WeekStrip, type WeekStripDay } from '../components/WeekStrip'
 import { PlusIcon } from '../components/icons'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useHobbies } from '../hooks/useHobbies'
-import { fetchLatestCoach, type CoachResult } from '../lib/ai'
+import { fetchLatestCoach, generateAutoCoach, type CoachResult } from '../lib/ai'
 import { reactionLine } from '../lib/coachReaction'
 import { ApiError } from '../lib/api'
 import { addDays, formatMonthDay, formatMonthDayWeekday, startOfWeekLocal, todayLocalDate } from '../lib/date'
@@ -24,10 +25,45 @@ function displayNameOf(user: { displayName: string | null; email: string } | und
   return user.displayName || user.email.split('@')[0]
 }
 
+const AUTO_COACH_DATE_KEY = 'growit_auto_coach_date'
+
+/**
+ * 그 주에 처음 접속할 때 서버가 조건에 맞으면 자동 회고를 만든다. sessionStorage에 오늘 날짜를
+ * 적어 두고 하루 한 번만 호출한다(서버도 같은 주에는 멱등이라 이중 안전장치).
+ */
+function useAutoCoachOncePerDay() {
+  const queryClient = useQueryClient()
+
+  useEffect(() => {
+    const today = todayLocalDate()
+    let lastCalled: string | null = null
+    try {
+      lastCalled = sessionStorage.getItem(AUTO_COACH_DATE_KEY)
+    } catch {
+      // 세션 저장소를 못 쓰면(사생활 보호 모드 등) 그냥 매번 호출한다 — 서버가 멱등이라 안전하다.
+    }
+    if (lastCalled === today) return
+
+    generateAutoCoach()
+      .then(() => {
+        try {
+          sessionStorage.setItem(AUTO_COACH_DATE_KEY, today)
+        } catch {
+          // 저장 실패는 무시한다(다음 접속에서 다시 시도될 뿐).
+        }
+        queryClient.invalidateQueries({ queryKey: ['ai', 'coach', 'latest'] })
+      })
+      .catch(() => {
+        // 실패해도 홈은 평소대로 보여준다. 다음 접속에서 다시 시도된다.
+      })
+  }, [])
+}
+
 export function HomePage() {
   const { data: currentUser, isLoading: userLoading } = useCurrentUser()
   const summaryQuery = useQuery({ queryKey: ['stats', 'summary'], queryFn: fetchSummary })
   const [today] = useState(() => new Date())
+  useAutoCoachOncePerDay()
 
   if (userLoading || summaryQuery.isLoading) {
     return <Loading />
@@ -156,26 +192,46 @@ function HomeAiCard({ comeback }: { comeback: boolean }) {
   }
 
   const action = data ? (comeback ? data.comebackAction : data.nextAction) : null
+  const newBanner = data?.isNew ? (
+    <div className="flex items-center justify-between gap-3 rounded-xl bg-[color-mix(in_srgb,var(--color-base)_9%,white)] px-4 py-2.5">
+      <AiLabel>새 회고가 도착했어요</AiLabel>
+      <Link
+        to="/coach"
+        className="inline-flex min-h-9 items-center justify-center rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink no-underline"
+      >
+        열어 보기
+      </Link>
+    </div>
+  ) : null
 
   // EXPIRED(7일 지남 또는 "해봤어요"가 어제 이전)는 새 회고를 받도록 안내한다.
   if (!data || !action || data.cardState === 'EXPIRED') {
     return (
-      <Band className="flex flex-col items-start gap-3.5">
-        <h2 className="text-lg font-semibold">AI 회고</h2>
-        <Link to="/coach" className={primaryLinkClass}>
-          회고 받기
-        </Link>
-      </Band>
+      <>
+        {newBanner}
+        <Band className="flex flex-col items-start gap-3.5">
+          <h2 className="text-lg font-semibold">AI 회고</h2>
+          <Link to="/coach" className={primaryLinkClass}>
+            회고 받기
+          </Link>
+        </Band>
+      </>
     )
   }
 
   // CELEBRATE·RESTING은 카드와 반응 버튼을 접고 짧은 응원 문구만 보여준다.
   if (data.cardState === 'CELEBRATE' || data.cardState === 'RESTING') {
-    return <p className="text-[15px] text-ink-2">{encouragementLine(data)}</p>
+    return (
+      <>
+        {newBanner}
+        <p className="text-[15px] text-ink-2">{encouragementLine(data)}</p>
+      </>
+    )
   }
 
   return (
     <div className="flex flex-col gap-2">
+      {newBanner}
       {!comeback && data.periodSummary ? <p className="text-sm text-ink-2">{data.periodSummary}</p> : null}
       <CoachActionCard
         result={data}

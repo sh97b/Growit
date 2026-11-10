@@ -1,13 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CoachResultView } from '../components/CoachResultView'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useHobbies } from '../hooks/useHobbies'
 import { ApiError } from '../lib/api'
-import { fetchCoach, fetchLatestCoach, type CoachPeriod, type CoachResult } from '../lib/ai'
+import { fetchCoach, fetchLatestCoach, markCoachViewed, type CoachPeriod, type CoachResult } from '../lib/ai'
 import { pickClass } from '../lib/recordForm'
 
 const PERIODS: { value: CoachPeriod; label: string }[] = [
@@ -25,11 +25,13 @@ function isRecentEnough(createdAt: string | null): boolean {
 }
 
 export function CoachPage() {
+  const queryClient = useQueryClient()
   const { data: currentUser, isLoading: userLoading } = useCurrentUser()
   const { data: activeHobbies, isLoading: hobbiesLoading } = useHobbies(false)
   const [hobbyId, setHobbyId] = useState<number | null>(null)
   const [period, setPeriod] = useState<CoachPeriod>('2W')
   const [result, setResult] = useState<CoachResult | null>(null)
+  const viewedIds = useRef(new Set<number>())
 
   // 전체(null)를 기본으로 하고, 특정 분야를 고르면 그 값을 쓴다. 분야 목록이 바뀌어 더 이상
   // 활성 목록에 없는 분야가 선택돼 있으면(보관 등) 전체로 되돌린다.
@@ -46,6 +48,22 @@ export function CoachPage() {
     mutationFn: () => fetchCoach({ hobbyId: effectiveHobbyId ?? undefined, period }),
     onSuccess: (data) => setResult(data),
   })
+
+  const shownResult = result ?? (latestQuery.data && isRecentEnough(latestQuery.data.createdAt) ? latestQuery.data : null)
+
+  // 자동 회고를 열면 한 번만 viewed 처리한다(이 화면에 머무는 동안 중복 호출 방지).
+  useEffect(() => {
+    if (!shownResult?.isNew || shownResult.id == null || viewedIds.current.has(shownResult.id)) return
+    viewedIds.current.add(shownResult.id)
+    markCoachViewed(shownResult.id)
+      .then((updated) => {
+        queryClient.setQueryData(['ai', 'coach', 'latest'], updated)
+        setResult((prev) => (prev && prev.id === updated.id ? updated : prev))
+      })
+      .catch(() => {
+        viewedIds.current.delete(shownResult.id!)
+      })
+  }, [shownResult?.id, shownResult?.isNew, queryClient])
 
   if (userLoading || hobbiesLoading || latestQuery.isLoading) {
     return <Loading />
@@ -66,8 +84,6 @@ export function CoachPage() {
       </div>
     )
   }
-
-  const shownResult = result ?? (latestQuery.data && isRecentEnough(latestQuery.data.createdAt) ? latestQuery.data : null)
 
   const selectors = (
     <>
