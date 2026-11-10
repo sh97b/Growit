@@ -20,6 +20,11 @@ import com.growit.common.exception.ApiException;
 import com.growit.common.exception.ErrorCode;
 import com.growit.hobby.entity.Hobby;
 import com.growit.hobby.repository.HobbyRepository;
+import com.growit.notification.config.WebPushProperties;
+import com.growit.notification.repository.NotificationSettingsRepository;
+import com.growit.notification.repository.PushSubscriptionRepository;
+import com.growit.notification.service.NotificationSchedulerService;
+import com.growit.notification.service.PushSenderService;
 import com.growit.record.entity.ActivityRecord;
 import com.growit.record.entity.Feeling;
 import com.growit.record.repository.ActivityRecordRepository;
@@ -50,6 +55,12 @@ class CoachServiceTest {
 	@Autowired
 	private UserRepository userRepository;
 
+	@Autowired
+	private NotificationSettingsRepository notificationSettingsRepository;
+
+	@Autowired
+	private PushSubscriptionRepository pushSubscriptionRepository;
+
 	private final AiChatClient aiChatClient = mock(AiChatClient.class);
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -66,8 +77,12 @@ class CoachServiceTest {
 		AiCallService callService = new AiCallService(properties, aiChatClient, aiLogRepository, usageService,
 				objectMapper);
 		AiResponseValidator validator = new AiResponseValidator(objectMapper);
+		PushSenderService disabledPushSenderService = new PushSenderService(new WebPushProperties());
+		NotificationSchedulerService notificationSchedulerService = new NotificationSchedulerService(
+				notificationSettingsRepository, pushSubscriptionRepository, activityRecordRepository,
+				disabledPushSenderService);
 		return new CoachService(activityRecordRepository, hobbyRepository, aiResultRepository, callService, validator,
-				objectMapper, userRepository);
+				objectMapper, userRepository, notificationSchedulerService);
 	}
 
 	private Long createUser(boolean aiEnabled) {

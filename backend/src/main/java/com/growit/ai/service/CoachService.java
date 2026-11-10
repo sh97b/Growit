@@ -15,6 +15,7 @@ import com.growit.common.exception.ApiException;
 import com.growit.common.exception.ErrorCode;
 import com.growit.hobby.entity.Hobby;
 import com.growit.hobby.repository.HobbyRepository;
+import com.growit.notification.service.NotificationSchedulerService;
 import com.growit.record.entity.ActivityRecord;
 import com.growit.record.repository.ActivityRecordRepository;
 import com.growit.user.repository.UserRepository;
@@ -66,12 +67,14 @@ public class CoachService {
 	private final AiResponseValidator aiResponseValidator;
 	private final ObjectMapper objectMapper;
 	private final UserRepository userRepository;
+	private final NotificationSchedulerService notificationSchedulerService;
 
 	PromptResourceLoader promptLoader = new PromptResourceLoader(PROMPT_RESOURCE_NAME);
 
 	public CoachService(ActivityRecordRepository activityRecordRepository, HobbyRepository hobbyRepository,
 			AiResultRepository aiResultRepository, AiCallService aiCallService,
-			AiResponseValidator aiResponseValidator, ObjectMapper objectMapper, UserRepository userRepository) {
+			AiResponseValidator aiResponseValidator, ObjectMapper objectMapper, UserRepository userRepository,
+			NotificationSchedulerService notificationSchedulerService) {
 		this.activityRecordRepository = activityRecordRepository;
 		this.hobbyRepository = hobbyRepository;
 		this.aiResultRepository = aiResultRepository;
@@ -79,6 +82,7 @@ public class CoachService {
 		this.aiResponseValidator = aiResponseValidator;
 		this.objectMapper = objectMapper;
 		this.userRepository = userRepository;
+		this.notificationSchedulerService = notificationSchedulerService;
 	}
 
 	@Transactional
@@ -221,6 +225,7 @@ public class CoachService {
 					result.model());
 			saved.markAuto();
 			aiResultRepository.save(saved);
+			notificationSchedulerService.notifyCoachArrival(userId);
 
 			return toResponse(saved, false, userId, stored, inputById);
 		} catch (ApiException e) {
