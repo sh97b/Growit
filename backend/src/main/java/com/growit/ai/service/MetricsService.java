@@ -167,6 +167,6 @@ public class MetricsService {
 		String displayText = stored.editedText() != null ? stored.editedText() : stored.text();
 		return new AiViewResponse(false, null, null, false, result.getId(), result.getStartDate(),
 				result.getEndDate(), result.getCreatedAt(), reused, stored.text(), stored.editedText(), displayText,
-				evidence, result.getFeedback());
+				evidence, result.getFeedback(), null, List.of());
 	}
 }

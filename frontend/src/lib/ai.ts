@@ -123,6 +123,8 @@ export type AiViewResult = {
   displayText: string | null
   evidence: CompareRecordCard[]
   feedback: 'CONFIRMED' | 'DISPUTED' | 'EDITED' | null
+  remainingText: string | null
+  remainingEvidence: CompareRecordCard[]
 }
 
 export function fetchWeeklyOneLiner(payload: { weekStart: string; hobbyId?: number }) {

@@ -25,8 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class WeeklyService {
 
 	private static final String PROMPT_RESOURCE_NAME = "weekly-system.txt";
-	/** prompts/weekly-system.txt를 바꿀 때마다 올린다. */
-	static final int PROMPT_VERSION = 1;
+	/** prompts/weekly-system.txt를 바꿀 때마다 올린다. 2: 이어진 것/아직 남은 어려움 두 섹션으로 재설계. */
+	static final int PROMPT_VERSION = 2;
 
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
@@ -89,7 +89,7 @@ public class WeeklyService {
 
 		AiCallResult result = aiCallService.call(userId, AiResultType.WEEKLY, systemPrompt, payload);
 		List<Long> allowedIds = weekRecords.stream().map(ActivityRecord::getId).toList();
-		StoredViewResult stored = ViewCacheKeys.validate(aiResponseValidator, result.content(), allowedIds);
+		StoredViewResult stored = ViewCacheKeys.validateTwoSection(aiResponseValidator, result.content(), allowedIds);
 
 		Long hobbyId = hobby == null ? null : hobby.getId();
 		AiResult saved = new AiResult(userId, hobbyId, AiResultType.WEEKLY.name(), weekStart, weekEnd,
@@ -148,8 +148,11 @@ public class WeeklyService {
 		List<CompareRecordCard> evidence = ViewCacheKeys.loadEvidence(activityRecordRepository, objectMapper, userId,
 				stored.evidenceIds());
 		String displayText = stored.editedText() != null ? stored.editedText() : stored.text();
+		List<CompareRecordCard> remainingEvidence = stored.remainingEvidenceIds() == null ? List.of()
+				: ViewCacheKeys.loadEvidence(activityRecordRepository, objectMapper, userId,
+						stored.remainingEvidenceIds());
 		return new AiViewResponse(false, null, null, false, result.getId(), result.getStartDate(),
 				result.getEndDate(), result.getCreatedAt(), reused, stored.text(), stored.editedText(), displayText,
-				evidence, result.getFeedback());
+				evidence, result.getFeedback(), stored.remainingText(), remainingEvidence);
 	}
 }

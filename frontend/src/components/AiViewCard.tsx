@@ -71,15 +71,34 @@ export function AiViewCard({
     return <Note variant="calm">{emptyNote ?? '이번 주는 쉬어 간 주예요.'}</Note>
   }
 
+  const hasRemaining = Boolean(data.remainingText)
+
   return (
     <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-6">
       <AiLabel>{label}</AiLabel>
-      <p className="font-serif text-lg leading-[1.55]">{data.displayText}</p>
-      <div className="flex flex-wrap gap-2">
-        {data.evidence.map((record) => (
-          <EvidenceChip key={record.id} record={record} />
-        ))}
+
+      <div className="flex flex-col gap-1.5">
+        {hasRemaining ? <span className="text-[13px] text-ink-2">이어진 것</span> : null}
+        <p className="font-serif text-lg leading-[1.55]">{data.displayText}</p>
+        <div className="flex flex-wrap gap-2">
+          {data.evidence.map((record) => (
+            <EvidenceChip key={record.id} record={record} />
+          ))}
+        </div>
       </div>
+
+      {hasRemaining ? (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[13px] text-ink-2">아직 남은 어려움</span>
+          <p className="font-serif text-lg leading-[1.55]">{data.remainingText}</p>
+          <div className="flex flex-wrap gap-2">
+            {data.remainingEvidence.map((record) => (
+              <EvidenceChip key={record.id} record={record} />
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <ViewFeedbackRow result={data} question={question} onChange={onChange} />
     </div>
   )

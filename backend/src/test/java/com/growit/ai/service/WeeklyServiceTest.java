@@ -13,6 +13,7 @@ import com.growit.ai.client.AiChatResponse;
 import com.growit.ai.config.AiProperties;
 import com.growit.ai.dto.AiViewResponse;
 import com.growit.ai.dto.WeeklyRequest;
+import com.growit.ai.entity.AiResult;
 import com.growit.ai.repository.AiLogRepository;
 import com.growit.ai.repository.AiResultRepository;
 import com.growit.common.exception.ApiException;
@@ -93,7 +94,7 @@ class WeeklyServiceTest {
 		Long hobbyId = createHobby(1L);
 		ActivityRecord record = createRecord(1L, hobbyId, MONDAY, "연습했다");
 
-		stubAiResponse("{\"text\":\"이번 주엔 연습을 했어요\",\"evidenceIds\":[" + record.getId() + "]}");
+		stubAiResponse("{\"continued\":{\"text\":\"이번 주엔 연습을 했어요\",\"evidenceIds\":[" + record.getId() + "]},\"remaining\":null}");
 
 		AiViewResponse response = service(enabledProperties()).weekly(1L, new WeeklyRequest(MONDAY, hobbyId));
 
@@ -102,14 +103,49 @@ class WeeklyServiceTest {
 		assertThat(response.text()).isEqualTo("이번 주엔 연습을 했어요");
 		assertThat(response.displayText()).isEqualTo("이번 주엔 연습을 했어요");
 		assertThat(response.evidence()).hasSize(1);
+		assertThat(response.remainingText()).isNull();
+		assertThat(response.remainingEvidence()).isEmpty();
 		assertThat(aiResultRepository.findAll()).hasSize(1);
+	}
+
+	@Test
+	void weekly_withRemainingSection_storesBothSections() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord continuedRecord = createRecord(1L, hobbyId, MONDAY, "연습했다");
+		ActivityRecord remainingRecord = createRecord(1L, hobbyId, MONDAY.plusDays(1), "어려웠다");
+
+		stubAiResponse("{\"continued\":{\"text\":\"이번 주엔 연습을 했어요\",\"evidenceIds\":[" + continuedRecord.getId()
+				+ "]},\"remaining\":{\"text\":\"아직 어려운 부분이 남아 있어요\",\"evidenceIds\":[" + remainingRecord.getId() + "]}}");
+
+		AiViewResponse response = service(enabledProperties()).weekly(1L, new WeeklyRequest(MONDAY, hobbyId));
+
+		assertThat(response.text()).isEqualTo("이번 주엔 연습을 했어요");
+		assertThat(response.remainingText()).isEqualTo("아직 어려운 부분이 남아 있어요");
+		assertThat(response.remainingEvidence()).hasSize(1);
+		assertThat(response.remainingEvidence().get(0).id()).isEqualTo(remainingRecord.getId());
+	}
+
+	@Test
+	void weekly_oldSingleSectionResult_stillReadsWithoutRemaining() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord record = createRecord(1L, hobbyId, MONDAY, "연습했다");
+		AiResult legacy = new AiResult(1L, hobbyId, "WEEKLY", MONDAY, MONDAY.plusDays(6),
+				"{\"text\":\"이번 주엔 연습을 했어요\",\"evidenceIds\":[" + record.getId() + "]}",
+				"[" + record.getId() + "]", "legacy-cache-key", 1, "model");
+		aiResultRepository.save(legacy);
+
+		AiViewResponse response = service(enabledProperties()).getById(1L, legacy.getId());
+
+		assertThat(response.text()).isEqualTo("이번 주엔 연습을 했어요");
+		assertThat(response.remainingText()).isNull();
+		assertThat(response.remainingEvidence()).isEmpty();
 	}
 
 	@Test
 	void weekly_sameInputTwice_reusesStoredResult() {
 		Long hobbyId = createHobby(1L);
 		ActivityRecord record = createRecord(1L, hobbyId, MONDAY, "연습했다");
-		stubAiResponse("{\"text\":\"이번 주엔 연습을 했어요\",\"evidenceIds\":[" + record.getId() + "]}");
+		stubAiResponse("{\"continued\":{\"text\":\"이번 주엔 연습을 했어요\",\"evidenceIds\":[" + record.getId() + "]},\"remaining\":null}");
 
 		WeeklyService service = service(enabledProperties());
 		WeeklyRequest request = new WeeklyRequest(MONDAY, hobbyId);
@@ -126,7 +162,7 @@ class WeeklyServiceTest {
 	void weekly_recordEditedAfterCache_changesCacheKeyAndCallsAgain() {
 		Long hobbyId = createHobby(1L);
 		ActivityRecord record = createRecord(1L, hobbyId, MONDAY, "연습했다");
-		stubAiResponse("{\"text\":\"이번 주엔 연습을 했어요\",\"evidenceIds\":[" + record.getId() + "]}");
+		stubAiResponse("{\"continued\":{\"text\":\"이번 주엔 연습을 했어요\",\"evidenceIds\":[" + record.getId() + "]},\"remaining\":null}");
 
 		WeeklyService service = service(enabledProperties());
 		WeeklyRequest request = new WeeklyRequest(MONDAY, hobbyId);
@@ -134,7 +170,7 @@ class WeeklyServiceTest {
 
 		record.setContent("연습을 더 했다");
 		activityRecordRepository.saveAndFlush(record);
-		stubAiResponse("{\"text\":\"이번 주엔 연습을 더 했어요\",\"evidenceIds\":[" + record.getId() + "]}");
+		stubAiResponse("{\"continued\":{\"text\":\"이번 주엔 연습을 더 했어요\",\"evidenceIds\":[" + record.getId() + "]},\"remaining\":null}");
 
 		AiViewResponse second = service.weekly(1L, request);
 
@@ -148,7 +184,7 @@ class WeeklyServiceTest {
 		Long hobbyId = createHobby(1L);
 		ActivityRecord record = createRecord(1L, hobbyId, MONDAY, "연습했다");
 
-		stubAiResponse("{\"text\":\"이번 주엔 연습을 했어요\",\"evidenceIds\":[99999]}");
+		stubAiResponse("{\"continued\":{\"text\":\"이번 주엔 연습을 했어요\",\"evidenceIds\":[99999]},\"remaining\":null}");
 
 		AiViewResponse response = service(enabledProperties()).weekly(1L, new WeeklyRequest(MONDAY, hobbyId));
 
@@ -161,7 +197,7 @@ class WeeklyServiceTest {
 		Long hobbyId = createHobby(1L);
 		createRecord(1L, hobbyId, MONDAY, "연습했다");
 
-		stubAiResponse("{\"text\":\"실력이 늘었어요\",\"evidenceIds\":[]}");
+		stubAiResponse("{\"continued\":{\"text\":\"실력이 늘었어요\",\"evidenceIds\":[]},\"remaining\":null}");
 
 		assertThatThrownBy(() -> service(enabledProperties()).weekly(1L, new WeeklyRequest(MONDAY, hobbyId)))
 				.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.AI_FAILED));
@@ -174,7 +210,7 @@ class WeeklyServiceTest {
 		createRecord(1L, hobbyId, MONDAY, "연습했다");
 		String longText = "가".repeat(81);
 
-		stubAiResponse("{\"text\":\"" + longText + "\",\"evidenceIds\":[]}");
+		stubAiResponse("{\"continued\":{\"text\":\"" + longText + "\",\"evidenceIds\":[]},\"remaining\":null}");
 
 		assertThatThrownBy(() -> service(enabledProperties()).weekly(1L, new WeeklyRequest(MONDAY, hobbyId)))
 				.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.AI_FAILED));
@@ -225,7 +261,7 @@ class WeeklyServiceTest {
 	void editText_savesEditedTextAndFeedback() {
 		Long hobbyId = createHobby(1L);
 		ActivityRecord record = createRecord(1L, hobbyId, MONDAY, "연습했다");
-		stubAiResponse("{\"text\":\"이번 주엔 연습을 했어요\",\"evidenceIds\":[" + record.getId() + "]}");
+		stubAiResponse("{\"continued\":{\"text\":\"이번 주엔 연습을 했어요\",\"evidenceIds\":[" + record.getId() + "]},\"remaining\":null}");
 		AiViewResponse created = service(enabledProperties()).weekly(1L, new WeeklyRequest(MONDAY, hobbyId));
 
 		AiViewResponse edited = service(enabledProperties()).editText(1L, created.id(), "내가 고친 문장이에요");

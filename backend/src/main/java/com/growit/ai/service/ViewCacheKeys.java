@@ -73,7 +73,56 @@ final class ViewCacheKeys {
 			}
 		}
 
-		return new StoredViewResult(text, evidenceIds, null);
+		return new StoredViewResult(text, evidenceIds, null, null, null);
+	}
+
+	/**
+	 * WEEKLY 전용: {continued:{text,evidenceIds}, remaining:{text,evidenceIds}|null} 모양을 검증한다.
+	 * 각 섹션의 text·evidenceIds 규칙은 단일 섹션(validate)과 같다.
+	 */
+	static StoredViewResult validateTwoSection(AiResponseValidator validator, String rawJson, List<Long> allowedIds) {
+		JsonNode node = validator.parse(rawJson);
+		validator.requireFields(node, "continued");
+
+		JsonNode continuedNode = node.path("continued");
+		String continuedText = requireSectionText(continuedNode);
+		List<Long> continuedIds = sectionEvidenceIds(continuedNode, allowedIds);
+
+		JsonNode remainingNode = node.path("remaining");
+		String remainingText = null;
+		List<Long> remainingIds = null;
+		if (remainingNode.isObject()) {
+			remainingText = requireSectionText(remainingNode);
+			remainingIds = sectionEvidenceIds(remainingNode, allowedIds);
+		}
+
+		return new StoredViewResult(continuedText, continuedIds, null, remainingText, remainingIds);
+	}
+
+	private static String requireSectionText(JsonNode sectionNode) {
+		JsonNode textNode = sectionNode.path("text");
+		if (!textNode.isTextual()) {
+			throw new ApiException(ErrorCode.AI_FAILED, "지금은 AI를 쓸 수 없어요. 기록은 안전하게 저장돼 있어요.");
+		}
+		String text = textNode.asText().trim();
+		if (text.isEmpty() || text.length() > TEXT_MAX || containsForbiddenWord(text)) {
+			throw new ApiException(ErrorCode.AI_FAILED, "지금은 AI를 쓸 수 없어요. 기록은 안전하게 저장돼 있어요.");
+		}
+		return text;
+	}
+
+	private static List<Long> sectionEvidenceIds(JsonNode sectionNode, List<Long> allowedIds) {
+		Set<Long> allowed = Set.copyOf(allowedIds);
+		List<Long> evidenceIds = new ArrayList<>();
+		JsonNode idsNode = sectionNode.path("evidenceIds");
+		if (idsNode.isArray()) {
+			for (JsonNode idNode : idsNode) {
+				if (idNode.canConvertToLong() && allowed.contains(idNode.asLong()) && evidenceIds.size() < MAX_EVIDENCE) {
+					evidenceIds.add(idNode.asLong());
+				}
+			}
+		}
+		return evidenceIds;
 	}
 
 	private static boolean containsForbiddenWord(String text) {
