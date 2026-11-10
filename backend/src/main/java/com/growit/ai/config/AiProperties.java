@@ -16,6 +16,7 @@ public class AiProperties {
 	private int analysisUserDailyLimit = 30;
 	private int simplifyUserDailyLimit = 5;
 	private int viewUserDailyLimit = 20;
+	private int autoUserDailyLimit = 1;
 
 	/** 키나 모델이 비어 있으면 AI 기능 전체가 꺼진 상태다. 이때도 서버는 정상적으로 시작한다. */
 	public boolean isEnabled() {
@@ -108,5 +109,13 @@ public class AiProperties {
 
 	public void setViewUserDailyLimit(int viewUserDailyLimit) {
 		this.viewUserDailyLimit = viewUserDailyLimit;
+	}
+
+	public int getAutoUserDailyLimit() {
+		return autoUserDailyLimit;
+	}
+
+	public void setAutoUserDailyLimit(int autoUserDailyLimit) {
+		this.autoUserDailyLimit = autoUserDailyLimit;
 	}
 }

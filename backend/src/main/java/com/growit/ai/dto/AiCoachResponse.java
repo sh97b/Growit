@@ -23,10 +23,12 @@ public record AiCoachResponse(
 		String feedback,
 		String reaction,
 		/** ACTIVE·CELEBRATE·RESTING·EXPIRED. 홈에서 카드를 어떻게 보여줄지 서버가 판단해 내려준다. */
-		String cardState) {
+		String cardState,
+		/** 주간 자동 회고(isAuto)이고 아직 한 번도 안 열어봤을 때만 true. 홈의 "새 회고 도착" 표시에 쓴다. */
+		boolean isNew) {
 
 	public static AiCoachResponse locked(int requiredCount, int currentCount) {
 		return new AiCoachResponse(true, requiredCount, currentCount, null, null, null, null, null, false, null,
-				null, null, null, null, null, null, null, null);
+				null, null, null, null, null, null, null, null, false);
 	}
 }

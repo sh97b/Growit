@@ -174,6 +174,14 @@ public class AiResultController {
 		return coachService.simplify(currentUserProvider.getCurrentUserId(), id);
 	}
 
+	@Operation(summary = "자동 회고를 처음 열어봤다고 표시 (COACH만, 내 것만)")
+	@ApiResponse(responseCode = "404", description = "내 결과가 아니거나 COACH가 아님",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@PutMapping("/{id}/viewed")
+	public AiCoachResponse markViewed(@PathVariable Long id) {
+		return coachService.markViewed(currentUserProvider.getCurrentUserId(), id);
+	}
+
 	private String resultTypeOf(Long userId, Long id) {
 		AiResult result = aiResultRepository.findByIdAndUserId(id, userId)
 				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "결과를 찾을 수 없어요"));

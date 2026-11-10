@@ -17,6 +17,7 @@ import com.growit.hobby.entity.Hobby;
 import com.growit.hobby.repository.HobbyRepository;
 import com.growit.record.entity.ActivityRecord;
 import com.growit.record.repository.ActivityRecordRepository;
+import com.growit.user.repository.UserRepository;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
@@ -56,24 +57,28 @@ public class CoachService {
 
 	PromptResourceLoader simplifyPromptLoader = new PromptResourceLoader(SIMPLIFY_PROMPT_RESOURCE_NAME);
 
+	private static final int AUTO_PERIOD_DAYS = 14;
+
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
 	private final AiResultRepository aiResultRepository;
 	private final AiCallService aiCallService;
 	private final AiResponseValidator aiResponseValidator;
 	private final ObjectMapper objectMapper;
+	private final UserRepository userRepository;
 
 	PromptResourceLoader promptLoader = new PromptResourceLoader(PROMPT_RESOURCE_NAME);
 
 	public CoachService(ActivityRecordRepository activityRecordRepository, HobbyRepository hobbyRepository,
 			AiResultRepository aiResultRepository, AiCallService aiCallService,
-			AiResponseValidator aiResponseValidator, ObjectMapper objectMapper) {
+			AiResponseValidator aiResponseValidator, ObjectMapper objectMapper, UserRepository userRepository) {
 		this.activityRecordRepository = activityRecordRepository;
 		this.hobbyRepository = hobbyRepository;
 		this.aiResultRepository = aiResultRepository;
 		this.aiCallService = aiCallService;
 		this.aiResponseValidator = aiResponseValidator;
 		this.objectMapper = objectMapper;
+		this.userRepository = userRepository;
 	}
 
 	@Transactional
@@ -147,6 +152,83 @@ public class CoachService {
 		aiResultRepository.save(saved);
 
 		return toResponse(saved, false, userId, stored, inputById);
+	}
+
+	/**
+	 * 그 주에 처음 접속할 때만(홈이 하루 한 번 호출) 최근 14일·전체 분야로 자동 생성한다. AI 꺼짐·기록 5개
+	 * 미만·이미 이번 주 COACH 결과가 있음·한도 소진은 모두 오류가 아니라 "지금은 만들 게 없다"는 뜻이라
+	 * locked 모양으로 조용히 돌려준다(홈은 이 응답 자체를 보여주지 않고, 그다음 GET .../latest로 읽는다).
+	 */
+	@Transactional
+	public AiCoachResponse generateAuto(Long userId) {
+		var user = userRepository.findById(userId).orElse(null);
+		if (user == null || !user.isAiEnabled()) {
+			return AiCoachResponse.locked(REQUIRED_RECORD_COUNT, 0);
+		}
+
+		LocalDate today = LocalDate.now(SERVER_ZONE);
+		LocalDate weekStart = today.minusDays(today.getDayOfWeek().getValue() - 1L);
+		boolean hasResultThisWeek = aiResultRepository.existsByUserIdAndResultTypeAndCreatedAtGreaterThanEqual(userId,
+				AiResultType.COACH.name(), weekStart.atStartOfDay());
+		if (hasResultThisWeek) {
+			AiCoachResponse existing = latest(userId);
+			return existing != null ? existing : AiCoachResponse.locked(REQUIRED_RECORD_COUNT, 0);
+		}
+
+		LocalDate start = today.minusDays(AUTO_PERIOD_DAYS - 1L);
+		List<ActivityRecord> periodRecords = activityRecordRepository.findByUserIdAndRecordDateBetween(userId, start,
+				today);
+		if (periodRecords.size() < REQUIRED_RECORD_COUNT) {
+			return AiCoachResponse.locked(REQUIRED_RECORD_COUNT, periodRecords.size());
+		}
+
+		List<ActivityRecord> inputRecords = periodRecords.stream()
+				.sorted(Comparator.comparing(ActivityRecord::getRecordDate).reversed()
+						.thenComparing(Comparator.comparing(ActivityRecord::getId).reversed()))
+				.limit(MAX_INPUT_RECORDS)
+				.toList();
+
+		LocalDate lastRecordDate = activityRecordRepository.findMaxRecordDateByUserId(userId);
+		long daysSinceLastRecord = ChronoUnit.DAYS.between(lastRecordDate, today);
+		String mode = daysSinceLastRecord >= COMEBACK_THRESHOLD_DAYS ? "COMEBACK" : "NORMAL";
+
+		Map<Long, ActivityRecord> inputById = new LinkedHashMap<>();
+		inputRecords.forEach(r -> inputById.put(r.getId(), r));
+
+		String cacheKey = CacheKeys.sha256(PROMPT_VERSION + "|AUTO_COACH|ALL|" + start + "|" + today + "|"
+				+ inputRecords.stream().sorted(Comparator.comparing(ActivityRecord::getId))
+						.map(r -> r.getId() + ":" + r.getUpdatedAt()).reduce("", (a, b) -> a + "," + b));
+
+		AiResult existingCache = aiResultRepository.findByUserIdAndCacheKey(userId, cacheKey).orElse(null);
+		if (existingCache != null) {
+			return toResponse(existingCache, true, userId);
+		}
+
+		try {
+			String systemPrompt = promptLoader.load();
+			List<ComparePayloadHobby> hobbies = distinctHobbies(userId, inputRecords);
+			List<ComparePayloadRecord> payloadRecords = inputRecords.stream()
+					.map(r -> new ComparePayloadRecord(r.getId(), r.getRecordDate().toString(),
+							truncate(r.getContent(), CONTENT_MAX), truncate(r.getDifficulty(), DIFFICULTY_MAX)))
+					.toList();
+			CoachPayload payload = new CoachPayload(mode, hobbies, (int) daysSinceLastRecord, payloadRecords);
+
+			AiCallResult result = aiCallService.call(userId, AiResultType.AUTO_COACH, systemPrompt, payload);
+			StoredCoachResult stored = validate(result.content(), mode, inputById.keySet(), inputRecords.size());
+
+			AiResult saved = new AiResult(userId, null, AiResultType.COACH.name(), start, today, toJson(stored),
+					toJson(inputRecords.stream().map(ActivityRecord::getId).toList()), cacheKey, PROMPT_VERSION,
+					result.model());
+			saved.markAuto();
+			aiResultRepository.save(saved);
+
+			return toResponse(saved, false, userId, stored, inputById);
+		} catch (ApiException e) {
+			// AI 꺼짐·동시 호출 제한·한도 소진·검증 실패 모두 사용자에게는 오류로 보이지 않아야 한다(홈 진입을 막지 않음).
+			return AiCoachResponse.locked(REQUIRED_RECORD_COUNT, periodRecords.size());
+		} catch (java.io.IOException e) {
+			return AiCoachResponse.locked(REQUIRED_RECORD_COUNT, periodRecords.size());
+		}
 	}
 
 	private List<ComparePayloadHobby> distinctHobbies(Long userId, List<ActivityRecord> records) {
@@ -300,6 +382,16 @@ public class CoachService {
 		return toResponse(result, true, userId);
 	}
 
+	/** 자동 회고를 처음 열어본 시각을 기록한다(멱등: 이미 봤으면 그대로 둔다). 내 결과에만. */
+	@Transactional
+	public AiCoachResponse markViewed(Long userId, Long id) {
+		AiResult result = aiResultRepository.findByIdAndUserId(id, userId)
+				.filter(r -> r.getResultType().equals(AiResultType.COACH.name()))
+				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "결과를 찾을 수 없어요"));
+		result.markViewed(java.time.LocalDateTime.now(SERVER_ZONE));
+		return toResponse(result, true, userId);
+	}
+
 	/** nextAction의 "해봤어요·오늘은 쉴게요·너무 어려워요" 반응. 내 결과에만, 값은 그대로 저장한다. */
 	@Transactional
 	public AiCoachResponse submitReaction(Long userId, Long id, String value) {
@@ -434,7 +526,8 @@ public class CoachService {
 				stored.recordsRead(),
 				result.getFeedback(),
 				result.getReaction(),
-				computeCardState(result, stored.simplifiedAction() != null));
+				computeCardState(result, stored.simplifiedAction() != null),
+				result.isAuto() && result.getViewedAt() == null);
 	}
 
 	/**

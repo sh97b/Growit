@@ -44,6 +44,7 @@ app:
     analysis-user-daily-limit: ${AI_ANALYSIS_USER_DAILY_LIMIT:30}
     simplify-user-daily-limit: ${AI_SIMPLIFY_USER_DAILY_LIMIT:5}
     view-user-daily-limit: ${AI_VIEW_USER_DAILY_LIMIT:20}
+    auto-user-daily-limit: ${AI_AUTO_USER_DAILY_LIMIT:1}
 
 springdoc:
   api-docs:

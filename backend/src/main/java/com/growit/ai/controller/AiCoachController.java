@@ -30,4 +30,14 @@ public class AiCoachController {
 	public AiCoachResponse coach(@RequestBody CoachRequest request) {
 		return coachService.coach(currentUserProvider.getCurrentUserId(), request);
 	}
+
+	/**
+	 * 그 주에 처음 접속할 때 홈이 하루 한 번 부른다(멱등). 조건이 안 맞으면 조용히 생성을 건너뛰고
+	 * locked 모양으로 응답한다 — 홈은 이 응답을 직접 보여주지 않고 GET /api/ai/results/latest로 다시 읽는다.
+	 */
+	@Operation(summary = "주간 자동 회고 (조건이 맞을 때만 생성, 홈 전용)")
+	@PostMapping("/coach/auto")
+	public AiCoachResponse generateAuto() {
+		return coachService.generateAuto(currentUserProvider.getCurrentUserId());
+	}
 }

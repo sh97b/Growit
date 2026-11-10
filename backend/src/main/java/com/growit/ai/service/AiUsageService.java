@@ -24,6 +24,7 @@ public class AiUsageService {
 			AiResultType.COMPARE.name(), AiResultType.COACH.name());
 	private static final List<String> VIEW_LIMITED_TYPES = List.of(
 			AiResultType.WEEKLY.name(), AiResultType.METRICS.name());
+	private static final List<String> AUTO_LIMITED_TYPES = List.of(AiResultType.AUTO_COACH.name());
 
 	private final AiLogRepository aiLogRepository;
 	private final AiProperties properties;
@@ -35,6 +36,7 @@ public class AiUsageService {
 	private final Map<Long, Integer> analysisReserved = new HashMap<>();
 	private final Map<Long, Integer> simplifyReserved = new HashMap<>();
 	private final Map<Long, Integer> viewReserved = new HashMap<>();
+	private final Map<Long, Integer> autoReserved = new HashMap<>();
 
 	public AiUsageService(AiLogRepository aiLogRepository, AiProperties properties) {
 		this.aiLogRepository = aiLogRepository;
@@ -99,6 +101,16 @@ public class AiUsageService {
 							"오늘 쓸 수 있는 AI 횟수를 다 썼어요. 기록은 안전하게 저장돼 있어요. 내일 다시 써 보세요.");
 				}
 				viewReserved.put(userId, reserved + 1);
+			} else if (AUTO_LIMITED_TYPES.contains(type.name())) {
+				long userAutoOk = aiLogRepository.countByUserAndStateAndResultTypesSince(
+						userId, AiLogState.OK.name(), AUTO_LIMITED_TYPES, startOfDay);
+				int reserved = autoReserved.getOrDefault(userId, 0);
+				if (userAutoOk + reserved >= properties.getAutoUserDailyLimit()) {
+					recordLimitLog(userId, type);
+					throw new ApiException(ErrorCode.AI_LIMIT_EXCEEDED,
+							"오늘 쓸 수 있는 AI 횟수를 다 썼어요. 기록은 안전하게 저장돼 있어요. 내일 다시 써 보세요.");
+				}
+				autoReserved.put(userId, reserved + 1);
 			}
 
 			globalReserved++;
@@ -117,6 +129,8 @@ public class AiUsageService {
 				simplifyReserved.computeIfPresent(userId, (id, count) -> Math.max(0, count - 1));
 			} else if (VIEW_LIMITED_TYPES.contains(type.name())) {
 				viewReserved.computeIfPresent(userId, (id, count) -> Math.max(0, count - 1));
+			} else if (AUTO_LIMITED_TYPES.contains(type.name())) {
+				autoReserved.computeIfPresent(userId, (id, count) -> Math.max(0, count - 1));
 			}
 		}
 	}
@@ -138,6 +152,7 @@ public class AiUsageService {
 			analysisReserved.clear();
 			simplifyReserved.clear();
 			viewReserved.clear();
+			autoReserved.clear();
 		}
 	}
 

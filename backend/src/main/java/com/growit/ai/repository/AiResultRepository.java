@@ -1,6 +1,7 @@
 package com.growit.ai.repository;
 
 import com.growit.ai.entity.AiResult;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
@@ -22,4 +23,7 @@ public interface AiResultRepository extends JpaRepository<AiResult, Long> {
 	long countByUserIdAndResultType(Long userId, String resultType);
 
 	long countByUserIdAndResultTypeAndHobbyId(Long userId, String resultType, Long hobbyId);
+
+	boolean existsByUserIdAndResultTypeAndCreatedAtGreaterThanEqual(Long userId, String resultType,
+			LocalDateTime from);
 }

@@ -6,5 +6,7 @@ public enum AiResultType {
 	METRICS,
 	COMPARE,
 	COACH,
-	SIMPLIFY
+	SIMPLIFY,
+	/** 저장되는 ai_results.result_type은 그대로 COACH다. 한도·로그 구분을 위한 호출 종류일 뿐이다. */
+	AUTO_COACH
 }

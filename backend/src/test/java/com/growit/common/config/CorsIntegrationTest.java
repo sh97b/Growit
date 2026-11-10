@@ -129,7 +129,9 @@ class CorsIntegrationTest {
 				Arguments.of("/api/ai/results/1/text", "PATCH"),
 				Arguments.of("/api/ai/results", "GET"),
 				Arguments.of("/api/ai/results/latest", "GET"),
-				Arguments.of("/api/ai/results/1/simplify", "POST"));
+				Arguments.of("/api/ai/results/1/simplify", "POST"),
+				Arguments.of("/api/ai/results/1/viewed", "PUT"),
+				Arguments.of("/api/ai/coach/auto", "POST"));
 	}
 
 	@ParameterizedTest(name = "{1} {0} 사전 확인 통과")

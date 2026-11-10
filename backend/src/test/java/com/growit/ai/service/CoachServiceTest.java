@@ -23,6 +23,8 @@ import com.growit.hobby.repository.HobbyRepository;
 import com.growit.record.entity.ActivityRecord;
 import com.growit.record.entity.Feeling;
 import com.growit.record.repository.ActivityRecordRepository;
+import com.growit.user.entity.User;
+import com.growit.user.repository.UserRepository;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -45,6 +47,9 @@ class CoachServiceTest {
 	@Autowired
 	private AiLogRepository aiLogRepository;
 
+	@Autowired
+	private UserRepository userRepository;
+
 	private final AiChatClient aiChatClient = mock(AiChatClient.class);
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -62,7 +67,13 @@ class CoachServiceTest {
 				objectMapper);
 		AiResponseValidator validator = new AiResponseValidator(objectMapper);
 		return new CoachService(activityRecordRepository, hobbyRepository, aiResultRepository, callService, validator,
-				objectMapper);
+				objectMapper, userRepository);
+	}
+
+	private Long createUser(boolean aiEnabled) {
+		User user = userRepository.save(new User("user" + System.nanoTime() + "@test.com", "x", "테스터"));
+		user.setAiEnabled(aiEnabled);
+		return userRepository.save(user).getId();
 	}
 
 	private Long createHobby(Long userId) {
@@ -405,5 +416,93 @@ class CoachServiceTest {
 
 		assertThatThrownBy(() -> service(enabledProperties()).simplify(1L, saved.getId()))
 				.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.AI_FAILED));
+	}
+
+	@Test
+	void generateAuto_aiDisabledForUser_returnsLockedWithoutCallingProvider() {
+		Long userId = createUser(false);
+		Long hobbyId = createHobby(userId);
+		createRecords(userId, hobbyId, 5, LocalDate.now().minusDays(4));
+
+		AiCoachResponse response = service(enabledProperties()).generateAuto(userId);
+
+		assertThat(response.locked()).isTrue();
+		verifyNoInteractions(aiChatClient);
+		assertThat(aiResultRepository.findAll()).isEmpty();
+	}
+
+	@Test
+	void generateAuto_fewerThan5RecordsInLast14Days_returnsLocked() {
+		Long userId = createUser(true);
+		Long hobbyId = createHobby(userId);
+		createRecords(userId, hobbyId, 4, LocalDate.now().minusDays(3));
+
+		AiCoachResponse response = service(enabledProperties()).generateAuto(userId);
+
+		assertThat(response.locked()).isTrue();
+		assertThat(response.currentCount()).isEqualTo(4);
+		verifyNoInteractions(aiChatClient);
+	}
+
+	@Test
+	void generateAuto_success_savesAutoCoachResultAsIsNew() {
+		Long userId = createUser(true);
+		Long hobbyId = createHobby(userId);
+		createRecords(userId, hobbyId, 5, LocalDate.now().minusDays(4));
+		stubAiResponse("{\"periodSummary\":\"기록상 꾸준히 이어갔어요\",\"changes\":[],\"repeatedDifficulties\":[],"
+				+ "\"action\":{\"title\":\"코드 전환 3번 해보기\",\"minutes\":5,\"reason\":\"짧게 이어가기 좋아요\",\"recordIds\":[]}}");
+
+		AiCoachResponse response = service(enabledProperties()).generateAuto(userId);
+
+		assertThat(response.locked()).isFalse();
+		assertThat(response.isNew()).isTrue();
+		assertThat(aiResultRepository.findAll()).hasSize(1);
+		assertThat(aiResultRepository.findAll().get(0).isAuto()).isTrue();
+	}
+
+	@Test
+	void generateAuto_alreadyHasCoachResultThisWeek_doesNotGenerateAgain() {
+		Long userId = createUser(true);
+		Long hobbyId = createHobby(userId);
+		createRecords(userId, hobbyId, 5, LocalDate.now().minusDays(4));
+		stubAiResponse("{\"periodSummary\":\"기록상 꾸준히 이어갔어요\",\"changes\":[],\"repeatedDifficulties\":[],"
+				+ "\"action\":{\"title\":\"코드 전환 3번 해보기\",\"minutes\":5,\"reason\":\"짧게 이어가기 좋아요\",\"recordIds\":[]}}");
+		CoachService service = service(enabledProperties());
+		AiCoachResponse first = service.generateAuto(userId);
+
+		AiCoachResponse second = service.generateAuto(userId);
+
+		assertThat(second.id()).isEqualTo(first.id());
+		assertThat(aiResultRepository.findAll()).hasSize(1);
+	}
+
+	@Test
+	void generateAuto_autoLimitExceeded_returnsLockedQuietly() {
+		Long userId = createUser(true);
+		Long hobbyId = createHobby(userId);
+		createRecords(userId, hobbyId, 5, LocalDate.now().minusDays(4));
+		AiProperties properties = enabledProperties();
+		properties.setAutoUserDailyLimit(0);
+
+		AiCoachResponse response = service(properties).generateAuto(userId);
+
+		assertThat(response.locked()).isTrue();
+		assertThat(aiResultRepository.findAll()).isEmpty();
+	}
+
+	@Test
+	void markViewed_setsViewedAtOnceAndIsNewBecomesFalse() {
+		Long userId = createUser(true);
+		Long hobbyId = createHobby(userId);
+		createRecords(userId, hobbyId, 5, LocalDate.now().minusDays(4));
+		stubAiResponse("{\"periodSummary\":\"기록상 꾸준히 이어갔어요\",\"changes\":[],\"repeatedDifficulties\":[],"
+				+ "\"action\":{\"title\":\"코드 전환 3번 해보기\",\"minutes\":5,\"reason\":\"짧게 이어가기 좋아요\",\"recordIds\":[]}}");
+		CoachService service = service(enabledProperties());
+		AiCoachResponse created = service.generateAuto(userId);
+		assertThat(created.isNew()).isTrue();
+
+		AiCoachResponse viewed = service.markViewed(userId, created.id());
+
+		assertThat(viewed.isNew()).isFalse();
 	}
 }
