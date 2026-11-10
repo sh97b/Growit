@@ -94,7 +94,7 @@ class StatsControllerTest {
 		given(currentUserProvider.getCurrentUserId()).willReturn(1L);
 		given(statsService.weeks(eq(1L), eq(LocalDate.of(2026, 11, 2)), eq(LocalDate.of(2026, 11, 8)), isNull()))
 				.willReturn(List.of(new WeekSummaryResponse(LocalDate.of(2026, 11, 2), 2, 3, 60, List.of(),
-						new com.growit.stats.dto.WeekFeelingCounts(1, 0, 1, 0))));
+						new com.growit.stats.dto.WeekFeelingCounts(1, 0, 1, 0), List.of())));
 
 		mockMvc.perform(get("/api/stats/weeks").param("from", "2026-11-02").param("to", "2026-11-08"))
 				.andExpect(status().isOk())

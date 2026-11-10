@@ -3,6 +3,7 @@ package com.growit.stats.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.growit.common.exception.ApiException;
 import com.growit.common.exception.ErrorCode;
 import com.growit.hobby.entity.Hobby;
@@ -31,7 +32,7 @@ class StatsServiceTest {
 	private HobbyRepository hobbyRepository;
 
 	private StatsService statsService() {
-		return new StatsService(activityRecordRepository, hobbyRepository);
+		return new StatsService(activityRecordRepository, hobbyRepository, new ObjectMapper());
 	}
 
 	private Long createHobby(Long userId, String name) {
@@ -232,6 +233,32 @@ class StatsServiceTest {
 		List<com.growit.stats.dto.WeekSummaryResponse> weeks = service.weeks(1L, monday, monday, null);
 
 		assertThat(weeks.get(0).totalMinutes()).isEqualTo(10);
+	}
+
+	@Test
+	void weeks_countsTagsFromDoneRecordsOnly_top5() {
+		StatsService service = statsService();
+		Long hobbyId = createHobby(1L, "기타");
+		LocalDate monday = LocalDate.of(2026, 11, 2);
+
+		ActivityRecord tagged1 = activityRecordRepository
+				.save(new ActivityRecord(1L, hobbyId, monday, "연습했다", 10, null, Feeling.PROUD, false));
+		tagged1.markAnalysisDone("{\"title\":\"t\",\"tags\":[\"박자\",\"호흡\"]}");
+		activityRecordRepository.save(tagged1);
+
+		ActivityRecord tagged2 = activityRecordRepository
+				.save(new ActivityRecord(1L, hobbyId, monday.plusDays(1), "연습했다", 10, null, Feeling.PROUD, false));
+		tagged2.markAnalysisDone("{\"title\":\"t\",\"tags\":[\"박자\"]}");
+		activityRecordRepository.save(tagged2);
+
+		// 분석이 끝나지 않은 기록의 태그는 세지 않는다.
+		createRecord(1L, hobbyId, monday.plusDays(2), 10);
+
+		List<com.growit.stats.dto.WeekSummaryResponse> weeks = service.weeks(1L, monday, monday, null);
+
+		assertThat(weeks.get(0).tags()).hasSize(2);
+		assertThat(weeks.get(0).tags().get(0).tag()).isEqualTo("박자");
+		assertThat(weeks.get(0).tags().get(0).count()).isEqualTo(2);
 	}
 
 	@Test

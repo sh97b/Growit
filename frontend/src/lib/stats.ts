@@ -31,6 +31,8 @@ export type WeekFeelingCounts = { proud: number; stuck: number; relieved: number
 
 export type WeekHobbySummary = { hobbyId: number; recordedDays: number }
 
+export type WeekTagCount = { tag: string; count: number }
+
 export type WeekSummary = {
   weekStart: string
   recordedDays: number
@@ -38,6 +40,7 @@ export type WeekSummary = {
   totalMinutes: number
   hobbies: WeekHobbySummary[]
   feelings: WeekFeelingCounts
+  tags: WeekTagCount[]
 }
 
 export function fetchWeeks(params: { from: string; to: string; hobbyId?: number }) {

@@ -1,10 +1,14 @@
 package com.growit.stats.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.growit.common.exception.ApiException;
 import com.growit.common.exception.ErrorCode;
 import com.growit.hobby.entity.Hobby;
 import com.growit.hobby.repository.HobbyRepository;
 import com.growit.record.entity.ActivityRecord;
+import com.growit.record.entity.AiStatus;
 import com.growit.record.entity.Feeling;
 import com.growit.record.repository.ActivityRecordRepository;
 import com.growit.stats.dto.ActivityMapEntry;
@@ -15,6 +19,7 @@ import com.growit.stats.dto.WeekDetailResponse;
 import com.growit.stats.dto.WeekFeelingCounts;
 import com.growit.stats.dto.WeekHobbySummary;
 import com.growit.stats.dto.WeekSummaryResponse;
+import com.growit.stats.dto.WeekTagCount;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -38,10 +43,13 @@ public class StatsService {
 
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
+	private final ObjectMapper objectMapper;
 
-	public StatsService(ActivityRecordRepository activityRecordRepository, HobbyRepository hobbyRepository) {
+	public StatsService(ActivityRecordRepository activityRecordRepository, HobbyRepository hobbyRepository,
+			ObjectMapper objectMapper) {
 		this.activityRecordRepository = activityRecordRepository;
 		this.hobbyRepository = hobbyRepository;
+		this.objectMapper = objectMapper;
 	}
 
 	/** "오늘"과 쉰 일수는 서버 시간대(Asia/Seoul) 기준이다. 사용자의 로컬 시간이 아니다. */
@@ -126,8 +134,50 @@ public class StatsService {
 				feelingCounts.getOrDefault(Feeling.RELIEVED, 0L),
 				feelingCounts.getOrDefault(Feeling.NEUTRAL, 0L));
 
+		List<WeekTagCount> tags = computeTopTags(weekRecords);
+
 		return new WeekSummaryResponse(weekStart, (int) recordedDays, weekRecords.size(), totalMinutes, hobbies,
-				feelings);
+				feelings, tags);
+	}
+
+	/** ai_status=DONE 기록의 analysis.tags를 세어 상위 5개만 돌려준다. */
+	private List<WeekTagCount> computeTopTags(List<ActivityRecord> weekRecords) {
+		Map<String, Long> counts = new java.util.LinkedHashMap<>();
+		for (ActivityRecord record : weekRecords) {
+			if (record.getAiStatus() != AiStatus.DONE) {
+				continue;
+			}
+			for (String tag : extractTags(record.getAiAnalysis())) {
+				counts.merge(tag, 1L, Long::sum);
+			}
+		}
+		return counts.entrySet().stream()
+				.sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+				.limit(5)
+				.map(entry -> new WeekTagCount(entry.getKey(), entry.getValue()))
+				.toList();
+	}
+
+	/** 기록의 태그는 record 도메인의 저장 모양(StoredAnalysis)을 몰라도 되게, tags 칸만 가볍게 읽는다. */
+	private List<String> extractTags(String aiAnalysisJson) {
+		if (aiAnalysisJson == null) {
+			return List.of();
+		}
+		try {
+			JsonNode node = objectMapper.readTree(aiAnalysisJson).path("tags");
+			if (!node.isArray()) {
+				return List.of();
+			}
+			List<String> tags = new ArrayList<>();
+			node.forEach(tagNode -> {
+				if (tagNode.isTextual()) {
+					tags.add(tagNode.asText());
+				}
+			});
+			return tags;
+		} catch (JsonProcessingException e) {
+			return List.of();
+		}
 	}
 
 	/** 요청한 주가 미래로 넘어가면(오늘이 속한 주의 시작보다 늦으면) nextWeekStart는 null이다. */

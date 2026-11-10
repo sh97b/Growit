@@ -62,7 +62,7 @@ class MetricsServiceTest {
 		AiCallService callService = new AiCallService(properties, aiChatClient, aiLogRepository, usageService,
 				objectMapper);
 		AiResponseValidator validator = new AiResponseValidator(objectMapper);
-		StatsService statsService = new StatsService(activityRecordRepository, hobbyRepository);
+		StatsService statsService = new StatsService(activityRecordRepository, hobbyRepository, objectMapper);
 		return new MetricsService(activityRecordRepository, hobbyRepository, aiResultRepository, callService,
 				validator, statsService, objectMapper);
 	}

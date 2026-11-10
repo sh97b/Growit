@@ -15,6 +15,14 @@ import { fetchWeeks, type WeekSummary } from '../lib/stats'
 const WEEK_COUNT = 12
 const CHART_HEIGHT = 108
 
+type Metric = 'days' | 'minutes' | 'tags'
+
+const METRIC_TABS: { value: Metric; label: string }[] = [
+  { value: 'days', label: '기록한 날' },
+  { value: 'minutes', label: '시간' },
+  { value: 'tags', label: '태그' },
+]
+
 function addWeeks(weekStart: string, amount: number): string {
   const [year, month, day] = weekStart.split('-').map(Number)
   const date = new Date(year, month - 1, day)
@@ -29,6 +37,7 @@ export function MetricsDetailPage() {
   const { data: activeHobbies, isLoading: hobbiesLoading } = useHobbies(false)
   const [hobbyId, setHobbyId] = useState<number | null>(null)
   const [selectedWeekStart, setSelectedWeekStart] = useState<string | null>(null)
+  const [metric, setMetric] = useState<Metric>('days')
   const queryClient = useQueryClient()
 
   const currentWeekStart = startOfWeekLocal(new Date())
@@ -50,6 +59,16 @@ export function MetricsDetailPage() {
 
   const weeks = weeksQuery.data ?? []
   const maxDays = 7
+  const maxMinutes = Math.max(1, ...weeks.map((w) => w.totalMinutes))
+  const topTags = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const week of weeks) {
+      for (const tag of week.tags) {
+        counts.set(tag.tag, (counts.get(tag.tag) ?? 0) + tag.count)
+      }
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])
+  }, [weeks])
   const selectedWeek: WeekSummary | undefined = useMemo(
     () => weeks.find((w) => w.weekStart === (selectedWeekStart ?? weeks[weeks.length - 1]?.weekStart)),
     [weeks, selectedWeekStart],
@@ -90,6 +109,22 @@ export function MetricsDetailPage() {
 
       <div className="flex items-center justify-between gap-3">
         <h1 className="font-serif text-xl font-semibold lg:text-[26px]">변화 지표</h1>
+        <div className="inline-flex rounded-lg border border-line-2 bg-white p-[3px]" role="group" aria-label="지표">
+          {METRIC_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              aria-pressed={metric === tab.value}
+              onClick={() => setMetric(tab.value)}
+              className={[
+                'min-h-9 whitespace-nowrap rounded-md px-3.5 text-sm font-medium',
+                metric === tab.value ? 'bg-ink text-white' : 'bg-transparent text-ink-2',
+              ].join(' ')}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -112,37 +147,61 @@ export function MetricsDetailPage() {
 
       {weeks.length > 0 ? (
         <>
-          <div className="flex flex-col gap-2">
-            <span className="text-sm text-ink-2">한 주에 기록한 날 수 (0–7일)</span>
-            <div
-              role="img"
-              aria-label={`최근 ${WEEK_COUNT}주 한 주에 기록한 날 수`}
-              className="grid items-end gap-2"
-              style={{ gridTemplateColumns: `repeat(${weeks.length}, minmax(0, 1fr))`, height: CHART_HEIGHT }}
-            >
-              {weeks.map((week) => {
-                const barHeight = Math.max(3, Math.round((week.recordedDays / maxDays) * CHART_HEIGHT))
-                const isSelected = week.weekStart === (selectedWeekStart ?? weeks[weeks.length - 1]?.weekStart)
-                return (
-                  <button
-                    key={week.weekStart}
-                    type="button"
-                    onClick={() => setSelectedWeekStart(week.weekStart)}
-                    aria-label={`${formatMonthDay(week.weekStart)} 주, ${week.recordedDays}일`}
-                    aria-pressed={isSelected}
-                    className="flex h-full flex-col items-center justify-end gap-1 bg-transparent p-0"
-                  >
-                    <b className="font-sans text-[13px] font-semibold text-ink">{week.recordedDays}</b>
-                    <i
-                      style={{ height: barHeight }}
-                      className={['block w-full rounded-t', isSelected ? 'bg-base' : 'bg-[color-mix(in_srgb,var(--color-base)_58%,var(--color-paper))]'].join(' ')}
-                    />
-                    <span className="whitespace-nowrap text-xs text-ink-2">{formatMonthDay(week.weekStart)}</span>
-                  </button>
-                )
-              })}
+          {metric === 'tags' ? (
+            <div className="flex flex-col gap-2">
+              <span className="text-sm text-ink-2">최근 {WEEK_COUNT}주 자주 나온 주제</span>
+              {topTags.length === 0 ? (
+                <p className="py-4 text-sm text-ink-2">아직 모을 수 있는 태그가 없어요.</p>
+              ) : (
+                <div className="flex flex-col">
+                  {topTags.map(([tag, count]) => (
+                    <div key={tag} className="flex items-center justify-between gap-3 border-t border-line py-3 last:border-b">
+                      <span className="inline-flex h-7 items-center rounded-md bg-tag-topic-bg px-2.5 text-sm font-medium text-tag-topic-fg">
+                        {tag}
+                      </span>
+                      <span className="tabular-nums font-semibold">{count}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <span className="text-sm text-ink-2">
+                {metric === 'days' ? '한 주에 기록한 날 수 (0–7일)' : '한 주에 쌓인 시간'}
+              </span>
+              <div
+                role="img"
+                aria-label={`최근 ${WEEK_COUNT}주 ${metric === 'days' ? '한 주에 기록한 날 수' : '한 주에 쌓인 시간'}`}
+                className="grid items-end gap-2"
+                style={{ gridTemplateColumns: `repeat(${weeks.length}, minmax(0, 1fr))`, height: CHART_HEIGHT }}
+              >
+                {weeks.map((week) => {
+                  const ratio = metric === 'days' ? week.recordedDays / maxDays : week.totalMinutes / maxMinutes
+                  const barHeight = Math.max(3, Math.round(ratio * CHART_HEIGHT))
+                  const isSelected = week.weekStart === (selectedWeekStart ?? weeks[weeks.length - 1]?.weekStart)
+                  const valueLabel = metric === 'days' ? String(week.recordedDays) : formatDurationMinutes(week.totalMinutes)
+                  return (
+                    <button
+                      key={week.weekStart}
+                      type="button"
+                      onClick={() => setSelectedWeekStart(week.weekStart)}
+                      aria-label={`${formatMonthDay(week.weekStart)} 주, ${valueLabel}`}
+                      aria-pressed={isSelected}
+                      className="flex h-full flex-col items-center justify-end gap-1 bg-transparent p-0"
+                    >
+                      <b className="whitespace-nowrap font-sans text-[13px] font-semibold text-ink">{valueLabel}</b>
+                      <i
+                        style={{ height: barHeight }}
+                        className={['block w-full rounded-t', isSelected ? 'bg-base' : 'bg-[color-mix(in_srgb,var(--color-base)_58%,var(--color-paper))]'].join(' ')}
+                      />
+                      <span className="whitespace-nowrap text-xs text-ink-2">{formatMonthDay(week.weekStart)}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="lg:hidden">{selectedWeekSummary}</div>
 
@@ -158,14 +217,18 @@ export function MetricsDetailPage() {
             lockedNote={`기록이 있는 주가 ${metricsQuery.data?.requiredWeeks ?? 2}주 모이면 해석이 열려요 (${metricsQuery.data?.currentWeeks ?? 0}/${metricsQuery.data?.requiredWeeks ?? 2})`}
           />
 
-          <div className="flex flex-col">
-            {[...weeks].reverse().map((week) => (
-              <div key={week.weekStart} className="flex items-center justify-between gap-3 border-t border-line py-3 last:border-b">
-                <span>{formatMonthDay(week.weekStart)} 주</span>
-                <span className="tabular-nums font-semibold">{week.recordedDays}일</span>
-              </div>
-            ))}
-          </div>
+          {metric === 'tags' ? null : (
+            <div className="flex flex-col">
+              {[...weeks].reverse().map((week) => (
+                <div key={week.weekStart} className="flex items-center justify-between gap-3 border-t border-line py-3 last:border-b">
+                  <span>{formatMonthDay(week.weekStart)} 주</span>
+                  <span className="tabular-nums font-semibold">
+                    {metric === 'days' ? `${week.recordedDays}일` : formatDurationMinutes(week.totalMinutes)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       ) : null}
       </div>

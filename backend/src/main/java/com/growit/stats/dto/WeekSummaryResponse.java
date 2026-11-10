@@ -9,5 +9,6 @@ public record WeekSummaryResponse(
 		long recordCount,
 		long totalMinutes,
 		List<WeekHobbySummary> hobbies,
-		WeekFeelingCounts feelings) {
+		WeekFeelingCounts feelings,
+		List<WeekTagCount> tags) {
 }
