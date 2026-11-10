@@ -65,6 +65,14 @@ public class AiResult {
 	@Column(name = "reacted_at")
 	private LocalDateTime reactedAt;
 
+	/** 주간 자동 회고(POST /api/ai/coach/auto)로 만들어졌는지. 홈 "새 회고 도착" 표시에 쓴다. */
+	@Column(name = "is_auto", nullable = false)
+	private boolean isAuto;
+
+	/** 자동 회고를 사용자가 처음 연 시각. null이면 아직 안 봄(isNew=true). */
+	@Column(name = "viewed_at")
+	private LocalDateTime viewedAt;
+
 	@CreationTimestamp
 	@Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "DATETIME")
 	private LocalDateTime createdAt;
@@ -163,5 +171,23 @@ public class AiResult {
 	public void setReaction(String reaction, LocalDateTime reactedAt) {
 		this.reaction = reaction;
 		this.reactedAt = reactedAt;
+	}
+
+	public boolean isAuto() {
+		return isAuto;
+	}
+
+	public void markAuto() {
+		this.isAuto = true;
+	}
+
+	public LocalDateTime getViewedAt() {
+		return viewedAt;
+	}
+
+	public void markViewed(LocalDateTime viewedAt) {
+		if (this.viewedAt == null) {
+			this.viewedAt = viewedAt;
+		}
 	}
 }
