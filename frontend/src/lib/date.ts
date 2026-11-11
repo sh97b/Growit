@@ -45,6 +45,14 @@ export function formatDurationMinutes(totalMinutes: number): string {
   return `${hours}시간 ${minutes}분`
 }
 
+export function daysBetween(fromIsoDate: string, toIsoDate: string): number {
+  const [fy, fm, fd] = fromIsoDate.split('-').map(Number)
+  const [ty, tm, td] = toIsoDate.split('-').map(Number)
+  const from = Date.UTC(fy, fm - 1, fd)
+  const to = Date.UTC(ty, tm - 1, td)
+  return Math.round((to - from) / (24 * 60 * 60 * 1000))
+}
+
 export function startOfWeekLocal(date: Date): string {
   const day = date.getDay()
   const diffToMonday = day === 0 ? -6 : 1 - day

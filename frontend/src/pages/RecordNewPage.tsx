@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '../components/Button'
 import { EmptyState } from '../components/EmptyState'
@@ -29,6 +29,7 @@ const DRAFT_SAVE_DELAY_MS = 500
 
 export function RecordNewPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const { data: currentUser, isLoading: userLoading } = useCurrentUser()
   const { data: hobbies, isLoading: hobbiesLoading } = useHobbies(false)
@@ -81,6 +82,10 @@ export function RecordNewPage() {
         setDraftRestored(true)
         setMoreOpen(draft.minutes != null || draft.difficulty !== '' || draft.feeling != null)
       }
+    } else {
+      // 홈의 "자주 하는 주제" 칩에서 들어온 경우에만 미리 채운다. 임시 저장 초안이 있으면 초안이 우선.
+      const topic = searchParams.get('topic')
+      if (topic) setContent(`${topic}: `)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hobbiesLoading, recentQuery.isLoading, userLoading])

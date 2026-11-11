@@ -46,6 +46,9 @@ public interface ActivityRecordRepository
 	@Query("select max(r.recordDate) from ActivityRecord r where r.userId = :userId")
 	LocalDate findMaxRecordDateByUserId(@Param("userId") Long userId);
 
+	@Query("select min(r.recordDate) from ActivityRecord r where r.userId = :userId")
+	LocalDate findMinRecordDateByUserId(@Param("userId") Long userId);
+
 	Optional<ActivityRecord> findFirstByUserIdAndHobbyIdOrderByRecordDateDescIdDesc(Long userId, Long hobbyId);
 
 	Optional<ActivityRecord> findFirstByUserIdAndHobbyIdAndRecordDateLessThanEqualOrderByRecordDateDescIdDesc(

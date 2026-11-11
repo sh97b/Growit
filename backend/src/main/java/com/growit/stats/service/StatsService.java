@@ -59,12 +59,13 @@ public class StatsService {
 		long totalMinutes = activityRecordRepository.sumMinutesByUserId(userId);
 		long hobbyCount = hobbyRepository.countByUserIdAndArchivedAtIsNull(userId);
 		LocalDate lastRecordedDate = activityRecordRepository.findMaxRecordDateByUserId(userId);
+		LocalDate firstRecordedDate = activityRecordRepository.findMinRecordDateByUserId(userId);
 		Long daysSinceLastRecord = lastRecordedDate == null ? null
 				: ChronoUnit.DAYS.between(lastRecordedDate, today);
 		boolean todayRecorded = lastRecordedDate != null && lastRecordedDate.isEqual(today);
 
 		return new StatsSummaryResponse(recordedDays, totalMinutes, hobbyCount, lastRecordedDate,
-				daysSinceLastRecord, todayRecorded, today);
+				daysSinceLastRecord, todayRecorded, today, firstRecordedDate);
 	}
 
 	/** 날짜·분야별로 집계하고, 보관된 분야의 기록도 포함한다(지난 흐름이 끊겨 보이지 않게). */

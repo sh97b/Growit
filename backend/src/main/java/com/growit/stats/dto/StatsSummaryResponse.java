@@ -9,5 +9,6 @@ public record StatsSummaryResponse(
 		LocalDate lastRecordedDate,
 		Long daysSinceLastRecord,
 		boolean todayRecorded,
-		LocalDate today) {
+		LocalDate today,
+		LocalDate firstRecordedDate) {
 }

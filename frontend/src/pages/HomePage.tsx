@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { ActivityHeatmap } from '../components/ActivityHeatmap'
 import { AiLabel } from '../components/AiLabel'
 import { Band } from '../components/Card'
 import { CoachActionCard } from '../components/CoachResultView'
@@ -13,10 +14,18 @@ import { useHobbies } from '../hooks/useHobbies'
 import { fetchLatestCoach, generateAutoCoach, type CoachResult } from '../lib/ai'
 import { reactionLine } from '../lib/coachReaction'
 import { ApiError } from '../lib/api'
-import { addDays, formatMonthDay, formatMonthDayWeekday, startOfWeekLocal, todayLocalDate } from '../lib/date'
+import {
+  addDays,
+  daysBetween,
+  formatDurationMinutes,
+  formatMonthDay,
+  formatMonthDayWeekday,
+  startOfWeekLocal,
+  todayLocalDate,
+} from '../lib/date'
 import { takeDroppedOfflineMessages } from '../hooks/useOfflineSync'
 import { createRecord, fetchRecords } from '../lib/records'
-import { fetchActivityMap, fetchSummary } from '../lib/stats'
+import { fetchActivityMap, fetchSummary, type StatsSummary } from '../lib/stats'
 
 const primaryLinkClass =
   'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-base px-5 text-[15px] font-medium text-white no-underline lg:w-fit'
@@ -105,48 +114,118 @@ export function HomePage() {
   const showWeekStrip = state === 'done' || state === 'off'
 
   return (
-    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-12">
-      <div className="flex flex-col gap-7">
-        <div className="flex flex-col gap-1.5">
-          <h1 className="font-serif text-2xl font-semibold lg:text-[32px]">
-            {state === 'comeback' ? `다시 오셨네요, ${name}님` : state === 'first' ? `${name}님, 환영합니다` : `안녕하세요, ${name}님`}
-          </h1>
-          <span className="text-sm text-ink-2">{formatMonthDayWeekday(today)}</span>
-          {state === 'first' ? (
-            <p className="text-[15px] text-ink-2">오늘 있었던 일을 한 줄만 적어도 첫 기록이 돼요.</p>
+    <div className="flex flex-col gap-7">
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-12">
+        <div className="flex flex-col gap-7">
+          <div className="flex flex-col gap-1.5">
+            <h1 className="font-serif text-2xl font-semibold lg:text-[32px]">
+              {state === 'comeback' ? `다시 오셨네요, ${name}님` : state === 'first' ? `${name}님, 환영합니다` : `안녕하세요, ${name}님`}
+            </h1>
+            <span className="text-sm text-ink-2">{formatMonthDayWeekday(today)}</span>
+            {state === 'first' ? (
+              <p className="text-[15px] text-ink-2">오늘 있었던 일을 한 줄만 적어도 첫 기록이 돼요.</p>
+            ) : null}
+            {state === 'comeback' && summary.lastRecordedDate ? (
+              <p className="text-[15px] text-ink-2">
+                마지막 기록은 {formatMonthDay(summary.lastRecordedDate)}이에요. 쌓아 둔 기록은 그대로 있어요.
+              </p>
+            ) : null}
+          </div>
+
+          {droppedMessages.length > 0 ? (
+            <Note variant="sand">
+              연결이 안 될 때 기기에 저장해 뒀던 기록 {droppedMessages.length}개를 서버가 받아들이지 못해 지웠어요.
+            </Note>
           ) : null}
-          {state === 'comeback' && summary.lastRecordedDate ? (
-            <p className="text-[15px] text-ink-2">
-              마지막 기록은 {formatMonthDay(summary.lastRecordedDate)}이에요. 쌓아 둔 기록은 그대로 있어요.
-            </p>
+
+          {state === 'first' ? <FirstUseBoard /> : null}
+          {state === 'comeback' ? <ComebackBoard /> : null}
+          {state === 'done' ? <DoneBoard /> : null}
+          {state === 'off' ? <AiOffBoard /> : null}
+
+          {showWeekStrip ? (
+            <div className="lg:hidden">
+              <RecentWeekStrip />
+            </div>
           ) : null}
         </div>
 
-        {droppedMessages.length > 0 ? (
-          <Note variant="sand">
-            연결이 안 될 때 기기에 저장해 뒀던 기록 {droppedMessages.length}개를 서버가 받아들이지 못해 지웠어요.
-          </Note>
-        ) : null}
-
-        {state === 'first' ? <FirstUseBoard /> : null}
-        {state === 'comeback' ? <ComebackBoard /> : null}
-        {state === 'done' ? <DoneBoard /> : null}
-        {state === 'off' ? <AiOffBoard /> : null}
-
         {showWeekStrip ? (
-          <div className="lg:hidden">
+          <aside className="hidden lg:block">
             <RecentWeekStrip />
-          </div>
+          </aside>
         ) : null}
-
-        {state !== 'first' ? <RecentRecords /> : null}
       </div>
 
-      {showWeekStrip ? (
-        <aside className="hidden lg:block">
-          <RecentWeekStrip />
-        </aside>
+      {state !== 'first' ? (
+        <div className="flex flex-col gap-7">
+          <StatsTiles summary={summary} />
+          <div className="rounded-2xl bg-surface p-5">
+            <ActivityHeatmap weeks={12} />
+          </div>
+          <TopicChips />
+          <RecentRecords />
+        </div>
       ) : null}
+    </div>
+  )
+}
+
+/** 디자인에 없는 추가(U3): 연속 일수 같은 쉬면 줄어드는 지표 대신 쌓이기만 하는 지표 3개. */
+function StatsTiles({ summary }: { summary: StatsSummary }) {
+  const daysSinceStart = summary.firstRecordedDate
+    ? daysBetween(summary.firstRecordedDate, summary.today) + 1
+    : null
+
+  return (
+    <div className="grid grid-cols-3 gap-3">
+      <div className="flex flex-col gap-1 rounded-xl bg-surface p-4">
+        <span className="text-sm text-ink-2">기록한 날</span>
+        <span className="font-serif text-lg text-ink">{summary.recordedDays}일</span>
+      </div>
+      <div className="flex flex-col gap-1 rounded-xl bg-surface p-4">
+        <span className="text-sm text-ink-2">쌓인 시간</span>
+        <span className="font-serif text-lg text-ink">
+          {summary.totalMinutes === 0 ? '기록 안 함' : formatDurationMinutes(summary.totalMinutes)}
+        </span>
+      </div>
+      <div className="flex flex-col gap-1 rounded-xl bg-surface p-4">
+        <span className="text-sm text-ink-2">시작한 지</span>
+        <span className="font-serif text-lg text-ink">{daysSinceStart != null ? `${daysSinceStart}일` : '-'}</span>
+      </div>
+    </div>
+  )
+}
+
+/** 디자인에 없는 추가(U3): 최근 기록 30개의 주제 태그 상위 4개를 칩으로 보여 준다. */
+function TopicChips() {
+  const query = useQuery({ queryKey: ['records', 'topic-chips'], queryFn: () => fetchRecords({ size: 30 }) })
+
+  if (query.isLoading || !query.data) return null
+
+  const counts = new Map<string, number>()
+  for (const record of query.data.items) {
+    const tag = record.analysis?.tags[0]
+    if (tag) counts.set(tag, (counts.get(tag) ?? 0) + 1)
+  }
+  const topTags = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4)
+
+  if (topTags.length === 0) return null
+
+  return (
+    <div className="flex flex-col gap-2">
+      <h2 className="text-card-title">자주 하는 주제</h2>
+      <div className="flex flex-wrap gap-2">
+        {topTags.map(([tag]) => (
+          <Link
+            key={tag}
+            to={`/records/new?topic=${encodeURIComponent(tag)}`}
+            className="inline-flex h-9 items-center rounded-md bg-tag-topic-bg px-3 text-sm font-medium text-tag-topic-fg no-underline"
+          >
+            {tag}
+          </Link>
+        ))}
+      </div>
     </div>
   )
 }

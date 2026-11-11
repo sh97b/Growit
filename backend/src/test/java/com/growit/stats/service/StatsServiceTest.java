@@ -58,6 +58,7 @@ class StatsServiceTest {
 		assertThat(response.daysSinceLastRecord()).isNull();
 		assertThat(response.todayRecorded()).isFalse();
 		assertThat(response.today()).isEqualTo(LocalDate.now(SERVER_ZONE));
+		assertThat(response.firstRecordedDate()).isNull();
 	}
 
 	@Test
@@ -102,6 +103,20 @@ class StatsServiceTest {
 
 		assertThat(response.recordedDays()).isEqualTo(2);
 		assertThat(response.totalMinutes()).isEqualTo(30);
+	}
+
+	@Test
+	void summary_firstRecordedDate_isEarliestRecordDate() {
+		StatsService service = statsService();
+		Long hobbyId = createHobby(1L, "기타");
+		LocalDate today = LocalDate.now(SERVER_ZONE);
+		createRecord(1L, hobbyId, today, 10);
+		createRecord(1L, hobbyId, today.minusDays(30), 10);
+		createRecord(1L, hobbyId, today.minusDays(10), 10);
+
+		StatsSummaryResponse response = service.summary(1L);
+
+		assertThat(response.firstRecordedDate()).isEqualTo(today.minusDays(30));
 	}
 
 	@Test

@@ -8,6 +8,7 @@ export type StatsSummary = {
   daysSinceLastRecord: number | null
   todayRecorded: boolean
   today: string
+  firstRecordedDate: string | null
 }
 
 export type ActivityMapEntry = {

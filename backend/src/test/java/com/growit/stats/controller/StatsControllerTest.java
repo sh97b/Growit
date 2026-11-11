@@ -43,8 +43,8 @@ class StatsControllerTest {
 	@Test
 	void summary_returnsOk() throws Exception {
 		given(currentUserProvider.getCurrentUserId()).willReturn(1L);
-		given(statsService.summary(1L)).willReturn(
-				new StatsSummaryResponse(3, 60, 2, LocalDate.of(2026, 10, 28), 0L, true, LocalDate.of(2026, 10, 28)));
+		given(statsService.summary(1L)).willReturn(new StatsSummaryResponse(3, 60, 2, LocalDate.of(2026, 10, 28), 0L,
+				true, LocalDate.of(2026, 10, 28), LocalDate.of(2026, 10, 20)));
 
 		mockMvc.perform(get("/api/stats/summary"))
 				.andExpect(status().isOk())
