@@ -12,12 +12,12 @@ export function ReviewSectionLayout() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col items-end gap-2 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col items-end gap-2 lg:flex-row lg:items-center">
         <ReviewTabs />
         {secondaryLink ? (
           <Link
             to={secondaryLink.to}
-            className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink no-underline underline underline-offset-4"
+            className="inline-flex min-h-11 items-center whitespace-nowrap text-sm font-medium text-base-ink no-underline underline underline-offset-4 lg:ml-auto"
           >
             {secondaryLink.label}
           </Link>

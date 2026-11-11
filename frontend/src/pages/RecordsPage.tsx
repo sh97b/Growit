@@ -93,44 +93,50 @@ export function RecordsPage() {
           </Link>
         </div>
       ) : (
-        <>
-          <div className="rounded-2xl bg-surface p-5">
-            <ActivityHeatmap weeks={52} hobbyId={hobbyId} />
+        <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_440px] lg:items-start lg:gap-10">
+          <div className="flex flex-col gap-5">
+            <div className="rounded-2xl bg-surface p-5 lg:hidden">
+              <ActivityHeatmap weeks={52} hobbyId={hobbyId} />
+            </div>
+
+            {hobbyFilter}
+
+            {totalCount === 0 ? (
+              <p className="py-6 text-center text-sm text-ink-2">아직 이 분야의 기록이 없어요.</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                {records.map((record) => {
+                  const firstTag = record.analysis?.tags[0]
+                  return (
+                    <Link
+                      key={record.id}
+                      to={`/records/${record.id}`}
+                      className="flex flex-col gap-1.5 rounded-xl border border-line bg-white px-4 py-4 text-ink no-underline"
+                    >
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="text-[13px] font-semibold text-ink-2">
+                          {formatMonthDay(record.recordDate)} · {hobbyNameById.get(record.hobbyId) ?? ''}
+                        </span>
+                        {firstTag ? (
+                          <span className="inline-flex h-6 flex-none items-center rounded-md bg-tag-topic-bg px-2 text-xs font-medium text-tag-topic-fg">
+                            {firstTag}
+                          </span>
+                        ) : null}
+                      </span>
+                      <p className="truncate font-serif text-lg text-ink">{record.content}</p>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+
+            <Pagination page={page} totalPages={totalPages} onChange={setPage} />
           </div>
 
-          {hobbyFilter}
-
-          {totalCount === 0 ? (
-            <p className="py-6 text-center text-sm text-ink-2">아직 이 분야의 기록이 없어요.</p>
-          ) : (
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-              {records.map((record) => {
-                const firstTag = record.analysis?.tags[0]
-                return (
-                  <Link
-                    key={record.id}
-                    to={`/records/${record.id}`}
-                    className="flex flex-col gap-1.5 rounded-xl border border-line bg-white px-4 py-4 text-ink no-underline"
-                  >
-                    <span className="flex items-center justify-between gap-2">
-                      <span className="text-[13px] font-semibold text-ink-2">
-                        {formatMonthDay(record.recordDate)} · {hobbyNameById.get(record.hobbyId) ?? ''}
-                      </span>
-                      {firstTag ? (
-                        <span className="inline-flex h-6 flex-none items-center rounded-md bg-tag-topic-bg px-2 text-xs font-medium text-tag-topic-fg">
-                          {firstTag}
-                        </span>
-                      ) : null}
-                    </span>
-                    <p className="truncate font-serif text-lg text-ink">{record.content}</p>
-                  </Link>
-                )
-              })}
-            </div>
-          )}
-
-          <Pagination page={page} totalPages={totalPages} onChange={setPage} />
-        </>
+          <div className="hidden rounded-2xl bg-surface p-5 lg:sticky lg:top-6 lg:block">
+            <ActivityHeatmap weeks={52} hobbyId={hobbyId} />
+          </div>
+        </div>
       )}
     </div>
   )

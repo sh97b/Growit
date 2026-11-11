@@ -8,14 +8,19 @@ const TABS = [
 
 export function ReviewTabs() {
   return (
-    <div className="flex gap-0.5 rounded-lg border border-line-2 bg-white p-[3px]" role="group" aria-label="돌아보기">
+    <div
+      className="flex flex-none gap-0.5 rounded-lg border border-line-2 bg-white p-[3px]"
+      role="group"
+      aria-label="돌아보기"
+    >
       {TABS.map(({ to, label }) => (
         <NavLink
           key={to}
           to={to}
           className={({ isActive }) =>
             [
-              'flex min-h-10 flex-1 items-center justify-center rounded-md text-sm font-medium no-underline',
+              'flex min-h-10 flex-1 items-center justify-center whitespace-nowrap rounded-md px-3.5 text-sm font-medium no-underline',
+              'lg:min-h-[38px] lg:flex-none',
               isActive ? 'bg-ink text-white' : 'text-ink-2',
             ].join(' ')
           }
