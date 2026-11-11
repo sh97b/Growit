@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Field } from './Field'
 import { HobbyInlineCreate } from './HobbyInlineCreate'
 import { Input } from './Input'
+import { VoiceInputButton } from './VoiceInputButton'
 import { ChevronDownIcon } from './icons'
 import { FEELINGS, MINUTE_PRESETS, pickClass } from '../lib/recordForm'
 import type { DateMode } from '../lib/recordForm'
@@ -64,13 +65,18 @@ export function RecordFormFields({
     <>
       {banner}
 
-      <textarea
-        value={content}
-        onChange={(event) => onContentChange(event.target.value)}
-        placeholder="오늘은 무엇을 했나요?"
-        aria-label="오늘 한 일을 한 줄로 적어 보세요"
-        className="h-[150px] w-full resize-none rounded-xl border border-input bg-white p-4 font-serif text-lg leading-[1.85] text-ink outline-none focus:border-base focus:shadow-[0_0_0_1px_var(--color-base)] lg:h-[150px]"
-      />
+      <div className="relative">
+        <textarea
+          value={content}
+          onChange={(event) => onContentChange(event.target.value)}
+          placeholder="오늘은 무엇을 했나요?"
+          aria-label="오늘 한 일을 한 줄로 적어 보세요"
+          className="h-[150px] w-full resize-none rounded-xl border border-input bg-white p-4 pb-14 font-serif text-lg leading-[1.85] text-ink outline-none focus:border-base focus:shadow-[0_0_0_1px_var(--color-base)] lg:h-[150px]"
+        />
+        <VoiceInputButton
+          onTranscript={(text) => onContentChange(content.trim().length > 0 ? `${content.trim()} ${text}` : text)}
+        />
+      </div>
 
       {suggestionChip}
 
