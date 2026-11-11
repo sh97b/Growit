@@ -4,6 +4,7 @@ import { AiLabel } from '../components/AiLabel'
 import { Button } from '../components/Button'
 import { ChangeFeedbackRow } from '../components/ChangeFeedbackRow'
 import { EvidenceChip } from '../components/EvidenceChip'
+import { FeedbackRow } from '../components/FeedbackRow'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
 import { Tag } from '../components/Tag'
@@ -177,9 +178,6 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
   const feedback = useSubmitAnalysisFeedback()
   const editTags = useEditAnalysisTags()
 
-  // tagsEditOpen은 analysis.tagsFeedback에서 파생한다(펼침 여부가 선택 표시와 따로 노는 상태를 두지 않는다).
-  // null이면 파생값을 그대로 쓰고, true/false는 사용자가 직접 펼치거나 닫은 뒤부터 그 값을 우선한다.
-  const [tagsEditOverride, setTagsEditOverride] = useState<boolean | null>(null)
   const [tagDrafts, setTagDrafts] = useState<string[]>([])
   const [newTagInput, setNewTagInput] = useState('')
   const [tagsError, setTagsError] = useState<string | null>(null)
@@ -240,13 +238,11 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
   }
 
   const analysis = record.analysis
-  const tagsEditOpen = tagsEditOverride ?? analysis.tagsFeedback === 'DISPUTED'
 
   function openTagsEdit() {
     setTagDrafts(analysis.tags)
     setTagsError(null)
     setNewTagInput('')
-    setTagsEditOverride(true)
   }
 
   function removeTagDraft(index: number) {
@@ -273,7 +269,7 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
     setTagsError(null)
   }
 
-  function saveTags() {
+  function saveTags(markSaved: () => void) {
     if (tagDrafts.length === 0) {
       setTagsError('태그를 1개 이상 남겨 주세요')
       return
@@ -281,26 +277,21 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
     editTags.mutate(
       { id: record.id, tags: tagDrafts },
       {
-        onSuccess: () => setTagsEditOverride(false),
+        onSuccess: () => markSaved(),
         onError: (mutationError) =>
           setTagsError(mutationError instanceof ApiError ? mutationError.message : '고치지 못했어요'),
       },
     )
   }
 
-  // 선택 표시(낙관적 갱신)와 펼침 여부를 같은 클릭 안에서 함께 바꾼다. 실패하면 두 상태 모두
-  // 되돌린다(선택은 mutate의 롤백이, 펼침은 아래 onError가 override를 지워 파생값으로 되돌린다).
   function handleConfirm() {
     if (feedback.isPending) return
     setTagsFeedbackError(null)
-    setTagsEditOverride(false)
     feedback.mutate(
       { id: record.id, payload: { tags: 'CONFIRMED' } },
       {
-        onError: (mutationError) => {
-          setTagsFeedbackError(mutationError instanceof ApiError ? mutationError.message : '잠시 후 다시 시도해 주세요')
-          setTagsEditOverride(null)
-        },
+        onError: (mutationError) =>
+          setTagsFeedbackError(mutationError instanceof ApiError ? mutationError.message : '잠시 후 다시 시도해 주세요'),
       },
     )
   }
@@ -308,14 +299,11 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
   function handleDispute() {
     if (feedback.isPending) return
     setTagsFeedbackError(null)
-    openTagsEdit()
     feedback.mutate(
       { id: record.id, payload: { tags: 'DISPUTED' } },
       {
-        onError: (mutationError) => {
-          setTagsFeedbackError(mutationError instanceof ApiError ? mutationError.message : '잠시 후 다시 시도해 주세요')
-          setTagsEditOverride(null)
-        },
+        onError: (mutationError) =>
+          setTagsFeedbackError(mutationError instanceof ApiError ? mutationError.message : '잠시 후 다시 시도해 주세요'),
       },
     )
   }
@@ -336,115 +324,82 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
         </div>
       ) : null}
 
-      {analysis.tagsFeedback === 'EDITED' && !tagsEditOpen ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm text-ink-2">내가 고친 태그예요</span>
-          <button
-            type="button"
-            onClick={openTagsEdit}
-            className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink underline underline-offset-4"
-          >
-            다시 고치기
-          </button>
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm text-ink-2">태그가 맞나요?</span>
-          <button
-            type="button"
-            aria-pressed={analysis.tagsFeedback === 'CONFIRMED'}
-            onClick={handleConfirm}
-            className={[
-              'inline-flex min-h-10 items-center justify-center rounded-lg border px-4 text-sm font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
-              analysis.tagsFeedback === 'CONFIRMED'
-                ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
-                : 'border-line-2 bg-white',
-            ].join(' ')}
-          >
-            맞아요
-          </button>
-          <button
-            type="button"
-            aria-pressed={analysis.tagsFeedback === 'DISPUTED'}
-            onClick={handleDispute}
-            className={[
-              'inline-flex min-h-10 items-center justify-center rounded-lg border px-4 text-sm font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
-              analysis.tagsFeedback === 'DISPUTED'
-                ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
-                : 'border-line-2 bg-white',
-            ].join(' ')}
-          >
-            달라요
-          </button>
-          {!tagsEditOpen ? (
-            <button
-              type="button"
-              onClick={openTagsEdit}
-              className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink underline underline-offset-4"
-            >
-              태그 고치기
-            </button>
-          ) : null}
-        </div>
-      )}
-
-      {tagsFeedbackError ? <Note variant="sand">{tagsFeedbackError}</Note> : null}
-
-      {tagsEditOpen ? (
-        <div className="flex flex-col gap-3 rounded-2xl bg-surface p-[18px]">
-          {analysis.tagsFeedback === 'DISPUTED' ? <p className="text-sm font-medium text-ink">어떻게 고칠까요?</p> : null}
-          <div className="flex flex-wrap gap-2">
-            {tagDrafts.map((tag, index) => (
-              <button
-                key={tag}
-                type="button"
-                onClick={() => removeTagDraft(index)}
-                aria-label={`${tag} 태그 지우기`}
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink"
-              >
-                {tag}
-                <XIcon width={14} height={14} />
-              </button>
-            ))}
-            {tagDrafts.length < TAGS_MAX_COUNT ? (
-              <div className="flex items-center gap-1.5">
-                <input
-                  value={newTagInput}
-                  onChange={(event) => setNewTagInput(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      event.preventDefault()
-                      addTagDraft()
-                    }
-                  }}
-                  placeholder="태그 추가"
-                  maxLength={TAG_MAX_LENGTH}
-                  autoFocus
-                  className="h-11 w-28 rounded-lg border border-input bg-white px-3 text-sm text-ink outline-none"
-                />
+      <FeedbackRow
+        question="태그가 맞나요?"
+        variant="text"
+        status={
+          analysis.tagsFeedback === 'CONFIRMED'
+            ? 'positive'
+            : analysis.tagsFeedback === 'DISPUTED'
+              ? 'negative'
+              : analysis.tagsFeedback === 'EDITED'
+                ? 'edited'
+                : null
+        }
+        pending={feedback.isPending}
+        onPositive={handleConfirm}
+        onNegative={handleDispute}
+        onBeforeOpenEdit={openTagsEdit}
+        editTriggerLabel="태그 고치기"
+        editedMessage="내가 고친 태그예요"
+        editedActionLabel="다시 고치기"
+        errorMessage={tagsFeedbackError}
+        editArea={({ markSaved, cancel }) => (
+          <div className="flex flex-col gap-3 rounded-2xl bg-surface p-[18px]">
+            {analysis.tagsFeedback === 'DISPUTED' ? <p className="text-sm font-medium text-ink">어떻게 고칠까요?</p> : null}
+            <div className="flex flex-wrap gap-2">
+              {tagDrafts.map((tag, index) => (
                 <button
+                  key={tag}
                   type="button"
-                  onClick={addTagDraft}
-                  aria-label="태그 추가"
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-line-2 bg-white text-ink"
+                  onClick={() => removeTagDraft(index)}
+                  aria-label={`${tag} 태그 지우기`}
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink"
                 >
-                  <PlusIcon width={16} height={16} />
+                  {tag}
+                  <XIcon width={14} height={14} />
                 </button>
-              </div>
-            ) : null}
+              ))}
+              {tagDrafts.length < TAGS_MAX_COUNT ? (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    value={newTagInput}
+                    onChange={(event) => setNewTagInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault()
+                        addTagDraft()
+                      }
+                    }}
+                    placeholder="태그 추가"
+                    maxLength={TAG_MAX_LENGTH}
+                    autoFocus
+                    className="h-11 w-28 rounded-lg border border-input bg-white px-3 text-sm text-ink outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={addTagDraft}
+                    aria-label="태그 추가"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-line-2 bg-white text-ink"
+                  >
+                    <PlusIcon width={16} height={16} />
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            {tagsError ? <p className="text-[13px] text-[#6B3F0F]">{tagsError}</p> : null}
+            <p className="text-sm text-ink-2">고친 내용은 이 기록의 태그에만 반영돼요. 쓰신 글은 바뀌지 않아요.</p>
+            <div className="flex gap-2">
+              <Button type="button" size="sm" disabled={editTags.isPending} onClick={() => saveTags(markSaved)}>
+                저장
+              </Button>
+              <Button type="button" variant="secondary" size="sm" onClick={cancel}>
+                취소
+              </Button>
+            </div>
           </div>
-          {tagsError ? <p className="text-[13px] text-[#6B3F0F]">{tagsError}</p> : null}
-          <p className="text-sm text-ink-2">고친 내용은 이 기록의 태그에만 반영돼요. 쓰신 글은 바뀌지 않아요.</p>
-          <div className="flex gap-2">
-            <Button type="button" size="sm" disabled={editTags.isPending} onClick={saveTags}>
-              저장
-            </Button>
-            <Button type="button" variant="secondary" size="sm" onClick={() => setTagsEditOverride(false)}>
-              취소
-            </Button>
-          </div>
-        </div>
-      ) : null}
+        )}
+      />
 
       {analysis.relatedRecords.length > 0 ? (
         <div className="flex flex-col gap-2 pt-2">
