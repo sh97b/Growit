@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Loading } from './Loading'
 import { addDays, formatMonthDay, startOfWeekLocal, todayLocalDate } from '../lib/date'
@@ -39,6 +39,10 @@ export function ActivityHeatmap({ weeks, hobbyId }: Props) {
   const today = todayLocalDate()
   const currentWeekStart = startOfWeekLocal(new Date())
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  // 364칸까지도 Tab만으로 전부 거치면 접근성이 떨어져, 한 칸만 탭 순서에 두고(roving tabindex)
+  // 그 칸에서 방향키로 다른 칸으로 옮겨 다니게 한다. 기본 초점은 오늘 칸.
+  const [focusedDate, setFocusedDate] = useState<string>(today)
+  const cellRefs = useRef(new Map<string, SVGRectElement>())
 
   const weekStarts = useMemo(
     () => Array.from({ length: weeks }, (_, index) => addDays(currentWeekStart, (index - (weeks - 1)) * 7)),
@@ -75,6 +79,21 @@ export function ActivityHeatmap({ weeks, hobbyId }: Props) {
 
   const selectedCount = selectedDate ? (countByDate.get(selectedDate) ?? 0) : null
 
+  function moveFocus(colIndex: number, rowIndex: number, key: string): void {
+    let nextCol = colIndex
+    let nextRow = rowIndex
+    if (key === 'ArrowRight') nextCol = Math.min(columns.length - 1, colIndex + 1)
+    else if (key === 'ArrowLeft') nextCol = Math.max(0, colIndex - 1)
+    else if (key === 'ArrowDown') nextRow = Math.min(6, rowIndex + 1)
+    else if (key === 'ArrowUp') nextRow = Math.max(0, rowIndex - 1)
+    else return
+    const nextDate = columns[nextCol][nextRow]
+    if (nextDate > today) return
+    setFocusedDate(nextDate)
+    setSelectedDate(nextDate)
+    cellRefs.current.get(nextDate)?.focus()
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <svg
@@ -99,17 +118,21 @@ export function ActivityHeatmap({ weeks, hobbyId }: Props) {
             return (
               <rect
                 key={date}
+                ref={(node) => {
+                  if (node) cellRefs.current.set(date, node)
+                  else cellRefs.current.delete(date)
+                }}
                 x={x}
                 y={y}
                 width={CELL}
                 height={CELL}
                 rx={2}
                 fill={isFuture ? 'transparent' : LEVEL_BG[level]}
-                tabIndex={isFuture ? -1 : 0}
+                tabIndex={isFuture ? -1 : date === focusedDate ? 0 : -1}
                 role={isFuture ? undefined : 'img'}
                 aria-label={isFuture ? undefined : `${formatMonthDay(date)} · 기록 ${count}개`}
                 onClick={isFuture ? undefined : () => setSelectedDate(date)}
-                onFocus={isFuture ? undefined : () => setSelectedDate(date)}
+                onFocus={isFuture ? undefined : () => setFocusedDate(date)}
                 onKeyDown={
                   isFuture
                     ? undefined
@@ -117,6 +140,11 @@ export function ActivityHeatmap({ weeks, hobbyId }: Props) {
                         if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault()
                           setSelectedDate(date)
+                          return
+                        }
+                        if (event.key.startsWith('Arrow')) {
+                          event.preventDefault()
+                          moveFocus(colIndex, rowIndex, event.key)
                         }
                       }
                 }

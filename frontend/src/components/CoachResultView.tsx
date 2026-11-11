@@ -183,61 +183,65 @@ export function CoachResultView({
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      {result.startDate && result.endDate ? (
-        <span className="text-[13px] font-semibold text-ink-2">
-          {formatMonthDay(result.startDate)} – {formatMonthDay(result.endDate)}
-        </span>
-      ) : null}
+    <div className="flex flex-col gap-5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
+      <div className="flex flex-col gap-5">
+        {result.startDate && result.endDate ? (
+          <span className="text-[13px] font-semibold text-ink-2">
+            {formatMonthDay(result.startDate)} – {formatMonthDay(result.endDate)}
+          </span>
+        ) : null}
 
-      <div className="flex flex-col gap-3.5 rounded-2xl bg-surface p-7">
-        <AiLabel>AI 회고 한 줄</AiLabel>
-        <p className="font-serif text-lg leading-[1.55] lg:text-[24px]">{result.periodSummary}</p>
-        <div className="flex items-center justify-between gap-3 border-t border-line pt-2">
-          <span className="text-sm text-ink">이 회고가 도움됐나요?</span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              aria-label="도움이 됐어요"
-              aria-pressed={result.feedback === 'HELPFUL'}
-              onClick={() => handleFeedback('HELPFUL')}
-              className={[
-                'inline-flex h-11 w-11 items-center justify-center rounded-lg border text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
-                result.feedback === 'HELPFUL'
-                  ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
-                  : 'border-line-2 bg-white',
-              ].join(' ')}
-            >
-              <ThumbsUpIcon width={20} height={20} />
-            </button>
-            <button
-              type="button"
-              aria-label="아쉬워요"
-              aria-pressed={result.feedback === 'NOT_HELPFUL'}
-              onClick={() => handleFeedback('NOT_HELPFUL')}
-              className={[
-                'inline-flex h-11 w-11 items-center justify-center rounded-lg border text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
-                result.feedback === 'NOT_HELPFUL'
-                  ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
-                  : 'border-line-2 bg-white',
-              ].join(' ')}
-            >
-              <ThumbsDownIcon width={20} height={20} />
-            </button>
+        <div className="flex flex-col gap-3.5 rounded-2xl bg-surface p-7">
+          <AiLabel>AI 회고 한 줄</AiLabel>
+          <p className="font-serif text-lg leading-[1.55] lg:text-[24px]">{result.periodSummary}</p>
+          <div className="flex items-center justify-between gap-3 border-t border-line pt-2">
+            <span className="text-sm text-ink">이 회고가 도움됐나요?</span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                aria-label="도움이 됐어요"
+                aria-pressed={result.feedback === 'HELPFUL'}
+                onClick={() => handleFeedback('HELPFUL')}
+                className={[
+                  'inline-flex h-11 w-11 items-center justify-center rounded-lg border text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
+                  result.feedback === 'HELPFUL'
+                    ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
+                    : 'border-line-2 bg-white',
+                ].join(' ')}
+              >
+                <ThumbsUpIcon width={20} height={20} />
+              </button>
+              <button
+                type="button"
+                aria-label="아쉬워요"
+                aria-pressed={result.feedback === 'NOT_HELPFUL'}
+                onClick={() => handleFeedback('NOT_HELPFUL')}
+                className={[
+                  'inline-flex h-11 w-11 items-center justify-center rounded-lg border text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
+                  result.feedback === 'NOT_HELPFUL'
+                    ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
+                    : 'border-line-2 bg-white',
+                ].join(' ')}
+              >
+                <ThumbsDownIcon width={20} height={20} />
+              </button>
+            </div>
           </div>
         </div>
+
+        <TextItemBlock title="새로 해 본 것 · 나아진 점" items={result.changes} />
+        <TextItemBlock title="아직 남은 어려움" items={result.repeatedDifficulties} />
+
+        {feedbackMutation.isError ? <Note variant="sand">잠시 후 다시 시도해 주세요</Note> : null}
       </div>
 
-      <TextItemBlock title="새로 해 본 것 · 나아진 점" items={result.changes} />
-      <TextItemBlock title="아직 남은 어려움" items={result.repeatedDifficulties} />
+      <div className="flex flex-col gap-5">
+        <CoachActionCard result={result} comeback={result.mode === 'COMEBACK'} onResultChange={onResultChange} />
 
-      <CoachActionCard result={result} comeback={result.mode === 'COMEBACK'} onResultChange={onResultChange} />
-
-      {result.recordsRead != null ? (
-        <p className="text-sm text-ink-2">기록 {result.recordsRead}개를 읽었어요</p>
-      ) : null}
-
-      {feedbackMutation.isError ? <Note variant="sand">잠시 후 다시 시도해 주세요</Note> : null}
+        {result.recordsRead != null ? (
+          <p className="text-sm text-ink-2">기록 {result.recordsRead}개를 읽었어요</p>
+        ) : null}
+      </div>
     </div>
   )
 }
