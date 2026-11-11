@@ -2,8 +2,11 @@ import { Outlet } from 'react-router-dom'
 import { AccountMenu } from './AccountMenu'
 import { Header } from './Header'
 import { TabBar } from './TabBar'
+import { useOfflineSync } from '../hooks/useOfflineSync'
 
 export function AppLayout() {
+  useOfflineSync()
+
   return (
     <div className="flex min-h-dvh flex-col bg-paper text-ink">
       <Header />

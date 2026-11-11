@@ -7,12 +7,13 @@ import { HobbyInlineCreate } from '../components/HobbyInlineCreate'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
 import { RecordFormFields } from '../components/RecordFormFields'
-import { PencilIcon, RefreshIcon, SparkleIcon } from '../components/icons'
+import { CheckCircleIcon, PencilIcon, RefreshIcon, SparkleIcon } from '../components/icons'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useHobbies } from '../hooks/useHobbies'
 import { fetchLatestCoach, submitCoachReaction } from '../lib/ai'
 import { ApiError } from '../lib/api'
-import { todayLocalDate, yesterdayLocalDate } from '../lib/date'
+import { formatMonthDay, todayLocalDate, yesterdayLocalDate } from '../lib/date'
+import { queueOfflineRecord, type OfflineQueueItem } from '../lib/offlineQueue'
 import type { DateMode } from '../lib/recordForm'
 import {
   clearRecordDraft,
@@ -50,6 +51,7 @@ export function RecordNewPage() {
 
   const [submitting, setSubmitting] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [offlineSaved, setOfflineSaved] = useState<OfflineQueueItem | null>(null)
 
   const initializedRef = useRef(false)
 
@@ -161,6 +163,23 @@ export function RecordNewPage() {
       queryClient.invalidateQueries({ queryKey: ['stats'] })
       navigate(`/records/${created.id}/saved`, { replace: true })
     } catch (error) {
+      if (!(error instanceof ApiError) && currentUser) {
+        const item = queueOfflineRecord(
+          currentUser.id,
+          {
+            hobbyId: selectedHobby.id,
+            recordDate,
+            content: trimmedContent,
+            minutes: minutes ?? undefined,
+            difficulty: difficulty.trim() || undefined,
+            feeling: feeling ?? undefined,
+          },
+          selectedHobby.name,
+        )
+        clearRecordDraft(currentUser.id)
+        setOfflineSaved(item)
+        return
+      }
       setSaveError(error instanceof ApiError ? error.message : DEFAULT_ERROR_MESSAGE)
     } finally {
       setSubmitting(false)
@@ -183,6 +202,34 @@ export function RecordNewPage() {
 
   function toggleFeeling(value: Feeling) {
     setFeeling((prev) => (prev === value ? null : value))
+  }
+
+  if (offlineSaved) {
+    return (
+      <div className="flex flex-col gap-6 lg:mx-auto lg:max-w-[720px]">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-base)_12%,white)] text-base-ink">
+              <CheckCircleIcon width={18} height={18} />
+            </span>
+            <h1 className="font-serif text-xl font-semibold">기기에 저장했어요</h1>
+          </div>
+          <span className="pl-[42px] text-sm text-ink-2">
+            {formatMonthDay(offlineSaved.recordDate)} · {offlineSaved.hobbyName} · 연결되면 자동으로 올려요
+          </span>
+        </div>
+        <div className="flex flex-col gap-1 rounded-xl bg-surface p-4">
+          <p className="text-ink">AI 한 줄은 연결된 뒤에 보여드려요.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-base px-5 text-[15px] font-medium text-white lg:w-fit"
+        >
+          홈으로
+        </button>
+      </div>
+    )
   }
 
   return (

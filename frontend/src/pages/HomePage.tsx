@@ -14,6 +14,7 @@ import { fetchLatestCoach, generateAutoCoach, type CoachResult } from '../lib/ai
 import { reactionLine } from '../lib/coachReaction'
 import { ApiError } from '../lib/api'
 import { addDays, formatMonthDay, formatMonthDayWeekday, startOfWeekLocal, todayLocalDate } from '../lib/date'
+import { takeDroppedOfflineMessages } from '../hooks/useOfflineSync'
 import { createRecord, fetchRecords } from '../lib/records'
 import { fetchActivityMap, fetchSummary } from '../lib/stats'
 
@@ -63,6 +64,7 @@ export function HomePage() {
   const { data: currentUser, isLoading: userLoading } = useCurrentUser()
   const summaryQuery = useQuery({ queryKey: ['stats', 'summary'], queryFn: fetchSummary })
   const [today] = useState(() => new Date())
+  const [droppedMessages] = useState(() => takeDroppedOfflineMessages())
   useAutoCoachOncePerDay()
 
   if (userLoading || summaryQuery.isLoading) {
@@ -119,6 +121,12 @@ export function HomePage() {
             </p>
           ) : null}
         </div>
+
+        {droppedMessages.length > 0 ? (
+          <Note variant="sand">
+            연결이 안 될 때 기기에 저장해 뒀던 기록 {droppedMessages.length}개를 서버가 받아들이지 못해 지웠어요.
+          </Note>
+        ) : null}
 
         {state === 'first' ? <FirstUseBoard /> : null}
         {state === 'comeback' ? <ComebackBoard /> : null}
