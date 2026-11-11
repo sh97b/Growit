@@ -101,8 +101,12 @@ Growit은 새로운 걸 배우거나 취미를 키울 때, **눈에 띄는 변�
 | 구분 | 화면 |
 |---|---|
 | 메뉴 5개 | 홈, 기록 작성, 나의 변화, AI 회고, 기록 모아보기 |
-| 상세 화면 | 기록 상세, 주 상세, 변화 지표 상세, AI 회고 상세, 이전 회고 목록 |
-| 보조 화면 | 활동 분야 관리, 로그인·회원가입 |
+| 상세 화면 | 기록 상세, 주 상세, 변화 지표 상세(지표 탭: 기록한 날/시간/태그), AI 회고 상세, 이전 회고 목록 |
+| 보조 화면 | 활동 분야 관리, 로그인·회원가입, 알림 설정, 개인정보 안내 |
+
+데스크톱(폭 1024 이상)은 홈·지난 기록·나의 변화·AI 회고·주 상세·변화 지표 상세에서 본문 옆에 360px 사이드(분야 필터,
+기간 선택, 선택한 주 요약 등 기존 요소를 재배치)를 둡니다. 지난 기록에는 최근 8주(모바일)·12주(데스크톱) 활동 지도
+펼침이 있습니다.
 
 <!-- 화면 이미지: docs/home-desktop.png, docs/home-mobile.png 를 추가한 뒤 아래 주석을 해제 -->
 <!-- ![홈 화면](docs/home-desktop.png) -->
@@ -129,8 +133,10 @@ Growit은 새로운 걸 배우거나 취미를 키울 때, **눈에 띄는 변�
 | `users` | 회원 정보. `token_version`을 비밀번호를 바꿀 때마다 올려, 그 전에 발급된 토큰(다른 기기 포함)을 무효화한다 |
 | `hobbies` | 활동 분야와 목표 한 줄 |
 | `records` | 활동 기록 (한 일, 시간, 어려웠던 점, 느낌, 의미 있는 순간, AI 정리 결과) |
-| `ai_results` | AI 결과 (WEEKLY, COMPARE, COACH). 같은 입력이면 재사용(`cache_key`), 어떤 지시문 버전·모델이 만들었는지(`prompt_version`, `model`)와 사용자 피드백·반응(`feedback`, `reaction`)도 함께 저장. COACH는 "너무 어려워요"로 더 작게 바꾼 행동을 결과 JSON의 `simplifiedAction`에 보관(원래 행동은 그대로 둠)하고, 홈 카드를 어떻게 보여줄지는 `reaction`·`reacted_at`·생성일로 서버가 매번 계산(`cardState`: ACTIVE·CELEBRATE·RESTING·EXPIRED) |
+| `ai_results` | AI 결과 (WEEKLY, METRICS, COMPARE, COACH). 같은 입력이면 재사용(`cache_key`), 어떤 지시문 버전·모델이 만들었는지(`prompt_version`, `model`)와 사용자 피드백·반응(`feedback`, `reaction`)도 함께 저장. COACH는 "너무 어려워요"로 더 작게 바꾼 행동을 결과 JSON의 `simplifiedAction`에 보관(원래 행동은 그대로 둠)하고, 홈 카드를 어떻게 보여줄지는 `reaction`·`reacted_at`·생성일로 서버가 매번 계산(`cardState`: ACTIVE·CELEBRATE·RESTING·EXPIRED). `is_auto`·`viewed_at`은 주간 자동 회고와 홈 "새 회고 도착" 표시용 |
 | `ai_logs` | AI 호출 기록 (한도 계산, 성공률·응답 속도 측정) |
+| `notification_settings` | 사용자별 알림 시각·요일·새 회고 도착 알림 여부, 마지막 발송 날짜 |
+| `push_subscriptions` | 웹 푸시 구독(기기별 endpoint·키) |
 
 ---
 
@@ -144,14 +150,17 @@ Growit은 새로운 걸 배우거나 취미를 키울 때, **눈에 띄는 변�
 | 11/16 ~ 11/18 | 발표 자료, 리허설, 최종 발표 |
 
 ### 개발 진행 현황
-- [ ] 프로젝트 세팅과 배포 환경 (빈 앱 배포)
-- [ ] 활동 분야·기록 CRUD
-- [ ] 홈, 기록 작성, 기록 모아보기
+- [x] 프로젝트 세팅과 배포 환경 (빈 앱 배포)
+- [x] 활동 분야·기록 CRUD
+- [x] 홈, 기록 작성, 기록 모아보기
 - [x] AI 공통 모듈 (호출, 한도, 로그, 검증)
 - [x] 기록 정리
 - [x] 나의 변화 (/changes, `POST /api/ai/compare`)
-- [x] AI 회고 (/coach, /coach/history, `POST /api/ai/coach`), 홈 AI 카드
-- [x] 로그인·회원가입
+- [x] AI 회고 (/coach, /coach/history, `POST /api/ai/coach`), 홈 AI 카드, 주간 자동 회고
+- [x] 로그인·회원가입, 계정 보안(비밀번호 정책·로그인 제한·계정 삭제)
+- [x] 주 상세·변화 지표 상세(그래프), 지난 기록 활동 지도 펼침
+- [x] 데스크톱 레이아웃(사이드 구성), 반응형 점검
+- [x] 알림 설정·웹 푸시, 오프라인 저장, 음성 입력
 - [ ] 베타 오픈, 사용자 테스트, 설문
 - [ ] 최종 발표
 
@@ -194,7 +203,7 @@ npm run dev
 
 ### 5) AI 설정
 
-`AI_API_KEY`, `AI_MODEL`이 비어 있으면 AI 기능은 꺼진 상태로 서버가 정상 시작한다(호출 시 `AI_FAILED`). IntelliJ 실행 설정에 `AI_API_KEY`, `AI_MODEL`을 입력하면 켜진다. 나머지 설정(`AI_BASE_URL`, `AI_TIMEOUT_SECONDS`, `AI_MAX_OUTPUT_TOKENS`, `AI_MAX_CONCURRENCY`, `AI_USER_DAILY_LIMIT`, `AI_GLOBAL_DAILY_LIMIT`, `AI_ANALYSIS_USER_DAILY_LIMIT`)은 `.env.example`을 참고한다. 여러 명이 같이 쓰는 공용 키라 호출 한도는 낮게 시작하고, 실제 한도(과금 계획, rate limit)를 확인한 뒤 조정한다. 로그인 후 `GET /api/ai/usage`로 내 사용량을 확인할 수 있다.
+`AI_API_KEY`, `AI_MODEL`이 비어 있으면 AI 기능은 꺼진 상태로 서버가 정상 시작한다(호출 시 `AI_FAILED`). IntelliJ 실행 설정에 `AI_API_KEY`, `AI_MODEL`을 입력하면 켜진다. 나머지 설정(`AI_BASE_URL`, `AI_TIMEOUT_SECONDS`, `AI_MAX_OUTPUT_TOKENS`, `AI_MAX_CONCURRENCY`, `AI_USER_DAILY_LIMIT`, `AI_GLOBAL_DAILY_LIMIT`, `AI_ANALYSIS_USER_DAILY_LIMIT`, `AI_SIMPLIFY_USER_DAILY_LIMIT`, `AI_VIEW_USER_DAILY_LIMIT`, `AI_AUTO_USER_DAILY_LIMIT`)은 `.env.example`을 참고한다. 여러 명이 같이 쓰는 공용 키라 호출 한도는 낮게 시작하고, 실제 한도(과금 계획, rate limit)를 확인한 뒤 조정한다. 로그인 후 `GET /api/ai/usage`로 내 사용량을 확인할 수 있다.
 
 ### 6) 계정 보안
 
@@ -204,6 +213,18 @@ npm run dev
 - **계정 삭제**: `DELETE /api/users/me {password}` — 비밀번호 확인 후 내 AI 결과·기록·활동 분야·계정을 한 번에 지운다(되돌릴 수 없음).
 - 설정 메뉴(`/settings`)에 "비밀번호 바꾸기"(`/settings/password`), "계정 삭제"(`/settings/delete`), "개인정보 안내"(`/privacy`)가 있다. 가입 화면의 AI 전송 안내 문구에도 `/privacy`로 가는 "자세히 보기" 링크(새 탭)가 있다. 모든 화면의 하단 푸터는 삭제했다.
 - **계정 전환 시 데이터 정리**: 로그인·가입·로그아웃·계정 삭제·401 자동 로그아웃(비밀번호 변경은 제외)마다 `lib/sessionReset.ts`가 TanStack Query 캐시를 모두 지우고, `sessionStorage`의 `growit_` 키 전부와 `localStorage`의 `growit_draft_*` 중 새 사용자 것이 아닌 항목을 지운다. 온보딩 임시 상태(`growit_onboarding_draft`)에는 사용자 id를 같이 저장해, 다른 사용자 것이면 버린다(이전에는 사용자 id 없이 저장돼 계정 전환 시 온보딩 이름칸에 이전 사용자 이름이 남는 문제가 있었다).
+
+### 7) 알림·웹 푸시
+
+- `WEB_PUSH_PUBLIC_KEY`·`WEB_PUSH_PRIVATE_KEY`·`WEB_PUSH_SUBJECT`(mailto:) 중 하나라도 비어 있으면 푸시 기능은
+  꺼진 상태로 서버가 정상 시작한다(`GET /api/push/public-key`가 `enabled=false`). 서버 배포 시
+  `scripts/generate-vapid-keys.sh`로 키를 만들어 서버 `.env`에 넣는다(이미 있으면 덮어쓰지 않음, 개인키는 화면에
+  출력하지 않음). 로컬 개발에서는 보통 비워 두고 꺼진 채로 둔다.
+- 1분마다(Asia/Seoul) 알림 설정이 켜진 사용자 중 지금 시각·요일이 맞고 오늘 기록이 없는 사람에게 하루 한 번 보낸다.
+  단일 서버 전제(여러 인스턴스면 중복 발송 가능).
+- 알림 설정 화면은 `/settings/notifications`. "알림 받기"는 사용자 클릭 안에서만 브라우저 권한을 요청한다.
+- 서비스 워커(`frontend/public/sw.js`)는 `push`·`notificationclick`만 처리하고 fetch를 가로채거나 캐시를 만들지
+  않는다(Vercel 배포 뒤 낡은 화면이 남지 않게).
 
 ## 10. 폴더 구조
 
@@ -232,6 +253,9 @@ growit/
 - 구성: `mysql`(내부 전용), `backend`(내부 전용, `backend/Dockerfile`로 빌드), `nginx`(80·443 공개, `nginx/templates/default.conf.template` 기반 HTTPS 리버스 프록시).
 - 서버에서 `.env.example`을 참고해 `.env`를 만들고(`DOMAIN` 포함), Let's Encrypt 인증서를 `/etc/letsencrypt`에 준비한 뒤 `docker compose up -d --build`로 띄운다.
 - 확인: `https://grow-it.duckdns.org/api/health` → `{"status":"ok"}`
+- 웹 푸시를 켜려면 서버에서 `./scripts/generate-vapid-keys.sh`를 실행해 `.env`에 `WEB_PUSH_PUBLIC_KEY`·
+  `WEB_PUSH_PRIVATE_KEY`를 추가하고, `WEB_PUSH_SUBJECT`(mailto:)를 직접 적은 뒤 `docker compose up -d`로 backend를
+  다시 띄운다.
 - Swagger는 서버 `.env`의 `SWAGGER_ENABLED`로 켜고 끈다(기본 false). 켜려면 서버 `.env`에서 `SWAGGER_ENABLED=true`로 바꾸고 `docker compose up -d`로 backend를 다시 띄운다.
   켜진 상태에서 `https://grow-it.duckdns.org/swagger-ui/index.html`(화면), `https://grow-it.duckdns.org/v3/api-docs`(API 문서 JSON)로 확인한다. 꺼져 있으면 두 주소 모두 404여야 한다.
 
