@@ -63,8 +63,7 @@ export function WeekDetailPage() {
   )
 
   return (
-    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-12">
-      <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5 lg:mx-auto lg:max-w-[720px]">
       <nav className="text-sm text-ink-2">
         <Link to="/records" className="inline-flex items-center gap-1 text-ink-2 no-underline">
           <ChevronLeftIcon width={16} height={16} />
@@ -76,7 +75,7 @@ export function WeekDetailPage() {
         {formatMonthDay(detail.weekStart)} – {formatMonthDay(detail.weekEnd)}
       </h1>
 
-      <div className="flex gap-10 lg:hidden">{summary}</div>
+      <div className="flex gap-10">{summary}</div>
 
       {hasRecords ? (
         <AiViewCard
@@ -141,9 +140,6 @@ export function WeekDetailPage() {
           <span />
         )}
       </div>
-      </div>
-
-      <aside className="hidden flex-col gap-4 lg:flex">{summary}</aside>
     </div>
   )
 }

@@ -11,10 +11,9 @@ import { PasswordField } from '../components/PasswordField'
 import { SocialLoginButtons } from '../components/SocialLoginButtons'
 import { ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
+import { PASSWORD_HINT } from '../lib/passwordRules'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const PASSWORD_MIN_LENGTH = 8
-const PASSWORD_MAX_LENGTH = 64
 
 export function SignupPage() {
   const [email, setEmail] = useState('')
@@ -28,9 +27,6 @@ export function SignupPage() {
   function validate(): string | null {
     if (!EMAIL_PATTERN.test(email)) {
       return '올바른 이메일 형식으로 입력해 주세요'
-    }
-    if (password.length < PASSWORD_MIN_LENGTH || password.length > PASSWORD_MAX_LENGTH) {
-      return '비밀번호는 8자 이상 64자 이하로 입력해 주세요'
     }
     return null
   }
@@ -76,7 +72,7 @@ export function SignupPage() {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             autoComplete="new-password"
-            hint="8자 이상 64자 이하, 영문·숫자·특수문자를 섞어 주세요"
+            hint={PASSWORD_HINT}
           />
           <PasswordChecklist password={password} />
         </div>

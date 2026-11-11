@@ -6,6 +6,7 @@ import { PasswordChecklist } from '../../components/PasswordChecklist'
 import { PasswordField } from '../../components/PasswordField'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
+import { PASSWORD_HINT } from '../../lib/passwordRules'
 import { changePassword } from '../../lib/users'
 
 export function PasswordPage() {
@@ -65,7 +66,7 @@ export function PasswordPage() {
             value={newPassword}
             onChange={(event) => setNewPassword(event.target.value)}
             autoComplete="new-password"
-            hint="8자 이상 64자 이하, 영문·숫자·특수문자를 섞어 주세요"
+            hint={PASSWORD_HINT}
           />
           <PasswordChecklist password={newPassword} />
         </div>
