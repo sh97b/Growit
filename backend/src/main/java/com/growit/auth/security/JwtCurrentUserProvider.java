@@ -13,7 +13,7 @@ public class JwtCurrentUserProvider implements CurrentUserProvider {
 	public Long getCurrentUserId() {
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 		if (authentication == null || !(authentication.getPrincipal() instanceof Long userId)) {
-			throw new ApiException(ErrorCode.UNAUTHORIZED, "로그인이 필요해요");
+			throw new ApiException(ErrorCode.TOKEN_INVALID, "로그인이 필요해요");
 		}
 		return userId;
 	}

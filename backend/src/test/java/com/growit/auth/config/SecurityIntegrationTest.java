@@ -11,15 +11,28 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.growit.auth.oauth.entity.SocialAccount;
+import com.growit.auth.oauth.entity.SocialProvider;
+import com.growit.auth.oauth.repository.SocialAccountRepository;
 import com.growit.auth.security.JwtTokenProvider;
+import com.growit.common.config.CorsIntegrationTest;
+import com.growit.user.entity.User;
+import com.growit.user.repository.UserRepository;
+import java.util.Set;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
 /**
  * 로그인(JWT) 적용 후 전체 보안 동작을 실제 HTTP 흐름으로 확인한다:
@@ -29,11 +42,31 @@ import org.springframework.test.web.servlet.MvcResult;
 @AutoConfigureMockMvc
 class SecurityIntegrationTest {
 
+	/** 토큰 없이도 통과해야 하는 경로 — {@link com.growit.auth.config.SecurityConfig}의 공개 경로 목록과 맞춘다. */
+	private static final Set<String> PUBLIC_MAPPINGS = Set.of(
+			"GET /api/health",
+			"POST /api/auth/signup",
+			"POST /api/auth/login",
+			"GET /api/auth/oauth/providers",
+			"GET /api/auth/oauth/kakao/start",
+			"GET /api/auth/oauth/kakao/callback",
+			"POST /api/auth/oauth/exchange",
+			"GET /api/push/public-key");
+
 	@Autowired
 	private MockMvc mockMvc;
 
 	@Autowired
 	private ObjectMapper objectMapper;
+
+	@Autowired
+	private UserRepository userRepository;
+
+	@Autowired
+	private SocialAccountRepository socialAccountRepository;
+
+	@Autowired
+	private JwtTokenProvider jwtTokenProvider;
 
 	@Value("${app.jwt.secret}")
 	private String jwtSecret;
@@ -55,36 +88,43 @@ class SecurityIntegrationTest {
 		return body.get("accessToken").asText();
 	}
 
+	/** 이메일·비밀번호 없는 소셜 전용 계정(email·password_hash NULL)을 만들어 그 계정의 토큰을 돌려준다. */
+	private String signupSocialAndLogin(String providerUserId) {
+		User user = userRepository.save(new User(null, null, "소셜 회원"));
+		socialAccountRepository.save(new SocialAccount(user.getId(), SocialProvider.GOOGLE, providerUserId));
+		return jwtTokenProvider.createToken(user.getId(), user.getTokenVersion());
+	}
+
 	@Test
 	void health_doesNotNeedToken() throws Exception {
 		mockMvc.perform(get("/api/health")).andExpect(status().isOk());
 	}
 
 	@Test
-	void hobbies_withoutToken_returnsUnauthorized() throws Exception {
+	void hobbies_withoutToken_returnsTokenInvalid() throws Exception {
 		mockMvc.perform(get("/api/hobbies"))
 				.andExpect(status().isUnauthorized())
-				.andExpect(jsonPath("$.code", is("UNAUTHORIZED")));
+				.andExpect(jsonPath("$.code", is("TOKEN_INVALID")));
 	}
 
 	@Test
-	void hobbies_withTamperedToken_returnsUnauthorized() throws Exception {
+	void hobbies_withTamperedToken_returnsTokenInvalid() throws Exception {
 		String token = signupAndLogin("tamper_user");
 
 		mockMvc.perform(get("/api/hobbies").header("Authorization", "Bearer " + tamperSignature(token)))
 				.andExpect(status().isUnauthorized())
-				.andExpect(jsonPath("$.code", is("UNAUTHORIZED")));
+				.andExpect(jsonPath("$.code", is("TOKEN_INVALID")));
 	}
 
 	@Test
-	void hobbies_withTamperedToken_returnsUnauthorized_repeated() throws Exception {
+	void hobbies_withTamperedToken_returnsTokenInvalid_repeated() throws Exception {
 		// 서명 끝 글자를 바꾸던 예전 방식은 base64url의 사용되지 않는 비트 때문에 같은 서명으로
 		// 디코딩되는 경우가 있어 간헐적으로 실패했다. 20회 반복해 안정적으로 401이 나는지 확인한다.
 		for (int i = 0; i < 20; i++) {
 			String token = signupAndLogin("tamper_repeat_user_" + i);
 			mockMvc.perform(get("/api/hobbies").header("Authorization", "Bearer " + tamperSignature(token)))
 					.andExpect(status().isUnauthorized())
-					.andExpect(jsonPath("$.code", is("UNAUTHORIZED")));
+					.andExpect(jsonPath("$.code", is("TOKEN_INVALID")));
 		}
 	}
 
@@ -98,14 +138,14 @@ class SecurityIntegrationTest {
 	}
 
 	@Test
-	void hobbies_withExpiredToken_returnsUnauthorized() throws Exception {
+	void hobbies_withExpiredToken_returnsTokenInvalid() throws Exception {
 		signupAndLogin("expired_user");
 		JwtTokenProvider expiredTokenProvider = new JwtTokenProvider(jwtSecret, -1);
 		String expiredToken = expiredTokenProvider.createToken(1L);
 
 		mockMvc.perform(get("/api/hobbies").header("Authorization", "Bearer " + expiredToken))
 				.andExpect(status().isUnauthorized())
-				.andExpect(jsonPath("$.code", is("UNAUTHORIZED")));
+				.andExpect(jsonPath("$.code", is("TOKEN_INVALID")));
 	}
 
 	@Test
@@ -151,15 +191,19 @@ class SecurityIntegrationTest {
 	}
 
 	@Test
-	void changePassword_wrongCurrentPassword_returnsUnauthorized() throws Exception {
+	void changePassword_wrongCurrentPassword_returnsPasswordMismatch() throws Exception {
 		String token = signupAndLogin("change_pw_wrong_user");
 
 		mockMvc.perform(patch("/api/users/me/password")
 						.header("Authorization", "Bearer " + token)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"currentPassword\":\"wrong-password\",\"newPassword\":\"Another-Secure7\"}"))
-				.andExpect(status().isUnauthorized())
-				.andExpect(jsonPath("$.code", is("UNAUTHORIZED")));
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.code", is("PASSWORD_MISMATCH")));
+
+		// 틀린 현재 비밀번호는 세션을 끊지 않는다 - 같은 토큰으로 계속 로그인 상태를 유지한다.
+		mockMvc.perform(get("/api/users/me").header("Authorization", "Bearer " + token))
+				.andExpect(status().isOk());
 	}
 
 	@Test
@@ -193,15 +237,15 @@ class SecurityIntegrationTest {
 	}
 
 	@Test
-	void deleteAccount_wrongPassword_returnsUnauthorized() throws Exception {
+	void deleteAccount_wrongPassword_returnsPasswordMismatch() throws Exception {
 		String token = signupAndLogin("delete_wrong_pw_user");
 
 		mockMvc.perform(delete("/api/users/me")
 						.header("Authorization", "Bearer " + token)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"password\":\"wrong-password\"}"))
-				.andExpect(status().isUnauthorized())
-				.andExpect(jsonPath("$.code", is("UNAUTHORIZED")));
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.code", is("PASSWORD_MISMATCH")));
 	}
 
 	@Test
@@ -257,5 +301,69 @@ class SecurityIntegrationTest {
 				.andExpect(status().isNotFound());
 
 		assertThat(aliceHobbyId).isPositive();
+	}
+
+	@Test
+	void pushAndNotificationEndpoints_withValidToken_succeed() throws Exception {
+		String token = signupAndLogin("push_flow_user");
+
+		mockMvc.perform(get("/api/push/public-key").header("Authorization", "Bearer " + token))
+				.andExpect(status().isOk());
+
+		mockMvc.perform(post("/api/push/subscriptions")
+						.header("Authorization", "Bearer " + token)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"endpoint\":\"https://fake-push.example.com/ep1\","
+								+ "\"keys\":{\"p256dh\":\"p256dh-value\",\"auth\":\"auth-value\"}}"))
+				.andExpect(status().isNoContent());
+
+		mockMvc.perform(get("/api/notifications/settings").header("Authorization", "Bearer " + token))
+				.andExpect(status().isOk());
+
+		mockMvc.perform(MockMvcRequestBuilders.put("/api/notifications/settings")
+						.header("Authorization", "Bearer " + token)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"enabled\":true,\"timeOfDay\":\"08:00\",\"daysOfWeek\":\"1111111\","
+								+ "\"notifyOnCoachArrival\":true}"))
+				.andExpect(status().isOk());
+
+		// VAPID 키가 없는 테스트 환경에서는 PUSH_DISABLED(409)이지 TOKEN_INVALID(401)가 아니다.
+		mockMvc.perform(post("/api/push/test").header("Authorization", "Bearer " + token))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.code", is("PUSH_DISABLED")));
+	}
+
+	private static Stream<Arguments> nonPublicControllerMappings() {
+		return CorsIntegrationTest.allControllerMappings()
+				.filter(args -> !PUBLIC_MAPPINGS.contains(args.get()[1] + " " + args.get()[0]));
+	}
+
+	/**
+	 * 공개 경로를 뺀 모든 API가, 이메일 가입 계정과 소셜 전용 계정(email·password_hash NULL) 둘 다의 유효한
+	 * 토큰으로는 401(TOKEN_INVALID)을 돌려주지 않는지 확인한다. 404·400·409 등 다른 상태는 상관없다 —
+	 * 여기서 잡으려는 건 "인증은 통과했는가"뿐이다.
+	 */
+	@ParameterizedTest(name = "{1} {0} - 이메일 계정 토큰으로 401 아님")
+	@MethodSource("nonPublicControllerMappings")
+	void everyNonPublicMapping_withValidEmailAccountToken_isNotUnauthorized(String path, String method)
+			throws Exception {
+		String token = signupAndLogin("auth_coverage_email_" + path.hashCode() + method.hashCode());
+
+		mockMvc.perform(MockMvcRequestBuilders.request(HttpMethod.valueOf(method), path)
+						.header("Authorization", "Bearer " + token)
+						.contentType(MediaType.APPLICATION_JSON))
+				.andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(401));
+	}
+
+	@ParameterizedTest(name = "{1} {0} - 소셜 전용 계정 토큰으로 401 아님")
+	@MethodSource("nonPublicControllerMappings")
+	void everyNonPublicMapping_withValidSocialAccountToken_isNotUnauthorized(String path, String method)
+			throws Exception {
+		String token = signupSocialAndLogin("social_coverage_" + path.hashCode() + method.hashCode());
+
+		mockMvc.perform(MockMvcRequestBuilders.request(HttpMethod.valueOf(method), path)
+						.header("Authorization", "Bearer " + token)
+						.contentType(MediaType.APPLICATION_JSON))
+				.andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(401));
 	}
 }

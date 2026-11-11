@@ -24,7 +24,7 @@ import org.springframework.test.web.servlet.MvcResult;
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-class CorsIntegrationTest {
+public class CorsIntegrationTest {
 
 	private static final String ALLOWED_ORIGIN = "http://localhost:5173";
 	private static final String DISALLOWED_ORIGIN = "https://evil.example.com";
@@ -92,7 +92,7 @@ class CorsIntegrationTest {
 	 * 컨트롤러의 모든 매핑(@GetMapping 등)을 여기에 나열해 둔다. 새 API가 새 HTTP 메서드를 쓰면
 	 * 이 목록에 추가해야 사전 확인 누락을 테스트가 바로 잡아낸다.
 	 */
-	static Stream<Arguments> allControllerMappings() {
+	public static Stream<Arguments> allControllerMappings() {
 		return Stream.of(
 				Arguments.of("/api/hobbies", "GET"),
 				Arguments.of("/api/hobbies", "POST"),

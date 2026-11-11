@@ -27,6 +27,6 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 		response.setCharacterEncoding("UTF-8");
 		response.getWriter().write(
-				objectMapper.writeValueAsString(new ErrorResponse("UNAUTHORIZED", "로그인이 필요해요")));
+				objectMapper.writeValueAsString(new ErrorResponse("TOKEN_INVALID", "로그인이 필요해요")));
 	}
 }

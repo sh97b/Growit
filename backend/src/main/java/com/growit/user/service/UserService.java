@@ -105,7 +105,7 @@ public class UserService {
 		loginAttemptLimiter.checkAllowed(user.getEmail(), clientIp);
 		if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
 			loginAttemptLimiter.recordFailure(user.getEmail(), clientIp);
-			throw new ApiException(ErrorCode.UNAUTHORIZED, CURRENT_PASSWORD_WRONG_MESSAGE);
+			throw new ApiException(ErrorCode.PASSWORD_MISMATCH, CURRENT_PASSWORD_WRONG_MESSAGE);
 		}
 		loginAttemptLimiter.recordSuccess(user.getEmail());
 
@@ -132,10 +132,10 @@ public class UserService {
 		User user = findCurrentUser();
 		if (user.hasPassword()) {
 			if (!passwordEncoder.matches(request.password() == null ? "" : request.password(), user.getPasswordHash())) {
-				throw new ApiException(ErrorCode.UNAUTHORIZED, DELETE_PASSWORD_WRONG_MESSAGE);
+				throw new ApiException(ErrorCode.PASSWORD_MISMATCH, DELETE_PASSWORD_WRONG_MESSAGE);
 			}
 		} else if (!DELETE_CONFIRMATION_TEXT.equals(request.confirmation())) {
-			throw new ApiException(ErrorCode.VALIDATION_ERROR, DELETE_CONFIRMATION_WRONG_MESSAGE);
+			throw new ApiException(ErrorCode.PASSWORD_MISMATCH, DELETE_CONFIRMATION_WRONG_MESSAGE);
 		}
 		Long userId = user.getId();
 		pushSubscriptionRepository.deleteByUserId(userId);

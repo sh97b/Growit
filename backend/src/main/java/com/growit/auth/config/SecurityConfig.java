@@ -25,11 +25,19 @@ import org.springframework.web.cors.CorsConfigurationSource;
 @Configuration
 public class SecurityConfig {
 
+	/**
+	 * 로그인 없이도 실제로 필요한 경로만 연다. {@code /api/push/public-key}는 로그인 전에도(가입 중·토큰이
+	 * 아직 설정 전에도) VAPID 공개키를 읽을 수 있어야 해서 열어 두지만, 그 밖의 {@code /api/push/**}
+	 * (구독 등록·해제·테스트)는 그대로 인증이 필요하다. {@link JwtAuthenticationFilter}는 공개 경로에서도
+	 * Authorization 헤더가 유효하면 인증 정보를 그대로 채운다(선택적 인증) — 이 목록은 "인증 없이도 통과"만
+	 * 결정할 뿐, 유효한 토큰이 있을 때 그걸 무시하지는 않는다.
+	 */
 	private static final String[] PUBLIC_PATHS = {
 			"/api/health",
 			"/api/auth/signup",
 			"/api/auth/login",
 			"/api/auth/oauth/**",
+			"/api/push/public-key",
 			"/v3/api-docs/**",
 			"/swagger-ui/**",
 			"/swagger-ui.html"

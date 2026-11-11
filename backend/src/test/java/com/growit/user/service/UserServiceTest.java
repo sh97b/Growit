@@ -167,14 +167,14 @@ class UserServiceTest {
 	}
 
 	@Test
-	void changePassword_wrongCurrentPassword_throwsUnauthorized() {
+	void changePassword_wrongCurrentPassword_throwsPasswordMismatch() {
 		Long userId = createUserWithPassword("growit_user", CURRENT_PASSWORD);
 		UserService service = userService(userId);
 
 		assertThatThrownBy(() -> service.changePassword(
 				new ChangePasswordRequest("wrong-current-password", "Another-Secure7"), TEST_IP))
 				.isInstanceOfSatisfying(ApiException.class,
-						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.UNAUTHORIZED));
+						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.PASSWORD_MISMATCH));
 	}
 
 	@Test
@@ -224,7 +224,7 @@ class UserServiceTest {
 			assertThatThrownBy(() -> service.changePassword(
 					new ChangePasswordRequest("wrong-current-password", "Another-Secure7"), TEST_IP))
 					.isInstanceOfSatisfying(ApiException.class,
-							e -> assertThat(e.getCode()).isEqualTo(ErrorCode.UNAUTHORIZED));
+							e -> assertThat(e.getCode()).isEqualTo(ErrorCode.PASSWORD_MISMATCH));
 		}
 
 		assertThatThrownBy(() -> service.changePassword(
@@ -252,12 +252,12 @@ class UserServiceTest {
 	}
 
 	@Test
-	void deleteAccount_wrongPassword_throwsUnauthorizedAndKeepsData() {
+	void deleteAccount_wrongPassword_throwsPasswordMismatchAndKeepsData() {
 		Long userId = createUserWithPassword("growit_user", CURRENT_PASSWORD);
 
 		assertThatThrownBy(() -> userService(userId).deleteAccount(new DeleteAccountRequest("wrong-password", null)))
 				.isInstanceOfSatisfying(ApiException.class,
-						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.UNAUTHORIZED));
+						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.PASSWORD_MISMATCH));
 		assertThat(userRepository.findById(userId)).isPresent();
 	}
 
@@ -294,12 +294,12 @@ class UserServiceTest {
 	}
 
 	@Test
-	void deleteAccount_socialAccountWithWrongConfirmation_throwsValidationErrorAndKeepsData() {
+	void deleteAccount_socialAccountWithWrongConfirmation_throwsPasswordMismatchAndKeepsData() {
 		Long userId = createSocialUser("소셜 회원");
 
 		assertThatThrownBy(() -> userService(userId).deleteAccount(new DeleteAccountRequest(null, "틀린 문구")))
 				.isInstanceOfSatisfying(ApiException.class,
-						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
+						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.PASSWORD_MISMATCH));
 		assertThat(userRepository.findById(userId)).isPresent();
 	}
 
