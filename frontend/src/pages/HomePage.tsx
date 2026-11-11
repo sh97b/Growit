@@ -30,9 +30,9 @@ import { fetchActivityMap, fetchSummary, type StatsSummary } from '../lib/stats'
 const primaryLinkClass =
   'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-base px-5 text-[15px] font-medium text-white no-underline lg:w-fit'
 
-function displayNameOf(user: { displayName: string | null; email: string } | undefined): string {
+function displayNameOf(user: { displayName: string | null; email: string | null } | undefined): string {
   if (!user) return ''
-  return user.displayName || user.email.split('@')[0]
+  return user.displayName || user.email?.split('@')[0] || 'Growit 회원'
 }
 
 const AUTO_COACH_DATE_KEY = 'growit_auto_coach_date'

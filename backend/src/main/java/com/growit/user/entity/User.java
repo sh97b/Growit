@@ -17,10 +17,12 @@ public class User {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@Column(nullable = false)
+	/** 소셜 전용 계정은 이메일을 받지도 저장하지도 않아 null일 수 있다. */
+	@Column(nullable = true)
 	private String email;
 
-	@Column(name = "password_hash", nullable = false)
+	/** 소셜 전용 계정은 비밀번호가 없어 null일 수 있다. */
+	@Column(name = "password_hash", nullable = true)
 	private String passwordHash;
 
 	@Column(name = "display_name", length = 30)
@@ -44,6 +46,15 @@ public class User {
 		this.email = email;
 		this.passwordHash = passwordHash;
 		this.displayName = displayName;
+	}
+
+	/** 소셜 전용 계정(이메일·비밀번호 없음)을 만들 때 쓴다. */
+	public static User forSocialSignup(String displayName) {
+		return new User(null, null, displayName);
+	}
+
+	public boolean hasPassword() {
+		return passwordHash != null;
 	}
 
 	public Long getId() {

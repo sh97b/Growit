@@ -2,5 +2,6 @@ package com.growit.user.dto;
 
 import java.time.LocalDateTime;
 
-public record MeResponse(Long id, String email, String displayName, boolean aiEnabled, LocalDateTime createdAt) {
+public record MeResponse(Long id, String email, String displayName, boolean aiEnabled, boolean hasPassword,
+		LocalDateTime createdAt) {
 }

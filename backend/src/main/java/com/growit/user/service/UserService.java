@@ -2,6 +2,7 @@ package com.growit.user.service;
 
 import com.growit.ai.repository.AiLogRepository;
 import com.growit.ai.repository.AiResultRepository;
+import com.growit.auth.oauth.repository.SocialAccountRepository;
 import com.growit.auth.security.CurrentUserProvider;
 import com.growit.auth.security.JwtTokenProvider;
 import com.growit.auth.security.LoginAttemptLimiter;
@@ -30,6 +31,8 @@ public class UserService {
 	private static final int DISPLAY_NAME_MAX_LENGTH = 30;
 	private static final String CURRENT_PASSWORD_WRONG_MESSAGE = "현재 비밀번호가 맞지 않아요";
 	private static final String DELETE_PASSWORD_WRONG_MESSAGE = "비밀번호가 맞지 않아요";
+	private static final String DELETE_CONFIRMATION_TEXT = "계정 삭제";
+	private static final String DELETE_CONFIRMATION_WRONG_MESSAGE = "확인 문구를 정확히 입력해 주세요";
 
 	private final UserRepository userRepository;
 	private final CurrentUserProvider currentUserProvider;
@@ -43,13 +46,14 @@ public class UserService {
 	private final HobbyRepository hobbyRepository;
 	private final NotificationSettingsRepository notificationSettingsRepository;
 	private final PushSubscriptionRepository pushSubscriptionRepository;
+	private final SocialAccountRepository socialAccountRepository;
 
 	public UserService(UserRepository userRepository, CurrentUserProvider currentUserProvider,
 			PasswordEncoder passwordEncoder, PasswordPolicy passwordPolicy, LoginAttemptLimiter loginAttemptLimiter,
 			JwtTokenProvider jwtTokenProvider, AiResultRepository aiResultRepository, AiLogRepository aiLogRepository,
 			ActivityRecordRepository activityRecordRepository, HobbyRepository hobbyRepository,
 			NotificationSettingsRepository notificationSettingsRepository,
-			PushSubscriptionRepository pushSubscriptionRepository) {
+			PushSubscriptionRepository pushSubscriptionRepository, SocialAccountRepository socialAccountRepository) {
 		this.userRepository = userRepository;
 		this.currentUserProvider = currentUserProvider;
 		this.passwordEncoder = passwordEncoder;
@@ -62,6 +66,7 @@ public class UserService {
 		this.hobbyRepository = hobbyRepository;
 		this.notificationSettingsRepository = notificationSettingsRepository;
 		this.pushSubscriptionRepository = pushSubscriptionRepository;
+		this.socialAccountRepository = socialAccountRepository;
 	}
 
 	public MeResponse me() {
@@ -94,6 +99,9 @@ public class UserService {
 	@Transactional
 	public ChangePasswordResponse changePassword(ChangePasswordRequest request, String clientIp) {
 		User user = findCurrentUser();
+		if (!user.hasPassword()) {
+			throw new ApiException(ErrorCode.SOCIAL_ACCOUNT, "소셜 로그인 계정은 비밀번호를 바꿀 수 없어요");
+		}
 		loginAttemptLimiter.checkAllowed(user.getEmail(), clientIp);
 		if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
 			loginAttemptLimiter.recordFailure(user.getEmail(), clientIp);
@@ -114,15 +122,20 @@ public class UserService {
 
 	/**
 	 * 외래키 제약을 지키려고 ai_results·ai_logs(둘 다 hobbies를 참조하거나 독립적) → records(hobbies를
-	 * 참조) → hobbies → users 순으로 지운다. 이미 로그인한 세션에서만 호출할 수 있어(토큰 필요) 로그인
+	 * 참조) → hobbies → social_accounts → users 순으로 지운다. 이미 로그인한 세션에서만 호출할 수 있어(토큰 필요) 로그인
 	 * 시도 제한과 달리 따로 횟수를 세지 않는다 - 계정 존재 여부를 숨길 이유도 없고, 토큰을 쥔 사람이 반복
 	 * 틀려도 로그인 잠금과 달리 다른 사용자에게 영향이 없다.
+	 * 소셜 전용 계정은 비밀번호가 없어 비밀번호 대신 확인 문구("계정 삭제") 입력으로 본인 확인을 한다.
 	 */
 	@Transactional
 	public void deleteAccount(DeleteAccountRequest request) {
 		User user = findCurrentUser();
-		if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-			throw new ApiException(ErrorCode.UNAUTHORIZED, DELETE_PASSWORD_WRONG_MESSAGE);
+		if (user.hasPassword()) {
+			if (!passwordEncoder.matches(request.password() == null ? "" : request.password(), user.getPasswordHash())) {
+				throw new ApiException(ErrorCode.UNAUTHORIZED, DELETE_PASSWORD_WRONG_MESSAGE);
+			}
+		} else if (!DELETE_CONFIRMATION_TEXT.equals(request.confirmation())) {
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, DELETE_CONFIRMATION_WRONG_MESSAGE);
 		}
 		Long userId = user.getId();
 		pushSubscriptionRepository.deleteByUserId(userId);
@@ -131,6 +144,7 @@ public class UserService {
 		aiLogRepository.deleteByUserId(userId);
 		activityRecordRepository.deleteByUserId(userId);
 		hobbyRepository.deleteByUserId(userId);
+		socialAccountRepository.deleteByUserId(userId);
 		userRepository.delete(user);
 	}
 
@@ -141,6 +155,6 @@ public class UserService {
 
 	private MeResponse toResponse(User user) {
 		return new MeResponse(user.getId(), user.getEmail(), user.getDisplayName(), user.isAiEnabled(),
-				user.getCreatedAt());
+				user.hasPassword(), user.getCreatedAt());
 	}
 }

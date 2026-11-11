@@ -53,6 +53,8 @@ public class UserController {
 	@Operation(summary = "비밀번호 변경")
 	@ApiResponse(responseCode = "401", description = "UNAUTHORIZED: 현재 비밀번호가 틀림",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "409", description = "SOCIAL_ACCOUNT: 소셜 로그인 계정은 비밀번호가 없어 바꿀 수 없음",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@ApiResponse(responseCode = "429", description = "LOGIN_LOCKED: 로그인 시도가 너무 많음",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@PatchMapping("/me/password")
@@ -61,7 +63,11 @@ public class UserController {
 		return userService.changePassword(request, httpRequest.getRemoteAddr());
 	}
 
-	/** 비밀번호가 틀리면 UNAUTHORIZED(401). 내 ai_results·ai_logs·records·hobbies·계정을 한 번에 지운다(되돌릴 수 없음). */
+	/**
+	 * 비밀번호 계정은 password가 틀리면 UNAUTHORIZED(401), 소셜 전용 계정은 confirmation이 "계정 삭제"와
+	 * 다르면 VALIDATION_ERROR(400). 내 ai_results·ai_logs·records·hobbies·social_accounts·계정을
+	 * 한 번에 지운다(되돌릴 수 없음).
+	 */
 	@Operation(summary = "계정 삭제")
 	@ApiResponse(responseCode = "401", description = "UNAUTHORIZED: 비밀번호가 틀림",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))

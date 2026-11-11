@@ -2,9 +2,10 @@ import { apiRequest } from './api'
 
 export type CurrentUser = {
   id: number
-  email: string
+  email: string | null
   displayName: string | null
   aiEnabled: boolean
+  hasPassword: boolean
   createdAt: string
 }
 
@@ -38,5 +39,12 @@ export function deleteAccount(password: string) {
   return apiRequest<void>('/api/users/me', {
     method: 'DELETE',
     body: { password },
+  })
+}
+
+export function deleteSocialAccount(confirmation: string) {
+  return apiRequest<void>('/api/users/me', {
+    method: 'DELETE',
+    body: { confirmation },
   })
 }

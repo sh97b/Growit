@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.growit.ai.entity.AiResult;
 import com.growit.ai.repository.AiLogRepository;
 import com.growit.ai.repository.AiResultRepository;
+import com.growit.auth.oauth.repository.SocialAccountRepository;
 import com.growit.auth.security.CurrentUserProvider;
 import com.growit.auth.security.JwtTokenProvider;
 import com.growit.auth.security.LoginAttemptLimiter;
@@ -62,6 +63,9 @@ class UserServiceTest {
 	@Autowired
 	private PushSubscriptionRepository pushSubscriptionRepository;
 
+	@Autowired
+	private SocialAccountRepository socialAccountRepository;
+
 	private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 	private final PasswordPolicy passwordPolicy = new PasswordPolicy();
 	private final JwtTokenProvider jwtTokenProvider = new JwtTokenProvider(TEST_SECRET, 7);
@@ -76,11 +80,17 @@ class UserServiceTest {
 		return userRepository.save(user).getId();
 	}
 
+	private Long createSocialUser(String displayName) {
+		User user = User.forSocialSignup(displayName);
+		return userRepository.save(user).getId();
+	}
+
 	private UserService userService(Long currentUserId) {
 		CurrentUserProvider currentUserProvider = () -> currentUserId;
 		return new UserService(userRepository, currentUserProvider, passwordEncoder, passwordPolicy,
 				new LoginAttemptLimiter(Clock.systemUTC()), jwtTokenProvider, aiResultRepository, aiLogRepository,
-				activityRecordRepository, hobbyRepository, notificationSettingsRepository, pushSubscriptionRepository);
+				activityRecordRepository, hobbyRepository, notificationSettingsRepository, pushSubscriptionRepository,
+				socialAccountRepository);
 	}
 
 	@Test
@@ -232,7 +242,7 @@ class UserServiceTest {
 		aiResultRepository.save(new AiResult(userId, hobbyId, "COMPARE", LocalDate.of(2026, 1, 1),
 				LocalDate.of(2026, 1, 1), "{}", "[]", "cache-key-" + userId));
 
-		userService(userId).deleteAccount(new DeleteAccountRequest(CURRENT_PASSWORD));
+		userService(userId).deleteAccount(new DeleteAccountRequest(CURRENT_PASSWORD, null));
 
 		assertThat(userRepository.findById(userId)).isEmpty();
 		assertThat(userRepository.existsByEmail("growit_user@example.com")).isFalse();
@@ -245,7 +255,7 @@ class UserServiceTest {
 	void deleteAccount_wrongPassword_throwsUnauthorizedAndKeepsData() {
 		Long userId = createUserWithPassword("growit_user", CURRENT_PASSWORD);
 
-		assertThatThrownBy(() -> userService(userId).deleteAccount(new DeleteAccountRequest("wrong-password")))
+		assertThatThrownBy(() -> userService(userId).deleteAccount(new DeleteAccountRequest("wrong-password", null)))
 				.isInstanceOfSatisfying(ApiException.class,
 						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.UNAUTHORIZED));
 		assertThat(userRepository.findById(userId)).isPresent();
@@ -258,9 +268,48 @@ class UserServiceTest {
 		Long otherId = userRepository.save(other).getId();
 		Long otherHobbyId = hobbyRepository.save(new Hobby(otherId, "러닝", null)).getId();
 
-		userService(userId).deleteAccount(new DeleteAccountRequest(CURRENT_PASSWORD));
+		userService(userId).deleteAccount(new DeleteAccountRequest(CURRENT_PASSWORD, null));
 
 		assertThat(userRepository.findById(otherId)).isPresent();
 		assertThat(hobbyRepository.findById(otherHobbyId)).isPresent();
+	}
+
+	@Test
+	void changePassword_socialAccount_throwsSocialAccountError() {
+		Long userId = createSocialUser("소셜 회원");
+
+		assertThatThrownBy(() -> userService(userId).changePassword(
+				new ChangePasswordRequest("아무거나", "Another-Secure7"), TEST_IP))
+				.isInstanceOfSatisfying(ApiException.class,
+						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.SOCIAL_ACCOUNT));
+	}
+
+	@Test
+	void deleteAccount_socialAccountWithCorrectConfirmation_removesAccount() {
+		Long userId = createSocialUser("소셜 회원");
+
+		userService(userId).deleteAccount(new DeleteAccountRequest(null, "계정 삭제"));
+
+		assertThat(userRepository.findById(userId)).isEmpty();
+	}
+
+	@Test
+	void deleteAccount_socialAccountWithWrongConfirmation_throwsValidationErrorAndKeepsData() {
+		Long userId = createSocialUser("소셜 회원");
+
+		assertThatThrownBy(() -> userService(userId).deleteAccount(new DeleteAccountRequest(null, "틀린 문구")))
+				.isInstanceOfSatisfying(ApiException.class,
+						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
+		assertThat(userRepository.findById(userId)).isPresent();
+	}
+
+	@Test
+	void me_socialAccount_hasPasswordFalse() {
+		Long userId = createSocialUser("소셜 회원");
+
+		MeResponse response = userService(userId).me();
+
+		assertThat(response.hasPassword()).isFalse();
+		assertThat(response.email()).isNull();
 	}
 }

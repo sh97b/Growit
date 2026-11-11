@@ -2,21 +2,29 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { Button } from '../../components/Button'
+import { Field } from '../../components/Field'
+import { Input } from '../../components/Input'
 import { Note } from '../../components/Note'
 import { PasswordField } from '../../components/PasswordField'
+import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { ApiError } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { resetSessionState } from '../../lib/sessionReset'
-import { deleteAccount } from '../../lib/users'
+import { deleteAccount, deleteSocialAccount } from '../../lib/users'
+
+const CONFIRMATION_TEXT = '계정 삭제'
 
 export function DeleteAccountPage() {
   const navigate = useNavigate()
   const { logout } = useAuth()
+  const { data: currentUser } = useCurrentUser()
+  const isSocialAccount = currentUser?.hasPassword === false
   const [password, setPassword] = useState('')
+  const [confirmationInput, setConfirmationInput] = useState('')
   const [confirming, setConfirming] = useState(false)
 
   const mutation = useMutation({
-    mutationFn: deleteAccount,
+    mutationFn: () => (isSocialAccount ? deleteSocialAccount(confirmationInput) : deleteAccount(password)),
     onSuccess: () => {
       resetSessionState(null)
       logout()
@@ -25,14 +33,16 @@ export function DeleteAccountPage() {
     onError: () => setConfirming(false),
   })
 
+  const readyForFirstSubmit = isSocialAccount ? confirmationInput === CONFIRMATION_TEXT : Boolean(password)
+
   function handleFirstSubmit(event: FormEvent) {
     event.preventDefault()
-    if (!password) return
+    if (!readyForFirstSubmit) return
     setConfirming(true)
   }
 
   function handleConfirm() {
-    mutation.mutate(password)
+    mutation.mutate()
   }
 
   return (
@@ -50,14 +60,24 @@ export function DeleteAccountPage() {
 
       {!confirming ? (
         <form className="flex flex-col gap-4" onSubmit={handleFirstSubmit} noValidate>
-          <PasswordField
-            id="delete-password"
-            label="비밀번호"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            autoComplete="current-password"
-          />
-          <Button type="submit" variant="secondary" block disabled={!password}>
+          {isSocialAccount ? (
+            <Field label={`확인을 위해 "${CONFIRMATION_TEXT}"를 입력해 주세요`} htmlFor="delete-confirmation">
+              <Input
+                id="delete-confirmation"
+                value={confirmationInput}
+                onChange={(event) => setConfirmationInput(event.target.value)}
+              />
+            </Field>
+          ) : (
+            <PasswordField
+              id="delete-password"
+              label="비밀번호"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete="current-password"
+            />
+          )}
+          <Button type="submit" variant="secondary" block disabled={!readyForFirstSubmit}>
             계정 삭제 계속하기
           </Button>
         </form>

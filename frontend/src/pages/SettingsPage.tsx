@@ -1,10 +1,12 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '../components/Button'
+import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useAuth } from '../lib/auth'
 
 export function SettingsPage() {
   const { logout } = useAuth()
   const navigate = useNavigate()
+  const { data: currentUser } = useCurrentUser()
 
   function handleLogout() {
     logout()
@@ -33,12 +35,14 @@ export function SettingsPage() {
         >
           알림 설정
         </Link>
-        <Link
-          to="/settings/password"
-          className="flex min-h-11 items-center border-t border-line py-3 text-ink no-underline"
-        >
-          비밀번호 바꾸기
-        </Link>
+        {currentUser?.hasPassword !== false ? (
+          <Link
+            to="/settings/password"
+            className="flex min-h-11 items-center border-t border-line py-3 text-ink no-underline"
+          >
+            비밀번호 바꾸기
+          </Link>
+        ) : null}
         <Link
           to="/settings/delete"
           className="flex min-h-11 items-center border-t border-line py-3 text-ink no-underline"
