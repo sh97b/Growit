@@ -75,7 +75,7 @@ export function RecordsPage() {
   return (
     <div className={noRecordsAtAll ? undefined : 'lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-12'}>
       <div className="flex flex-col gap-5">
-        <h1 className="font-serif text-xl font-semibold lg:text-[30px]">지난 기록</h1>
+        <h1 className="text-page-title">지난 기록</h1>
 
         {noRecordsAtAll ? (
           <div className="flex max-w-[720px] flex-col items-start gap-4 rounded-2xl bg-surface p-5">

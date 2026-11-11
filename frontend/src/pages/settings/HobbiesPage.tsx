@@ -66,7 +66,7 @@ function HobbyRow({ hobby, onError }: { hobby: Hobby; onError: (message: string)
   return (
     <div className="flex items-center gap-4 border-t border-line py-4 first:border-t-0">
       <div className="flex flex-1 flex-col gap-0.5">
-        <span className="font-serif text-lg font-semibold">{hobby.name}</span>
+        <span className="text-card-title">{hobby.name}</span>
         <span className="text-[13px] text-ink-2">기록 {hobby.recordCount}개</span>
       </div>
       {!hobby.archived ? (
@@ -126,7 +126,7 @@ export function HobbiesPage() {
 
       {archivedHobbies.length > 0 ? (
         <div className="flex flex-col gap-2">
-          <h2 className="font-serif text-lg font-semibold">보관한 분야</h2>
+          <h2 className="text-card-title">보관한 분야</h2>
           <div className="flex flex-col">
             {archivedHobbies.map((hobby) => (
               <HobbyRow key={hobby.id} hobby={hobby} onError={setErrorMessage} />
@@ -139,7 +139,7 @@ export function HobbiesPage() {
 
   const addForm = (
     <form className="flex flex-col gap-3" onSubmit={handleCreate}>
-      <h2 className="font-serif text-lg font-semibold">분야 추가</h2>
+      <h2 className="text-card-title">분야 추가</h2>
       <Field label="분야 이름" htmlFor="new-hobby-name">
         <Input
           id="new-hobby-name"
@@ -164,7 +164,7 @@ export function HobbiesPage() {
         <span aria-hidden="true">›</span>
         <span>활동 분야 관리</span>
       </nav>
-      <h1 className="font-serif text-xl font-semibold lg:text-[30px]">활동 분야 관리</h1>
+      <h1 className="text-page-title">활동 분야 관리</h1>
 
       {errorMessage ? <Note variant="sand">{errorMessage}</Note> : null}
 

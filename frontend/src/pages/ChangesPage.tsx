@@ -50,7 +50,7 @@ export function ChangesPage() {
   if (!currentUser?.aiEnabled) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="font-serif text-xl font-semibold lg:text-[26px]">나의 변화</h1>
+        <h1 className="text-page-title">나의 변화</h1>
         <Note variant="calm">
           <span>
             AI 정리가 꺼져 있어요. 켜면 기록을 비교해 달라진 점을 보여드려요.{' '}
@@ -66,7 +66,7 @@ export function ChangesPage() {
   if (!activeHobbies || activeHobbies.length === 0) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="font-serif text-xl font-semibold lg:text-[26px]">나의 변화</h1>
+        <h1 className="text-page-title">나의 변화</h1>
         <Note variant="calm">활동 분야를 먼저 만들어 주세요.</Note>
       </div>
     )
@@ -134,7 +134,7 @@ export function ChangesPage() {
     <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-12">
       <div className="flex flex-col gap-5">
         <div className="flex items-center justify-between gap-3">
-          <h1 className="font-serif text-xl font-semibold lg:text-[26px]">나의 변화</h1>
+          <h1 className="text-page-title">나의 변화</h1>
           <div className="lg:hidden">{metricsLink}</div>
         </div>
 

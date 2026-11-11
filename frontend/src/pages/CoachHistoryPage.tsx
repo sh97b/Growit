@@ -20,7 +20,7 @@ export function CoachHistoryPage() {
           AI 회고
         </Link>
       </nav>
-      <h1 className="font-serif text-xl font-semibold lg:text-[26px]">이전 회고</h1>
+      <h1 className="text-page-title">이전 회고</h1>
 
       {isLoading ? <Loading /> : null}
       {isError ? <Note variant="sand">잠시 후 다시 시도해 주세요</Note> : null}

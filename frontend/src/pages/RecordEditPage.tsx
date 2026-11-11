@@ -99,7 +99,7 @@ function RecordEditForm({ record, activeHobbies }: { record: RecordDetail; activ
 
   return (
     <div className="flex flex-col gap-4 lg:mx-auto lg:max-w-[720px]">
-      <h1 className="font-serif text-xl font-semibold lg:text-[30px]">기록 수정</h1>
+      <h1 className="text-page-title">기록 수정</h1>
 
       <RecordFormFields
         activeHobbies={pickerHobbies}

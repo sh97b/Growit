@@ -78,7 +78,7 @@ export function RecordDetailPage() {
           {record.minutes != null ? ` · ${record.minutes}분` : ''}
         </span>
         {record.aiStatus === 'DONE' && record.analysis?.title ? (
-          <h1 className="font-serif text-xl font-semibold lg:text-[26px]">{record.analysis.title}</h1>
+          <h1 className="text-page-title">{record.analysis.title}</h1>
         ) : null}
         <p className="font-serif text-xl leading-[1.7] whitespace-pre-wrap">{record.content}</p>
 
@@ -448,7 +448,7 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
 
       {analysis.relatedRecords.length > 0 ? (
         <div className="flex flex-col gap-2 pt-2">
-          <h2 className="font-serif text-lg font-semibold">이어서 볼 기록</h2>
+          <h2 className="text-card-title">이어서 볼 기록</h2>
           <div className="flex flex-col gap-2">
             {analysis.relatedRecords.map((related) => (
               <EvidenceChip key={related.id} record={related} block />

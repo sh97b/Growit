@@ -365,7 +365,7 @@ function RecentRecords() {
 
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="font-serif text-lg font-semibold">최근 기록</h2>
+      <h2 className="text-card-title">최근 기록</h2>
       <div className="flex flex-col">
         {listQuery.data.items.map((record) => {
           const firstTag = record.analysis?.tags[0]

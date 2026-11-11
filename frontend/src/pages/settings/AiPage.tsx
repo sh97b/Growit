@@ -41,7 +41,7 @@ export function AiPage() {
         <span aria-hidden="true">›</span>
         <span>AI 정리</span>
       </nav>
-      <h1 className="font-serif text-xl font-semibold lg:text-[30px]">AI 정리</h1>
+      <h1 className="text-page-title">AI 정리</h1>
 
       {errorMessage ? <Note variant="sand">{errorMessage}</Note> : null}
 

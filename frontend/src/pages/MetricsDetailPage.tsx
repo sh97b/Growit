@@ -108,7 +108,7 @@ export function MetricsDetailPage() {
       </nav>
 
       <div className="flex items-center justify-between gap-3">
-        <h1 className="font-serif text-xl font-semibold lg:text-[26px]">변화 지표</h1>
+        <h1 className="text-page-title">변화 지표</h1>
         <div className="inline-flex rounded-lg border border-line-2 bg-white p-[3px]" role="group" aria-label="지표">
           {METRIC_TABS.map((tab) => (
             <button

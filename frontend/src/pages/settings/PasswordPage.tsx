@@ -45,7 +45,7 @@ export function PasswordPage() {
         <span aria-hidden="true">›</span>
         <span>비밀번호 바꾸기</span>
       </nav>
-      <h1 className="font-serif text-xl font-semibold lg:text-[30px]">비밀번호 바꾸기</h1>
+      <h1 className="text-page-title">비밀번호 바꾸기</h1>
 
       {done ? <Note variant="calm">바꿨어요</Note> : null}
 

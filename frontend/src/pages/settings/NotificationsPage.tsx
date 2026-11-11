@@ -100,7 +100,7 @@ export function NotificationsPage() {
           <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[color-mix(in_srgb,var(--color-base)_12%,white)] text-base-ink">
             <InfoIcon width={28} height={28} />
           </span>
-          <h1 className="font-serif text-xl font-semibold lg:text-[26px]">알림을 받아 볼까요?</h1>
+          <h1 className="text-page-title">알림을 받아 볼까요?</h1>
           <p className="text-[15px] text-ink-2">하루 한 번, 정한 시간에만 알려요. 안 쓴 날을 알려주는 알림은 보내지 않아요.</p>
 
           {permissionState === 'denied' ? (
@@ -132,10 +132,10 @@ export function NotificationsPage() {
         <span aria-hidden="true">›</span>
         <span>알림 설정</span>
       </nav>
-      <h1 className="font-serif text-xl font-semibold lg:text-[30px]">알림 설정</h1>
+      <h1 className="text-page-title">알림 설정</h1>
 
       <div className="flex flex-col gap-3.5">
-        <h2 className="font-serif text-lg font-semibold">몇 시에 알려드릴까요?</h2>
+        <h2 className="text-card-title">몇 시에 알려드릴까요?</h2>
         <div className="flex flex-wrap gap-2">
           {PRESETS.map((preset) => (
             <button

@@ -234,7 +234,7 @@ export function RecordNewPage() {
 
   return (
     <div className="flex flex-col gap-4 lg:mx-auto lg:max-w-[720px] lg:gap-4">
-      <h1 className="font-serif text-xl font-semibold lg:text-[30px]">오늘의 기록</h1>
+      <h1 className="text-page-title">오늘의 기록</h1>
 
       <RecordFormFields
         activeHobbies={activeHobbies}

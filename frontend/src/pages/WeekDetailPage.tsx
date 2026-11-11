@@ -72,7 +72,7 @@ export function WeekDetailPage() {
         </Link>
       </nav>
 
-      <h1 className="font-serif text-xl font-semibold lg:text-[26px]">
+      <h1 className="text-page-title">
         {formatMonthDay(detail.weekStart)} – {formatMonthDay(detail.weekEnd)}
       </h1>
 

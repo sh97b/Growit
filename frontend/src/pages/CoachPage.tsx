@@ -72,7 +72,7 @@ export function CoachPage() {
   if (!currentUser?.aiEnabled) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="font-serif text-xl font-semibold lg:text-[26px]">AI 회고</h1>
+        <h1 className="text-page-title">AI 회고</h1>
         <Note variant="calm">
           <span>
             AI 정리가 꺼져 있어요. 켜면 기간을 돌아보는 회고를 받을 수 있어요.{' '}
@@ -146,7 +146,7 @@ export function CoachPage() {
     <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-12">
       <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="font-serif text-xl font-semibold lg:text-[26px]">AI 회고</h1>
+        <h1 className="text-page-title">AI 회고</h1>
         <div className="lg:hidden">{historyLink}</div>
       </div>
 

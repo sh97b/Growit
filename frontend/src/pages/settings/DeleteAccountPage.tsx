@@ -42,7 +42,7 @@ export function DeleteAccountPage() {
         <span aria-hidden="true">›</span>
         <span>계정 삭제</span>
       </nav>
-      <h1 className="font-serif text-xl font-semibold lg:text-[30px]">계정 삭제</h1>
+      <h1 className="text-page-title">계정 삭제</h1>
 
       <Note variant="sand">
         계정을 삭제하면 활동 분야, 기록, AI 정리·변화·회고 결과가 모두 사라져요. 되돌릴 수 없어요.

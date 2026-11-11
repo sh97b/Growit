@@ -39,7 +39,7 @@ function TextItemBlock({ title, items }: { title: string; items: CoachTextItem[]
   if (items.length === 0) return null
   return (
     <div className="flex flex-col gap-2.5">
-      <h2 className="font-serif text-lg font-semibold">{title}</h2>
+      <h2 className="text-card-title">{title}</h2>
       {items.map((item, index) => (
         <div key={index} className="flex flex-col gap-2 rounded-xl bg-surface p-4">
           <p className="text-ink">{item.text}</p>
