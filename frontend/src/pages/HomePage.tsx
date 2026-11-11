@@ -253,17 +253,7 @@ function AiOffBoard() {
 }
 
 function DoneBoard() {
-  return (
-    <>
-      <HomeAiCard comeback={false} />
-      <Link
-        to="/records/new"
-        className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink underline underline-offset-4"
-      >
-        한 개 더 쓰기
-      </Link>
-    </>
-  )
+  return <HomeAiCard comeback={false} />
 }
 
 /**
