@@ -62,15 +62,6 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
 
-  if (response.status === 401) {
-    resetSessionState(null)
-    clearToken()
-    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-      window.location.href = '/login'
-    }
-    throw new ApiError(401, 'UNAUTHORIZED', '로그인이 필요해요')
-  }
-
   if (!response.ok) {
     let code = 'UNKNOWN_ERROR'
     let message = '잠시 후 다시 시도해 주세요'
@@ -81,6 +72,17 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     } catch {
       // 오류 응답이 JSON이 아니면 기본 안내를 쓴다
     }
+
+    // 토큰이 없거나 위조·만료된 경우에만 세션을 정리한다. 비밀번호를 잘못 입력했거나(PASSWORD_MISMATCH)
+    // 그 밖의 401/403/4xx는 로그인 상태를 그대로 유지하고 서버 message만 안내 상자로 보여준다.
+    if (response.status === 401 && code === 'TOKEN_INVALID') {
+      resetSessionState(null)
+      clearToken()
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
+    }
+
     throw new ApiError(response.status, code, message)
   }
 
