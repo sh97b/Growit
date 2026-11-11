@@ -137,7 +137,11 @@ class CorsIntegrationTest {
 				Arguments.of("/api/push/public-key", "GET"),
 				Arguments.of("/api/push/subscriptions", "POST"),
 				Arguments.of("/api/push/subscriptions", "DELETE"),
-				Arguments.of("/api/push/test", "POST"));
+				Arguments.of("/api/push/test", "POST"),
+				Arguments.of("/api/auth/oauth/providers", "GET"),
+				Arguments.of("/api/auth/oauth/kakao/start", "GET"),
+				Arguments.of("/api/auth/oauth/kakao/callback", "GET"),
+				Arguments.of("/api/auth/oauth/exchange", "POST"));
 	}
 
 	@ParameterizedTest(name = "{1} {0} 사전 확인 통과")
