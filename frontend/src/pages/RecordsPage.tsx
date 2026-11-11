@@ -1,15 +1,14 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { ActivityHeatmap } from '../components/ActivityHeatmap'
-import { Button } from '../components/Button'
 import { Loading } from '../components/Loading'
+import { Pagination } from '../components/Pagination'
 import { PlusIcon } from '../components/icons'
 import { useHobbies } from '../hooks/useHobbies'
+import { useIsDesktop } from '../hooks/useIsDesktop'
 import { formatMonthDay } from '../lib/date'
 import { fetchRecords } from '../lib/records'
-
-const PAGE_SIZE = 20
 
 function filterPillClass(active: boolean): string {
   return [
@@ -20,6 +19,11 @@ function filterPillClass(active: boolean): string {
 
 export function RecordsPage() {
   const [hobbyId, setHobbyId] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
+  const isDesktop = useIsDesktop()
+  // 데스크톱은 2열 4행(8개), 모바일은 1열 5개 — 세 기준 해상도(1440×900·1366×768·1280×720)에서
+  // 페이지 스크롤이 없도록 맞춘 크기(U2).
+  const pageSize = isDesktop ? 8 : 5
   const { data: activeHobbies } = useHobbies(false)
   const { data: allHobbies } = useHobbies(true)
 
@@ -30,14 +34,9 @@ export function RecordsPage() {
     queryFn: () => fetchRecords({ page: 0, size: 1 }),
   })
 
-  const listQuery = useInfiniteQuery({
-    queryKey: ['records', 'list', hobbyId],
-    queryFn: ({ pageParam }) => fetchRecords({ hobbyId: hobbyId ?? undefined, page: pageParam, size: PAGE_SIZE }),
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, pages) => {
-      const loaded = pages.reduce((sum, page) => sum + page.items.length, 0)
-      return loaded < lastPage.totalCount ? pages.length : undefined
-    },
+  const listQuery = useQuery({
+    queryKey: ['records', 'list', hobbyId, page, pageSize],
+    queryFn: () => fetchRecords({ hobbyId: hobbyId ?? undefined, page, size: pageSize }),
   })
 
   if (totalQuery.isLoading || listQuery.isLoading) {
@@ -45,15 +44,21 @@ export function RecordsPage() {
   }
 
   const noRecordsAtAll = (totalQuery.data?.totalCount ?? 0) === 0
-  const records = listQuery.data?.pages.flatMap((page) => page.items) ?? []
-  const totalCount = listQuery.data?.pages[0]?.totalCount ?? 0
+  const records = listQuery.data?.items ?? []
+  const totalCount = listQuery.data?.totalCount ?? 0
+  const totalPages = Math.ceil(totalCount / pageSize)
+
+  function handleHobbyChange(nextHobbyId: number | null) {
+    setHobbyId(nextHobbyId)
+    setPage(0)
+  }
 
   const hobbyFilter = (
     <div className="flex flex-wrap gap-2">
       <button
         type="button"
         aria-pressed={hobbyId === null}
-        onClick={() => setHobbyId(null)}
+        onClick={() => handleHobbyChange(null)}
         className={filterPillClass(hobbyId === null)}
       >
         전체
@@ -63,7 +68,7 @@ export function RecordsPage() {
           key={hobby.id}
           type="button"
           aria-pressed={hobbyId === hobby.id}
-          onClick={() => setHobbyId(hobby.id)}
+          onClick={() => handleHobbyChange(hobby.id)}
           className={filterPillClass(hobbyId === hobby.id)}
         >
           {hobby.name}
@@ -124,17 +129,7 @@ export function RecordsPage() {
             </div>
           )}
 
-          {listQuery.hasNextPage ? (
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => listQuery.fetchNextPage()}
-              disabled={listQuery.isFetchingNextPage}
-              className="self-center"
-            >
-              더 보기
-            </Button>
-          ) : null}
+          <Pagination page={page} totalPages={totalPages} onChange={setPage} />
         </>
       )}
     </div>
