@@ -13,7 +13,7 @@ export function AppLayout() {
       <header className="flex h-14 flex-none items-center justify-end border-b border-line bg-paper px-5 lg:hidden">
         <AccountMenu size={36} />
       </header>
-      <main className="min-h-0 flex-1 overflow-y-auto">
+      <main className="scrollbar-thin-fade min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[1200px] px-5 py-6 lg:px-10">
           <Outlet />
         </div>
