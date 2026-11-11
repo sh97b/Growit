@@ -13,6 +13,7 @@ type AuthContextValue = {
   signup: (email: string, password: string) => Promise<void>
   logout: () => void
   setSessionToken: (token: string) => void
+  completeSocialLogin: (accessToken: string, isNewUser: boolean) => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -62,9 +63,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setTokenState(newToken)
   }, [])
 
+  /** /auth/callback에서 exchange로 받은 토큰을 세션에 반영한다. 신규 가입이면 온보딩으로 보낼 표시를 남긴다. */
+  const completeSocialLogin = useCallback((accessToken: string, isNewUser: boolean) => {
+    resetSessionState(decodeTokenUserId(accessToken))
+    if (isNewUser) {
+      markOnboardingPending()
+    }
+    setToken(accessToken)
+    setTokenState(accessToken)
+  }, [])
+
   const value = useMemo<AuthContextValue>(
-    () => ({ token, isAuthenticated: token !== null, login, signup, logout, setSessionToken }),
-    [token, login, signup, logout, setSessionToken],
+    () => ({ token, isAuthenticated: token !== null, login, signup, logout, setSessionToken, completeSocialLogin }),
+    [token, login, signup, logout, setSessionToken, completeSocialLogin],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

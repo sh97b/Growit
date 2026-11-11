@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AuthShell } from '../components/AuthShell'
 import { Button } from '../components/Button'
 import { Field } from '../components/Field'
@@ -7,6 +7,7 @@ import { Input } from '../components/Input'
 import { LinkButton } from '../components/LinkButton'
 import { Note } from '../components/Note'
 import { PasswordField } from '../components/PasswordField'
+import { SocialLoginButtons } from '../components/SocialLoginButtons'
 import { ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 
@@ -20,6 +21,8 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const socialFailed = searchParams.get('error') === 'social_failed'
 
   function validate(): string | null {
     if (!EMAIL_PATTERN.test(email)) {
@@ -73,6 +76,7 @@ export function LoginPage() {
           autoComplete="current-password"
         />
 
+        {socialFailed ? <Note variant="sand">소셜 로그인에 실패했어요. 다시 시도해 주세요</Note> : null}
         {fieldError ? <Note variant="sand">{fieldError}</Note> : null}
         {serverError ? <Note variant="sand">{serverError}</Note> : null}
 
@@ -84,6 +88,8 @@ export function LoginPage() {
           <span className="inline-flex min-h-11 items-center text-sm font-medium text-ink-3">비밀번호 찾기</span>
           <LinkButton to="/signup">회원가입</LinkButton>
         </div>
+
+        <SocialLoginButtons />
       </form>
     </AuthShell>
   )

@@ -8,6 +8,7 @@ import { LinkButton } from '../components/LinkButton'
 import { Note } from '../components/Note'
 import { PasswordChecklist } from '../components/PasswordChecklist'
 import { PasswordField } from '../components/PasswordField'
+import { SocialLoginButtons } from '../components/SocialLoginButtons'
 import { ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 
@@ -99,6 +100,15 @@ export function SignupPage() {
             rel="noopener noreferrer"
             className="underline underline-offset-2"
           >
+            자세히 보기
+          </a>
+        </p>
+
+        <SocialLoginButtons />
+
+        <p className="text-center text-[13px] text-ink-3">
+          소셜 로그인도 같은 방식으로 기록을 AI 정리에 보내요.{' '}
+          <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
             자세히 보기
           </a>
         </p>

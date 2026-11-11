@@ -4,6 +4,7 @@ import { GuestRoute } from './components/GuestRoute'
 import { OnboardingRoute } from './components/OnboardingRoute'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { ReviewSectionLayout } from './components/ReviewSectionLayout'
+import { AuthCallbackPage } from './pages/AuthCallbackPage'
 import { ChangesPage } from './pages/ChangesPage'
 import { CoachHistoryDetailPage } from './pages/CoachHistoryDetailPage'
 import { CoachHistoryPage } from './pages/CoachHistoryPage'
@@ -55,6 +56,7 @@ function App() {
         }
       />
       <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/auth/callback" element={<AuthCallbackPage />} />
       <Route
         element={
           <ProtectedRoute>
