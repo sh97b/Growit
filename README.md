@@ -116,6 +116,8 @@ Growit은 새로운 걸 배우거나 취미를 키울 때, **눈에 띄는 변�
 AI 결과에 대한 모든 피드백 줄("도움됐나요?", "맞나요?")은 공용 부품(`FeedbackRow`)을 써서 같은 방식으로 움직입니다:
 맞다고 답하면 고마워요 문구 후 줄이 접히고, 아니라고 답하면(고칠 수 있는 결과는) 바로 고치기 입력이 열립니다.
 
+로그인·가입 화면에는 카카오·구글 소셜 로그인 버튼이 있습니다(둘 다 설정값이 있을 때만 보임, 애플은 만들지 않음).
+
 <!-- 화면 이미지: docs/home-desktop.png, docs/home-mobile.png 를 추가한 뒤 아래 주석을 해제 -->
 <!-- ![홈 화면](docs/home-desktop.png) -->
 
@@ -138,7 +140,8 @@ AI 결과에 대한 모든 피드백 줄("도움됐나요?", "맞나요?")은 �
 
 | 테이블 | 설명 |
 |---|---|
-| `users` | 회원 정보. `token_version`을 비밀번호를 바꿀 때마다 올려, 그 전에 발급된 토큰(다른 기기 포함)을 무효화한다 |
+| `users` | 회원 정보. `token_version`을 비밀번호를 바꿀 때마다 올려, 그 전에 발급된 토큰(다른 기기 포함)을 무효화한다. `email`·`password_hash`는 소셜 전용 계정이면 둘 다 NULL |
+| `social_accounts` | 카카오·구글 로그인 연결 정보(`provider`, `provider_user_id`). 이메일은 저장하지 않는다 |
 | `hobbies` | 활동 분야와 목표 한 줄 |
 | `records` | 활동 기록 (한 일, 시간, 어려웠던 점, 느낌, 의미 있는 순간, AI 정리 결과) |
 | `ai_results` | AI 결과 (WEEKLY, METRICS, COMPARE, COACH). 같은 입력이면 재사용(`cache_key`), 어떤 지시문 버전·모델이 만들었는지(`prompt_version`, `model`)와 사용자 피드백·반응(`feedback`, `reaction`)도 함께 저장. COACH는 "너무 어려워요"로 더 작게 바꾼 행동을 결과 JSON의 `simplifiedAction`에 보관(원래 행동은 그대로 둠)하고, 홈 카드를 어떻게 보여줄지는 `reaction`·`reacted_at`·생성일로 서버가 매번 계산(`cardState`: ACTIVE·CELEBRATE·RESTING·EXPIRED). `is_auto`·`viewed_at`은 주간 자동 회고와 홈 "새 회고 도착" 표시용 |
@@ -170,7 +173,7 @@ AI 결과에 대한 모든 피드백 줄("도움됐나요?", "맞나요?")은 �
 - [x] 데스크톱 레이아웃(사이드 구성), 반응형 점검
 - [x] 알림 설정·웹 푸시, 오프라인 저장, 음성 입력
 - [x] 화면 다듬기(돌아보기 레이아웃, 1년 활동 지도, 페이지네이션, 홈 보완, 피드백 동작 통일)
-- [ ] 카카오·구글 소셜 로그인
+- [x] 카카오·구글 소셜 로그인
 - [ ] 베타 오픈, 사용자 테스트, 설문
 - [ ] 최종 발표
 
@@ -235,6 +238,21 @@ npm run dev
 - 알림 설정 화면은 `/settings/notifications`. "알림 받기"는 사용자 클릭 안에서만 브라우저 권한을 요청한다.
 - 서비스 워커(`frontend/public/sw.js`)는 `push`·`notificationclick`만 처리하고 fetch를 가로채거나 캐시를 만들지
   않는다(Vercel 배포 뒤 낡은 화면이 남지 않게).
+
+### 8) 소셜 로그인
+
+- `KAKAO_CLIENT_ID`·`KAKAO_CLIENT_SECRET`, `GOOGLE_CLIENT_ID`·`GOOGLE_CLIENT_SECRET` — 제공자별로 둘 다 있어야 그
+  제공자가 켜진다(하나라도 비면 그 제공자는 꺼진 상태로 서버가 정상 시작, `GET /api/auth/oauth/providers`가
+  `enabled=false`). 카카오는 [Kakao Developers](https://developers.kakao.com)에서 앱을 만들고 "카카오 로그인"을
+  켠 뒤 Redirect URI에 `{OAUTH_REDIRECT_BASE_URL}/api/auth/oauth/kakao/callback`을 등록, REST API 키를
+  `KAKAO_CLIENT_ID`로 쓴다(보안 설정에서 Client Secret도 켜서 `KAKAO_CLIENT_SECRET`에 넣는다). 구글은
+  [Google Cloud Console](https://console.cloud.google.com)에서 OAuth 클라이언트(웹 애플리케이션)를 만들고 승인된
+  리디렉션 URI에 `{OAUTH_REDIRECT_BASE_URL}/api/auth/oauth/google/callback`을 등록한다.
+- `OAUTH_REDIRECT_BASE_URL`(서버가 외부에서 접근 가능한 공개 주소, 기본 `http://localhost:8080`)과
+  `FRONTEND_BASE_URL`(로그인 성공·실패 후 되돌아갈 프론트 주소, 기본 `http://localhost:5173`)도 함께 설정한다.
+- 로그인·가입 화면의 소셜 버튼은 켜진 제공자만 보인다. 애플 로그인은 만들지 않았다.
+- 소셜 전용 계정(비밀번호 없음)은 설정 메뉴에 "비밀번호 바꾸기"가 보이지 않고, 계정 삭제는 비밀번호 대신
+  "계정 삭제"라는 확인 문구를 입력하는 방식이다.
 
 ## 10. 폴더 구조
 
