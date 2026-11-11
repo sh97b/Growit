@@ -3,10 +3,10 @@ import { Link } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { AiLabel } from '../components/AiLabel'
 import { EvidenceChip } from '../components/EvidenceChip'
+import { FeedbackRow } from '../components/FeedbackRow'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
 import { RecordPairCards } from '../components/RecordPairCards'
-import { ThumbsDownIcon, ThumbsUpIcon } from '../components/icons'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useHobbies } from '../hooks/useHobbies'
 import { ApiError } from '../lib/api'
@@ -27,6 +27,7 @@ export function ChangesPage() {
   const [hobbyId, setHobbyId] = useState<number | null>(null)
   const [compareTo, setCompareTo] = useState<CompareTo>('1M')
   const [result, setResult] = useState<CompareResult | null>(null)
+  const [feedbackError, setFeedbackError] = useState<string | null>(null)
 
   const mutation = useMutation({
     mutationFn: () => fetchCompare({ hobbyId: effectiveHobbyId!, compareTo }),
@@ -74,11 +75,15 @@ export function ChangesPage() {
 
   function handleFeedback(value: 'HELPFUL' | 'NOT_HELPFUL') {
     if (!result?.id || feedbackMutation.isPending) return
+    setFeedbackError(null)
     setResult((prev) => (prev ? { ...prev, feedback: value } : prev))
     feedbackMutation.mutate(
       { id: result.id, value },
       {
-        onError: () => setResult((prev) => (prev ? { ...prev, feedback: result.feedback } : prev)),
+        onError: (mutationError) => {
+          setResult((prev) => (prev ? { ...prev, feedback: result.feedback } : prev))
+          setFeedbackError(mutationError instanceof ApiError ? mutationError.message : '잠시 후 다시 시도해 주세요')
+        },
       },
     )
   }
@@ -193,39 +198,14 @@ export function ChangesPage() {
               {result.pastRecord ? <EvidenceChip record={result.pastRecord} /> : null}
               {result.currentRecord ? <EvidenceChip record={result.currentRecord} /> : null}
             </div>
-            <div className="flex items-center justify-between gap-3 border-t border-[color-mix(in_srgb,var(--color-base)_28%,white)] pt-2">
-              <span className="text-sm text-ink">이 해석이 맞나요?</span>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  aria-label="도움이 됐어요"
-                  aria-pressed={result.feedback === 'HELPFUL'}
-                  onClick={() => handleFeedback('HELPFUL')}
-                  className={[
-                    'inline-flex h-11 w-11 items-center justify-center rounded-lg border text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
-                    result.feedback === 'HELPFUL'
-                      ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
-                      : 'border-line-2 bg-white',
-                  ].join(' ')}
-                >
-                  <ThumbsUpIcon width={20} height={20} />
-                </button>
-                <button
-                  type="button"
-                  aria-label="아쉬워요"
-                  aria-pressed={result.feedback === 'NOT_HELPFUL'}
-                  onClick={() => handleFeedback('NOT_HELPFUL')}
-                  className={[
-                    'inline-flex h-11 w-11 items-center justify-center rounded-lg border text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
-                    result.feedback === 'NOT_HELPFUL'
-                      ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
-                      : 'border-line-2 bg-white',
-                  ].join(' ')}
-                >
-                  <ThumbsDownIcon width={20} height={20} />
-                </button>
-              </div>
-            </div>
+            <FeedbackRow
+              question="이 해석이 맞나요?"
+              status={result.feedback === 'HELPFUL' ? 'positive' : result.feedback === 'NOT_HELPFUL' ? 'negative' : null}
+              pending={feedbackMutation.isPending}
+              onPositive={() => handleFeedback('HELPFUL')}
+              onNegative={() => handleFeedback('NOT_HELPFUL')}
+              errorMessage={feedbackError}
+            />
           </div>
 
           {result.metrics ? (

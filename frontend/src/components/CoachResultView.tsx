@@ -2,8 +2,8 @@ import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { AiLabel } from './AiLabel'
+import { FeedbackRow } from './FeedbackRow'
 import { Note } from './Note'
-import { ThumbsDownIcon, ThumbsUpIcon } from './icons'
 import { ApiError } from '../lib/api'
 import {
   simplifyCoachAction,
@@ -161,6 +161,7 @@ export function CoachResultView({
   onResultChange: (updated: CoachResult) => void
 }) {
   const feedbackPendingRef = useRef(false)
+  const [feedbackError, setFeedbackError] = useState<string | null>(null)
   const feedbackMutation = useMutation({
     mutationFn: ({ value }: { value: 'HELPFUL' | 'NOT_HELPFUL' }) =>
       submitAiResultFeedback<CoachResult>(result.id!, value),
@@ -169,12 +170,16 @@ export function CoachResultView({
   function handleFeedback(value: 'HELPFUL' | 'NOT_HELPFUL') {
     if (!result.id || feedbackPendingRef.current) return
     feedbackPendingRef.current = true
+    setFeedbackError(null)
     const previous = result.feedback
     onResultChange({ ...result, feedback: value })
     feedbackMutation.mutate(
       { value },
       {
-        onError: () => onResultChange({ ...result, feedback: previous }),
+        onError: (mutationError) => {
+          onResultChange({ ...result, feedback: previous })
+          setFeedbackError(mutationError instanceof ApiError ? mutationError.message : '잠시 후 다시 시도해 주세요')
+        },
         onSettled: () => {
           feedbackPendingRef.current = false
         },
@@ -194,45 +199,18 @@ export function CoachResultView({
         <div className="flex flex-col gap-3.5 rounded-2xl bg-surface p-7">
           <AiLabel>AI 회고 한 줄</AiLabel>
           <p className="font-serif text-lg leading-[1.55] lg:text-[24px]">{result.periodSummary}</p>
-          <div className="flex items-center justify-between gap-3 border-t border-line pt-2">
-            <span className="text-sm text-ink">이 회고가 도움됐나요?</span>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                aria-label="도움이 됐어요"
-                aria-pressed={result.feedback === 'HELPFUL'}
-                onClick={() => handleFeedback('HELPFUL')}
-                className={[
-                  'inline-flex h-11 w-11 items-center justify-center rounded-lg border text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
-                  result.feedback === 'HELPFUL'
-                    ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
-                    : 'border-line-2 bg-white',
-                ].join(' ')}
-              >
-                <ThumbsUpIcon width={20} height={20} />
-              </button>
-              <button
-                type="button"
-                aria-label="아쉬워요"
-                aria-pressed={result.feedback === 'NOT_HELPFUL'}
-                onClick={() => handleFeedback('NOT_HELPFUL')}
-                className={[
-                  'inline-flex h-11 w-11 items-center justify-center rounded-lg border text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
-                  result.feedback === 'NOT_HELPFUL'
-                    ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
-                    : 'border-line-2 bg-white',
-                ].join(' ')}
-              >
-                <ThumbsDownIcon width={20} height={20} />
-              </button>
-            </div>
-          </div>
+          <FeedbackRow
+            question="이 회고가 도움됐나요?"
+            status={result.feedback === 'HELPFUL' ? 'positive' : result.feedback === 'NOT_HELPFUL' ? 'negative' : null}
+            pending={feedbackMutation.isPending}
+            onPositive={() => handleFeedback('HELPFUL')}
+            onNegative={() => handleFeedback('NOT_HELPFUL')}
+            errorMessage={feedbackError}
+          />
         </div>
 
         <TextItemBlock title="새로 해 본 것 · 나아진 점" items={result.changes} />
         <TextItemBlock title="아직 남은 어려움" items={result.repeatedDifficulties} />
-
-        {feedbackMutation.isError ? <Note variant="sand">잠시 후 다시 시도해 주세요</Note> : null}
       </div>
 
       <div className="flex flex-col gap-5">
