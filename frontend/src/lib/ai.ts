@@ -88,11 +88,14 @@ export function fetchCoachResult(id: number) {
   return apiRequest<CoachResult>(`/api/ai/results/${id}`)
 }
 
-export function fetchCoachHistory(params: { page?: number; size?: number } = {}) {
+export type CoachHistoryResult = { items: CoachResult[]; totalCount: number }
+
+export function fetchCoachHistory(params: { page?: number; size?: number; hobbyId?: number } = {}) {
   const query = new URLSearchParams({ type: 'COACH' })
   if (params.page != null) query.set('page', String(params.page))
   if (params.size != null) query.set('size', String(params.size))
-  return apiRequest<CoachResult[]>(`/api/ai/results?${query.toString()}`)
+  if (params.hobbyId != null) query.set('hobbyId', String(params.hobbyId))
+  return apiRequest<CoachHistoryResult>(`/api/ai/results?${query.toString()}`)
 }
 
 export function submitCoachReaction(id: number, value: 'TRIED' | 'REST_TODAY' | 'TOO_HARD') {

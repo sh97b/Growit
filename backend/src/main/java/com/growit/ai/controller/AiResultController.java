@@ -1,5 +1,6 @@
 package com.growit.ai.controller;
 
+import com.growit.ai.dto.AiCoachHistoryResponse;
 import com.growit.ai.dto.AiCoachResponse;
 import com.growit.ai.dto.AiResultFeedbackRequest;
 import com.growit.ai.dto.AiResultReactionRequest;
@@ -21,7 +22,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.util.List;
 import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -65,7 +65,7 @@ public class AiResultController {
 
 	@Operation(summary = "이전 결과 목록 (최신순, 내 것만, 지금은 COACH만 지원)")
 	@GetMapping
-	public List<AiCoachResponse> list(@RequestParam String type, @RequestParam(required = false) Long hobbyId,
+	public AiCoachHistoryResponse list(@RequestParam String type, @RequestParam(required = false) Long hobbyId,
 			@RequestParam(required = false) Integer page, @RequestParam(required = false) Integer size) {
 		if (!AiResultType.COACH.name().equals(type)) {
 			throw new ApiException(ErrorCode.VALIDATION_ERROR, "type은 COACH만 지원해요");

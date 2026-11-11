@@ -253,8 +253,9 @@ class CoachServiceTest {
 
 		var history = service(enabledProperties()).history(1L, null, 0, 20);
 
-		assertThat(history).hasSize(1);
-		assertThat(history.get(0).id()).isEqualTo(older.getId());
+		assertThat(history.items()).hasSize(1);
+		assertThat(history.totalCount()).isEqualTo(1);
+		assertThat(history.items().get(0).id()).isEqualTo(older.getId());
 	}
 
 	private AiResult saveCoachResultWithNextAction(Long userId, Long hobbyId, List<Long> evidenceIds) {

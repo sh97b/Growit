@@ -3,6 +3,7 @@ package com.growit.ai.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.growit.ai.dto.AiCoachHistoryResponse;
 import com.growit.ai.dto.AiCoachResponse;
 import com.growit.ai.dto.CoachActionResponse;
 import com.growit.ai.dto.CoachEvidence;
@@ -408,14 +409,17 @@ public class CoachService {
 	}
 
 	@Transactional(readOnly = true)
-	public List<AiCoachResponse> history(Long userId, Long hobbyId, int page, int size) {
+	public AiCoachHistoryResponse history(Long userId, Long hobbyId, int page, int size) {
 		var pageable = org.springframework.data.domain.PageRequest.of(page, size);
 		List<AiResult> results = hobbyId != null
 				? aiResultRepository.findByUserIdAndResultTypeAndHobbyIdOrderByCreatedAtDesc(userId,
 						AiResultType.COACH.name(), hobbyId, pageable)
 				: aiResultRepository.findByUserIdAndResultTypeOrderByCreatedAtDesc(userId, AiResultType.COACH.name(),
 						pageable);
-		return results.stream().map(r -> toResponse(r, true, userId)).toList();
+		long totalCount = hobbyId != null
+				? aiResultRepository.countByUserIdAndResultTypeAndHobbyId(userId, AiResultType.COACH.name(), hobbyId)
+				: aiResultRepository.countByUserIdAndResultType(userId, AiResultType.COACH.name());
+		return new AiCoachHistoryResponse(results.stream().map(r -> toResponse(r, true, userId)).toList(), totalCount);
 	}
 
 	/**
