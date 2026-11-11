@@ -7,6 +7,7 @@ import java.time.Duration;
 import java.util.Base64;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -26,6 +27,7 @@ public class OauthStateService {
 	private final Clock clock;
 	private final SecureRandom random = new SecureRandom();
 
+	@Autowired
 	public OauthStateService(@Value("${app.jwt.secret}") String jwtSecret) {
 		this(jwtSecret, Clock.systemUTC());
 	}

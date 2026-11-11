@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /** exchange는 로그인 코드를 추측해 보는 공격의 표적이 될 수 있어 IP당 분당 호출 수를 제한한다. */
@@ -21,6 +22,7 @@ public class OauthExchangeRateLimiter {
 	private final Clock clock;
 	private final ConcurrentHashMap<String, Deque<Instant>> callsByIp = new ConcurrentHashMap<>();
 
+	@Autowired
 	public OauthExchangeRateLimiter() {
 		this(Clock.systemUTC());
 	}
