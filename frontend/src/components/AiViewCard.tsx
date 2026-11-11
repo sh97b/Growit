@@ -1,9 +1,11 @@
+import { useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { AiLabel } from './AiLabel'
 import { EvidenceChip } from './EvidenceChip'
+import { FeedbackRow } from './FeedbackRow'
 import { Note } from './Note'
-import { ViewFeedbackRow } from './ViewFeedbackRow'
 import { ApiError } from '../lib/api'
-import type { AiViewResult } from '../lib/ai'
+import { editViewText, submitViewFeedback, type AiViewResult } from '../lib/ai'
 
 type Props = {
   label: string
@@ -99,7 +101,100 @@ export function AiViewCard({
         </div>
       ) : null}
 
-      <ViewFeedbackRow result={data} question={question} onChange={onChange} />
+      <ViewFeedbackSection result={data} question={question} onChange={onChange} />
     </div>
+  )
+}
+
+/** "맞나요?" 모델(FeedbackRow의 editArea 사용): 달라요를 누르면 바로 고치기 입력이 열린다. */
+function ViewFeedbackSection({
+  result,
+  question,
+  onChange,
+}: {
+  result: AiViewResult
+  question: string
+  onChange: (updated: AiViewResult) => void
+}) {
+  const [draft, setDraft] = useState('')
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  const feedbackMutation = useMutation({
+    mutationFn: ({ id, value }: { id: number; value: 'CONFIRMED' | 'DISPUTED' }) => submitViewFeedback(id, value),
+  })
+  const editMutation = useMutation({
+    mutationFn: ({ id, text }: { id: number; text: string }) => editViewText(id, text),
+  })
+
+  function submitFeedback(value: 'CONFIRMED' | 'DISPUTED') {
+    if (!result.id) return
+    setErrorMessage(null)
+    const previous = result.feedback
+    onChange({ ...result, feedback: value })
+    feedbackMutation.mutate(
+      { id: result.id, value },
+      {
+        onError: (mutationError) => {
+          onChange({ ...result, feedback: previous })
+          setErrorMessage(mutationError instanceof ApiError ? mutationError.message : '잠시 후 다시 시도해 주세요')
+        },
+      },
+    )
+  }
+
+  const status = result.feedback === 'CONFIRMED' ? 'positive' : result.feedback === 'DISPUTED' ? 'negative' : result.feedback === 'EDITED' ? 'edited' : null
+
+  return (
+    <FeedbackRow
+      question={question}
+      variant="text"
+      status={status}
+      pending={feedbackMutation.isPending || editMutation.isPending}
+      onPositive={() => submitFeedback('CONFIRMED')}
+      onNegative={() => submitFeedback('DISPUTED')}
+      onBeforeOpenEdit={() => setDraft(result.displayText ?? '')}
+      editTriggerLabel="고치기"
+      editTriggerAlwaysVisible
+      editedMessage="내가 고친 문장이에요"
+      errorMessage={errorMessage}
+      editArea={({ markSaved, cancel }) => (
+        <div className="flex flex-col gap-2">
+          <input
+            type="text"
+            value={draft}
+            maxLength={80}
+            autoFocus
+            onChange={(event) => setDraft(event.target.value)}
+            className="h-11 w-full rounded-lg border border-input px-3 font-serif text-base text-ink"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={!result.id || draft.trim().length === 0 || editMutation.isPending}
+              onClick={() =>
+                result.id &&
+                editMutation.mutate(
+                  { id: result.id, text: draft.trim() },
+                  {
+                    onSuccess: (updated) => {
+                      onChange(updated)
+                      markSaved()
+                    },
+                    onError: (mutationError) =>
+                      setErrorMessage(mutationError instanceof ApiError ? mutationError.message : '잠시 후 다시 시도해 주세요'),
+                  },
+                )
+              }
+              className="inline-flex min-h-9 items-center justify-center rounded-lg bg-base px-4 text-sm font-medium text-white disabled:bg-line disabled:text-[#5F594F]"
+            >
+              저장
+            </button>
+            <button type="button" onClick={cancel} className="inline-flex min-h-9 items-center text-sm font-medium text-ink-2">
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+    />
   )
 }

@@ -33,6 +33,8 @@ type Props = {
   onBeforeOpenEdit?: () => void
   /** "맞나요?" 모델에서, 아직 답하지 않았어도 바로 고칠 수 있는 항상 보이는 버튼. */
   editTriggerLabel?: string
+  /** editTriggerLabel을 status==='edited'일 때도 계속 보여 줄지(기본은 그때 숨기고 editedActionLabel로 대체). */
+  editTriggerAlwaysVisible?: boolean
   /** "맞나요?" 모델에서 status==='edited'일 때 접힌 줄 아래 계속 보이는 안내. */
   editedMessage?: string
   editedActionLabel?: string
@@ -60,6 +62,7 @@ export function FeedbackRow({
   editArea,
   onBeforeOpenEdit,
   editTriggerLabel,
+  editTriggerAlwaysVisible = false,
   editedMessage,
   editedActionLabel,
   negativeLink,
@@ -198,7 +201,7 @@ export function FeedbackRow({
                       </button>
                     </>
                   )}
-                  {editArea && editTriggerLabel && !editing && status !== 'edited' ? (
+                  {editArea && editTriggerLabel && !editing && (editTriggerAlwaysVisible || status !== 'edited') ? (
                     <button
                       type="button"
                       onClick={openEdit}
