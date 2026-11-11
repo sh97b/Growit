@@ -136,21 +136,11 @@ export function CoachPage() {
     </>
   )
 
-  const historyLink = (
-    <Link to="/coach/history" className="text-sm font-medium text-base-ink underline underline-offset-4">
-      이전 회고 목록
-    </Link>
-  )
-
   return (
-    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-12">
-      <div className="flex flex-col gap-5">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-page-title">AI 회고</h1>
-        <div className="lg:hidden">{historyLink}</div>
-      </div>
+    <div className="flex flex-col gap-5">
+      <h1 className="text-page-title">AI 회고</h1>
 
-      <div className="flex flex-col gap-5 lg:hidden">{selectors}</div>
+      <div className="flex flex-col gap-5 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">{selectors}</div>
 
       {!shownResult ? (
         <button
@@ -208,12 +198,6 @@ export function CoachPage() {
       {shownResult && !shownResult.locked ? (
         <CoachResultView result={shownResult} onResultChange={(updated) => setResult(updated)} />
       ) : null}
-      </div>
-
-      <aside className="hidden flex-col gap-5 lg:flex">
-        {selectors}
-        {historyLink}
-      </aside>
     </div>
   )
 }

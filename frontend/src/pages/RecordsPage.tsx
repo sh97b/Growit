@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { ActivityMapExpand } from '../components/ActivityMapExpand'
+import { ActivityHeatmap } from '../components/ActivityHeatmap'
 import { Button } from '../components/Button'
 import { Loading } from '../components/Loading'
 import { PlusIcon } from '../components/icons'
@@ -73,39 +73,39 @@ export function RecordsPage() {
   )
 
   return (
-    <div className={noRecordsAtAll ? undefined : 'lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-12'}>
-      <div className="flex flex-col gap-5">
-        <h1 className="text-page-title">지난 기록</h1>
+    <div className="flex flex-col gap-5">
+      <h1 className="text-page-title">지난 기록</h1>
 
-        {noRecordsAtAll ? (
-          <div className="flex max-w-[720px] flex-col items-start gap-4 rounded-2xl bg-surface p-5">
-            <p className="text-[17px] text-ink">아직 기록이 없어요. 첫 기록이 여기에 쌓여요.</p>
-            <Link
-              to="/records/new"
-              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-base px-5 text-[15px] font-medium text-white no-underline lg:w-auto"
-            >
-              <PlusIcon width={18} height={18} />
-              기록하기
-            </Link>
+      {noRecordsAtAll ? (
+        <div className="flex max-w-[720px] flex-col items-start gap-4 rounded-2xl bg-surface p-5">
+          <p className="text-[17px] text-ink">아직 기록이 없어요. 첫 기록이 여기에 쌓여요.</p>
+          <Link
+            to="/records/new"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-base px-5 text-[15px] font-medium text-white no-underline lg:w-auto"
+          >
+            <PlusIcon width={18} height={18} />
+            기록하기
+          </Link>
+        </div>
+      ) : (
+        <>
+          <div className="rounded-2xl bg-surface p-5">
+            <ActivityHeatmap weeks={52} hobbyId={hobbyId} />
           </div>
-        ) : (
-          <>
-            <div className="flex flex-col gap-4 lg:hidden">
-              {hobbyFilter}
-              <ActivityMapExpand weekCount={8} />
-            </div>
 
-            {totalCount === 0 ? (
+          {hobbyFilter}
+
+          {totalCount === 0 ? (
             <p className="py-6 text-center text-sm text-ink-2">아직 이 분야의 기록이 없어요.</p>
           ) : (
-            <div className="flex flex-col">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
               {records.map((record) => {
                 const firstTag = record.analysis?.tags[0]
                 return (
                   <Link
                     key={record.id}
                     to={`/records/${record.id}`}
-                    className="flex flex-col gap-1.5 border-t border-line py-4 text-ink no-underline last:border-b"
+                    className="flex flex-col gap-1.5 rounded-xl border border-line bg-white px-4 py-4 text-ink no-underline"
                   >
                     <span className="flex items-center justify-between gap-2">
                       <span className="text-[13px] font-semibold text-ink-2">
@@ -124,26 +124,18 @@ export function RecordsPage() {
             </div>
           )}
 
-            {listQuery.hasNextPage ? (
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => listQuery.fetchNextPage()}
-                disabled={listQuery.isFetchingNextPage}
-                className="self-center"
-              >
-                더 보기
-              </Button>
-            ) : null}
-          </>
-        )}
-      </div>
-
-      {noRecordsAtAll ? null : (
-        <aside className="hidden flex-col gap-5 lg:flex">
-          {hobbyFilter}
-          <ActivityMapExpand weekCount={12} />
-        </aside>
+          {listQuery.hasNextPage ? (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => listQuery.fetchNextPage()}
+              disabled={listQuery.isFetchingNextPage}
+              className="self-center"
+            >
+              더 보기
+            </Button>
+          ) : null}
+        </>
       )}
     </div>
   )

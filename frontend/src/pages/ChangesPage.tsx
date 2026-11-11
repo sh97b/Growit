@@ -121,24 +121,11 @@ export function ChangesPage() {
     </>
   )
 
-  const metricsLink = (
-    <Link
-      to="/changes/metrics"
-      className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink no-underline underline underline-offset-4"
-    >
-      변화 지표 상세 보기
-    </Link>
-  )
-
   return (
-    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-12">
-      <div className="flex flex-col gap-5">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-page-title">나의 변화</h1>
-          <div className="lg:hidden">{metricsLink}</div>
-        </div>
+    <div className="flex flex-col gap-5">
+      <h1 className="text-page-title">나의 변화</h1>
 
-        <div className="flex flex-col gap-5 lg:hidden">{selectors}</div>
+      <div className="flex flex-col gap-5 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">{selectors}</div>
 
         {!result ? (
         <button
@@ -288,12 +275,6 @@ export function ChangesPage() {
           </button>
         </div>
       ) : null}
-      </div>
-
-      <aside className="hidden flex-col gap-5 lg:flex">
-        {selectors}
-        {metricsLink}
-      </aside>
     </div>
   )
 }
