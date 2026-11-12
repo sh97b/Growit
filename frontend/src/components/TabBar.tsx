@@ -11,12 +11,12 @@ export function TabBar() {
     <nav
       aria-label="하단 메뉴"
       className="grid flex-none grid-cols-3 border-t border-line bg-white lg:hidden"
-      style={{ height: 64 }}
+      style={{ height: '4rem', paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <Link
         to="/"
         aria-current={homeActive ? 'page' : undefined}
-        className="flex flex-col items-center justify-center gap-0.5 text-[13px] font-medium text-ink no-underline"
+        className="flex flex-col items-center justify-center gap-0.5 text-caption-min font-medium text-ink no-underline"
       >
         <span
           className={[
@@ -31,9 +31,9 @@ export function TabBar() {
 
       <Link
         to="/records/new"
-        className="flex flex-col items-center justify-center gap-0.5 text-[13px] font-semibold text-ink no-underline"
+        className="flex flex-col items-center justify-center gap-0.5 text-caption-min font-semibold text-ink no-underline"
       >
-        <span className="flex h-[34px] w-14 items-center justify-center rounded-xl bg-base text-white">
+        <span className="flex h-[2.125rem] w-14 items-center justify-center rounded-xl bg-base text-white">
           <PlusIcon width={24} height={24} />
         </span>
         기록하기
@@ -42,7 +42,7 @@ export function TabBar() {
       <Link
         to="/records"
         aria-current={reviewActive ? 'page' : undefined}
-        className="flex flex-col items-center justify-center gap-0.5 text-[13px] font-medium text-ink no-underline"
+        className="flex flex-col items-center justify-center gap-0.5 text-caption-min font-medium text-ink no-underline"
       >
         <span
           className={[

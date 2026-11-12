@@ -80,7 +80,7 @@ export function AiViewCard({
       <AiLabel>{label}</AiLabel>
 
       <div className="flex flex-col gap-1.5">
-        {hasRemaining ? <span className="text-[13px] text-ink-2">이어진 것</span> : null}
+        {hasRemaining ? <span className="text-caption-min text-ink-2">이어진 것</span> : null}
         <p className="font-serif text-lg leading-[1.55]">{data.displayText}</p>
         <div className="flex flex-wrap gap-2">
           {data.evidence.map((record) => (
@@ -91,7 +91,7 @@ export function AiViewCard({
 
       {hasRemaining ? (
         <div className="flex flex-col gap-1.5">
-          <span className="text-[13px] text-ink-2">아직 남은 어려움</span>
+          <span className="text-caption-min text-ink-2">아직 남은 어려움</span>
           <p className="font-serif text-lg leading-[1.55]">{data.remainingText}</p>
           <div className="flex flex-wrap gap-2">
             {data.remainingEvidence.map((record) => (

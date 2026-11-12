@@ -16,9 +16,9 @@ export function Field({ label, htmlFor, hint, error, children }: FieldProps) {
       </label>
       {children}
       {error ? (
-        <span className="flex items-center gap-1.5 text-[13px] leading-[1.55] text-[#6B3F0F]">{error}</span>
+        <span className="flex items-center gap-1.5 text-caption-min leading-[1.55] text-[#6B3F0F]">{error}</span>
       ) : hint ? (
-        <span className="text-[13px] leading-[1.55] text-ink-2">{hint}</span>
+        <span className="text-caption-min leading-[1.55] text-ink-2">{hint}</span>
       ) : null}
     </div>
   )

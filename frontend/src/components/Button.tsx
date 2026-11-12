@@ -16,8 +16,8 @@ const variantClasses: Record<Variant, string> = {
 }
 
 const sizeClasses: Record<Size, string> = {
-  md: 'min-h-11 px-5 text-[15px]',
-  sm: 'min-h-10 px-4 text-sm',
+  md: 'tap-min px-5 text-body-min',
+  sm: 'tap-min px-4 text-sm',
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(

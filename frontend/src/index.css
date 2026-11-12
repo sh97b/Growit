@@ -39,6 +39,37 @@
   box-sizing: border-box;
 }
 
+/*
+ * 반응형 스케일(F3): 화면 크기가 달라도 비슷한 비율로 보이게 루트 글자 크기를 화면에 맞춰 늘리고 줄인다.
+ * Tailwind의 간격·크기 유틸리티는 기본이 rem이라 이 값을 그대로 따라 함께 늘어나고 줄어든다.
+ * 한계: 사용자가 브라우저 기본 글자 크기를 바꿔도 이 clamp 값이 그 설정을 덮어쓴다(접근성 트레이드오프,
+ * CLAUDE.md에 기록).
+ */
+:root {
+  --fs-caption: max(13px, 0.8125rem);
+  --fs-body: max(15px, 0.9375rem);
+}
+
+@media (min-width: 1024px) {
+  html {
+    font-size: clamp(13px, min(1.111vw, 1.778vh), 18px);
+  }
+}
+
+@media (max-width: 1023px) {
+  html {
+    font-size: clamp(14px, 4.07vw, 17px);
+  }
+}
+
+/* 600~1023px 폭의 모바일 구성은 내용 최대 폭을 32rem으로 두고 가운데 정렬한다(F3). */
+@media (min-width: 600px) and (max-width: 1023px) {
+  .app-shell-main {
+    max-width: 32rem;
+    margin-inline: auto;
+  }
+}
+
 html,
 body {
   height: 100%;
@@ -81,23 +112,46 @@ select:focus-visible {
   }
 }
 
-/* 페이지 제목·카드 제목 크기를 한 곳에서 관리한다(U1: 화면마다 26px/30px로 제각각이던 것을 통일). */
+/*
+ * 페이지 제목·카드 제목 크기를 한 곳에서 관리한다(U1: 화면마다 26px/30px로 제각각이던 것을 통일).
+ * F3: 루트 글자 크기가 화면에 맞춰 줄어들어도 디자인이 정한 하한 아래로는 내려가지 않게 max()로 고정한다.
+ */
 .text-page-title {
   font-family: var(--font-serif);
   font-weight: 600;
-  font-size: 1.25rem;
+  font-size: max(1.25rem, 20px);
   line-height: 1.3;
 }
 @media (min-width: 1024px) {
   .text-page-title {
-    font-size: 1.75rem;
+    font-size: max(1.75rem, 20px);
   }
 }
 .text-card-title {
   font-family: var(--font-serif);
   font-weight: 600;
-  font-size: 1.125rem;
+  font-size: max(1.125rem, 16px);
   line-height: 1.4;
+}
+
+/* 보조 글자(13px 하한)·본문 글자(15px 하한) 공용 토큰(F3). 기존 text-[13px]/text-[15px] 자리를 대신한다. */
+.text-caption-min {
+  font-size: var(--fs-caption);
+}
+.text-body-min {
+  font-size: var(--fs-body);
+}
+
+/* 눌러야 하는 곳의 크기 하한(F3): 모바일 44px, 데스크톱 32px. 루트 글자 크기가 작아져도 이 아래로 줄지 않는다. */
+.tap-min {
+  min-height: max(2.75rem, 44px);
+  min-width: max(2.75rem, 44px);
+}
+@media (min-width: 1024px) {
+  .tap-min {
+    min-height: max(2rem, 32px);
+    min-width: max(2rem, 32px);
+  }
 }
 
 /* 데스크톱에서 긴 글이 불가피한 화면(U2)에서만 쓰는 가늘고 연한 스크롤바. */

@@ -82,8 +82,8 @@ export function RecordSavedPanel({
       <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-base)_12%,white)] text-base-ink">
         <CheckIcon width={18} height={18} />
       </span>
-      <h1 className="font-serif text-xl font-semibold lg:text-[30px]">기록을 저장했어요</h1>
-      <span className="text-[13px] text-ink-2">
+      <h1 className="font-serif text-xl font-semibold lg:text-[1.875rem]">기록을 저장했어요</h1>
+      <span className="text-caption-min text-ink-2">
         {formatMonthDay(record.recordDate)} · {hobbyName}
       </span>
     </div>
@@ -109,7 +109,7 @@ export function RecordSavedPanel({
   const changeBlock = change ? (
     <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-7">
       <AiLabel>달라진 점</AiLabel>
-      <p className="font-serif text-lg leading-[1.55] lg:text-[24px]">{change.text}</p>
+      <p className="font-serif text-lg leading-[1.55] lg:text-[1.5rem]">{change.text}</p>
       <div>
         <EvidenceChip record={change.evidence} />
       </div>
@@ -123,7 +123,7 @@ export function RecordSavedPanel({
       <div>
         <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-7">
           <AiLabel>달라진 점</AiLabel>
-          {change ? <p className="font-serif text-lg leading-[1.55] lg:text-[24px]">{change.text}</p> : null}
+          {change ? <p className="font-serif text-lg leading-[1.55] lg:text-[1.5rem]">{change.text}</p> : null}
           {change ? (
             <ChangeFeedbackRow record={record} analysis={record.analysis as RecordAnalysis} onNotHelpfulAction={onViewDetail} />
           ) : null}
@@ -149,7 +149,7 @@ export function RecordSavedPanel({
       : null
 
     return (
-      <div className="flex flex-col gap-6 lg:mx-auto lg:max-w-[720px]">
+      <div className="flex flex-col gap-6 lg:mx-auto lg:max-w-[45rem]">
         {header}
 
         {changeSentenceBlock}
@@ -173,7 +173,7 @@ export function RecordSavedPanel({
   }
 
   return (
-    <div className="flex flex-col gap-6 lg:mx-auto lg:max-w-[720px]">
+    <div className="flex flex-col gap-6 lg:mx-auto lg:max-w-[45rem]">
       {header}
 
       {showFailed ? (
@@ -213,14 +213,14 @@ export function RecordSavedPanel({
         isFirstRecord ? (
           <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-7">
             <AiLabel>첫 기록이에요</AiLabel>
-            <p className="font-serif text-lg leading-[1.55] lg:text-[24px]">
+            <p className="font-serif text-lg leading-[1.55] lg:text-[1.5rem]">
               오늘 쓴 기록이 첫 기록이에요. 다음 기록에서 이어서 볼게요.
             </p>
           </div>
         ) : (
           <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-7">
             <AiLabel>AI 정리</AiLabel>
-            <p className="font-serif text-lg leading-[1.55] lg:text-[24px]">
+            <p className="font-serif text-lg leading-[1.55] lg:text-[1.5rem]">
               아직 뚜렷하게 달라진 점은 없어요. 다음 기록에서 다시 볼게요.
             </p>
           </div>

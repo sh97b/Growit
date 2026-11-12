@@ -25,7 +25,7 @@ export function EvidenceRow({ evidence }: { evidence: CoachEvidenceItem[] }) {
           key={item.recordId}
           to={`/records/${item.recordId}`}
           title={item.content}
-          className="inline-flex min-h-11 max-w-full items-center gap-2 rounded-lg border border-line-2 bg-white px-3 text-[13px] text-ink no-underline"
+          className="inline-flex min-h-11 max-w-full items-center gap-2 rounded-lg border border-line-2 bg-white px-3 text-caption-min text-ink no-underline"
         >
           <span className="flex-none font-semibold text-base-ink">{formatMonthDay(item.recordDate)}</span>
           <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-ink-2">{item.content}</span>
@@ -118,7 +118,7 @@ export function CoachActionCard({
   return (
     <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-7">
       <AiLabel>{comeback ? '가볍게 다시 시작하려면' : '다음 작은 행동'}</AiLabel>
-      <p className="font-serif text-lg leading-[1.55] lg:text-[24px]">{action.title}</p>
+      <p className="font-serif text-lg leading-[1.55] lg:text-[1.5rem]">{action.title}</p>
       <span className="text-sm text-ink-2">{action.minutes}분 · {action.reason}</span>
       <EvidenceRow evidence={action.evidence} />
       {result.reaction === 'TRIED' || result.reaction === 'REST_TODAY' ? (
@@ -191,14 +191,14 @@ export function CoachResultView({
     <div className="flex flex-col gap-5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
       <div className="flex flex-col gap-5">
         {result.startDate && result.endDate ? (
-          <span className="text-[13px] font-semibold text-ink-2">
+          <span className="text-caption-min font-semibold text-ink-2">
             {formatMonthDay(result.startDate)} – {formatMonthDay(result.endDate)}
           </span>
         ) : null}
 
         <div className="flex flex-col gap-3.5 rounded-2xl bg-surface p-7">
           <AiLabel>AI 회고 한 줄</AiLabel>
-          <p className="font-serif text-lg leading-[1.55] lg:text-[24px]">{result.periodSummary}</p>
+          <p className="font-serif text-lg leading-[1.55] lg:text-[1.5rem]">{result.periodSummary}</p>
           <FeedbackRow
             question="이 회고가 도움됐나요?"
             status={result.feedback === 'HELPFUL' ? 'positive' : result.feedback === 'NOT_HELPFUL' ? 'negative' : null}

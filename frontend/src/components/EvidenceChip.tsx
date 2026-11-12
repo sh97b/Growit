@@ -8,7 +8,7 @@ export function EvidenceChip({ record, block = false }: { record: RecordRelated;
       to={`/records/${record.id}`}
       title={record.content}
       className={[
-        'inline-flex min-h-11 max-w-full items-center gap-2 rounded-lg border border-line-2 bg-white px-3 text-[13px] text-ink no-underline',
+        'inline-flex min-h-11 max-w-full items-center gap-2 rounded-lg border border-line-2 bg-white px-3 text-caption-min text-ink no-underline',
         block ? 'flex w-full' : '',
       ].join(' ')}
     >

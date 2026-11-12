@@ -23,7 +23,7 @@ const TOTAL_STEPS = 4
 const SUGGESTED_HOBBIES = ['기타', '러닝', '코딩', '피아노', '그림', '요가', '영어 회화']
 const GOAL_MAX_LENGTH = 200
 
-const STEP_HEADING_CLASS = 'font-serif text-[22px] font-semibold leading-[1.45] lg:text-[30px] lg:leading-[1.4]'
+const STEP_HEADING_CLASS = 'font-serif text-[1.375rem] font-semibold leading-[1.45] lg:text-[1.875rem] lg:leading-[1.4]'
 const NEXT_BUTTON_CLASS = 'lg:w-auto'
 
 /** 디자인에 없는 추가: 평소엔 연한 글자색, 마우스를 올리거나 포커스가 오면 포인트 색으로 바뀐다. */
@@ -195,14 +195,14 @@ export function OnboardingPage() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-paper">
-      <header className="hidden h-[68px] flex-none items-center border-b border-line bg-paper lg:flex">
-        <div className="mx-auto w-full max-w-[1200px] px-10">
+      <header className="hidden h-[4.25rem] flex-none items-center border-b border-line bg-paper lg:flex">
+        <div className="mx-auto w-full max-w-[90rem] px-10">
           <span className="font-serif text-xl font-semibold text-ink">Growit</span>
         </div>
       </header>
 
       <main className="flex flex-1 flex-col px-5 pb-8 pt-4 lg:px-10 lg:pb-16 lg:pt-12">
-        <div className="mx-auto flex w-full max-w-[420px] flex-1 flex-col gap-5 lg:max-w-[680px] lg:gap-[26px]">
+        <div className="mx-auto flex w-full max-w-[26.25rem] flex-1 flex-col gap-5 lg:max-w-[42.5rem] lg:gap-[1.625rem]">
           <div className="flex items-center justify-between">
             <StepDots step={step} total={TOTAL_STEPS} />
             <LinkButton to="/" onClick={(event) => { event.preventDefault(); finish() }}>
@@ -341,7 +341,7 @@ export function OnboardingPage() {
                 <InfoIcon width={28} height={28} />
               </span>
               <h1 className={STEP_HEADING_CLASS}>알림을 받아 볼까요?</h1>
-              <p className="text-[17px] text-ink-2">
+              <p className="text-[1.0625rem] text-ink-2">
                 하루 한 번, 정한 시간에만 알려요. 안 쓴 날을 알려주는 알림은 보내지 않아요.
               </p>
 

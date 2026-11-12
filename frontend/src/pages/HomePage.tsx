@@ -28,7 +28,7 @@ import { createRecord, fetchRecords } from '../lib/records'
 import { fetchActivityMap, fetchSummary, type StatsSummary } from '../lib/stats'
 
 const primaryLinkClass =
-  'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-base px-5 text-[15px] font-medium text-white no-underline lg:w-fit'
+  'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-base px-5 text-body-min font-medium text-white no-underline lg:w-fit'
 
 function displayNameOf(user: { displayName: string | null; email: string | null } | undefined): string {
   if (!user) return ''
@@ -115,18 +115,18 @@ export function HomePage() {
 
   return (
     <div className="flex flex-col gap-7">
-      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-12">
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_22.5rem] lg:items-start lg:gap-12">
         <div className="flex flex-col gap-7">
           <div className="flex flex-col gap-1.5">
-            <h1 className="font-serif text-2xl font-semibold lg:text-[32px]">
+            <h1 className="font-serif text-2xl font-semibold lg:text-[2rem]">
               {state === 'comeback' ? `다시 오셨네요, ${name}님` : state === 'first' ? `${name}님, 환영합니다` : `안녕하세요, ${name}님`}
             </h1>
             <span className="text-sm text-ink-2">{formatMonthDayWeekday(today)}</span>
             {state === 'first' ? (
-              <p className="text-[15px] text-ink-2">오늘 있었던 일을 한 줄만 적어도 첫 기록이 돼요.</p>
+              <p className="text-body-min text-ink-2">오늘 있었던 일을 한 줄만 적어도 첫 기록이 돼요.</p>
             ) : null}
             {state === 'comeback' && summary.lastRecordedDate ? (
-              <p className="text-[15px] text-ink-2">
+              <p className="text-body-min text-ink-2">
                 마지막 기록은 {formatMonthDay(summary.lastRecordedDate)}이에요. 쌓아 둔 기록은 그대로 있어요.
               </p>
             ) : null}
@@ -301,7 +301,7 @@ function HomeAiCard({ comeback }: { comeback: boolean }) {
     return (
       <>
         {newBanner}
-        <p className="text-[15px] text-ink-2">{encouragementLine(data)}</p>
+        <p className="text-body-min text-ink-2">{encouragementLine(data)}</p>
       </>
     )
   }
@@ -385,7 +385,7 @@ function ComebackBoard() {
           기록하기
         </Link>
       ) : (
-        <div className="flex flex-col gap-2 rounded-xl bg-surface px-[18px] py-3.5">
+        <div className="flex flex-col gap-2 rounded-xl bg-surface px-[1.125rem] py-3.5">
           <label htmlFor="quick-save" className="text-sm text-ink-2">
             오늘 한 줄만 남겨도 충분해요 · 분야는 {hobbyName}예요
           </label>
@@ -395,18 +395,18 @@ function ComebackBoard() {
               value={content}
               onChange={(event) => setContent(event.target.value)}
               placeholder="오늘은 무엇을 했나요?"
-              className="h-12 flex-1 rounded-lg border border-input bg-white px-3.5 font-serif text-[15px] text-ink outline-none focus:border-base"
+              className="h-12 flex-1 rounded-lg border border-input bg-white px-3.5 font-serif text-body-min text-ink outline-none focus:border-base"
             />
             <button
               type="button"
               disabled={submitting}
               onClick={handleSave}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-base px-5 text-[15px] font-medium text-white disabled:bg-line disabled:text-[#5F594F]"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-base px-5 text-body-min font-medium text-white disabled:bg-line disabled:text-[#5F594F]"
             >
               저장
             </button>
           </div>
-          {error ? <span className="text-[13px] text-[#6B3F0F]">{error}</span> : null}
+          {error ? <span className="text-caption-min text-[#6B3F0F]">{error}</span> : null}
         </div>
       )}
 
@@ -446,7 +446,7 @@ function RecentRecords() {
               className="flex flex-col gap-1.5 border-t border-line py-4 text-ink no-underline last:border-b"
             >
               <span className="flex items-center justify-between gap-2">
-                <span className="text-[13px] font-semibold text-ink-2">
+                <span className="text-caption-min font-semibold text-ink-2">
                   {isToday ? '오늘' : formatMonthDay(record.recordDate)} · {hobbyNameById.get(record.hobbyId) ?? ''}
                 </span>
                 {firstTag ? (

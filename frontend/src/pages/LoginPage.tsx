@@ -55,7 +55,7 @@ export function LoginPage() {
   return (
     <AuthShell>
       <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
-        <h1 className="font-serif text-xl font-semibold leading-[1.45] lg:text-[30px]">다시 만나서 반가워요</h1>
+        <h1 className="font-serif text-xl font-semibold leading-[1.45] lg:text-[1.875rem]">다시 만나서 반가워요</h1>
 
         <Field label="이메일" htmlFor="email">
           <Input

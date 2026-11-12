@@ -98,7 +98,7 @@ function RecordEditForm({ record, activeHobbies }: { record: RecordDetail; activ
   }
 
   return (
-    <div className="flex flex-col gap-4 lg:mx-auto lg:max-w-[720px]">
+    <div className="flex flex-col gap-4 lg:mx-auto lg:max-w-[45rem]">
       <h1 className="text-page-title">기록 수정</h1>
 
       <RecordFormFields

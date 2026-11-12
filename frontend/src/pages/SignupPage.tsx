@@ -52,7 +52,7 @@ export function SignupPage() {
   return (
     <AuthShell>
       <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
-        <h1 className="font-serif text-xl font-semibold leading-[1.45] lg:text-[30px]">첫 기록을 시작해 볼까요</h1>
+        <h1 className="font-serif text-xl font-semibold leading-[1.45] lg:text-[1.875rem]">첫 기록을 시작해 볼까요</h1>
 
         <Field label="이메일" htmlFor="signup-email">
           <Input
@@ -88,7 +88,7 @@ export function SignupPage() {
           이미 계정이 있나요? <LinkButton to="/login">로그인</LinkButton>
         </p>
 
-        <p className="text-center text-[13px] text-ink-3">
+        <p className="text-center text-caption-min text-ink-3">
           가입하면 내 기록이 AI 정리를 위해 외부 AI 서비스(OpenAI)로 전송돼요. 설정에서 언제든 끌 수 있어요.{' '}
           <a
             href="/privacy"
@@ -102,7 +102,7 @@ export function SignupPage() {
 
         <SocialLoginButtons />
 
-        <p className="text-center text-[13px] text-ink-3">
+        <p className="text-center text-caption-min text-ink-3">
           소셜 로그인도 같은 방식으로 기록을 AI 정리에 보내요.{' '}
           <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
             자세히 보기

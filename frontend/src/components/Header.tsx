@@ -10,8 +10,8 @@ export function Header() {
   const reviewActive = isReviewPath(location.pathname)
 
   return (
-    <header className="hidden h-[68px] flex-none border-b border-line bg-paper lg:block">
-      <div className="mx-auto flex h-full w-full max-w-[1200px] items-center px-10">
+    <header className="hidden h-[4.25rem] flex-none border-b border-line bg-paper lg:block">
+      <div className="mx-auto flex h-full w-full max-w-[90rem] items-center px-10">
         <Link to="/" className="mr-11 font-serif text-xl font-semibold text-ink no-underline">
           Growit
         </Link>
@@ -20,7 +20,7 @@ export function Header() {
             to="/"
             aria-current={homeActive ? 'page' : undefined}
             className={[
-              'flex items-center border-b-2 text-[15px] font-medium no-underline',
+              'flex items-center border-b-2 text-body-min font-medium no-underline',
               homeActive ? 'border-ink font-semibold text-ink' : 'border-transparent text-ink-2',
             ].join(' ')}
           >
@@ -30,7 +30,7 @@ export function Header() {
             to="/records"
             aria-current={reviewActive ? 'page' : undefined}
             className={[
-              'flex items-center border-b-2 text-[15px] font-medium no-underline',
+              'flex items-center border-b-2 text-body-min font-medium no-underline',
               reviewActive ? 'border-ink font-semibold text-ink' : 'border-transparent text-ink-2',
             ].join(' ')}
           >

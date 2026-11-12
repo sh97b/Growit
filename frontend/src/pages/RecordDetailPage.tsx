@@ -65,7 +65,7 @@ export function RecordDetailPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 lg:mx-auto lg:max-w-[720px]">
+    <div className="flex flex-col gap-6 lg:mx-auto lg:max-w-[45rem]">
       <nav className="text-sm text-ink-2">
         <Link to="/records" className="text-ink-2 no-underline">
           지난 기록
@@ -345,7 +345,7 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
         editedActionLabel="다시 고치기"
         errorMessage={tagsFeedbackError}
         editArea={({ markSaved, cancel }) => (
-          <div className="flex flex-col gap-3 rounded-2xl bg-surface p-[18px]">
+          <div className="flex flex-col gap-3 rounded-2xl bg-surface p-[1.125rem]">
             {analysis.tagsFeedback === 'DISPUTED' ? <p className="text-sm font-medium text-ink">어떻게 고칠까요?</p> : null}
             <div className="flex flex-wrap gap-2">
               {tagDrafts.map((tag, index) => (
@@ -387,7 +387,7 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
                 </div>
               ) : null}
             </div>
-            {tagsError ? <p className="text-[13px] text-[#6B3F0F]">{tagsError}</p> : null}
+            {tagsError ? <p className="text-caption-min text-[#6B3F0F]">{tagsError}</p> : null}
             <p className="text-sm text-ink-2">고친 내용은 이 기록의 태그에만 반영돼요. 쓰신 글은 바뀌지 않아요.</p>
             <div className="flex gap-2">
               <Button type="button" size="sm" disabled={editTags.isPending} onClick={() => saveTags(markSaved)}>

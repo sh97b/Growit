@@ -137,7 +137,7 @@ export function ChangesPage() {
           type="button"
           disabled={mutation.isPending || effectiveHobbyId == null}
           onClick={() => mutation.mutate()}
-          className="inline-flex min-h-11 w-fit items-center justify-center rounded-lg bg-base px-5 text-[15px] font-medium text-white disabled:bg-line disabled:text-[#5F594F]"
+          className="inline-flex min-h-11 w-fit items-center justify-center rounded-lg bg-base px-5 text-body-min font-medium text-white disabled:bg-line disabled:text-[#5F594F]"
         >
           변화 보기
         </button>

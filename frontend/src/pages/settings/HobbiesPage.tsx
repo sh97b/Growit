@@ -67,7 +67,7 @@ function HobbyRow({ hobby, onError }: { hobby: Hobby; onError: (message: string)
     <div className="flex items-center gap-4 border-t border-line py-4 first:border-t-0">
       <div className="flex flex-1 flex-col gap-0.5">
         <span className="text-card-title">{hobby.name}</span>
-        <span className="text-[13px] text-ink-2">기록 {hobby.recordCount}개</span>
+        <span className="text-caption-min text-ink-2">기록 {hobby.recordCount}개</span>
       </div>
       {!hobby.archived ? (
         <Button type="button" variant="secondary" size="sm" onClick={startRename}>
@@ -151,7 +151,7 @@ export function HobbiesPage() {
       <Button type="submit" disabled={createHobby.isPending} className="self-start">
         추가하기
       </Button>
-      <p className="text-[13px] text-ink-2">
+      <p className="text-caption-min text-ink-2">
         분야를 보관해도 쓴 기록은 남아 있어요. 언제든 다시 꺼낼 수 있어요.
       </p>
     </form>
@@ -159,7 +159,7 @@ export function HobbiesPage() {
 
   return (
     <div className="flex flex-col gap-4 lg:gap-5">
-      <nav aria-label="현재 위치" className="hidden items-center gap-1.5 text-[13px] text-ink-3 lg:flex">
+      <nav aria-label="현재 위치" className="hidden items-center gap-1.5 text-caption-min text-ink-3 lg:flex">
         <span>설정</span>
         <span aria-hidden="true">›</span>
         <span>활동 분야 관리</span>

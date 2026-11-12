@@ -27,7 +27,7 @@ export function SocialLoginButtons() {
             type="button"
             aria-label="카카오로 계속하기"
             onClick={() => startSocialLogin('KAKAO')}
-            className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 text-[15px] font-semibold"
+            className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 text-body-min font-semibold"
             style={{ background: '#FEE500', color: '#191919' }}
           >
             <svg width={18} height={18} viewBox="0 0 24 24" aria-hidden="true">
@@ -44,7 +44,7 @@ export function SocialLoginButtons() {
             type="button"
             aria-label="Google로 계속하기"
             onClick={() => startSocialLogin('GOOGLE')}
-            className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg border border-line-2 px-2 text-[15px] font-semibold"
+            className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg border border-line-2 px-2 text-body-min font-semibold"
             style={{ background: '#fff', color: '#1F1F1F' }}
           >
             <svg width={18} height={18} viewBox="0 0 24 24" aria-hidden="true">

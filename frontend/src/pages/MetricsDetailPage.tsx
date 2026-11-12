@@ -98,7 +98,7 @@ export function MetricsDetailPage() {
   ) : null
 
   return (
-    <div className="flex flex-col gap-5 lg:mx-auto lg:max-w-[720px]">
+    <div className="flex flex-col gap-5 lg:mx-auto lg:max-w-[45rem]">
       <nav className="text-sm text-ink-2">
         <Link to="/changes" className="inline-flex items-center gap-1 text-ink-2 no-underline">
           <ChevronLeftIcon width={16} height={16} />
@@ -108,7 +108,7 @@ export function MetricsDetailPage() {
 
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-page-title">변화 지표</h1>
-        <div className="inline-flex rounded-lg border border-line-2 bg-white p-[3px]" role="group" aria-label="지표">
+        <div className="inline-flex rounded-lg border border-line-2 bg-white p-[0.1875rem]" role="group" aria-label="지표">
           {METRIC_TABS.map((tab) => (
             <button
               key={tab.value}
@@ -189,7 +189,7 @@ export function MetricsDetailPage() {
                       aria-pressed={isSelected}
                       className="flex h-full flex-col items-center justify-end gap-1 bg-transparent p-0"
                     >
-                      <b className="whitespace-nowrap font-sans text-[13px] font-semibold text-ink">{valueLabel}</b>
+                      <b className="whitespace-nowrap font-sans text-caption-min font-semibold text-ink">{valueLabel}</b>
                       <i
                         style={{ height: barHeight }}
                         className={['block w-full rounded-t', isSelected ? 'bg-base' : 'bg-[color-mix(in_srgb,var(--color-base)_58%,var(--color-paper))]'].join(' ')}

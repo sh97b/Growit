@@ -12,7 +12,7 @@ export function Tag({ variant, children }: { variant: TagVariant; children: Reac
   return (
     <span
       className={[
-        'inline-flex min-h-7 items-center gap-1 whitespace-nowrap px-2.5 text-[13px] font-medium',
+        'inline-flex min-h-7 items-center gap-1 whitespace-nowrap px-2.5 text-caption-min font-medium',
         variantClasses[variant],
       ].join(' ')}
     >

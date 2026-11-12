@@ -7,7 +7,7 @@ export function PasswordChecklist({ password }: { password: string }) {
   const disallowed = hasDisallowedCharacters(password)
 
   return (
-    <ul className="flex flex-col gap-1 text-[13px]">
+    <ul className="flex flex-col gap-1 text-caption-min">
       {PASSWORD_RULES.map((rule) => {
         const met = rule.test(password)
         return (

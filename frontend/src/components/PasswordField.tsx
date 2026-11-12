@@ -17,12 +17,12 @@ export function PasswordField({ id, label, hint, error, ...props }: PasswordFiel
   return (
     <Field label={label} htmlFor={inputId} hint={hint} error={error}>
       <div className="relative">
-        <Input id={inputId} type={visible ? 'text' : 'password'} className="pr-[52px]" {...props} />
+        <Input id={inputId} type={visible ? 'text' : 'password'} className="pr-[3.25rem]" {...props} />
         <button
           type="button"
           aria-label={visible ? '비밀번호 숨기기' : '비밀번호 보기'}
           onClick={() => setVisible((v) => !v)}
-          className="absolute right-0.5 top-0.5 flex h-11 w-11 items-center justify-center rounded-lg text-ink-2"
+          className="tap-min absolute right-0.5 top-0.5 flex h-11 w-11 items-center justify-center rounded-lg text-ink-2"
         >
           <svg
             width="20"

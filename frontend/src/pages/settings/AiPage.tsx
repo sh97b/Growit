@@ -35,8 +35,8 @@ export function AiPage() {
   }
 
   return (
-    <div className="flex flex-col gap-5 lg:mx-auto lg:max-w-[720px]">
-      <nav aria-label="현재 위치" className="hidden items-center gap-1.5 text-[13px] text-ink-3 lg:flex">
+    <div className="flex flex-col gap-5 lg:mx-auto lg:max-w-[45rem]">
+      <nav aria-label="현재 위치" className="hidden items-center gap-1.5 text-caption-min text-ink-3 lg:flex">
         <span>설정</span>
         <span aria-hidden="true">›</span>
         <span>AI 정리</span>
@@ -45,7 +45,7 @@ export function AiPage() {
 
       {errorMessage ? <Note variant="sand">{errorMessage}</Note> : null}
 
-      <div className="flex flex-col gap-1.5 rounded-2xl bg-surface p-[18px]">
+      <div className="flex flex-col gap-1.5 rounded-2xl bg-surface p-[1.125rem]">
         <div className="flex min-h-11 items-center justify-between gap-3">
           <span>AI 정리 켜기</span>
           <Switch checked={currentUser.aiEnabled} onChange={toggleAiEnabled} label="AI 정리 켜기" disabled={updateAiEnabled.isPending} />

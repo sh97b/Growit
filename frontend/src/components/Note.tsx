@@ -19,7 +19,7 @@ export function Note({
     <div
       role="status"
       className={[
-        'flex items-start gap-3 rounded-xl px-[18px] py-4 text-sm leading-[1.7]',
+        'flex items-start gap-3 rounded-xl px-[1.125rem] py-4 text-sm leading-[1.7]',
         variantClasses[variant],
       ].join(' ')}
     >

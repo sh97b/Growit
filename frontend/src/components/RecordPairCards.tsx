@@ -14,7 +14,7 @@ function truncate(text: string, maxLength: number): string {
 function CardBody({ card }: { card: RecordPairCard }) {
   return (
     <>
-      <span className="text-[13px] font-semibold text-ink-2">{card.label}</span>
+      <span className="text-caption-min font-semibold text-ink-2">{card.label}</span>
       <p className="font-serif text-lg text-ink">{truncate(card.content, card.maxLength ?? 300)}</p>
     </>
   )

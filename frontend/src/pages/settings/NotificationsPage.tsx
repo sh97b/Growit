@@ -90,8 +90,8 @@ export function NotificationsPage() {
 
   if (!settings.enabled) {
     return (
-      <div className="flex flex-col gap-5 lg:mx-auto lg:max-w-[720px]">
-        <nav aria-label="현재 위치" className="hidden items-center gap-1.5 text-[13px] text-ink-3 lg:flex">
+      <div className="flex flex-col gap-5 lg:mx-auto lg:max-w-[45rem]">
+        <nav aria-label="현재 위치" className="hidden items-center gap-1.5 text-caption-min text-ink-3 lg:flex">
           <span>설정</span>
           <span aria-hidden="true">›</span>
           <span>알림 설정</span>
@@ -101,7 +101,7 @@ export function NotificationsPage() {
             <InfoIcon width={28} height={28} />
           </span>
           <h1 className="text-page-title">알림을 받아 볼까요?</h1>
-          <p className="text-[15px] text-ink-2">하루 한 번, 정한 시간에만 알려요. 안 쓴 날을 알려주는 알림은 보내지 않아요.</p>
+          <p className="text-body-min text-ink-2">하루 한 번, 정한 시간에만 알려요. 안 쓴 날을 알려주는 알림은 보내지 않아요.</p>
 
           {permissionState === 'denied' ? (
             <Note variant="sand">브라우저 알림 권한이 꺼져 있어요. 브라우저 설정에서 이 사이트의 알림을 허용해 주세요.</Note>
@@ -116,7 +116,7 @@ export function NotificationsPage() {
           <button
             type="button"
             onClick={handleEnable}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-base px-5 text-[15px] font-medium text-white lg:w-fit"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-base px-5 text-body-min font-medium text-white lg:w-fit"
           >
             알림 받기
           </button>
@@ -126,8 +126,8 @@ export function NotificationsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 lg:mx-auto lg:max-w-[720px]">
-      <nav aria-label="현재 위치" className="hidden items-center gap-1.5 text-[13px] text-ink-3 lg:flex">
+    <div className="flex flex-col gap-6 lg:mx-auto lg:max-w-[45rem]">
+      <nav aria-label="현재 위치" className="hidden items-center gap-1.5 text-caption-min text-ink-3 lg:flex">
         <span>설정</span>
         <span aria-hidden="true">›</span>
         <span>알림 설정</span>
@@ -158,7 +158,7 @@ export function NotificationsPage() {
             type="time"
             value={settings.timeOfDay}
             onChange={(event) => save({ timeOfDay: event.target.value })}
-            className="h-11 w-[140px] rounded-lg border border-input bg-white px-3 text-[15px] text-ink outline-none focus:border-base"
+            className="h-11 w-[8.75rem] rounded-lg border border-input bg-white px-3 text-body-min text-ink outline-none focus:border-base"
           />
         </div>
       </div>

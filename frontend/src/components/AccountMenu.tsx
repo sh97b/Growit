@@ -29,7 +29,7 @@ export function AccountMenu({ size = 40 }: { size?: number }) {
         {initial}
       </button>
       {open ? (
-        <div className="absolute right-0 top-full z-10 mt-2 flex w-[212px] flex-col gap-0.5 rounded-xl bg-white p-1.5 shadow-[0_8px_24px_-8px_rgba(43,40,35,0.18),0_0_0_1px_var(--color-line)]">
+        <div className="absolute right-0 top-full z-10 mt-2 flex w-[13.25rem] flex-col gap-0.5 rounded-xl bg-white p-1.5 shadow-[0_8px_24px_-8px_rgba(43,40,35,0.18),0_0_0_1px_var(--color-line)]">
           <Link
             to="/settings"
             onClick={() => setOpen(false)}

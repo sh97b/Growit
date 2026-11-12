@@ -46,8 +46,8 @@ export function DeleteAccountPage() {
   }
 
   return (
-    <div className="flex flex-col gap-5 lg:mx-auto lg:max-w-[720px]">
-      <nav aria-label="현재 위치" className="hidden items-center gap-1.5 text-[13px] text-ink-3 lg:flex">
+    <div className="flex flex-col gap-5 lg:mx-auto lg:max-w-[45rem]">
+      <nav aria-label="현재 위치" className="hidden items-center gap-1.5 text-caption-min text-ink-3 lg:flex">
         <span>설정</span>
         <span aria-hidden="true">›</span>
         <span>계정 삭제</span>

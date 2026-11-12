@@ -211,7 +211,7 @@ export function RecordNewPage() {
 
   if (offlineSaved) {
     return (
-      <div className="flex flex-col gap-6 lg:mx-auto lg:max-w-[720px]">
+      <div className="flex flex-col gap-6 lg:mx-auto lg:max-w-[45rem]">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2.5">
             <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-base)_12%,white)] text-base-ink">
@@ -219,7 +219,7 @@ export function RecordNewPage() {
             </span>
             <h1 className="font-serif text-xl font-semibold">기기에 저장했어요</h1>
           </div>
-          <span className="pl-[42px] text-sm text-ink-2">
+          <span className="pl-[2.625rem] text-sm text-ink-2">
             {formatMonthDay(offlineSaved.recordDate)} · {offlineSaved.hobbyName} · 연결되면 자동으로 올려요
           </span>
         </div>
@@ -229,7 +229,7 @@ export function RecordNewPage() {
         <button
           type="button"
           onClick={() => navigate('/')}
-          className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-base px-5 text-[15px] font-medium text-white lg:w-fit"
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-base px-5 text-body-min font-medium text-white lg:w-fit"
         >
           홈으로
         </button>
@@ -238,7 +238,7 @@ export function RecordNewPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 lg:mx-auto lg:max-w-[720px] lg:gap-4">
+    <div className="flex flex-col gap-4 lg:mx-auto lg:max-w-[45rem] lg:gap-4">
       <h1 className="text-page-title">오늘의 기록</h1>
 
       <RecordFormFields
@@ -268,7 +268,7 @@ export function RecordNewPage() {
         onToggleFeeling={toggleFeeling}
         banner={
           draftRestored ? (
-            <div className="flex w-fit items-center gap-2 rounded-[10px] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] px-3 py-2 text-sm text-ink">
+            <div className="flex w-fit items-center gap-2 rounded-[0.625rem] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] px-3 py-2 text-sm text-ink">
               <PencilIcon width={16} height={16} />
               쓰던 글이 남아 있어요
             </div>

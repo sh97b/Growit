@@ -22,7 +22,7 @@ export function CoachHistoryPage() {
   const totalPages = Math.ceil((data?.totalCount ?? 0) / pageSize)
 
   return (
-    <div className="flex flex-col gap-5 lg:mx-auto lg:max-w-[920px]">
+    <div className="flex flex-col gap-5 lg:mx-auto lg:max-w-[57.5rem]">
       <nav className="text-sm text-ink-2">
         <Link to="/coach" className="inline-flex items-center gap-1 text-ink-2 no-underline">
           <ChevronLeftIcon width={16} height={16} />
@@ -44,14 +44,14 @@ export function CoachHistoryPage() {
               to={`/coach/history/${item.id}`}
               className="flex items-center gap-3 border-t border-line py-4 text-ink no-underline last:border-b"
             >
-              <span className="w-[108px] flex-none text-[13px] font-semibold tabular-nums text-ink-2">
+              <span className="w-[6.75rem] flex-none text-caption-min font-semibold tabular-nums text-ink-2">
                 {item.startDate && item.endDate ? `${formatMonthDay(item.startDate)} – ${formatMonthDay(item.endDate)}` : ''}
               </span>
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="truncate font-serif text-[15px] font-semibold">
+                <span className="truncate font-serif text-body-min font-semibold">
                   {item.periodSummary ?? '회고 결과'}
                 </span>
-                <span className="text-[13px] text-ink-2">기록 {item.recordsRead}개를 읽었어요</span>
+                <span className="text-caption-min text-ink-2">기록 {item.recordsRead}개를 읽었어요</span>
               </span>
               <ChevronRightIcon width={18} height={18} className="flex-none text-ink-2" />
             </Link>
@@ -63,7 +63,7 @@ export function CoachHistoryPage() {
 
       <Link
         to="/coach"
-        className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-base px-5 text-[15px] font-medium text-white no-underline lg:w-fit"
+        className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-base px-5 text-body-min font-medium text-white no-underline lg:w-fit"
       >
         새 회고 받기
       </Link>

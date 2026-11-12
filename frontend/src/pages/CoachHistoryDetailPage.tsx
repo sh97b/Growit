@@ -18,7 +18,7 @@ export function CoachHistoryDetailPage() {
   })
 
   return (
-    <div className="flex flex-col gap-5 lg:max-w-[920px]">
+    <div className="flex flex-col gap-5 lg:max-w-[57.5rem]">
       <nav className="text-sm text-ink-2">
         <Link to="/coach/history" className="inline-flex items-center gap-1 text-ink-2 no-underline">
           <ChevronLeftIcon width={16} height={16} />

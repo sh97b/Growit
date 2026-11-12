@@ -20,7 +20,7 @@ export function WeekStrip({ days }: { days: WeekStripDay[] }) {
                   day.isToday && day.hasRecord ? 'shadow-[0_0_0_2px_white,0_0_0_4px_var(--color-ink)]' : '',
                 ].join(' ')}
               />
-              <span className="text-[13px] text-ink-2">{day.isToday ? '오늘' : weekdayLabel(localDate)}</span>
+              <span className="text-caption-min text-ink-2">{day.isToday ? '오늘' : weekdayLabel(localDate)}</span>
             </div>
           )
         })}

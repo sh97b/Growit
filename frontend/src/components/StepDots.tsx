@@ -7,7 +7,7 @@ export function StepDots({ step, total }: { step: number; total: number }) {
           className={n === step ? 'h-2 w-7 rounded-full bg-base' : 'h-2 w-2 rounded-full bg-line-2'}
         />
       ))}
-      <span className="ml-1.5 text-[13px] text-ink-2">
+      <span className="ml-1.5 text-caption-min text-ink-2">
         {step}/{total}
       </span>
     </div>

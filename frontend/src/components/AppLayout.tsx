@@ -14,7 +14,7 @@ export function AppLayout() {
         <AccountMenu size={36} />
       </header>
       <main className="scrollbar-thin-fade min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-[1200px] px-5 py-6 lg:px-10">
+        <div className="app-shell-main mx-auto w-full max-w-[90rem] px-5 py-6 lg:px-10">
           <Outlet />
         </div>
       </main>

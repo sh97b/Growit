@@ -147,7 +147,7 @@ export function CoachPage() {
           type="button"
           disabled={mutation.isPending}
           onClick={() => mutation.mutate()}
-          className="inline-flex min-h-11 w-fit items-center justify-center rounded-lg bg-base px-5 text-[15px] font-medium text-white disabled:bg-line disabled:text-[#5F594F]"
+          className="inline-flex min-h-11 w-fit items-center justify-center rounded-lg bg-base px-5 text-body-min font-medium text-white disabled:bg-line disabled:text-[#5F594F]"
         >
           회고 받기
         </button>
@@ -156,7 +156,7 @@ export function CoachPage() {
           type="button"
           disabled={mutation.isPending}
           onClick={() => mutation.mutate()}
-          className="inline-flex min-h-11 w-fit items-center justify-center rounded-lg border border-line-2 bg-white px-5 text-[15px] font-medium text-ink disabled:bg-line disabled:text-[#5F594F]"
+          className="inline-flex min-h-11 w-fit items-center justify-center rounded-lg border border-line-2 bg-white px-5 text-body-min font-medium text-ink disabled:bg-line disabled:text-[#5F594F]"
         >
           새 회고 받기
         </button>

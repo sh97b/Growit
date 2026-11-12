@@ -71,7 +71,7 @@ export function RecordFormFields({
           onChange={(event) => onContentChange(event.target.value)}
           placeholder="오늘은 무엇을 했나요?"
           aria-label="오늘 한 일을 한 줄로 적어 보세요"
-          className="h-[150px] w-full resize-none rounded-xl border border-input bg-white p-4 pb-14 font-serif text-lg leading-[1.85] text-ink outline-none focus:border-base focus:shadow-[0_0_0_1px_var(--color-base)] lg:h-[150px]"
+          className="h-[9.375rem] w-full resize-none rounded-xl border border-input bg-white p-4 pb-14 font-serif text-lg leading-[1.85] text-ink outline-none focus:border-base focus:shadow-[0_0_0_1px_var(--color-base)] lg:h-[9.375rem]"
         />
         <VoiceInputButton
           onTranscript={(text) => onContentChange(content.trim().length > 0 ? `${content.trim()} ${text}` : text)}
@@ -126,7 +126,7 @@ export function RecordFormFields({
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-x-8 lg:gap-y-4">
           <div className="flex flex-col gap-2">
             <span className="text-sm font-medium">날짜</span>
-            <div className="inline-flex w-fit gap-0.5 rounded-lg border border-line-2 bg-white p-[3px]">
+            <div className="inline-flex w-fit gap-0.5 rounded-lg border border-line-2 bg-white p-[0.1875rem]">
               {(['today', 'yesterday', 'custom'] as DateMode[]).map((mode) => (
                 <button
                   key={mode}
@@ -148,7 +148,7 @@ export function RecordFormFields({
                 value={customDate}
                 max={today}
                 onChange={(event) => onCustomDateChange(event.target.value)}
-                className="h-12 w-full rounded-lg border border-input bg-white px-3.5 text-[15px] text-ink outline-none"
+                className="h-12 w-full rounded-lg border border-input bg-white px-3.5 text-body-min text-ink outline-none"
               />
             ) : null}
           </div>

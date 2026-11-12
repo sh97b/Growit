@@ -82,18 +82,18 @@ export function RecordsPage() {
       <h1 className="text-page-title">지난 기록</h1>
 
       {noRecordsAtAll ? (
-        <div className="flex max-w-[720px] flex-col items-start gap-4 rounded-2xl bg-surface p-5">
-          <p className="text-[17px] text-ink">아직 기록이 없어요. 첫 기록이 여기에 쌓여요.</p>
+        <div className="flex max-w-[45rem] flex-col items-start gap-4 rounded-2xl bg-surface p-5">
+          <p className="text-[1.0625rem] text-ink">아직 기록이 없어요. 첫 기록이 여기에 쌓여요.</p>
           <Link
             to="/records/new"
-            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-base px-5 text-[15px] font-medium text-white no-underline lg:w-auto"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-base px-5 text-body-min font-medium text-white no-underline lg:w-auto"
           >
             <PlusIcon width={18} height={18} />
             기록하기
           </Link>
         </div>
       ) : (
-        <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_440px] lg:items-start lg:gap-10">
+        <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_27.5rem] lg:items-start lg:gap-10">
           <div className="flex flex-col gap-5">
             <div className="rounded-2xl bg-surface p-5 lg:hidden">
               <ActivityHeatmap weeks={52} hobbyId={hobbyId} />
@@ -114,7 +114,7 @@ export function RecordsPage() {
                       className="flex flex-col gap-1.5 rounded-xl border border-line bg-white px-4 py-4 text-ink no-underline"
                     >
                       <span className="flex items-center justify-between gap-2">
-                        <span className="text-[13px] font-semibold text-ink-2">
+                        <span className="text-caption-min font-semibold text-ink-2">
                           {formatMonthDay(record.recordDate)} · {hobbyNameById.get(record.hobbyId) ?? ''}
                         </span>
                         {firstTag ? (

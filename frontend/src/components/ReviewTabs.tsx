@@ -9,7 +9,7 @@ const TABS = [
 export function ReviewTabs() {
   return (
     <div
-      className="flex flex-none gap-0.5 rounded-lg border border-line-2 bg-white p-[3px]"
+      className="flex flex-none gap-0.5 rounded-lg border border-line-2 bg-white p-[0.1875rem]"
       role="group"
       aria-label="돌아보기"
     >
@@ -20,7 +20,7 @@ export function ReviewTabs() {
           className={({ isActive }) =>
             [
               'flex min-h-10 flex-1 items-center justify-center whitespace-nowrap rounded-md px-3.5 text-sm font-medium no-underline',
-              'lg:min-h-[38px] lg:flex-none',
+              'lg:min-h-[2.375rem] lg:flex-none',
               isActive ? 'bg-ink text-white' : 'text-ink-2',
             ].join(' ')
           }

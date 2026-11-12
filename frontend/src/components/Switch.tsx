@@ -24,8 +24,8 @@ export function Switch({
     >
       <span
         className={[
-          'absolute top-[3px] h-[22px] w-[22px] rounded-full bg-white transition-[left,right]',
-          checked ? 'right-[3px]' : 'left-[3px]',
+          'absolute top-[0.1875rem] h-[1.375rem] w-[1.375rem] rounded-full bg-white transition-[left,right]',
+          checked ? 'right-[0.1875rem]' : 'left-[0.1875rem]',
         ].join(' ')}
       />
     </button>
