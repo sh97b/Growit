@@ -5,10 +5,15 @@ import { ActivityHeatmap } from '../components/ActivityHeatmap'
 import { Loading } from '../components/Loading'
 import { Pagination } from '../components/Pagination'
 import { PlusIcon } from '../components/icons'
+import { useFitPageSize, useStablePageOnResize } from '../hooks/useFitPageSize'
 import { useHobbies } from '../hooks/useHobbies'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import { formatMonthDay } from '../lib/date'
 import { fetchRecords } from '../lib/records'
+
+// 기록 카드 한 칸의 최소 높이(패딩+caption 줄+본문 한 줄+테두리, rem). F3: 화면 높이에 맞춰 개수를 정한다.
+const CARD_MIN_HEIGHT_REM = 5.5
+const CARD_GAP_REM = 0.75
 
 function filterPillClass(active: boolean): string {
   return [
@@ -21,9 +26,17 @@ export function RecordsPage() {
   const [hobbyId, setHobbyId] = useState<number | null>(null)
   const [page, setPage] = useState(0)
   const isDesktop = useIsDesktop()
-  // 데스크톱은 2열 4행(8개), 모바일은 1열 5개 — 세 기준 해상도(1440×900·1366×768·1280×720)에서
-  // 페이지 스크롤이 없도록 맞춘 크기(U2).
-  const pageSize = isDesktop ? 8 : 5
+  // 고정 개수 대신 목록 영역의 실제 높이에 맞춰 한 페이지 개수를 계산한다(F3).
+  // 모바일은 페이지 스크롤을 유지하므로 1열 5개를 그대로 쓴다.
+  const { containerRef, pageSize: fitPageSize } = useFitPageSize({
+    itemHeightRem: CARD_MIN_HEIGHT_REM,
+    gapRem: CARD_GAP_REM,
+    columns: 2,
+    min: 2,
+    max: 12,
+  })
+  const pageSize = isDesktop ? fitPageSize : 5
+  useStablePageOnResize(page, setPage, pageSize)
   const { data: activeHobbies } = useHobbies(false)
   const { data: allHobbies } = useHobbies(true)
 
@@ -78,7 +91,7 @@ export function RecordsPage() {
   )
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5 lg:min-h-0 lg:flex-1">
       <h1 className="text-page-title">지난 기록</h1>
 
       {noRecordsAtAll ? (
@@ -93,8 +106,8 @@ export function RecordsPage() {
           </Link>
         </div>
       ) : (
-        <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_27.5rem] lg:items-start lg:gap-10">
-          <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-5 lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_27.5rem] lg:items-stretch lg:gap-10">
+          <div className="flex flex-col gap-5 lg:min-h-0">
             <div className="rounded-2xl bg-surface p-5 lg:hidden">
               <ActivityHeatmap weeks={52} hobbyId={hobbyId} />
             </div>
@@ -104,7 +117,10 @@ export function RecordsPage() {
             {totalCount === 0 ? (
               <p className="py-6 text-center text-sm text-ink-2">아직 이 분야의 기록이 없어요.</p>
             ) : (
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <div
+                ref={containerRef}
+                className="scrollbar-thin-fade grid grid-cols-1 content-start gap-3 lg:grid-cols-2 lg:flex-1 lg:min-h-0 lg:overflow-y-auto"
+              >
                 {records.map((record) => {
                   const firstTag = record.analysis?.tags[0]
                   return (

@@ -5,15 +5,26 @@ import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
 import { Pagination } from '../components/Pagination'
+import { useFitPageSize, useStablePageOnResize } from '../hooks/useFitPageSize'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import { fetchCoachHistory } from '../lib/ai'
 import { formatMonthDay } from '../lib/date'
 
+// 회고 목록 한 줄의 최소 높이(패딩+두 줄+테두리, rem). F3: 화면 높이에 맞춰 개수를 정한다.
+const ROW_MIN_HEIGHT_REM = 4.5
+
 export function CoachHistoryPage() {
   const [page, setPage] = useState(0)
   const isDesktop = useIsDesktop()
-  // 세 기준 해상도에서 페이지 스크롤이 없도록 맞춘 크기(U2).
-  const pageSize = isDesktop ? 8 : 6
+  // 고정 개수 대신 목록 영역의 실제 높이에 맞춰 한 페이지 개수를 계산한다(F3).
+  // 모바일은 페이지 스크롤을 유지하므로 6개를 그대로 쓴다.
+  const { containerRef, pageSize: fitPageSize } = useFitPageSize({
+    itemHeightRem: ROW_MIN_HEIGHT_REM,
+    min: 2,
+    max: 12,
+  })
+  const pageSize = isDesktop ? fitPageSize : 6
+  useStablePageOnResize(page, setPage, pageSize)
   const { data, isLoading, isError } = useQuery({
     queryKey: ['ai', 'coach', 'history', page, pageSize],
     queryFn: () => fetchCoachHistory({ page, size: pageSize }),
@@ -22,7 +33,7 @@ export function CoachHistoryPage() {
   const totalPages = Math.ceil((data?.totalCount ?? 0) / pageSize)
 
   return (
-    <div className="flex flex-col gap-5 lg:mx-auto lg:max-w-[57.5rem]">
+    <div className="flex flex-col gap-5 lg:mx-auto lg:min-h-0 lg:flex-1 lg:max-w-[57.5rem]">
       <nav className="text-sm text-ink-2">
         <Link to="/coach" className="inline-flex items-center gap-1 text-ink-2 no-underline">
           <ChevronLeftIcon width={16} height={16} />
@@ -37,7 +48,7 @@ export function CoachHistoryPage() {
       {data && items.length === 0 ? <Note variant="calm">아직 받은 회고가 없어요.</Note> : null}
 
       {items.length > 0 ? (
-        <div className="flex flex-col">
+        <div ref={containerRef} className="scrollbar-thin-fade flex flex-col lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
           {items.map((item) => (
             <Link
               key={item.id}
