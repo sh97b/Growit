@@ -109,7 +109,7 @@ export function RecordsPage() {
         <div className="flex flex-col gap-5 lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_27.5rem] lg:items-stretch lg:gap-10">
           <div className="flex flex-col gap-5 lg:min-h-0">
             <div className="rounded-2xl bg-surface p-5 lg:hidden">
-              <ActivityHeatmap weeks={52} hobbyId={hobbyId} />
+              <ActivityHeatmap weeks={52} toggle hobbyId={hobbyId} />
             </div>
 
             {hobbyFilter}
@@ -150,7 +150,7 @@ export function RecordsPage() {
           </div>
 
           <div className="hidden rounded-2xl bg-surface p-5 lg:sticky lg:top-6 lg:block">
-            <ActivityHeatmap weeks={52} hobbyId={hobbyId} />
+            <ActivityHeatmap weeks={52} toggle hobbyId={hobbyId} />
           </div>
         </div>
       )}
