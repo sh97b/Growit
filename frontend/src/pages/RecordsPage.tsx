@@ -1,15 +1,17 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ActivityHeatmap } from '../components/ActivityHeatmap'
 import { Loading } from '../components/Loading'
+import { PageHeader, SplitWide } from '../components/PageLayout'
 import { Pagination } from '../components/Pagination'
 import { PlusIcon } from '../components/icons'
 import { useFitPageSize, useStablePageOnResize } from '../hooks/useFitPageSize'
 import { useHobbies } from '../hooks/useHobbies'
 import { useIsDesktop } from '../hooks/useIsDesktop'
-import { formatMonthDay } from '../lib/date'
+import { addDays, formatMonthDay, todayLocalDate } from '../lib/date'
 import { fetchRecords } from '../lib/records'
+import { fetchActivityMap } from '../lib/stats'
 
 // 기록 카드 한 칸의 최소 높이(패딩+caption 줄+본문 한 줄+테두리, rem). F3: 화면 높이에 맞춰 개수를 정한다.
 const CARD_MIN_HEIGHT_REM = 5.5
@@ -31,7 +33,7 @@ export function RecordsPage() {
   const { containerRef, pageSize: fitPageSize } = useFitPageSize({
     itemHeightRem: CARD_MIN_HEIGHT_REM,
     gapRem: CARD_GAP_REM,
-    columns: 2,
+    columns: 1,
     min: 2,
     max: 12,
   })
@@ -90,11 +92,10 @@ export function RecordsPage() {
     </div>
   )
 
-  return (
-    <div className="flex flex-col gap-5 lg:min-h-0 lg:flex-1">
-      <h1 className="text-page-title">지난 기록</h1>
-
-      {noRecordsAtAll ? (
+  if (noRecordsAtAll) {
+    return (
+      <div className="flex flex-col gap-5 lg:min-h-0 lg:flex-1">
+        <PageHeader title="지난 기록" />
         <div className="flex max-w-[45rem] flex-col items-start gap-4 rounded-2xl bg-surface p-5">
           <p className="text-[1.0625rem] text-ink">아직 기록이 없어요. 첫 기록이 여기에 쌓여요.</p>
           <Link
@@ -105,55 +106,99 @@ export function RecordsPage() {
             기록하기
           </Link>
         </div>
+      </div>
+    )
+  }
+
+  const main = (
+    <>
+      <div className="rounded-2xl bg-surface p-5 lg:hidden">
+        <ActivityHeatmap weeks={52} toggle hobbyId={hobbyId} />
+      </div>
+
+      {hobbyFilter}
+
+      {totalCount === 0 ? (
+        <p className="py-6 text-center text-sm text-ink-2">아직 이 분야의 기록이 없어요.</p>
       ) : (
-        <div className="flex flex-col gap-5 lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_27.5rem] lg:items-stretch lg:gap-10">
-          <div className="flex flex-col gap-5 lg:min-h-0">
-            <div className="rounded-2xl bg-surface p-5 lg:hidden">
-              <ActivityHeatmap weeks={52} toggle hobbyId={hobbyId} />
-            </div>
-
-            {hobbyFilter}
-
-            {totalCount === 0 ? (
-              <p className="py-6 text-center text-sm text-ink-2">아직 이 분야의 기록이 없어요.</p>
-            ) : (
-              <div
-                ref={containerRef}
-                className="scrollbar-thin-fade grid grid-cols-1 content-start gap-3 lg:grid-cols-2 lg:flex-1 lg:min-h-0 lg:overflow-y-auto"
+        <div
+          ref={containerRef}
+          className="scrollbar-thin-fade grid grid-cols-1 content-start gap-3 lg:flex-1 lg:min-h-0 lg:overflow-y-auto"
+        >
+          {records.map((record) => {
+            const firstTag = record.analysis?.tags[0]
+            return (
+              <Link
+                key={record.id}
+                to={`/records/${record.id}`}
+                className="flex flex-col gap-1.5 rounded-xl border border-line bg-white px-4 py-4 text-ink no-underline"
               >
-                {records.map((record) => {
-                  const firstTag = record.analysis?.tags[0]
-                  return (
-                    <Link
-                      key={record.id}
-                      to={`/records/${record.id}`}
-                      className="flex flex-col gap-1.5 rounded-xl border border-line bg-white px-4 py-4 text-ink no-underline"
-                    >
-                      <span className="flex items-center justify-between gap-2">
-                        <span className="text-caption-min font-semibold text-ink-2">
-                          {formatMonthDay(record.recordDate)} · {hobbyNameById.get(record.hobbyId) ?? ''}
-                        </span>
-                        {firstTag ? (
-                          <span className="inline-flex h-6 flex-none items-center rounded-md bg-tag-topic-bg px-2 text-caption-min font-medium text-tag-topic-fg">
-                            {firstTag}
-                          </span>
-                        ) : null}
-                      </span>
-                      <p className="truncate font-serif text-lg text-ink">{record.content}</p>
-                    </Link>
-                  )
-                })}
-              </div>
-            )}
-
-            <Pagination page={page} totalPages={totalPages} onChange={setPage} />
-          </div>
-
-          <div className="hidden rounded-2xl bg-surface p-5 lg:sticky lg:top-6 lg:block">
-            <ActivityHeatmap weeks={52} toggle hobbyId={hobbyId} />
-          </div>
+                <span className="flex items-center justify-between gap-2">
+                  <span className="text-caption-min font-semibold text-ink-2">
+                    {formatMonthDay(record.recordDate)} · {hobbyNameById.get(record.hobbyId) ?? ''}
+                  </span>
+                  {firstTag ? (
+                    <span className="inline-flex h-6 flex-none items-center rounded-md bg-tag-topic-bg px-2 text-caption-min font-medium text-tag-topic-fg">
+                      {firstTag}
+                    </span>
+                  ) : null}
+                </span>
+                <p className="truncate font-serif text-lg text-ink">{record.content}</p>
+              </Link>
+            )
+          })}
         </div>
       )}
+
+      <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+    </>
+  )
+
+  const side = (
+    <div className="rounded-2xl bg-surface p-5">
+      <ActivityHeatmap weeks={52} toggle hobbyId={hobbyId} />
+      <YearSummary hobbyId={hobbyId} />
     </div>
+  )
+
+  return (
+    <div className="flex flex-col gap-5 lg:min-h-0 lg:flex-1">
+      <PageHeader title="지난 기록" />
+      <SplitWide main={main} side={side} className="lg:min-h-0 lg:flex-1" />
+    </div>
+  )
+}
+
+/** 디자인에 없는 추가(LAYOUT-V2 3단계): 활동 지도 데이터로 클라이언트에서 계산하는 "올해 요약" 한 줄. */
+function YearSummary({ hobbyId }: { hobbyId: number | null }) {
+  const today = todayLocalDate()
+  const from = addDays(today, -364)
+  const query = useQuery({
+    queryKey: ['stats', 'activity-map', 'year-summary', from, today, hobbyId ?? null],
+    queryFn: () => fetchActivityMap({ from, to: today, hobbyId: hobbyId ?? undefined }),
+  })
+
+  const summary = useMemo(() => {
+    const entries = query.data ?? []
+    if (entries.length === 0) return null
+    const recordedDays = entries.length
+    const recordCount = entries.reduce((sum, entry) => sum + entry.count, 0)
+    const countByMonth = new Map<string, number>()
+    for (const entry of entries) {
+      const month = entry.date.slice(0, 7)
+      countByMonth.set(month, (countByMonth.get(month) ?? 0) + entry.count)
+    }
+    const topMonth = [...countByMonth.entries()].sort((a, b) => b[1] - a[1])[0]
+    const topMonthLabel = topMonth ? `${Number(topMonth[0].slice(5, 7))}월` : null
+    return { recordedDays, recordCount, topMonthLabel }
+  }, [query.data])
+
+  if (!summary) return null
+
+  return (
+    <p className="mt-3 border-t border-line pt-3 text-caption-min text-ink-2">
+      최근 1년 · 기록한 날 {summary.recordedDays}일 · 기록 {summary.recordCount}개
+      {summary.topMonthLabel ? ` · 가장 많이 쓴 달 ${summary.topMonthLabel}` : ''}
+    </p>
   )
 }
