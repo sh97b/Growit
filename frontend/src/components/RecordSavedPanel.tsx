@@ -6,6 +6,8 @@ import { AiLabel } from './AiLabel'
 import { ChangeFeedbackRow } from './ChangeFeedbackRow'
 import { EvidenceChip } from './EvidenceChip'
 import { Note } from './Note'
+import { Split } from './PageLayout'
+import { RecentWeekStrip } from './RecentWeekStrip'
 import { RecordPairCards } from './RecordPairCards'
 import { CheckIcon, RefreshIcon } from './icons'
 import { ApiError } from '../lib/api'
@@ -148,8 +150,8 @@ export function RecordSavedPanel({
         }
       : null
 
-    return (
-      <div className="flex flex-col gap-6 lg:mx-auto lg:max-w-[45rem]">
+    const main = (
+      <>
         {header}
 
         {changeSentenceBlock}
@@ -168,12 +170,18 @@ export function RecordSavedPanel({
         {record.aiStatus === 'PENDING' && !timedOut ? <p className="text-sm text-ink-2">한 줄 정리 중</p> : null}
 
         {actionButtons}
+      </>
+    )
+
+    return (
+      <div className="flex flex-col gap-6 lg:min-h-0 lg:flex-1">
+        <Split main={main} side={<div className="hidden lg:block"><RecentWeekStrip /></div>} />
       </div>
     )
   }
 
-  return (
-    <div className="flex flex-col gap-6 lg:mx-auto lg:max-w-[45rem]">
+  const main = (
+    <>
       {header}
 
       {showFailed ? (
@@ -239,6 +247,12 @@ export function RecordSavedPanel({
       ) : null}
 
       {actionButtons}
+    </>
+  )
+
+  return (
+    <div className="flex flex-col gap-6 lg:min-h-0 lg:flex-1">
+      <Split main={main} side={<div className="hidden lg:block"><RecentWeekStrip /></div>} />
     </div>
   )
 }

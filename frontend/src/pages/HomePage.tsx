@@ -7,7 +7,9 @@ import { Band } from '../components/Card'
 import { CoachActionCard } from '../components/CoachResultView'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
-import { WeekStrip, type WeekStripDay } from '../components/WeekStrip'
+import { RecentRecordsCard } from '../components/RecentRecordsCard'
+import { RecentWeekStrip } from '../components/RecentWeekStrip'
+import { TopicChips } from '../components/TopicChips'
 import { PlusIcon } from '../components/icons'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useHobbies } from '../hooks/useHobbies'
@@ -16,7 +18,6 @@ import { fetchLatestCoach, generateAutoCoach, type CoachResult } from '../lib/ai
 import { reactionLine } from '../lib/coachReaction'
 import { ApiError } from '../lib/api'
 import {
-  addDays,
   daysBetween,
   formatDurationMinutes,
   formatMonthDay,
@@ -242,7 +243,7 @@ export function HomePage() {
             </div>
           ) : null}
           {lowerSectionPlan.showHeatmap && lowerSectionPlan.recentCount > 0 ? (
-            <RecentRecords limit={lowerSectionPlan.recentCount} />
+            <RecentRecordsCard limit={lowerSectionPlan.recentCount} />
           ) : null}
         </div>
       ) : null}
@@ -271,39 +272,6 @@ function StatsTiles({ summary }: { summary: StatsSummary }) {
       <div className="flex flex-col gap-1 rounded-xl bg-surface p-4">
         <span className="text-sm text-ink-2">시작한 지</span>
         <span className="font-serif text-lg text-ink">{daysSinceStart != null ? `${daysSinceStart}일` : '-'}</span>
-      </div>
-    </div>
-  )
-}
-
-/** 디자인에 없는 추가(U3): 최근 기록 30개의 주제 태그 상위 4개를 칩으로 보여 준다. */
-function TopicChips() {
-  const query = useQuery({ queryKey: ['records', 'topic-chips'], queryFn: () => fetchRecords({ size: 30 }) })
-
-  if (query.isLoading || !query.data) return null
-
-  const counts = new Map<string, number>()
-  for (const record of query.data.items) {
-    const tag = record.analysis?.tags[0]
-    if (tag) counts.set(tag, (counts.get(tag) ?? 0) + 1)
-  }
-  const topTags = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4)
-
-  if (topTags.length === 0) return null
-
-  return (
-    <div className="flex flex-col gap-2">
-      <h2 className="text-card-title">자주 하는 주제</h2>
-      <div className="flex flex-wrap gap-2">
-        {topTags.map(([tag]) => (
-          <Link
-            key={tag}
-            to={`/records/new?topic=${encodeURIComponent(tag)}`}
-            className="inline-flex h-9 items-center rounded-md bg-tag-topic-bg px-3 text-sm font-medium text-tag-topic-fg no-underline"
-          >
-            {tag}
-          </Link>
-        ))}
       </div>
     </div>
   )
@@ -494,79 +462,4 @@ function ComebackBoard() {
       {restedWeek ? <Note variant="calm">이번 주는 쉬어 간 주예요. 쉬는 시간도 흐름의 일부예요.</Note> : null}
     </>
   )
-}
-
-function RecentRecords({ limit = 3 }: { limit?: number }) {
-  const listQuery = useQuery({ queryKey: ['records', 'home-recent'], queryFn: () => fetchRecords({ size: 3 }) })
-  const { data: hobbies } = useHobbies(true)
-
-  if (listQuery.isLoading) {
-    return <Loading />
-  }
-
-  if (listQuery.isError || !listQuery.data || listQuery.data.items.length === 0) {
-    return null
-  }
-
-  const hobbyNameById = new Map((hobbies ?? []).map((hobby) => [hobby.id, hobby.name]))
-  const today = todayLocalDate()
-  const visibleItems = listQuery.data.items.slice(0, limit)
-
-  return (
-    <div className="flex flex-col gap-3">
-      <h2 className="text-card-title">최근 기록</h2>
-      <div className="flex flex-col">
-        {visibleItems.map((record) => {
-          const firstTag = record.analysis?.tags[0]
-          const isToday = record.recordDate === today
-          return (
-            <Link
-              key={record.id}
-              to={`/records/${record.id}`}
-              className="flex flex-col gap-1.5 border-t border-line py-4 text-ink no-underline last:border-b"
-            >
-              <span className="flex items-center justify-between gap-2">
-                <span className="text-caption-min font-semibold text-ink-2">
-                  {isToday ? '오늘' : formatMonthDay(record.recordDate)} · {hobbyNameById.get(record.hobbyId) ?? ''}
-                </span>
-                {firstTag ? (
-                  <span className="inline-flex h-6 flex-none items-center rounded-md bg-tag-topic-bg px-2 text-caption-min font-medium text-tag-topic-fg">
-                    {firstTag}
-                  </span>
-                ) : null}
-              </span>
-              <p className="truncate font-serif text-lg text-ink">{record.content}</p>
-            </Link>
-          )
-        })}
-      </div>
-      <Link
-        to="/records"
-        className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink underline underline-offset-4"
-      >
-        지난 기록 모두 보기
-      </Link>
-    </div>
-  )
-}
-
-function RecentWeekStrip() {
-  const today = todayLocalDate()
-  const from = addDays(today, -6)
-  const query = useQuery({
-    queryKey: ['stats', 'activity-map', from, today],
-    queryFn: () => fetchActivityMap({ from, to: today }),
-  })
-
-  if (query.isLoading) {
-    return <Loading />
-  }
-
-  const datesWithRecord = new Set((query.data ?? []).map((entry) => entry.date))
-  const days: WeekStripDay[] = Array.from({ length: 7 }, (_, index) => {
-    const date = addDays(from, index)
-    return { date, isToday: date === today, hasRecord: datesWithRecord.has(date) }
-  })
-
-  return <WeekStrip days={days} />
 }

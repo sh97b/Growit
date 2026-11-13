@@ -7,6 +7,7 @@ import { EvidenceChip } from '../components/EvidenceChip'
 import { FeedbackRow } from '../components/FeedbackRow'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
+import { Split } from '../components/PageLayout'
 import { Tag } from '../components/Tag'
 import {
   ChevronLeftIcon,
@@ -64,8 +65,10 @@ export function RecordDetailPage() {
     navigate('/records', { replace: true })
   }
 
-  return (
-    <div className="flex flex-col gap-6 lg:mx-auto lg:max-w-[45rem]">
+  const analysisSection = <AnalysisSection record={record} aiEnabled={currentUser?.aiEnabled ?? true} />
+
+  const main = (
+    <>
       <nav className="text-sm text-ink-2">
         <Link to="/records" className="text-ink-2 no-underline">
           지난 기록
@@ -78,9 +81,6 @@ export function RecordDetailPage() {
           {formatMonthDay(record.recordDate)} · {hobbyName}
           {record.minutes != null ? ` · ${record.minutes}분` : ''}
         </span>
-        {record.aiStatus === 'DONE' && record.analysis?.title ? (
-          <h1 className="text-page-title">{record.analysis.title}</h1>
-        ) : null}
         <p className="font-serif text-xl leading-[1.7] whitespace-pre-wrap">{record.content}</p>
 
         {feelingLabel ? (
@@ -119,9 +119,9 @@ export function RecordDetailPage() {
         </Note>
       ) : null}
 
-      <hr className="border-line" />
+      <hr className="border-line lg:hidden" />
 
-      <AnalysisSection record={record} aiEnabled={currentUser?.aiEnabled ?? true} />
+      <div className="lg:hidden">{analysisSection}</div>
 
       {record.previousRecord || record.nextRecord ? (
         <div className="flex items-center justify-between border-t border-line pt-4 text-sm font-medium">
@@ -149,6 +149,14 @@ export function RecordDetailPage() {
           )}
         </div>
       ) : null}
+    </>
+  )
+
+  const side = <div className="hidden lg:flex lg:flex-col lg:gap-5">{analysisSection}</div>
+
+  return (
+    <div className="flex flex-col gap-6 lg:min-h-0 lg:flex-1">
+      <Split main={main} side={side} />
     </div>
   )
 }
@@ -310,6 +318,7 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
 
   return (
     <div className="flex flex-col gap-3">
+      {analysis.title ? <h2 className="text-card-title">{analysis.title}</h2> : null}
       <ChangeBlock record={record} analysis={analysis} />
 
       <AiLabel>AI 정리</AiLabel>

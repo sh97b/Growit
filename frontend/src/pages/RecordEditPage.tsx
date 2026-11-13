@@ -3,7 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Button } from '../components/Button'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
+import { PageHeader, Split } from '../components/PageLayout'
+import { RecentRecordsCard } from '../components/RecentRecordsCard'
 import { RecordFormFields } from '../components/RecordFormFields'
+import { TopicChips } from '../components/TopicChips'
 import { useHobbies, type Hobby } from '../hooks/useHobbies'
 import { useRecord, useUpdateRecord } from '../hooks/useRecords'
 import { ApiError } from '../lib/api'
@@ -97,10 +100,8 @@ function RecordEditForm({ record, activeHobbies }: { record: RecordDetail; activ
     setFeeling((prev) => (prev === value ? null : value))
   }
 
-  return (
-    <div className="flex flex-col gap-4 lg:mx-auto lg:max-w-[45rem]">
-      <h1 className="text-page-title">기록 수정</h1>
-
+  const main = (
+    <>
       <RecordFormFields
         activeHobbies={pickerHobbies}
         hobbyId={hobbyId}
@@ -152,6 +153,20 @@ function RecordEditForm({ record, activeHobbies }: { record: RecordDetail; activ
           취소
         </Button>
       </div>
+    </>
+  )
+
+  const side = (
+    <div className="hidden lg:flex lg:flex-col lg:gap-5">
+      <TopicChips />
+      <RecentRecordsCard limit={3} showAllLink={false} />
+    </div>
+  )
+
+  return (
+    <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
+      <PageHeader title="기록 수정" />
+      <Split main={main} side={side} />
     </div>
   )
 }

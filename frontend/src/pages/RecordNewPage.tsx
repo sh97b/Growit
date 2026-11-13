@@ -6,7 +6,10 @@ import { EmptyState } from '../components/EmptyState'
 import { HobbyInlineCreate } from '../components/HobbyInlineCreate'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
+import { PageHeader, Split } from '../components/PageLayout'
+import { RecentRecordsCard } from '../components/RecentRecordsCard'
 import { RecordFormFields } from '../components/RecordFormFields'
+import { TopicChips } from '../components/TopicChips'
 import { CheckCircleIcon, PencilIcon, RefreshIcon, SparkleIcon } from '../components/icons'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useHobbies } from '../hooks/useHobbies'
@@ -237,10 +240,15 @@ export function RecordNewPage() {
     )
   }
 
-  return (
-    <div className="flex flex-col gap-4 lg:mx-auto lg:max-w-[45rem] lg:gap-4">
-      <h1 className="text-page-title">오늘의 기록</h1>
+  const sideContent = (
+    <>
+      <TopicChips />
+      <RecentRecordsCard limit={3} showAllLink={false} />
+    </>
+  )
 
+  const main = (
+    <>
       <RecordFormFields
         activeHobbies={activeHobbies}
         hobbyId={selectedHobby.id}
@@ -319,6 +327,13 @@ export function RecordNewPage() {
           {moreOpen ? '저장하기' : '한 줄만 저장하기'}
         </Button>
       )}
+    </>
+  )
+
+  return (
+    <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1 lg:gap-4">
+      <PageHeader title="오늘의 기록" />
+      <Split main={main} side={<div className="hidden lg:flex lg:flex-col lg:gap-5">{sideContent}</div>} />
     </div>
   )
 }
