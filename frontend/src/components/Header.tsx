@@ -11,7 +11,7 @@ export function Header() {
 
   return (
     <header className="hidden h-[4.25rem] flex-none border-b border-line bg-paper lg:block">
-      <div className="mx-auto flex h-full w-full max-w-[90rem] items-center px-10">
+      <div className="app-shell-container flex h-full items-center">
         <Link to="/" className="mr-11 font-serif text-xl font-semibold text-ink no-underline">
           Growit
         </Link>
