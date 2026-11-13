@@ -1,10 +1,19 @@
 import type { SVGProps } from 'react'
 
-function Icon(props: SVGProps<SVGSVGElement>) {
+/** px 숫자를 16px 기준 rem으로 바꾼다(LAYOUT-V2: 아이콘이 루트 글자 크기 스케일을 따르게 한다). */
+function toRem(value: SVGProps<SVGSVGElement>['width']): string | undefined {
+  if (value == null) return undefined
+  const px = typeof value === 'number' ? value : parseFloat(String(value))
+  return Number.isFinite(px) ? `${px / 16}rem` : undefined
+}
+
+function Icon({ width, height, style, className, ...props }: SVGProps<SVGSVGElement>) {
+  // width/height가 주어지면 rem으로 바꿔 스케일을 따르게 하고, 주어지지 않으면(className의
+  // Tailwind h-/w- 유틸리티로 크기를 정하는 호출부) 인라인 style로 덮어쓰지 않는다.
+  const sizeStyle =
+    width == null && height == null ? undefined : { width: toRem(width ?? 22), height: toRem(height ?? 22) }
   return (
     <svg
-      width="22"
-      height="22"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -12,6 +21,8 @@ function Icon(props: SVGProps<SVGSVGElement>) {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
+      className={className}
+      style={{ flexShrink: 0, ...sizeStyle, ...style }}
       {...props}
     />
   )

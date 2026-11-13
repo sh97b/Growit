@@ -53,7 +53,7 @@ export function VoiceInputButton({ onTranscript }: Props) {
   return (
     <div className="absolute bottom-2.5 right-2.5 flex flex-col items-end gap-1.5">
       {denied ? (
-        <span className="rounded-md bg-[color-mix(in_srgb,var(--color-ink)_85%,white)] px-2.5 py-1 text-xs text-white">
+        <span className="rounded-md bg-[color-mix(in_srgb,var(--color-ink)_85%,white)] px-2.5 py-1 text-caption-min text-white">
           마이크 권한이 꺼져 있어요
         </span>
       ) : null}

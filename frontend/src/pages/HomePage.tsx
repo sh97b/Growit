@@ -530,7 +530,7 @@ function RecentRecords({ limit = 3 }: { limit?: number }) {
                   {isToday ? '오늘' : formatMonthDay(record.recordDate)} · {hobbyNameById.get(record.hobbyId) ?? ''}
                 </span>
                 {firstTag ? (
-                  <span className="inline-flex h-6 flex-none items-center rounded-md bg-tag-topic-bg px-2 text-xs font-medium text-tag-topic-fg">
+                  <span className="inline-flex h-6 flex-none items-center rounded-md bg-tag-topic-bg px-2 text-caption-min font-medium text-tag-topic-fg">
                     {firstTag}
                   </span>
                 ) : null}

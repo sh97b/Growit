@@ -194,7 +194,7 @@ export function MetricsDetailPage() {
                         style={{ height: barHeight }}
                         className={['block w-full rounded-t', isSelected ? 'bg-base' : 'bg-[color-mix(in_srgb,var(--color-base)_58%,var(--color-paper))]'].join(' ')}
                       />
-                      <span className="whitespace-nowrap text-xs text-ink-2">{formatMonthDay(week.weekStart)}</span>
+                      <span className="whitespace-nowrap text-caption-min text-ink-2">{formatMonthDay(week.weekStart)}</span>
                     </button>
                   )
                 })}
