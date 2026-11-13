@@ -32,11 +32,24 @@ function isStandalone(): boolean {
   return window.matchMedia?.('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true
 }
 
+/** 구독이 만료·해지됐거나(GONE) 형식이 깨졌을 때(INVALID) — 둘 다 기기 쪽에서 다시 켜야 한다. */
+function pushErrorMessage(error: unknown): { message: string; needsReconnect: boolean } {
+  if (error instanceof ApiError) {
+    if (error.code === 'PUSH_SUBSCRIPTION_GONE' || error.code === 'PUSH_SUBSCRIPTION_INVALID') {
+      return { message: '알림 연결이 끊어졌어요. 알림을 껐다 다시 켜 주세요.', needsReconnect: true }
+    }
+    // PUSH_SEND_FAILED, PUSH_DISABLED, INTERNAL_ERROR 등은 서버 message를 그대로 보여준다.
+    return { message: error.message, needsReconnect: false }
+  }
+  return { message: '지금은 보낼 수 없어요.', needsReconnect: false }
+}
+
 export function NotificationsPage() {
   const queryClient = useQueryClient()
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [permissionState, setPermissionState] = useState<'idle' | 'denied' | 'unsupported'>('idle')
   const [testMessage, setTestMessage] = useState<string | null>(null)
+  const [needsReconnect, setNeedsReconnect] = useState(false)
 
   const settingsQuery = useQuery({ queryKey: ['notifications', 'settings'], queryFn: fetchNotificationSettings })
 
@@ -78,7 +91,26 @@ export function NotificationsPage() {
       await sendTestPush()
       setTestMessage('테스트 알림을 보냈어요.')
     } catch (error) {
-      setTestMessage(error instanceof ApiError ? error.message : '지금은 보낼 수 없어요.')
+      const { message, needsReconnect: reconnect } = pushErrorMessage(error)
+      setTestMessage(message)
+      if (reconnect) {
+        setNeedsReconnect(true)
+        await disablePush().catch(() => {
+          // 브라우저 쪽 구독 해제가 실패해도(이미 끊어졌을 수 있음) 재연결 흐름은 그대로 보여준다
+        })
+      }
+    }
+  }
+
+  async function handleReconnect() {
+    setTestMessage(null)
+    const result = await enablePush()
+    if (result === 'granted') {
+      setNeedsReconnect(false)
+    } else if (result === 'denied') {
+      setPermissionState('denied')
+    } else {
+      setPermissionState('unsupported')
     }
   }
 
@@ -213,17 +245,30 @@ export function NotificationsPage() {
       ) : null}
 
       <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
-        <button
-          type="button"
-          onClick={handleTest}
-          className="inline-flex min-h-11 items-center rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink"
-        >
-          테스트 알림 보내기
-        </button>
+        {needsReconnect ? (
+          <button
+            type="button"
+            onClick={handleReconnect}
+            className="inline-flex min-h-11 items-center rounded-lg bg-base px-4 text-sm font-medium text-white"
+          >
+            알림 다시 켜기
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleTest}
+            className="inline-flex min-h-11 items-center rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink"
+          >
+            테스트 알림 보내기
+          </button>
+        )}
         <button type="button" onClick={handleDisableAll} className="inline-flex min-h-11 items-center text-sm font-medium text-ink-2 underline underline-offset-4">
           알림 모두 끄기
         </button>
       </div>
+      {permissionState === 'denied' ? (
+        <Note variant="sand">브라우저 알림 권한이 꺼져 있어요. 브라우저 설정에서 이 사이트의 알림을 허용해 주세요.</Note>
+      ) : null}
       {testMessage ? <Note variant="calm">{testMessage}</Note> : null}
     </div>
   )
