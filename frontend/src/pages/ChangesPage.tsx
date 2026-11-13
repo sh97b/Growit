@@ -6,6 +6,7 @@ import { EvidenceChip } from '../components/EvidenceChip'
 import { FeedbackRow } from '../components/FeedbackRow'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
+import { Full, PageHeader } from '../components/PageLayout'
 import { RecordPairCards } from '../components/RecordPairCards'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useHobbies } from '../hooks/useHobbies'
@@ -51,7 +52,7 @@ export function ChangesPage() {
   if (!currentUser?.aiEnabled) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-page-title">나의 변화</h1>
+        <PageHeader title="나의 변화" />
         <Note variant="calm">
           <span>
             AI 정리가 꺼져 있어요. 켜면 기록을 비교해 달라진 점을 보여드려요.{' '}
@@ -67,7 +68,7 @@ export function ChangesPage() {
   if (!activeHobbies || activeHobbies.length === 0) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-page-title">나의 변화</h1>
+        <PageHeader title="나의 변화" />
         <Note variant="calm">활동 분야를 먼저 만들어 주세요.</Note>
       </div>
     )
@@ -127,8 +128,8 @@ export function ChangesPage() {
   )
 
   return (
-    <div className="flex flex-col gap-5">
-      <h1 className="text-page-title">나의 변화</h1>
+    <Full>
+      <PageHeader title="나의 변화" />
 
       <div className="flex flex-col gap-5 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">{selectors}</div>
 
@@ -255,6 +256,6 @@ export function ChangesPage() {
           </button>
         </div>
       ) : null}
-    </div>
+    </Full>
   )
 }

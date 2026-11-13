@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CoachResultView } from '../components/CoachResultView'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
+import { Full, PageHeader } from '../components/PageLayout'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useHobbies } from '../hooks/useHobbies'
 import { ApiError } from '../lib/api'
@@ -72,7 +73,7 @@ export function CoachPage() {
   if (!currentUser?.aiEnabled) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-page-title">AI 회고</h1>
+        <PageHeader title="AI 회고" />
         <Note variant="calm">
           <span>
             AI 정리가 꺼져 있어요. 켜면 기간을 돌아보는 회고를 받을 수 있어요.{' '}
@@ -137,8 +138,8 @@ export function CoachPage() {
   )
 
   return (
-    <div className="flex flex-col gap-5">
-      <h1 className="text-page-title">AI 회고</h1>
+    <Full>
+      <PageHeader title="AI 회고" />
 
       <div className="flex flex-col gap-5 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">{selectors}</div>
 
@@ -198,6 +199,6 @@ export function CoachPage() {
       {shownResult && !shownResult.locked ? (
         <CoachResultView result={shownResult} onResultChange={(updated) => setResult(updated)} />
       ) : null}
-    </div>
+    </Full>
   )
 }

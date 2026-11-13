@@ -7,6 +7,7 @@ import { Note } from '../components/Note'
 import { Pagination } from '../components/Pagination'
 import { useFitPageSize, useStablePageOnResize } from '../hooks/useFitPageSize'
 import { useIsDesktop } from '../hooks/useIsDesktop'
+import { Full, PageHeader } from '../components/PageLayout'
 import { fetchCoachHistory } from '../lib/ai'
 import { formatMonthDay } from '../lib/date'
 
@@ -20,6 +21,7 @@ export function CoachHistoryPage() {
   // 모바일은 페이지 스크롤을 유지하므로 6개를 그대로 쓴다.
   const { containerRef, pageSize: fitPageSize } = useFitPageSize({
     itemHeightRem: ROW_MIN_HEIGHT_REM,
+    columns: isDesktop ? 2 : 1,
     min: 2,
     max: 12,
   })
@@ -33,14 +35,14 @@ export function CoachHistoryPage() {
   const totalPages = Math.ceil((data?.totalCount ?? 0) / pageSize)
 
   return (
-    <div className="flex flex-col gap-5 lg:mx-auto lg:min-h-0 lg:flex-1 lg:max-w-[57.5rem]">
+    <Full className="lg:min-h-0 lg:flex-1">
       <nav className="text-sm text-ink-2">
         <Link to="/coach" className="inline-flex items-center gap-1 text-ink-2 no-underline">
           <ChevronLeftIcon width={16} height={16} />
           AI 회고
         </Link>
       </nav>
-      <h1 className="text-page-title">이전 회고</h1>
+      <PageHeader title="이전 회고" />
 
       {isLoading ? <Loading /> : null}
       {isError ? <Note variant="sand">잠시 후 다시 시도해 주세요</Note> : null}
@@ -48,17 +50,20 @@ export function CoachHistoryPage() {
       {data && items.length === 0 ? <Note variant="calm">아직 받은 회고가 없어요.</Note> : null}
 
       {items.length > 0 ? (
-        <div ref={containerRef} className="scrollbar-thin-fade flex flex-col lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
+        <div
+          ref={containerRef}
+          className="scrollbar-thin-fade grid grid-cols-1 content-start gap-3 lg:flex-1 lg:min-h-0 lg:grid-cols-2 lg:overflow-y-auto"
+        >
           {items.map((item) => (
             <Link
               key={item.id}
               to={`/coach/history/${item.id}`}
-              className="flex items-center gap-3 border-t border-line py-4 text-ink no-underline last:border-b"
+              className="flex items-center gap-3 rounded-xl border border-line bg-white px-4 py-4 text-ink no-underline"
             >
-              <span className="w-[6.75rem] flex-none text-caption-min font-semibold tabular-nums text-ink-2">
-                {item.startDate && item.endDate ? `${formatMonthDay(item.startDate)} – ${formatMonthDay(item.endDate)}` : ''}
-              </span>
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="text-caption-min font-semibold tabular-nums text-ink-2">
+                  {item.startDate && item.endDate ? `${formatMonthDay(item.startDate)} – ${formatMonthDay(item.endDate)}` : ''}
+                </span>
                 <span className="truncate font-serif text-body-min font-semibold">
                   {item.periodSummary ?? '회고 결과'}
                 </span>
@@ -78,6 +83,6 @@ export function CoachHistoryPage() {
       >
         새 회고 받기
       </Link>
-    </div>
+    </Full>
   )
 }
