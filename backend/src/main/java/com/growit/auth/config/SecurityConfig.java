@@ -4,6 +4,7 @@ import com.growit.auth.security.JwtAuthenticationEntryPoint;
 import com.growit.auth.security.JwtAuthenticationFilter;
 import com.growit.auth.security.JwtTokenProvider;
 import com.growit.user.repository.UserRepository;
+import jakarta.servlet.DispatcherType;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -40,7 +41,8 @@ public class SecurityConfig {
 			"/api/push/public-key",
 			"/v3/api-docs/**",
 			"/swagger-ui/**",
-			"/swagger-ui.html"
+			"/swagger-ui.html",
+			"/error"
 	};
 
 	/** 비용(cost)은 설정값으로 받는다. 로그인 성공 시 저장된 해시의 비용이 더 낮으면 새 비용으로 다시 저장한다. */
@@ -61,6 +63,11 @@ public class SecurityConfig {
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+						// 컨트롤러에서 처리되지 않은 예외(Error 포함)는 서블릿 컨테이너가 /error로 ERROR
+						// 디스패치를 만드는데, 보안 필터 체인이 그 디스패치에도 다시 적용돼 인증을 요구하면
+						// 원래의 500이 401로 바뀌어 프론트가 잘못 로그아웃한다. ERROR 디스패치와 /error는
+						// 인증 없이 통과시켜 원래 상태 코드가 그대로 나가게 한다.
+						.dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
 						.requestMatchers(PUBLIC_PATHS).permitAll()
 						.anyRequest().authenticated())
 				.exceptionHandling(exception -> exception.authenticationEntryPoint(entryPoint))
