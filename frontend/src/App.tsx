@@ -4,6 +4,7 @@ import { GuestRoute } from './components/GuestRoute'
 import { OnboardingRoute } from './components/OnboardingRoute'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { ReviewSectionLayout } from './components/ReviewSectionLayout'
+import { SettingsLayout } from './components/SettingsLayout'
 import { AuthCallbackPage } from './pages/AuthCallbackPage'
 import { ChangesPage } from './pages/ChangesPage'
 import { CoachHistoryDetailPage } from './pages/CoachHistoryDetailPage'
@@ -19,7 +20,6 @@ import { RecordEditPage } from './pages/RecordEditPage'
 import { RecordNewPage } from './pages/RecordNewPage'
 import { RecordSavedPage } from './pages/RecordSavedPage'
 import { RecordsPage } from './pages/RecordsPage'
-import { SettingsPage } from './pages/SettingsPage'
 import { SignupPage } from './pages/SignupPage'
 import { WeekDetailPage } from './pages/WeekDetailPage'
 import { AiPage } from './pages/settings/AiPage'
@@ -78,12 +78,14 @@ function App() {
         <Route path="/records/:id/saved" element={<RecordSavedPage />} />
         <Route path="/records/:id" element={<RecordDetailPage />} />
         <Route path="/records/:id/edit" element={<RecordEditPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/settings/hobbies" element={<HobbiesPage />} />
-        <Route path="/settings/ai" element={<AiPage />} />
-        <Route path="/settings/notifications" element={<NotificationsPage />} />
-        <Route path="/settings/password" element={<PasswordPage />} />
-        <Route path="/settings/delete" element={<DeleteAccountPage />} />
+        <Route path="/settings" element={<SettingsLayout />}>
+          <Route index element={<HobbiesPage />} />
+          <Route path="hobbies" element={<HobbiesPage />} />
+          <Route path="ai" element={<AiPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="password" element={<PasswordPage />} />
+          <Route path="delete" element={<DeleteAccountPage />} />
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
