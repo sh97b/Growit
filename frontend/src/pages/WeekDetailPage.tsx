@@ -4,6 +4,7 @@ import { AiViewCard } from '../components/AiViewCard'
 import { ChevronLeftIcon, ChevronRightIcon, RestIcon } from '../components/icons'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
+import { PageHeader, Split } from '../components/PageLayout'
 import { ApiError } from '../lib/api'
 import { fetchWeeklyOneLiner, type AiViewResult } from '../lib/ai'
 import { formatDurationMinutes, formatMonthDay } from '../lib/date'
@@ -46,7 +47,7 @@ export function WeekDetailPage() {
   if (!detail) return null
 
   const summary = (
-    <>
+    <div className="flex gap-10 rounded-2xl bg-surface p-5 lg:flex-col lg:gap-4">
       <div className="flex flex-col">
         <b className="font-serif text-lg">{detail.recordedDays}일</b>
         <span className="text-sm text-ink-2">기록한 날</span>
@@ -59,39 +60,26 @@ export function WeekDetailPage() {
         <b className="font-serif text-lg">{detail.hobbyCount}개</b>
         <span className="text-sm text-ink-2">활동 분야</span>
       </div>
-    </>
+    </div>
   )
 
-  return (
-    <div className="flex flex-col gap-5 lg:mx-auto lg:max-w-[45rem]">
-      <nav className="text-sm text-ink-2">
-        <Link to="/records" className="inline-flex items-center gap-1 text-ink-2 no-underline">
-          <ChevronLeftIcon width={16} height={16} />
-          지난 기록
-        </Link>
-      </nav>
+  const aiCard = hasRecords ? (
+    <AiViewCard
+      label="이 주의 한 줄"
+      question="이 주의 한 줄이 맞나요?"
+      isLoading={weeklyQuery.isLoading}
+      isError={weeklyQuery.isError}
+      error={weeklyQuery.error}
+      data={weeklyQuery.data}
+      onRetry={() => weeklyQuery.refetch()}
+      onChange={(updated: AiViewResult) => queryClient.setQueryData(weeklyKey, updated)}
+    />
+  ) : (
+    <Note variant="calm">쉬어 간 주예요.</Note>
+  )
 
-      <h1 className="text-page-title">
-        {formatMonthDay(detail.weekStart)} – {formatMonthDay(detail.weekEnd)}
-      </h1>
-
-      <div className="flex gap-10">{summary}</div>
-
-      {hasRecords ? (
-        <AiViewCard
-          label="이 주의 한 줄"
-          question="이 주의 한 줄이 맞나요?"
-          isLoading={weeklyQuery.isLoading}
-          isError={weeklyQuery.isError}
-          error={weeklyQuery.error}
-          data={weeklyQuery.data}
-          onRetry={() => weeklyQuery.refetch()}
-          onChange={(updated: AiViewResult) => queryClient.setQueryData(weeklyKey, updated)}
-        />
-      ) : (
-        <Note variant="calm">쉬어 간 주예요.</Note>
-      )}
-
+  const main = (
+    <>
       <div className="flex flex-col">
         {detail.days.map((day) => {
           const weekdayIndex = (new Date(day.date).getDay() + 6) % 7
@@ -140,6 +128,31 @@ export function WeekDetailPage() {
           <span />
         )}
       </div>
+    </>
+  )
+
+  const side = (
+    <>
+      {summary}
+      {aiCard}
+    </>
+  )
+
+  return (
+    <div className="flex flex-col gap-5 lg:min-h-0 lg:flex-1">
+      <nav className="text-sm text-ink-2">
+        <Link to="/records" className="inline-flex items-center gap-1 text-ink-2 no-underline">
+          <ChevronLeftIcon width={16} height={16} />
+          지난 기록
+        </Link>
+      </nav>
+
+      <PageHeader title={`${formatMonthDay(detail.weekStart)} – ${formatMonthDay(detail.weekEnd)}`} />
+
+      <div className="lg:hidden">{summary}</div>
+      <div className="lg:hidden">{aiCard}</div>
+
+      <Split main={main} side={<div className="hidden lg:flex lg:flex-col lg:gap-5">{side}</div>} className="lg:min-h-0 lg:flex-1" />
     </div>
   )
 }
