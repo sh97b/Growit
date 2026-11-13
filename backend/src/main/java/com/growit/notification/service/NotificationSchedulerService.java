@@ -87,7 +87,7 @@ public class NotificationSchedulerService {
 	private void sendToAllDevices(Long userId, String payload) {
 		for (PushSubscription subscription : pushSubscriptionRepository.findByUserId(userId)) {
 			PushSendResult result = pushSenderService.send(subscription, payload);
-			if (result == PushSendResult.GONE) {
+			if (result == PushSendResult.GONE || result == PushSendResult.INVALID) {
 				pushSubscriptionRepository.deleteByEndpoint(subscription.getEndpoint());
 			}
 		}

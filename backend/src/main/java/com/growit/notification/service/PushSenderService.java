@@ -33,6 +33,10 @@ public class PushSenderService {
 		if (!isEnabled()) {
 			return PushSendResult.DISABLED;
 		}
+		if (!PushKeyCodec.isValidP256dh(PushKeyCodec.decode(subscription.getP256dh()))
+				|| !PushKeyCodec.isValidAuth(PushKeyCodec.decode(subscription.getAuth()))) {
+			return PushSendResult.INVALID;
+		}
 		try {
 			Subscription sub = new Subscription(subscription.getEndpoint(),
 					new Subscription.Keys(subscription.getP256dh(), subscription.getAuth()));

@@ -45,6 +45,12 @@ dependencies {
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
 	runtimeOnly 'com.mysql:mysql-connector-j'
 	implementation 'nl.martijndwars:web-push:5.1.1'
+	// web-push 5.1.1의 pom.xml에는 BouncyCastle 의존성이 전혀 없다(확인함) — 운영 jar에 빠진 채로
+	// 배포되면 암호화(EC P-256) 단계에서 NoClassDefFoundError가 난다(2026-11-13 사고). Spring Boot의
+	// 의존성 관리(BOM)는 이 아티팩트를 관리하지 않아(./gradlew dependencyInsight로 확인) 버전을 직접
+	// 고정한다 — 다른 경로로 들어오는 BouncyCastle이 없어 버전 충돌 위험도 없다.
+	implementation 'org.bouncycastle:bcprov-jdk18on:1.87'
+	implementation 'org.bouncycastle:bcpkix-jdk18on:1.87'
 
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -53,4 +59,36 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+// 2026-11-13 사고(BouncyCastle이 빠진 채 배포됨)의 재발 방지. bootJar가 실제로 만든 운영 jar의
+// BOOT-INF/lib 안에 web-push가 암호화에 쓰는 라이브러리들이 들어갔는지 확인한다. 하나라도 빠지면
+// 빌드 자체를 실패시킨다 — 테스트(unit test의 클래스패스)와 운영 jar의 클래스패스는 다를 수 있어서,
+// 테스트 통과만으로는 이 사고를 잡지 못했다.
+tasks.register('verifyBootJarDependencies') {
+	dependsOn tasks.named('bootJar')
+	def jarFile = tasks.named('bootJar').get().archiveFile
+	def requiredLibPrefixes = [
+			'bcprov-jdk18on',
+			'bcpkix-jdk18on',
+			'web-push',
+			'httpasyncclient',
+			'async-http-client',
+			'jose4j'
+	]
+	doLast {
+		def libNames = new java.util.zip.ZipFile(jarFile.get().asFile).withCloseable { zip ->
+			zip.entries().findAll { it.name.startsWith('BOOT-INF/lib/') && it.name.endsWith('.jar') }
+					.collect { it.name.substring('BOOT-INF/lib/'.length()) }
+		}
+		def missing = requiredLibPrefixes.findAll { prefix -> libNames.every { !it.startsWith(prefix) } }
+		if (!missing.isEmpty()) {
+			throw new org.gradle.api.GradleException("운영 jar(BOOT-INF/lib)에 다음 라이브러리가 빠졌어요(웹 푸시 암호화가 NoClassDefFoundError로 깨질 수 있음): "
+					+ missing.join(', ') + " — 실제로 들어간 lib: " + libNames.sort().join(', '))
+		}
+	}
+}
+
+tasks.named('check') {
+	dependsOn tasks.named('verifyBootJarDependencies')
 }

@@ -310,11 +310,13 @@ class SecurityIntegrationTest {
 		mockMvc.perform(get("/api/push/public-key").header("Authorization", "Bearer " + token))
 				.andExpect(status().isOk());
 
+		// p256dh(65바이트, 0x04로 시작)·auth(16바이트) 형식 검증(2026-11-13)을 통과하는 가짜 키.
 		mockMvc.perform(post("/api/push/subscriptions")
 						.header("Authorization", "Bearer " + token)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"endpoint\":\"https://fake-push.example.com/ep1\","
-								+ "\"keys\":{\"p256dh\":\"p256dh-value\",\"auth\":\"auth-value\"}}"))
+								+ "\"keys\":{\"p256dh\":\"BKAjjhW0MhkfWq6HM-3Q-ngvw9NlZNi69XsoJJCEanbYegIpfLGi2nej-JcZjeeqqe8dQwt9wqdvRa5t4xWHcuk\","
+								+ "\"auth\":\"9NN7EXMOwQz0oOzWaIiEfA\"}}"))
 				.andExpect(status().isNoContent());
 
 		mockMvc.perform(get("/api/notifications/settings").header("Authorization", "Bearer " + token))

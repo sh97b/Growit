@@ -45,6 +45,10 @@ public class PushSubscriptionService {
 				|| request.keys().p256dh() == null || request.keys().auth() == null) {
 			throw new ApiException(ErrorCode.VALIDATION_ERROR, "endpoint와 keys(p256dh, auth)가 필요해요");
 		}
+		if (!PushKeyCodec.isValidP256dh(PushKeyCodec.decode(request.keys().p256dh()))
+				|| !PushKeyCodec.isValidAuth(PushKeyCodec.decode(request.keys().auth()))) {
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, "구독 키 형식이 올바르지 않아요");
+		}
 		PushSubscription existing = pushSubscriptionRepository.findByEndpoint(request.endpoint()).orElse(null);
 		if (existing != null && existing.getUserId().equals(userId)) {
 			existing.refresh(request.keys().p256dh(), request.keys().auth(), existing.getUserAgent());
@@ -89,11 +93,36 @@ public class PushSubscriptionService {
 
 		List<PushSubscription> subscriptions = pushSubscriptionRepository.findByUserId(userId);
 		String payload = "{\"title\":\"테스트 알림이에요\",\"body\":\"잘 받고 있어요.\"}";
+		boolean anyOk = false;
+		boolean anyGone = false;
+		boolean anyInvalid = false;
 		for (PushSubscription subscription : subscriptions) {
 			PushSendResult result = pushSenderService.send(subscription, payload);
-			if (result == PushSendResult.GONE) {
-				pushSubscriptionRepository.deleteByEndpoint(subscription.getEndpoint());
+			switch (result) {
+				case OK -> anyOk = true;
+				case GONE -> {
+					anyGone = true;
+					pushSubscriptionRepository.deleteByEndpoint(subscription.getEndpoint());
+				}
+				case INVALID -> {
+					anyInvalid = true;
+					pushSubscriptionRepository.deleteByEndpoint(subscription.getEndpoint());
+				}
+				default -> {
+					// FAILED·DISABLED는 삭제하지 않고 아래에서 PUSH_SEND_FAILED로 보고한다.
+				}
 			}
 		}
+		// 기기 중 하나라도 성공했으면 전체는 성공으로 본다. 그렇지 않으면 가장 먼저 해당하는 이유로 거절한다.
+		if (anyOk || subscriptions.isEmpty()) {
+			return;
+		}
+		if (anyInvalid) {
+			throw new ApiException(ErrorCode.PUSH_SUBSCRIPTION_INVALID, "알림 연결을 다시 해 주세요.");
+		}
+		if (anyGone) {
+			throw new ApiException(ErrorCode.PUSH_SUBSCRIPTION_GONE, "알림 연결을 다시 해 주세요.");
+		}
+		throw new ApiException(ErrorCode.PUSH_SEND_FAILED, "알림을 보내지 못했어요. 잠시 후 다시 시도해 주세요");
 	}
 }

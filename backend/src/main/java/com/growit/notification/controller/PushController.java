@@ -55,9 +55,12 @@ public class PushController {
 	}
 
 	@Operation(summary = "내 기기로 테스트 알림 보내기 (하루 5회)")
-	@ApiResponse(responseCode = "409", description = "PUSH_DISABLED: 알림 기능이 꺼져 있음",
+	@ApiResponse(responseCode = "409", description = "PUSH_DISABLED: 알림 기능이 꺼져 있음 / "
+			+ "PUSH_SUBSCRIPTION_INVALID: 구독 형식이 깨짐 / PUSH_SUBSCRIPTION_GONE: 구독이 만료·해지됨",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@ApiResponse(responseCode = "429", description = "PUSH_LIMIT_EXCEEDED: 오늘 테스트 알림을 다 씀",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "502", description = "PUSH_SEND_FAILED: 알림 전송에 실패함",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@PostMapping("/test")
 	public ResponseEntity<Void> test() {
