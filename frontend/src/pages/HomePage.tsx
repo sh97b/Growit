@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ActivityHeatmap } from '../components/ActivityHeatmap'
@@ -7,13 +7,13 @@ import { Band } from '../components/Card'
 import { CoachActionCard } from '../components/CoachResultView'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
+import { Split } from '../components/PageLayout'
 import { RecentRecordsCard } from '../components/RecentRecordsCard'
 import { RecentWeekStrip } from '../components/RecentWeekStrip'
 import { TopicChips } from '../components/TopicChips'
 import { PlusIcon } from '../components/icons'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useHobbies } from '../hooks/useHobbies'
-import { useIsDesktop } from '../hooks/useIsDesktop'
 import { fetchLatestCoach, generateAutoCoach, type CoachResult } from '../lib/ai'
 import { reactionLine } from '../lib/coachReaction'
 import { ApiError } from '../lib/api'
@@ -71,85 +71,11 @@ function useAutoCoachOncePerDay() {
   }, [])
 }
 
-// 홈 아랫줄 영역의 추정 최소 높이(rem) — F3. 실제 내용을 재는 대신(useFitPageSize와 같은 방식)
-// 각 영역의 대략적인 높이를 추정해 우선순위대로 넣다가 모자라면 뒤에서부터 뺀다.
-const STATS_TILES_HEIGHT_REM = 5.5
-const TOPIC_CHIPS_HEIGHT_REM = 4.5
-const ACTIVITY_HEATMAP_HEIGHT_REM = 9
-const RECENT_RECORDS_BASE_HEIGHT_REM = 6
-const RECENT_RECORDS_ITEM_HEIGHT_REM = 4.5
-const SECTION_GAP_REM = 1.75
-
-/**
- * 디자인에 없는 추가(F3): 홈 아랫줄(쌓인 기록 3칸·주제 칩·활동 지도·최근 기록)을 우선순위 순으로
- * 넣다가 남은 높이가 모자라면 뒤에서부터(최근 기록 → 활동 지도 → 주제 칩 → 쌓인 기록 3칸 순으로) 뺀다.
- * 데스크톱에서만 동작하고(모바일은 페이지 스크롤을 유지), 최근 기록은 통째로 숨기지 않고 3→2→1개로
- * 먼저 줄어든다.
- */
-function useHomeLowerSectionFit(enabled: boolean) {
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const [plan, setPlan] = useState({ showStats: true, showTopics: true, showHeatmap: true, recentCount: 3 })
-
-  useEffect(() => {
-    if (!enabled) {
-      setPlan({ showStats: true, showTopics: true, showHeatmap: true, recentCount: 3 })
-      return
-    }
-    const el = containerRef.current
-    if (!el) return
-    let timeoutId: ReturnType<typeof setTimeout> | null = null
-
-    function measure() {
-      const el2 = containerRef.current
-      if (!el2) return
-      const rootPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
-      const gapPx = SECTION_GAP_REM * rootPx
-      const available = el2.clientHeight
-      if (available <= 0) return
-
-      let used = 0
-      const showStats = available >= STATS_TILES_HEIGHT_REM * rootPx
-      if (showStats) used += STATS_TILES_HEIGHT_REM * rootPx + gapPx
-
-      const showTopics = showStats && available - used >= TOPIC_CHIPS_HEIGHT_REM * rootPx
-      if (showTopics) used += TOPIC_CHIPS_HEIGHT_REM * rootPx + gapPx
-
-      const showHeatmap = showTopics && available - used >= ACTIVITY_HEATMAP_HEIGHT_REM * rootPx
-      if (showHeatmap) used += ACTIVITY_HEATMAP_HEIGHT_REM * rootPx + gapPx
-
-      let recentCount = 0
-      if (showHeatmap) {
-        const remaining = available - used - RECENT_RECORDS_BASE_HEIGHT_REM * rootPx
-        recentCount = Math.max(0, Math.min(3, Math.floor(remaining / (RECENT_RECORDS_ITEM_HEIGHT_REM * rootPx)) + (remaining >= 0 ? 1 : 0)))
-        if (remaining < 0) recentCount = 0
-      }
-
-      setPlan({ showStats, showTopics, showHeatmap, recentCount })
-    }
-
-    const observer = new ResizeObserver(() => {
-      if (timeoutId) clearTimeout(timeoutId)
-      timeoutId = setTimeout(measure, 150)
-    })
-    observer.observe(el)
-    measure()
-
-    return () => {
-      observer.disconnect()
-      if (timeoutId) clearTimeout(timeoutId)
-    }
-  }, [enabled])
-
-  return { containerRef, plan }
-}
-
 export function HomePage() {
   const { data: currentUser, isLoading: userLoading } = useCurrentUser()
   const summaryQuery = useQuery({ queryKey: ['stats', 'summary'], queryFn: fetchSummary })
   const [today] = useState(() => new Date())
   const [droppedMessages] = useState(() => takeDroppedOfflineMessages())
-  const isDesktop = useIsDesktop()
-  const { containerRef: lowerSectionRef, plan: lowerSectionPlan } = useHomeLowerSectionFit(isDesktop)
   useAutoCoachOncePerDay()
 
   if (userLoading || summaryQuery.isLoading) {
@@ -189,64 +115,64 @@ export function HomePage() {
 
   const showWeekStrip = state === 'done' || state === 'off'
 
-  return (
-    <div className="flex flex-col gap-7 lg:min-h-0 lg:flex-1">
-      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_22.5rem] lg:items-start lg:gap-12">
-        <div className="flex flex-col gap-7">
-          <div className="flex flex-col gap-1.5">
-            <h1 className="font-serif text-2xl font-semibold lg:text-[2rem]">
-              {state === 'comeback' ? `다시 오셨네요, ${name}님` : state === 'first' ? `${name}님, 환영합니다` : `안녕하세요, ${name}님`}
-            </h1>
-            <span className="text-sm text-ink-2">{formatMonthDayWeekday(today)}</span>
-            {state === 'first' ? (
-              <p className="text-body-min text-ink-2">오늘 있었던 일을 한 줄만 적어도 첫 기록이 돼요.</p>
-            ) : null}
-            {state === 'comeback' && summary.lastRecordedDate ? (
-              <p className="text-body-min text-ink-2">
-                마지막 기록은 {formatMonthDay(summary.lastRecordedDate)}이에요. 쌓아 둔 기록은 그대로 있어요.
-              </p>
-            ) : null}
-          </div>
+  const greeting = (
+    <div className="flex flex-col gap-1.5">
+      <h1 className="font-serif text-2xl font-semibold lg:text-[2rem]">
+        {state === 'comeback' ? `다시 오셨네요, ${name}님` : state === 'first' ? `${name}님, 환영합니다` : `안녕하세요, ${name}님`}
+      </h1>
+      <span className="text-sm text-ink-2">{formatMonthDayWeekday(today)}</span>
+      {state === 'first' ? (
+        <p className="text-body-min text-ink-2">오늘 있었던 일을 한 줄만 적어도 첫 기록이 돼요.</p>
+      ) : null}
+      {state === 'comeback' && summary.lastRecordedDate ? (
+        <p className="text-body-min text-ink-2">
+          마지막 기록은 {formatMonthDay(summary.lastRecordedDate)}이에요. 쌓아 둔 기록은 그대로 있어요.
+        </p>
+      ) : null}
+    </div>
+  )
 
-          {droppedMessages.length > 0 ? (
-            <Note variant="sand">
-              연결이 안 될 때 기기에 저장해 뒀던 기록 {droppedMessages.length}개를 서버가 받아들이지 못해 지웠어요.
-            </Note>
-          ) : null}
-
-          {state === 'first' ? <FirstUseBoard /> : null}
-          {state === 'comeback' ? <ComebackBoard /> : null}
-          {state === 'done' ? <DoneBoard /> : null}
-          {state === 'off' ? <AiOffBoard /> : null}
-
-          {showWeekStrip ? (
-            <div className="lg:hidden">
-              <RecentWeekStrip />
-            </div>
-          ) : null}
-        </div>
-
-        {showWeekStrip ? (
-          <aside className="hidden lg:block">
-            <RecentWeekStrip />
-          </aside>
-        ) : null}
-      </div>
-
+  // 사이드(데스크톱 Split.side)와 모바일 둘 다에서 쓰는 같은 블록 — 최근 7일·쌓인 기록 3칸·
+  // 자주 하는 주제 칩·최근 12주 활동 지도. 전부 폭이 좁아도 자연스러운 크기라 항상 보여준다
+  // (예전 F3의 ResizeObserver 기반 우선순위 숨김은 사이드 칼럼으로 옮기며 더 필요하지 않게 됐다).
+  const sideBlocks = (
+    <>
+      {showWeekStrip ? <RecentWeekStrip /> : null}
+      {state !== 'first' ? <StatsTiles summary={summary} /> : null}
+      {state !== 'first' ? <TopicChips /> : null}
       {state !== 'first' ? (
-        <div ref={lowerSectionRef} className="flex flex-col gap-7 lg:min-h-0 lg:flex-1 lg:overflow-hidden">
-          {lowerSectionPlan.showStats ? <StatsTiles summary={summary} /> : null}
-          {lowerSectionPlan.showTopics ? <TopicChips /> : null}
-          {lowerSectionPlan.showHeatmap ? (
-            <div className="rounded-2xl bg-surface p-5">
-              <ActivityHeatmap weeks={12} />
-            </div>
-          ) : null}
-          {lowerSectionPlan.showHeatmap && lowerSectionPlan.recentCount > 0 ? (
-            <RecentRecordsCard limit={lowerSectionPlan.recentCount} />
-          ) : null}
+        <div className="rounded-2xl bg-surface p-5">
+          <ActivityHeatmap weeks={12} />
         </div>
       ) : null}
+    </>
+  )
+
+  const main = (
+    <>
+      {greeting}
+
+      {droppedMessages.length > 0 ? (
+        <Note variant="sand">
+          연결이 안 될 때 기기에 저장해 뒀던 기록 {droppedMessages.length}개를 서버가 받아들이지 못해 지웠어요.
+        </Note>
+      ) : null}
+
+      {state === 'first' ? <FirstUseBoard /> : null}
+      {state === 'comeback' ? <ComebackBoard /> : null}
+      {state === 'done' ? <DoneBoard /> : null}
+      {state === 'off' ? <AiOffBoard /> : null}
+
+      {/* 사이드에 들어가는 최근 7일·쌓인 기록·주제 칩·활동 지도는 모바일에서 여기 순서대로 보인다. */}
+      <div className="flex flex-col gap-7 lg:hidden">{sideBlocks}</div>
+
+      {state !== 'first' ? <RecentRecordsCard limit={3} /> : null}
+    </>
+  )
+
+  return (
+    <div className="flex flex-col gap-7 lg:min-h-0 lg:flex-1">
+      <Split main={main} side={<div className="hidden lg:flex lg:flex-col lg:gap-7">{sideBlocks}</div>} />
     </div>
   )
 }
