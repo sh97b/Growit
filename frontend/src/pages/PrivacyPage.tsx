@@ -3,7 +3,9 @@ import { CONTACT_EMAIL } from '../config'
 
 export function PrivacyPage() {
   return (
-    <div className="mx-auto flex w-full max-w-[40rem] flex-col gap-6 px-5 py-10 lg:px-0">
+    <div className="app-shell-container flex flex-col gap-6 py-10">
+      {/* LAYOUT-V2: 본문을 80rem 컨테이너 안의 8열(약 53rem)에 왼쪽 정렬한다(가운데 좁은 칼럼 금지). */}
+      <div className="flex w-full max-w-[53rem] flex-col gap-6">
       <Link to="/" className="text-sm font-medium text-base-ink no-underline">
         ← Growit으로 가기
       </Link>
@@ -55,6 +57,7 @@ export function PrivacyPage() {
       <p className="border-t border-line pt-4 text-caption-min text-ink-3">
         이 안내는 법률 자문이 아닌, 수업 프로젝트를 위한 간이 안내예요.
       </p>
+      </div>
     </div>
   )
 }
