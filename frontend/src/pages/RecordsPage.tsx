@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ActivityHeatmap } from '../components/ActivityHeatmap'
 import { Loading } from '../components/Loading'
-import { PageHeader, SplitWide } from '../components/PageLayout'
+import { PageHeader, Split } from '../components/PageLayout'
 import { Pagination } from '../components/Pagination'
 import { PlusIcon } from '../components/icons'
 import { useFitPageSize, useStablePageOnResize } from '../hooks/useFitPageSize'
@@ -164,7 +164,7 @@ export function RecordsPage() {
   return (
     <div className="flex flex-col gap-5 lg:min-h-0 lg:flex-1">
       <PageHeader title="지난 기록" />
-      <SplitWide main={main} side={side} className="lg:min-h-0 lg:flex-1" />
+      <Split main={main} side={side} className="lg:min-h-0 lg:flex-1" />
     </div>
   )
 }

@@ -21,6 +21,9 @@ const GAP_PX = 3
 const HALF_WEEKS = 26
 const FULL_WEEKS = 52
 const FULL_CELL_PX = 10
+/** 52주 한 줄을 담으려면 칸이 이보다는 커야 한다(지시문의 "칸 11px 이상"). 못 담으면 26주씩 두 줄로 바꾼다. */
+const MIN_SINGLE_ROW_CELL_PX = 11
+const MAX_TWO_ROW_CELL_PX = 16
 /* 활동 지도 라벨만 디자인 규칙의 예외로 고정 12px을 쓴다(다른 글자 토큰처럼 rem으로 늘어나지 않는다). */
 const LABEL_STYLE: CSSProperties = { fontSize: '12px', lineHeight: 1, whiteSpace: 'nowrap' }
 const LABEL_COL_PX = 18
@@ -50,6 +53,22 @@ function monthLabel(isoDate: string): string {
   return `${Number(month)}월`
 }
 
+/** monthLabel의 중복 억제(3열 미만 간격이면 뒤 라벨 숨김)를 한 줄(26주 또는 52주) 안에서 독립적으로 계산한다. */
+function computeMonthLabels(weekColumns: string[][]): { col: number; label: string }[] {
+  const labels: { col: number; label: string }[] = []
+  let lastMonth = ''
+  let lastAcceptedCol = -Infinity
+  weekColumns.forEach((week, colIndex) => {
+    const label = monthLabel(week[0])
+    if (label === lastMonth) return
+    lastMonth = label
+    if (colIndex - lastAcceptedCol < 3) return
+    labels.push({ col: colIndex, label })
+    lastAcceptedCol = colIndex
+  })
+  return labels
+}
+
 export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: Props) {
   const today = todayLocalDate()
   const currentWeekStart = startOfWeekLocal(new Date())
@@ -59,6 +78,26 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  // 카드 폭이 52주를 칸 11px 이상으로 못 담으면(지시문 D) 26주씩 두 줄로 나눠 칸을 더 키운다.
+  // toggle(모바일) 모드는 기존 규칙(26주 기본, 1년은 가로 스크롤)을 그대로 쓰므로 대상이 아니다.
+  const measureRef = useRef<HTMLDivElement>(null)
+  const [measuredWidth, setMeasuredWidth] = useState(0)
+  useEffect(() => {
+    if (weeks !== FULL_WEEKS || toggle) return
+    const el = measureRef.current
+    if (!el) return
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width
+      if (width != null) setMeasuredWidth(width)
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [weeks, toggle])
+  const requiredSingleRowWidth =
+    LABEL_COL_PX + FULL_WEEKS * MIN_SINGLE_ROW_CELL_PX + (FULL_WEEKS - 1) * GAP_PX
+  const useTwoRows =
+    weeks === FULL_WEEKS && !toggle && measuredWidth > 0 && measuredWidth < requiredSingleRowWidth
 
   const weekStarts = useMemo(
     () => Array.from({ length: weeks }, (_, index) => addDays(currentWeekStart, (index - (weeks - 1)) * 7)),
@@ -152,11 +191,106 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
     setRange(next)
   }
 
-  const gridVars = {
-    '--weeks': weeks,
-    '--label-col': `${LABEL_COL_PX}px`,
-    '--cell': fixedCell ? `${FULL_CELL_PX}px` : `clamp(9px, calc((100cqw - var(--label-col)) / var(--weeks) - ${GAP_PX}px), 16px)`,
-  } as CSSProperties
+  function makeGridVars(weeksForRow: number): CSSProperties {
+    return {
+      '--weeks': weeksForRow,
+      '--label-col': `${LABEL_COL_PX}px`,
+      '--cell': fixedCell
+        ? `${FULL_CELL_PX}px`
+        : `clamp(9px, calc((100cqw - var(--label-col)) / var(--weeks) - ${GAP_PX}px), ${MAX_TWO_ROW_CELL_PX}px)`,
+    } as CSSProperties
+  }
+
+  function renderRow(weekColumns: string[][], colOffset: number, labels: { col: number; label: string }[]) {
+    return (
+      <div
+        style={{
+          display: 'inline-grid',
+          gridTemplateColumns: 'var(--label-col) 1fr',
+          columnGap: 0,
+          rowGap: '2px',
+          justifyItems: 'start',
+        }}
+      >
+        <div />
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${weekColumns.length}, var(--cell))`,
+            columnGap: `${GAP_PX}px`,
+            height: '14px',
+          }}
+        >
+          {labels.map(({ col, label }) => (
+            <span key={col} style={{ ...LABEL_STYLE, gridColumn: col + 1, color: 'var(--color-ink-3)' }}>
+              {label}
+            </span>
+          ))}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateRows: `repeat(7, var(--cell))`, rowGap: `${GAP_PX}px` }}>
+          {WEEKDAY_LABELS.map(({ row, label }) => (
+            <span key={row} style={{ ...LABEL_STYLE, gridRow: row + 1, color: 'var(--color-ink-3)', alignSelf: 'center' }}>
+              {label}
+            </span>
+          ))}
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridAutoFlow: 'column',
+            gridTemplateRows: `repeat(7, var(--cell))`,
+            gridAutoColumns: 'var(--cell)',
+            columnGap: `${GAP_PX}px`,
+            rowGap: `${GAP_PX}px`,
+          }}
+        >
+          {weekColumns.map((week, localIndex) =>
+            week.map((date, rowIndex) => {
+              const colIndex = colOffset + localIndex
+              const count = countByDate.get(date) ?? 0
+              const level = levelOf(date > today ? 0 : count)
+              const interactive = interactiveDates.has(date)
+              const background = date > today ? 'transparent' : LEVEL_BG[level]
+              if (!interactive) {
+                return (
+                  <div key={date} aria-hidden="true" style={{ width: '100%', aspectRatio: '1', borderRadius: '2px', background }} />
+                )
+              }
+              return (
+                <button
+                  key={date}
+                  type="button"
+                  ref={(node) => {
+                    if (node) cellRefs.current.set(date, node)
+                    else cellRefs.current.delete(date)
+                  }}
+                  tabIndex={date === focusedDate ? 0 : -1}
+                  aria-label={`${formatMonthDay(date)} · 기록 ${count}개`}
+                  title={`${formatMonthDay(date)} · 기록 ${count}개`}
+                  onClick={() => setSelectedDate(date)}
+                  onFocus={() => setFocusedDate(date)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      setSelectedDate(date)
+                      return
+                    }
+                    if (event.key.startsWith('Arrow')) {
+                      event.preventDefault()
+                      moveFocus(colIndex, rowIndex, event.key)
+                    }
+                  }}
+                  style={{ width: '100%', aspectRatio: '1', borderRadius: '2px', background, border: 'none', padding: 0, cursor: 'pointer' }}
+                />
+              )
+            }),
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-2">
@@ -189,122 +323,38 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
         </div>
       ) : null}
 
-      <div
-        style={{ containerType: 'inline-size', ...gridVars } as CSSProperties}
-        role="group"
-        aria-label={`최근 ${weeks}주 활동 지도`}
-      >
-        <div
-          ref={scrollRef}
-          className={fixedCell ? 'scrollbar-none overflow-x-auto' : 'scrollbar-thin-fade overflow-x-auto'}
-        >
-          <div
-            style={{
-              display: 'inline-grid',
-              gridTemplateColumns: 'var(--label-col) 1fr',
-              columnGap: 0,
-              rowGap: '2px',
-              justifyItems: 'start',
-            }}
-          >
-            <div />
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: `repeat(${weeks}, var(--cell))`,
-                columnGap: `${GAP_PX}px`,
-                height: '14px',
-              }}
-            >
-              {monthLabels.map(({ col, label }) => (
-                <span key={col} style={{ ...LABEL_STYLE, gridColumn: col + 1, color: 'var(--color-ink-3)' }}>
-                  {label}
-                </span>
-              ))}
+      <div ref={measureRef}>
+        {useTwoRows ? (
+          <div className="flex flex-col gap-2">
+            <div style={{ containerType: 'inline-size', ...makeGridVars(HALF_WEEKS) } as CSSProperties}>
+              <div className="overflow-x-visible">
+                {renderRow(columns.slice(0, HALF_WEEKS), 0, computeMonthLabels(columns.slice(0, HALF_WEEKS)))}
+              </div>
             </div>
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateRows: `repeat(7, var(--cell))`,
-                rowGap: `${GAP_PX}px`,
-              }}
-            >
-              {WEEKDAY_LABELS.map(({ row, label }) => (
-                <span
-                  key={row}
-                  style={{ ...LABEL_STYLE, gridRow: row + 1, color: 'var(--color-ink-3)', alignSelf: 'center' }}
-                >
-                  {label}
-                </span>
-              ))}
-            </div>
-
-            <div
-              style={{
-                display: 'grid',
-                gridAutoFlow: 'column',
-                gridTemplateRows: `repeat(7, var(--cell))`,
-                gridAutoColumns: 'var(--cell)',
-                columnGap: `${GAP_PX}px`,
-                rowGap: `${GAP_PX}px`,
-              }}
-            >
-              {columns.map((week, colIndex) =>
-                week.map((date, rowIndex) => {
-                  const count = countByDate.get(date) ?? 0
-                  const level = levelOf(date > today ? 0 : count)
-                  const interactive = interactiveDates.has(date)
-                  const background = date > today ? 'transparent' : LEVEL_BG[level]
-                  if (!interactive) {
-                    return (
-                      <div
-                        key={date}
-                        aria-hidden="true"
-                        style={{ width: '100%', aspectRatio: '1', borderRadius: '2px', background }}
-                      />
-                    )
-                  }
-                  return (
-                    <button
-                      key={date}
-                      type="button"
-                      ref={(node) => {
-                        if (node) cellRefs.current.set(date, node)
-                        else cellRefs.current.delete(date)
-                      }}
-                      tabIndex={date === focusedDate ? 0 : -1}
-                      aria-label={`${formatMonthDay(date)} · 기록 ${count}개`}
-                      title={`${formatMonthDay(date)} · 기록 ${count}개`}
-                      onClick={() => setSelectedDate(date)}
-                      onFocus={() => setFocusedDate(date)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault()
-                          setSelectedDate(date)
-                          return
-                        }
-                        if (event.key.startsWith('Arrow')) {
-                          event.preventDefault()
-                          moveFocus(colIndex, rowIndex, event.key)
-                        }
-                      }}
-                      style={{
-                        width: '100%',
-                        aspectRatio: '1',
-                        borderRadius: '2px',
-                        background,
-                        border: 'none',
-                        padding: 0,
-                        cursor: 'pointer',
-                      }}
-                    />
-                  )
-                }),
-              )}
+            <div style={{ containerType: 'inline-size', ...makeGridVars(HALF_WEEKS) } as CSSProperties}>
+              <div className="overflow-x-visible">
+                {renderRow(
+                  columns.slice(HALF_WEEKS),
+                  HALF_WEEKS,
+                  computeMonthLabels(columns.slice(HALF_WEEKS)),
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div
+            style={{ containerType: 'inline-size', ...makeGridVars(weeks) } as CSSProperties}
+            role="group"
+            aria-label={`최근 ${weeks}주 활동 지도`}
+          >
+            <div
+              ref={scrollRef}
+              className={fixedCell ? 'scrollbar-none overflow-x-auto' : 'scrollbar-thin-fade overflow-x-auto'}
+            >
+              {renderRow(columns, 0, monthLabels)}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-between gap-3">
