@@ -96,14 +96,39 @@ export function fetchCoachResult(id: number) {
   return apiRequest<CoachResult>(`/api/ai/results/${id}`)
 }
 
-export type CoachHistoryResult = { items: CoachResult[]; totalCount: number }
+export type CoachListItem = {
+  id: number
+  createdAt: string
+  startDate: string | null
+  endDate: string | null
+  hobbyId: number | null
+  hobbyName: string | null
+  summary: string | null
+  nextActionTitle: string | null
+  isAuto: boolean
+  isNew: boolean
+  feedback: 'HELPFUL' | 'NOT_HELPFUL' | null
+  reaction: 'TRIED' | 'REST_TODAY' | 'TOO_HARD' | null
+}
 
-export function fetchCoachHistory(params: { page?: number; size?: number; hobbyId?: number } = {}) {
+export type CoachListResult = { items: CoachListItem[]; totalCount: number }
+
+export function fetchCoachList(params: {
+  page?: number
+  size?: number
+  hobbyId?: number
+  q?: string
+  from?: string
+  to?: string
+} = {}) {
   const query = new URLSearchParams({ type: 'COACH' })
   if (params.page != null) query.set('page', String(params.page))
   if (params.size != null) query.set('size', String(params.size))
   if (params.hobbyId != null) query.set('hobbyId', String(params.hobbyId))
-  return apiRequest<CoachHistoryResult>(`/api/ai/results?${query.toString()}`)
+  if (params.q) query.set('q', params.q)
+  if (params.from) query.set('from', params.from)
+  if (params.to) query.set('to', params.to)
+  return apiRequest<CoachListResult>(`/api/ai/results?${query.toString()}`)
 }
 
 export function submitCoachReaction(id: number, value: 'TRIED' | 'REST_TODAY' | 'TOO_HARD') {

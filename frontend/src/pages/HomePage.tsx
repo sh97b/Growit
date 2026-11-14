@@ -247,7 +247,7 @@ function HomeAiCard({ comeback }: { comeback: boolean }) {
     <div className="flex items-center justify-between gap-3 rounded-xl bg-[color-mix(in_srgb,var(--color-base)_9%,white)] px-4 py-2.5">
       <AiLabel>새 회고가 도착했어요</AiLabel>
       <Link
-        to="/coach"
+        to={data.id != null ? `/coach?r=${data.id}` : '/coach'}
         className="inline-flex min-h-9 items-center justify-center rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink no-underline"
       >
         열어 보기

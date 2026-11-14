@@ -3,7 +3,7 @@ package com.growit.ai.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.growit.ai.dto.AiCoachHistoryResponse;
+import com.growit.ai.dto.AiCoachListResponse;
 import com.growit.ai.dto.AiCoachResponse;
 import com.growit.ai.dto.CoachActionResponse;
 import com.growit.ai.dto.CoachEvidence;
@@ -408,18 +408,84 @@ public class CoachService {
 		return toResponse(result, true, userId);
 	}
 
+	/** 검색 대상으로 한 번에 불러오는 COACH 결과 상한. 사용자 한 명이 이 수를 넘기면(수년치) 더 오래된 결과는 검색에서 빠진다. */
+	private static final int SEARCH_SCAN_LIMIT = 500;
+
+	/**
+	 * q(검색어)·from~to(생성일 범위)·hobbyId로 COACH 결과를 거르고 최신순 페이지네이션한다. DB의 JSON 함수에
+	 * 기대지 않고(H2 테스트·MySQL 8.0/8.4 모두 동작) 최근 {@value #SEARCH_SCAN_LIMIT}개를 불러와 서비스에서
+	 * 직접 문자열 포함 비교로 거른다(LIKE 와일드카드 주입 없음). 이 상한을 넘는 과거 결과는 검색되지 않는다.
+	 */
 	@Transactional(readOnly = true)
-	public AiCoachHistoryResponse history(Long userId, Long hobbyId, int page, int size) {
-		var pageable = org.springframework.data.domain.PageRequest.of(page, size);
-		List<AiResult> results = hobbyId != null
+	public AiCoachListResponse search(Long userId, Long hobbyId, String q, LocalDate from, LocalDate to, int page,
+			int size) {
+		var scanPageable = org.springframework.data.domain.PageRequest.of(0, SEARCH_SCAN_LIMIT);
+		List<AiResult> scanned = hobbyId != null
 				? aiResultRepository.findByUserIdAndResultTypeAndHobbyIdOrderByCreatedAtDesc(userId,
-						AiResultType.COACH.name(), hobbyId, pageable)
+						AiResultType.COACH.name(), hobbyId, scanPageable)
 				: aiResultRepository.findByUserIdAndResultTypeOrderByCreatedAtDesc(userId, AiResultType.COACH.name(),
-						pageable);
-		long totalCount = hobbyId != null
-				? aiResultRepository.countByUserIdAndResultTypeAndHobbyId(userId, AiResultType.COACH.name(), hobbyId)
-				: aiResultRepository.countByUserIdAndResultType(userId, AiResultType.COACH.name());
-		return new AiCoachHistoryResponse(results.stream().map(r -> toResponse(r, true, userId)).toList(), totalCount);
+						scanPageable);
+
+		String needle = q == null ? null : q.trim().toLowerCase();
+		List<AiResult> filtered = scanned.stream()
+				.filter(r -> from == null || !r.getCreatedAt().toLocalDate().isBefore(from))
+				.filter(r -> to == null || !r.getCreatedAt().toLocalDate().isAfter(to))
+				.filter(r -> needle == null || needle.isBlank() || matchesQuery(readJson(r.getResult()), needle))
+				.toList();
+
+		long totalCount = filtered.size();
+		List<AiResult> pageItems = filtered.stream().skip((long) page * size).limit(size).toList();
+
+		Map<Long, String> hobbyNames = hobbyRepository.findByUserIdOrderByIdAsc(userId).stream()
+				.collect(java.util.stream.Collectors.toMap(Hobby::getId, Hobby::getName));
+
+		List<com.growit.ai.dto.AiCoachListItemResponse> items = pageItems.stream()
+				.map(r -> toListItem(r, userId, hobbyNames)).toList();
+		return new AiCoachListResponse(items, totalCount);
+	}
+
+	private boolean matchesQuery(StoredCoachResult stored, String needle) {
+		List<String> haystack = new ArrayList<>();
+		haystack.add(stored.periodSummary());
+		stored.changes().forEach(item -> haystack.add(item.text()));
+		stored.repeatedDifficulties().forEach(item -> haystack.add(item.text()));
+		addActionText(haystack, stored.nextAction());
+		addActionText(haystack, stored.comebackAction());
+		addActionText(haystack, stored.simplifiedAction());
+		return haystack.stream().filter(java.util.Objects::nonNull)
+				.anyMatch(text -> text.toLowerCase().contains(needle));
+	}
+
+	private void addActionText(List<String> haystack, StoredCoachAction action) {
+		if (action == null) {
+			return;
+		}
+		haystack.add(action.title());
+		haystack.add(action.reason());
+	}
+
+	private com.growit.ai.dto.AiCoachListItemResponse toListItem(AiResult result, Long userId,
+			Map<Long, String> hobbyNames) {
+		StoredCoachResult stored = readJson(result.getResult());
+		boolean nextIsActive = stored.nextAction() != null;
+		StoredCoachAction currentAction = nextIsActive
+				? (stored.simplifiedAction() != null ? stored.simplifiedAction() : stored.nextAction())
+				: (stored.simplifiedAction() != null ? stored.simplifiedAction() : stored.comebackAction());
+		String summary = stored.periodSummary() == null ? null
+				: stored.periodSummary().substring(0, Math.min(100, stored.periodSummary().length()));
+		return new com.growit.ai.dto.AiCoachListItemResponse(
+				result.getId(),
+				result.getCreatedAt(),
+				result.getStartDate(),
+				result.getEndDate(),
+				result.getHobbyId(),
+				hobbyNames.getOrDefault(result.getHobbyId(), "분야"),
+				summary,
+				currentAction == null ? null : currentAction.title(),
+				result.isAuto(),
+				result.isAuto() && result.getViewedAt() == null,
+				result.getFeedback(),
+				result.getReaction());
 	}
 
 	/**

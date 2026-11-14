@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { AppLayout } from './components/AppLayout'
 import { GuestRoute } from './components/GuestRoute'
 import { OnboardingRoute } from './components/OnboardingRoute'
@@ -7,8 +7,6 @@ import { ReviewSectionLayout } from './components/ReviewSectionLayout'
 import { SettingsLayout } from './components/SettingsLayout'
 import { AuthCallbackPage } from './pages/AuthCallbackPage'
 import { ChangesPage } from './pages/ChangesPage'
-import { CoachHistoryDetailPage } from './pages/CoachHistoryDetailPage'
-import { CoachHistoryPage } from './pages/CoachHistoryPage'
 import { CoachPage } from './pages/CoachPage'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
@@ -26,6 +24,12 @@ import { DeleteAccountPage } from './pages/settings/DeleteAccountPage'
 import { HobbiesPage } from './pages/settings/HobbiesPage'
 import { NotificationsPage } from './pages/settings/NotificationsPage'
 import { PasswordPage } from './pages/settings/PasswordPage'
+
+/** 예전 회고 상세 주소(/coach/history/:id)를 새 통합 화면(/coach?r=<id>)으로 보낸다. */
+function CoachHistoryDetailRedirect() {
+  const { id } = useParams()
+  return <Navigate to={`/coach?r=${id}`} replace />
+}
 
 function App() {
   return (
@@ -69,8 +73,8 @@ function App() {
           <Route path="/changes" element={<ChangesPage />} />
           <Route path="/coach" element={<CoachPage />} />
         </Route>
-        <Route path="/coach/history" element={<CoachHistoryPage />} />
-        <Route path="/coach/history/:id" element={<CoachHistoryDetailPage />} />
+        <Route path="/coach/history" element={<Navigate to="/coach" replace />} />
+        <Route path="/coach/history/:id" element={<CoachHistoryDetailRedirect />} />
         <Route path="/changes/metrics" element={<Navigate to="/changes" replace />} />
         <Route path="/weeks/:weekStart" element={<WeekDetailPage />} />
         <Route path="/records/new" element={<RecordNewPage />} />

@@ -1,6 +1,6 @@
 package com.growit.ai.controller;
 
-import com.growit.ai.dto.AiCoachHistoryResponse;
+import com.growit.ai.dto.AiCoachListResponse;
 import com.growit.ai.dto.AiCoachResponse;
 import com.growit.ai.dto.AiResultFeedbackRequest;
 import com.growit.ai.dto.AiResultReactionRequest;
@@ -63,15 +63,34 @@ public class AiResultController {
 		this.currentUserProvider = currentUserProvider;
 	}
 
-	@Operation(summary = "이전 결과 목록 (최신순, 내 것만, 지금은 COACH만 지원)")
+	/** q는 1~50자, from·to는 YYYY-MM-DD(생성일, Asia/Seoul 기준, 포함)만 받는다. */
+	@Operation(summary = "이전 결과 목록 (검색·날짜 필터, 최신순, 내 것만, 지금은 COACH만 지원)")
 	@GetMapping
-	public AiCoachHistoryResponse list(@RequestParam String type, @RequestParam(required = false) Long hobbyId,
-			@RequestParam(required = false) Integer page, @RequestParam(required = false) Integer size) {
+	public AiCoachListResponse list(@RequestParam String type, @RequestParam(required = false) Long hobbyId,
+			@RequestParam(required = false) String q, @RequestParam(required = false) String from,
+			@RequestParam(required = false) String to, @RequestParam(required = false) Integer page,
+			@RequestParam(required = false) Integer size) {
 		if (!AiResultType.COACH.name().equals(type)) {
 			throw new ApiException(ErrorCode.VALIDATION_ERROR, "type은 COACH만 지원해요");
 		}
-		return coachService.history(currentUserProvider.getCurrentUserId(), hobbyId, page == null ? 0 : page,
-				size == null ? 20 : size);
+		if (q != null && (q.isBlank() || q.length() > 50)) {
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, "q는 1~50자여야 해요");
+		}
+		java.time.LocalDate fromDate = parseDate(from, "from");
+		java.time.LocalDate toDate = parseDate(to, "to");
+		return coachService.search(currentUserProvider.getCurrentUserId(), hobbyId, q, fromDate, toDate,
+				page == null ? 0 : page, size == null ? 20 : size);
+	}
+
+	private java.time.LocalDate parseDate(String value, String fieldName) {
+		if (value == null) {
+			return null;
+		}
+		try {
+			return java.time.LocalDate.parse(value);
+		} catch (java.time.format.DateTimeParseException e) {
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, fieldName + "는 YYYY-MM-DD 형식이어야 해요");
+		}
 	}
 
 	@Operation(summary = "가장 최근 COACH 결과 (없으면 204)")

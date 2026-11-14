@@ -239,23 +239,127 @@ class CoachServiceTest {
 		assertThat(response.reaction()).isEqualTo("TRIED");
 	}
 
+	private AiResult saveCoachResult(Long userId, Long hobbyId, String periodSummary, String nextActionTitle,
+			String salt) {
+		String next = nextActionTitle == null ? "null"
+				: "{\"title\":\"" + nextActionTitle + "\",\"minutes\":10,\"reason\":\"이유\",\"recordIds\":[]}";
+		return aiResultRepository.save(new AiResult(userId, hobbyId, "COACH", LocalDate.now(), LocalDate.now(),
+				"{\"mode\":\"NORMAL\",\"periodSummary\":\"" + periodSummary + "\",\"changes\":[],"
+						+ "\"repeatedDifficulties\":[],\"nextAction\":" + next + ",\"comebackAction\":null,"
+						+ "\"recordsRead\":5}",
+				"[]", salt.repeat(64)));
+	}
+
 	@Test
-	void history_ownResultsOnly_newestFirst() {
+	void search_ownResultsOnly_newestFirst() {
 		Long hobbyId = createHobby(1L);
-		AiResult older = aiResultRepository.save(new AiResult(1L, hobbyId, "COACH", LocalDate.now(), LocalDate.now(),
-				"{\"mode\":\"NORMAL\",\"periodSummary\":\"첫 회고\",\"changes\":[],\"repeatedDifficulties\":[],"
-						+ "\"nextAction\":null,\"comebackAction\":null,\"recordsRead\":5}",
-				"[]", "d".repeat(64)));
-		aiResultRepository.save(new AiResult(2L, hobbyId, "COACH", LocalDate.now(), LocalDate.now(),
-				"{\"mode\":\"NORMAL\",\"periodSummary\":\"남의 회고\",\"changes\":[],\"repeatedDifficulties\":[],"
-						+ "\"nextAction\":null,\"comebackAction\":null,\"recordsRead\":5}",
-				"[]", "e".repeat(64)));
+		AiResult older = saveCoachResult(1L, hobbyId, "첫 회고", null, "d");
+		saveCoachResult(2L, hobbyId, "남의 회고", null, "e");
 
-		var history = service(enabledProperties()).history(1L, null, 0, 20);
+		var result = service(enabledProperties()).search(1L, null, null, null, null, 0, 20);
 
-		assertThat(history.items()).hasSize(1);
-		assertThat(history.totalCount()).isEqualTo(1);
-		assertThat(history.items().get(0).id()).isEqualTo(older.getId());
+		assertThat(result.items()).hasSize(1);
+		assertThat(result.totalCount()).isEqualTo(1);
+		assertThat(result.items().get(0).id()).isEqualTo(older.getId());
+	}
+
+	@Test
+	void search_byQuery_matchesPeriodSummaryCaseInsensitive() {
+		Long hobbyId = createHobby(1L);
+		AiResult matching = saveCoachResult(1L, hobbyId, "기록상 꾸준히 Piano 연습했어요", null, "f");
+		saveCoachResult(1L, hobbyId, "기록상 그림을 그렸어요", null, "g");
+
+		var result = service(enabledProperties()).search(1L, null, "piano", null, null, 0, 20);
+
+		assertThat(result.items()).hasSize(1);
+		assertThat(result.items().get(0).id()).isEqualTo(matching.getId());
+	}
+
+	@Test
+	void search_byQuery_matchesNextActionTitle() {
+		Long hobbyId = createHobby(1L);
+		AiResult matching = saveCoachResult(1L, hobbyId, "요약", "10분 스트레칭하기", "h");
+		saveCoachResult(1L, hobbyId, "요약2", "책 한 쪽 읽기", "i");
+
+		var result = service(enabledProperties()).search(1L, null, "스트레칭", null, null, 0, 20);
+
+		assertThat(result.items()).hasSize(1);
+		assertThat(result.items().get(0).id()).isEqualTo(matching.getId());
+	}
+
+	@Test
+	void search_byQuery_noMatch_returnsEmpty() {
+		Long hobbyId = createHobby(1L);
+		saveCoachResult(1L, hobbyId, "기록상 꾸준했어요", null, "j");
+
+		var result = service(enabledProperties()).search(1L, null, "존재하지않는검색어", null, null, 0, 20);
+
+		assertThat(result.items()).isEmpty();
+		assertThat(result.totalCount()).isEqualTo(0);
+	}
+
+	@Test
+	void search_byQuery_specialCharactersDoNotThrow() {
+		Long hobbyId = createHobby(1L);
+		saveCoachResult(1L, hobbyId, "기록상 꾸준했어요", null, "k");
+
+		var result = service(enabledProperties()).search(1L, null, "100%_test", null, null, 0, 20);
+
+		assertThat(result.items()).isEmpty();
+	}
+
+	@Test
+	void search_byDateRange_boundaryInclusive() {
+		Long hobbyId = createHobby(1L);
+		AiResult result1 = saveCoachResult(1L, hobbyId, "요약1", null, "l");
+		LocalDate createdDate = result1.getCreatedAt().toLocalDate();
+
+		var inRange = service(enabledProperties()).search(1L, null, null, createdDate, createdDate, 0, 20);
+		assertThat(inRange.items()).hasSize(1);
+
+		var beforeRange = service(enabledProperties()).search(1L, null, null, createdDate.plusDays(1), null, 0, 20);
+		assertThat(beforeRange.items()).isEmpty();
+
+		var afterRange = service(enabledProperties()).search(1L, null, null, null, createdDate.minusDays(1), 0, 20);
+		assertThat(afterRange.items()).isEmpty();
+	}
+
+	@Test
+	void search_byHobbyId_filtersToThatHobbyOnly() {
+		Long hobbyA = createHobby(1L);
+		Long hobbyB = hobbyRepository.save(new Hobby(1L, "다른 분야", null)).getId();
+		AiResult inA = saveCoachResult(1L, hobbyA, "A 분야 요약", null, "m");
+		saveCoachResult(1L, hobbyB, "B 분야 요약", null, "n");
+
+		var result = service(enabledProperties()).search(1L, hobbyA, null, null, null, 0, 20);
+
+		assertThat(result.items()).hasSize(1);
+		assertThat(result.items().get(0).id()).isEqualTo(inA.getId());
+		assertThat(result.items().get(0).hobbyName()).isEqualTo("기타");
+	}
+
+	@Test
+	void search_pagination_splitsAcrossPages() {
+		Long hobbyId = createHobby(1L);
+		for (int i = 0; i < 5; i++) {
+			saveCoachResult(1L, hobbyId, "요약" + i, null, String.valueOf((char) ('o' + i)));
+		}
+
+		var firstPage = service(enabledProperties()).search(1L, null, null, null, null, 0, 2);
+		var secondPage = service(enabledProperties()).search(1L, null, null, null, null, 1, 2);
+
+		assertThat(firstPage.items()).hasSize(2);
+		assertThat(secondPage.items()).hasSize(2);
+		assertThat(firstPage.totalCount()).isEqualTo(5);
+		assertThat(firstPage.items().get(0).id()).isNotEqualTo(secondPage.items().get(0).id());
+	}
+
+	@Test
+	void search_noResults_returnsEmptyWithZeroTotal() {
+		var result = service(enabledProperties()).search(1L, null, null, null, null, 0, 20);
+
+		assertThat(result.items()).isEmpty();
+		assertThat(result.totalCount()).isEqualTo(0);
 	}
 
 	private AiResult saveCoachResultWithNextAction(Long userId, Long hobbyId, List<Long> evidenceIds) {
