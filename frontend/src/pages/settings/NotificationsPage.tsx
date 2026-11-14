@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Note } from '../../components/Note'
+import { SettingsPage, SettingsRow } from '../../components/PageLayout'
 import { Switch } from '../../components/Switch'
 import { InfoIcon } from '../../components/icons'
 import { ApiError } from '../../lib/api'
@@ -122,17 +123,12 @@ export function NotificationsPage() {
 
   if (!settings.enabled) {
     return (
-      <div className="flex flex-col gap-5 lg:mx-auto lg:max-w-[45rem]">
-        <nav aria-label="현재 위치" className="hidden items-center gap-1.5 text-caption-min text-ink-3 lg:flex">
-          <span>설정</span>
-          <span aria-hidden="true">›</span>
-          <span>알림 설정</span>
-        </nav>
+      <SettingsPage title="알림 설정">
         <div className="flex flex-col items-start gap-4 pt-6">
           <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[color-mix(in_srgb,var(--color-base)_12%,white)] text-base-ink">
             <InfoIcon width={28} height={28} />
           </span>
-          <h1 className="text-page-title">알림을 받아 볼까요?</h1>
+          <p className="text-card-title">알림을 받아 볼까요?</p>
           <p className="text-body-min text-ink-2">하루 한 번, 정한 시간에만 알려요. 안 쓴 날을 알려주는 알림은 보내지 않아요.</p>
 
           {permissionState === 'denied' ? (
@@ -153,46 +149,46 @@ export function NotificationsPage() {
             알림 받기
           </button>
         </div>
-      </div>
+      </SettingsPage>
     )
   }
 
   return (
-    <div className="flex flex-col gap-6 lg:mx-auto lg:max-w-[45rem]">
-      <nav aria-label="현재 위치" className="hidden items-center gap-1.5 text-caption-min text-ink-3 lg:flex">
-        <span>설정</span>
-        <span aria-hidden="true">›</span>
-        <span>알림 설정</span>
-      </nav>
-      <h1 className="text-page-title">알림 설정</h1>
+    <SettingsPage title="알림 설정">
+      <div className="flex flex-col">
+        <SettingsRow label="알림 받기">
+          <Switch checked={settings.enabled} onChange={handleDisableAll} label="알림 받기" />
+        </SettingsRow>
 
-      <div className="flex flex-col gap-3.5">
-        <h2 className="text-card-title">몇 시에 알려드릴까요?</h2>
-        <div className="flex flex-wrap gap-2">
-          {PRESETS.map((preset) => (
-            <button
-              key={preset.time}
-              type="button"
-              aria-pressed={settings.timeOfDay === preset.time}
-              onClick={() => save({ timeOfDay: preset.time })}
-              className={pickClass(settings.timeOfDay === preset.time)}
-            >
-              {preset.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2.5">
-          <label htmlFor="exact-time" className="text-sm text-ink-2">
-            정확한 시간
-          </label>
-          <input
-            id="exact-time"
-            type="time"
-            value={settings.timeOfDay}
-            onChange={(event) => save({ timeOfDay: event.target.value })}
-            className="h-11 w-[8.75rem] rounded-lg border border-input bg-white px-3 text-body-min text-ink outline-none focus:border-base"
-          />
-        </div>
+        <SettingsRow label="몇 시에 알려드릴까요?">
+          <div className="flex flex-col items-start gap-2.5 lg:items-end">
+            <div className="flex flex-wrap gap-2 lg:justify-end">
+              {PRESETS.map((preset) => (
+                <button
+                  key={preset.time}
+                  type="button"
+                  aria-pressed={settings.timeOfDay === preset.time}
+                  onClick={() => save({ timeOfDay: preset.time })}
+                  className={pickClass(settings.timeOfDay === preset.time)}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2.5">
+              <label htmlFor="exact-time" className="text-sm text-ink-2">
+                정확한 시간
+              </label>
+              <input
+                id="exact-time"
+                type="time"
+                value={settings.timeOfDay}
+                onChange={(event) => save({ timeOfDay: event.target.value })}
+                className="h-11 w-[8.75rem] rounded-lg border border-input bg-white px-3 text-body-min text-ink outline-none focus:border-base"
+              />
+            </div>
+          </div>
+        </SettingsRow>
       </div>
 
       <button
@@ -270,6 +266,6 @@ export function NotificationsPage() {
         <Note variant="sand">브라우저 알림 권한이 꺼져 있어요. 브라우저 설정에서 이 사이트의 알림을 허용해 주세요.</Note>
       ) : null}
       {testMessage ? <Note variant="calm">{testMessage}</Note> : null}
-    </div>
+    </SettingsPage>
   )
 }

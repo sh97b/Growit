@@ -4,8 +4,8 @@ import { CONTACT_EMAIL } from '../config'
 export function PrivacyPage() {
   return (
     <div className="app-shell-container flex flex-col gap-6 py-10">
-      {/* LAYOUT-V2: 본문을 80rem 컨테이너 안의 8열(약 53rem)에 왼쪽 정렬한다(가운데 좁은 칼럼 금지). */}
-      <div className="flex w-full max-w-[53rem] flex-col gap-6">
+      {/* L3: 가독성을 위해 본문 폭을 46rem으로 좁힌다(왼쪽 정렬 유지, 가운데 좁은 칼럼 금지). */}
+      <div className="flex w-full max-w-[46rem] flex-col gap-6">
       <Link to="/" className="text-sm font-medium text-base-ink no-underline">
         ← Growit으로 가기
       </Link>

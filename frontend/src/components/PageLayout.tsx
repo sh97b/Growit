@@ -56,14 +56,51 @@ export function Full({ children, className = '' }: { children: ReactNode; classN
 
 type SettingsShellProps = { menu: ReactNode; content: ReactNode }
 
-/** 설정 계열(왼쪽 메뉴 3열 : 오른쪽 내용 9열, 내용은 최대 46rem 왼쪽 정렬). 모바일은 menu만 보인다. */
+/** 설정 계열(왼쪽 메뉴 3열 : 오른쪽 내용 9열, 내용은 최대 56rem 왼쪽 정렬). 모바일은 menu만 보인다. */
 export function SettingsShell({ menu, content }: SettingsShellProps) {
   return (
     <div className={[GRID_BASE, 'flex flex-col gap-5 lg:h-full'].join(' ')}>
       <div className={['flex min-w-0 flex-col gap-1 lg:col-span-3', SIDE_STICKY].join(' ')}>{menu}</div>
       <div className="flex min-w-0 flex-col gap-5 lg:col-span-9">
-        <div className="flex w-full max-w-[46rem] flex-col gap-5">{content}</div>
+        <div className="flex w-full max-w-[56rem] flex-col gap-5">{content}</div>
       </div>
+    </div>
+  )
+}
+
+type SettingsPageProps = { title: string; description?: ReactNode; children: ReactNode }
+
+/**
+ * 모든 설정 하위 화면(활동 분야 관리·AI 정리·알림 설정·비밀번호 바꾸기·계정 삭제)이 공유하는
+ * 브레드크럼·제목 구조(L3). 화면마다 제각각 작성돼 있던 것을 하나로 모아, 어떤 설정 화면에서도
+ * 왼쪽 시작 x와 위쪽 y가 활동 분야 관리와 똑같이 맞게 한다.
+ */
+export function SettingsPage({ title, description, children }: SettingsPageProps) {
+  return (
+    <div className="flex flex-col gap-5">
+      <nav aria-label="현재 위치" className="hidden items-center gap-1.5 text-caption-min text-ink-3 lg:flex">
+        <span>설정</span>
+        <span aria-hidden="true">›</span>
+        <span>{title}</span>
+      </nav>
+      <h1 className="text-page-title">{title}</h1>
+      {description ? <p className="text-body-min text-ink-2">{description}</p> : null}
+      {children}
+    </div>
+  )
+}
+
+type SettingsRowProps = { label: string; description?: ReactNode; children: ReactNode }
+
+/** 설정 내용의 "행" 구조(L3) — 왼쪽 라벨·보조 설명, 오른쪽 조작 부품, 행 사이는 연한 구분선. */
+export function SettingsRow({ label, description, children }: SettingsRowProps) {
+  return (
+    <div className="flex flex-col gap-3 border-t border-line py-5 first:border-t-0 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+      <div className="flex flex-col gap-1">
+        <span className="text-card-title">{label}</span>
+        {description ? <span className="text-caption-min text-ink-2">{description}</span> : null}
+      </div>
+      <div className="flex flex-none flex-col gap-2 lg:items-end">{children}</div>
     </div>
   )
 }

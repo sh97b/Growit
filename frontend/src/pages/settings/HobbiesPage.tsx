@@ -4,6 +4,7 @@ import { Field } from '../../components/Field'
 import { Input } from '../../components/Input'
 import { Loading } from '../../components/Loading'
 import { Note } from '../../components/Note'
+import { SettingsPage } from '../../components/PageLayout'
 import { ApiError } from '../../lib/api'
 import type { Hobby } from '../../lib/hobbies'
 import { useCreateHobby, useHobbies, useUpdateHobby } from '../../hooks/useHobbies'
@@ -158,20 +159,13 @@ export function HobbiesPage() {
   )
 
   return (
-    <div className="flex flex-col gap-4 lg:gap-5">
-      <nav aria-label="현재 위치" className="hidden items-center gap-1.5 text-caption-min text-ink-3 lg:flex">
-        <span>설정</span>
-        <span aria-hidden="true">›</span>
-        <span>활동 분야 관리</span>
-      </nav>
-      <h1 className="text-page-title">활동 분야 관리</h1>
-
+    <SettingsPage title="활동 분야 관리">
       {errorMessage ? <Note variant="sand">{errorMessage}</Note> : null}
 
       <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[7fr_4fr] lg:items-start lg:gap-20">
         <div className="flex flex-col gap-6">{listSection}</div>
         {addForm}
       </div>
-    </div>
+    </SettingsPage>
   )
 }

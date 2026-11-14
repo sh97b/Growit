@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Button } from '../../components/Button'
 import { Note } from '../../components/Note'
+import { SettingsPage } from '../../components/PageLayout'
 import { PasswordChecklist } from '../../components/PasswordChecklist'
 import { PasswordField } from '../../components/PasswordField'
 import { ApiError } from '../../lib/api'
@@ -40,17 +41,10 @@ export function PasswordPage() {
   }
 
   return (
-    <div className="flex flex-col gap-5 lg:mx-auto lg:max-w-[45rem]">
-      <nav aria-label="현재 위치" className="hidden items-center gap-1.5 text-caption-min text-ink-3 lg:flex">
-        <span>설정</span>
-        <span aria-hidden="true">›</span>
-        <span>비밀번호 바꾸기</span>
-      </nav>
-      <h1 className="text-page-title">비밀번호 바꾸기</h1>
-
+    <SettingsPage title="비밀번호 바꾸기">
       {done ? <Note variant="calm">바꿨어요</Note> : null}
 
-      <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
+      <form className="flex flex-col gap-4 lg:max-w-[22rem]" onSubmit={handleSubmit} noValidate>
         <PasswordField
           id="current-password"
           label="현재 비밀번호"
@@ -90,6 +84,6 @@ export function PasswordPage() {
           {mutation.isPending ? '바꾸는 중이에요' : '바꾸기'}
         </Button>
       </form>
-    </div>
+    </SettingsPage>
   )
 }

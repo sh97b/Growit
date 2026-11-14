@@ -5,6 +5,7 @@ import { Button } from '../../components/Button'
 import { Field } from '../../components/Field'
 import { Input } from '../../components/Input'
 import { Note } from '../../components/Note'
+import { SettingsPage } from '../../components/PageLayout'
 import { PasswordField } from '../../components/PasswordField'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { ApiError } from '../../lib/api'
@@ -46,20 +47,13 @@ export function DeleteAccountPage() {
   }
 
   return (
-    <div className="flex flex-col gap-5 lg:mx-auto lg:max-w-[45rem]">
-      <nav aria-label="현재 위치" className="hidden items-center gap-1.5 text-caption-min text-ink-3 lg:flex">
-        <span>설정</span>
-        <span aria-hidden="true">›</span>
-        <span>계정 삭제</span>
-      </nav>
-      <h1 className="text-page-title">계정 삭제</h1>
-
+    <SettingsPage title="계정 삭제">
       <Note variant="sand">
         계정을 삭제하면 활동 분야, 기록, AI 정리·변화·회고 결과가 모두 사라져요. 되돌릴 수 없어요.
       </Note>
 
       {!confirming ? (
-        <form className="flex flex-col gap-4" onSubmit={handleFirstSubmit} noValidate>
+        <form className="flex flex-col gap-4 lg:max-w-[22rem]" onSubmit={handleFirstSubmit} noValidate>
           {isSocialAccount ? (
             <Field label={`확인을 위해 "${CONFIRMATION_TEXT}"를 입력해 주세요`} htmlFor="delete-confirmation">
               <Input
@@ -104,6 +98,6 @@ export function DeleteAccountPage() {
           {mutation.error instanceof ApiError ? mutation.error.message : '잠시 후 다시 시도해 주세요'}
         </Note>
       ) : null}
-    </div>
+    </SettingsPage>
   )
 }
