@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { Button } from '../../components/Button'
+import { Card } from '../../components/Card'
 import { Field } from '../../components/Field'
 import { Input } from '../../components/Input'
 import { Note } from '../../components/Note'
@@ -14,6 +15,8 @@ import { resetSessionState } from '../../lib/sessionReset'
 import { deleteAccount, deleteSocialAccount } from '../../lib/users'
 
 const CONFIRMATION_TEXT = '계정 삭제'
+
+const DELETED_ITEMS = ['활동 분야', '기록', 'AI 정리·변화·회고 결과', '알림 구독', '소셜 연결']
 
 export function DeleteAccountPage() {
   const navigate = useNavigate()
@@ -48,56 +51,67 @@ export function DeleteAccountPage() {
 
   return (
     <SettingsPage title="계정 삭제">
-      <Note variant="sand">
-        계정을 삭제하면 활동 분야, 기록, AI 정리·변화·회고 결과가 모두 사라져요. 되돌릴 수 없어요.
-      </Note>
-
-      {!confirming ? (
-        <form className="flex flex-col gap-4 lg:max-w-[22rem]" onSubmit={handleFirstSubmit} noValidate>
-          {isSocialAccount ? (
-            <Field label={`확인을 위해 "${CONFIRMATION_TEXT}"를 입력해 주세요`} htmlFor="delete-confirmation">
-              <Input
-                id="delete-confirmation"
-                value={confirmationInput}
-                onChange={(event) => setConfirmationInput(event.target.value)}
-              />
-            </Field>
-          ) : (
-            <PasswordField
-              id="delete-password"
-              label="비밀번호"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              autoComplete="current-password"
-            />
-          )}
-          <Button type="submit" variant="secondary" block disabled={!readyForFirstSubmit}>
-            계정 삭제 계속하기
-          </Button>
-        </form>
-      ) : (
-        <div className="flex flex-col gap-3">
+      <Card className="lg:max-w-[56rem]">
+        <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-10">
           <Note variant="sand">
-            <div className="flex flex-col gap-3">
-              <p>정말로 계정을 삭제할까요? 지운 뒤에는 되돌릴 수 없어요.</p>
-              <div className="flex gap-2">
-                <Button type="button" variant="secondary" size="sm" onClick={() => setConfirming(false)}>
-                  취소
-                </Button>
-                <Button type="button" size="sm" disabled={mutation.isPending} onClick={handleConfirm}>
-                  {mutation.isPending ? '삭제하는 중이에요' : '삭제하기'}
-                </Button>
-              </div>
+            <div className="flex flex-col gap-2">
+              <p>계정을 삭제하면 아래 내용이 모두 사라져요. 되돌릴 수 없어요.</p>
+              <ul className="flex flex-col gap-1 pl-4 text-sm" style={{ listStyleType: 'disc' }}>
+                {DELETED_ITEMS.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
             </div>
           </Note>
-        </div>
-      )}
 
-      {mutation.isError ? (
-        <Note variant="sand">
-          {mutation.error instanceof ApiError ? mutation.error.message : '잠시 후 다시 시도해 주세요'}
-        </Note>
-      ) : null}
+          <div className="flex flex-col gap-4">
+            {!confirming ? (
+              <form className="flex flex-col gap-4" onSubmit={handleFirstSubmit} noValidate>
+                {isSocialAccount ? (
+                  <Field label={`확인을 위해 "${CONFIRMATION_TEXT}"를 입력해 주세요`} htmlFor="delete-confirmation">
+                    <Input
+                      id="delete-confirmation"
+                      value={confirmationInput}
+                      onChange={(event) => setConfirmationInput(event.target.value)}
+                    />
+                  </Field>
+                ) : (
+                  <PasswordField
+                    id="delete-password"
+                    label="비밀번호"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    autoComplete="current-password"
+                  />
+                )}
+                <Button type="submit" variant="secondary" block disabled={!readyForFirstSubmit}>
+                  계정 삭제 계속하기
+                </Button>
+              </form>
+            ) : (
+              <Note variant="sand">
+                <div className="flex flex-col gap-3">
+                  <p>정말로 계정을 삭제할까요? 지운 뒤에는 되돌릴 수 없어요.</p>
+                  <div className="flex gap-2">
+                    <Button type="button" variant="secondary" size="sm" onClick={() => setConfirming(false)}>
+                      취소
+                    </Button>
+                    <Button type="button" size="sm" disabled={mutation.isPending} onClick={handleConfirm}>
+                      {mutation.isPending ? '삭제하는 중이에요' : '삭제하기'}
+                    </Button>
+                  </div>
+                </div>
+              </Note>
+            )}
+
+            {mutation.isError ? (
+              <Note variant="sand">
+                {mutation.error instanceof ApiError ? mutation.error.message : '잠시 후 다시 시도해 주세요'}
+              </Note>
+            ) : null}
+          </div>
+        </div>
+      </Card>
     </SettingsPage>
   )
 }
