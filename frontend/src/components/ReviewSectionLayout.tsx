@@ -2,7 +2,6 @@ import { Link, Outlet, useLocation } from 'react-router-dom'
 import { ReviewTabs } from './ReviewTabs'
 
 const SECONDARY_LINKS: Record<string, { to: string; label: string }> = {
-  '/changes': { to: '/changes/metrics', label: '변화 지표 상세 보기' },
   '/coach': { to: '/coach/history', label: '이전 회고 목록' },
 }
 

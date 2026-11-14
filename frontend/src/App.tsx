@@ -12,7 +12,6 @@ import { CoachHistoryPage } from './pages/CoachHistoryPage'
 import { CoachPage } from './pages/CoachPage'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
-import { MetricsDetailPage } from './pages/MetricsDetailPage'
 import { OnboardingPage } from './pages/OnboardingPage'
 import { PrivacyPage } from './pages/PrivacyPage'
 import { RecordDetailPage } from './pages/RecordDetailPage'
@@ -72,7 +71,7 @@ function App() {
         </Route>
         <Route path="/coach/history" element={<CoachHistoryPage />} />
         <Route path="/coach/history/:id" element={<CoachHistoryDetailPage />} />
-        <Route path="/changes/metrics" element={<MetricsDetailPage />} />
+        <Route path="/changes/metrics" element={<Navigate to="/changes" replace />} />
         <Route path="/weeks/:weekStart" element={<WeekDetailPage />} />
         <Route path="/records/new" element={<RecordNewPage />} />
         <Route path="/records/:id/saved" element={<RecordSavedPage />} />

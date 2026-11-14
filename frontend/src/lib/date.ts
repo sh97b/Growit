@@ -60,3 +60,10 @@ export function startOfWeekLocal(date: Date): string {
   monday.setDate(monday.getDate() + diffToMonday)
   return formatLocalDate(monday)
 }
+
+export function addWeeks(weekStart: string, amount: number): string {
+  const [year, month, day] = weekStart.split('-').map(Number)
+  const date = new Date(year, month - 1, day)
+  date.setDate(date.getDate() + amount * 7)
+  return formatLocalDate(date)
+}

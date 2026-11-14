@@ -1,25 +1,46 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AiLabel } from '../components/AiLabel'
+import { AiViewCard } from '../components/AiViewCard'
+import { ChevronRightIcon } from '../components/icons'
 import { EvidenceChip } from '../components/EvidenceChip'
 import { FeedbackRow } from '../components/FeedbackRow'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
-import { Full, PageHeader } from '../components/PageLayout'
+import { PageHeader, Split } from '../components/PageLayout'
 import { RecordPairCards } from '../components/RecordPairCards'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useHobbies } from '../hooks/useHobbies'
 import { ApiError } from '../lib/api'
-import { fetchCompare, submitAiResultFeedback, type CompareResult, type CompareTo } from '../lib/ai'
-import { formatDurationMinutes, formatMonthDay } from '../lib/date'
+import {
+  fetchCompare,
+  fetchMetricsInterpretation,
+  submitAiResultFeedback,
+  type AiViewResult,
+  type CompareResult,
+  type CompareTo,
+} from '../lib/ai'
+import { addWeeks, formatDurationMinutes, formatMonthDay, startOfWeekLocal, todayLocalDate } from '../lib/date'
 import { pickClass } from '../lib/recordForm'
+import { fetchWeeks, type WeekSummary } from '../lib/stats'
 
 const PERIODS: { value: CompareTo; label: string }[] = [
   { value: '1W', label: '1주 전' },
   { value: '2W', label: '2주 전' },
   { value: '1M', label: '한 달 전' },
   { value: '3M', label: '3개월 전' },
+]
+
+const WEEK_COUNT = 12
+const CHART_HEIGHT = 108
+
+type Metric = 'days' | 'minutes' | 'tags'
+
+const METRIC_TABS: { value: Metric; label: string }[] = [
+  { value: 'days', label: '기록한 날' },
+  { value: 'minutes', label: '시간' },
+  { value: 'tags', label: '태그' },
 ]
 
 export function ChangesPage() {
@@ -29,6 +50,9 @@ export function ChangesPage() {
   const [compareTo, setCompareTo] = useState<CompareTo>('1M')
   const [result, setResult] = useState<CompareResult | null>(null)
   const [feedbackError, setFeedbackError] = useState<string | null>(null)
+  const [metric, setMetric] = useState<Metric>('days')
+  const [selectedWeekStart, setSelectedWeekStart] = useState<string | null>(null)
+  const queryClient = useQueryClient()
 
   const mutation = useMutation({
     mutationFn: () => fetchCompare({ hobbyId: effectiveHobbyId!, compareTo }),
@@ -40,14 +64,49 @@ export function ChangesPage() {
       submitAiResultFeedback<CompareResult>(id, value),
   })
 
-  if (userLoading || hobbiesLoading) {
-    return <Loading />
-  }
-
   // hobbyId가 null이거나(처음 진입) 더 이상 활성 분야 목록에 없으면(분야가 보관되는 등) 첫 활성 분야로
   // 보정한다. 화면에 보이는 선택과 요청에 실제로 쓰이는 값이 반드시 같은 값에서 나오게 한다.
   const hobby = activeHobbies?.find((h) => h.id === hobbyId) ?? activeHobbies?.[0] ?? null
   const effectiveHobbyId = hobby?.id ?? null
+
+  const currentWeekStart = startOfWeekLocal(new Date())
+  const weeksFrom = addWeeks(currentWeekStart, -(WEEK_COUNT - 1))
+  const weeksTo = todayLocalDate()
+
+  const weeksQuery = useQuery({
+    queryKey: ['stats', 'weeks', weeksFrom, weeksTo, effectiveHobbyId],
+    queryFn: () => fetchWeeks({ from: weeksFrom, to: weeksTo, hobbyId: effectiveHobbyId ?? undefined }),
+    enabled: effectiveHobbyId != null,
+  })
+
+  const weeks = weeksQuery.data ?? []
+  const metricsKey = ['ai', 'metrics', weeksFrom, weeksTo, effectiveHobbyId]
+  const metricsQuery = useQuery({
+    queryKey: metricsKey,
+    queryFn: () => fetchMetricsInterpretation({ hobbyId: effectiveHobbyId ?? undefined, from: weeksFrom, to: weeksTo }),
+    enabled: weeksQuery.isSuccess,
+    retry: false,
+  })
+
+  const maxDays = 7
+  const maxMinutes = Math.max(1, ...weeks.map((w) => w.totalMinutes))
+  const topTags = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const week of weeks) {
+      for (const tag of week.tags) {
+        counts.set(tag.tag, (counts.get(tag.tag) ?? 0) + tag.count)
+      }
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])
+  }, [weeks])
+  const selectedWeek: WeekSummary | undefined = useMemo(
+    () => weeks.find((w) => w.weekStart === (selectedWeekStart ?? weeks[weeks.length - 1]?.weekStart)),
+    [weeks, selectedWeekStart],
+  )
+
+  if (userLoading || hobbiesLoading) {
+    return <Loading />
+  }
 
   if (!currentUser?.aiEnabled) {
     return (
@@ -124,26 +183,22 @@ export function ChangesPage() {
           </button>
         ))}
       </div>
-    </>
-  )
 
-  return (
-    <Full>
-      <PageHeader title="나의 변화" />
-
-      <div className="flex flex-col gap-5 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">{selectors}</div>
-
-        {!result ? (
+      {!result ? (
         <button
           type="button"
           disabled={mutation.isPending || effectiveHobbyId == null}
           onClick={() => mutation.mutate()}
-          className="inline-flex min-h-11 w-fit items-center justify-center rounded-lg bg-base px-5 text-body-min font-medium text-white disabled:bg-line disabled:text-[#5F594F]"
+          className="inline-flex min-h-11 w-fit items-center justify-center rounded-lg bg-base px-5 text-body-min font-medium text-white disabled:bg-line disabled:text-[#5F594F] lg:ml-auto"
         >
           변화 보기
         </button>
       ) : null}
+    </>
+  )
 
+  const comparison = (
+    <div className="flex flex-col gap-5">
       {mutation.isPending ? (
         <div className="flex flex-col gap-3.5 rounded-2xl bg-surface p-7">
           <AiLabel>기록을 천천히 읽고 있어요</AiLabel>
@@ -281,6 +336,136 @@ export function ChangesPage() {
           </button>
         </div>
       ) : null}
-    </Full>
+    </div>
+  )
+
+  const selectedWeekSummary = selectedWeek ? (
+    <div className="flex flex-col gap-1.5 rounded-2xl bg-surface p-4">
+      <span className="text-sm font-semibold text-ink">
+        선택한 주 · {formatMonthDay(selectedWeek.weekStart)} – {formatMonthDay(addWeeks(selectedWeek.weekStart, 1)).replace(/^0/, '')}
+      </span>
+      <span className="tabular-nums text-sm text-ink-2">
+        기록한 날 {selectedWeek.recordedDays}일 · {formatDurationMinutes(selectedWeek.totalMinutes)}
+      </span>
+      <Link to={`/weeks/${selectedWeek.weekStart}`} className="inline-flex min-h-9 w-fit items-center gap-1 text-sm font-medium text-base-ink no-underline underline underline-offset-4">
+        주 상세 보기
+        <ChevronRightIcon width={16} height={16} />
+      </Link>
+    </div>
+  ) : null
+
+  const weeklyFlow = (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-card-title">주별 흐름</h2>
+        <div className="inline-flex rounded-lg border border-line-2 bg-white p-[0.1875rem]" role="group" aria-label="지표">
+          {METRIC_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              aria-pressed={metric === tab.value}
+              onClick={() => setMetric(tab.value)}
+              className={[
+                'min-h-9 whitespace-nowrap rounded-md px-3.5 text-sm font-medium',
+                metric === tab.value ? 'bg-ink text-white' : 'bg-transparent text-ink-2',
+              ].join(' ')}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {weeksQuery.isLoading ? <Loading /> : null}
+      {weeksQuery.isError ? (
+        <Note variant="sand">
+          {weeksQuery.error instanceof ApiError ? weeksQuery.error.message : '잠시 후 다시 시도해 주세요'}
+        </Note>
+      ) : null}
+
+      {weeks.length > 0 ? (
+        <>
+          {metric === 'tags' ? (
+            <div className="flex flex-col gap-2">
+              <span className="text-sm text-ink-2">최근 {WEEK_COUNT}주 자주 나온 주제</span>
+              {topTags.length === 0 ? (
+                <p className="py-4 text-sm text-ink-2">아직 모을 수 있는 태그가 없어요.</p>
+              ) : (
+                <div className="flex flex-col">
+                  {topTags.map(([tag, count]) => (
+                    <div key={tag} className="flex items-center justify-between gap-3 border-t border-line py-3 last:border-b">
+                      <span className="inline-flex h-7 items-center rounded-md bg-tag-topic-bg px-2.5 text-sm font-medium text-tag-topic-fg">
+                        {tag}
+                      </span>
+                      <span className="tabular-nums font-semibold">{count}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <span className="text-sm text-ink-2">
+                {metric === 'days' ? '한 주에 기록한 날 수 (0–7일)' : '한 주에 쌓인 시간'}
+              </span>
+              <div
+                role="img"
+                aria-label={`최근 ${WEEK_COUNT}주 ${metric === 'days' ? '한 주에 기록한 날 수' : '한 주에 쌓인 시간'}`}
+                className="grid items-end gap-2"
+                style={{ gridTemplateColumns: `repeat(${weeks.length}, minmax(0, 1fr))`, height: CHART_HEIGHT }}
+              >
+                {weeks.map((week) => {
+                  const ratio = metric === 'days' ? week.recordedDays / maxDays : week.totalMinutes / maxMinutes
+                  const barHeight = Math.max(3, Math.round(ratio * CHART_HEIGHT))
+                  const isSelected = week.weekStart === (selectedWeekStart ?? weeks[weeks.length - 1]?.weekStart)
+                  const valueLabel = metric === 'days' ? String(week.recordedDays) : formatDurationMinutes(week.totalMinutes)
+                  return (
+                    <button
+                      key={week.weekStart}
+                      type="button"
+                      onClick={() => setSelectedWeekStart(week.weekStart)}
+                      aria-label={`${formatMonthDay(week.weekStart)} 주, ${valueLabel}`}
+                      aria-pressed={isSelected}
+                      className="flex h-full flex-col items-center justify-end gap-1 bg-transparent p-0"
+                    >
+                      <b className="whitespace-nowrap font-sans text-caption-min font-semibold text-ink">{valueLabel}</b>
+                      <i
+                        style={{ height: barHeight }}
+                        className={['block w-full rounded-t', isSelected ? 'bg-base' : 'bg-[color-mix(in_srgb,var(--color-base)_58%,var(--color-paper))]'].join(' ')}
+                      />
+                      <span className="whitespace-nowrap text-caption-min text-ink-2">{formatMonthDay(week.weekStart)}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {selectedWeekSummary}
+
+          <AiViewCard
+            label="지표 해석"
+            question="해석이 맞나요?"
+            isLoading={metricsQuery.isLoading}
+            isError={metricsQuery.isError}
+            error={metricsQuery.error}
+            data={metricsQuery.data}
+            onRetry={() => metricsQuery.refetch()}
+            onChange={(updated: AiViewResult) => queryClient.setQueryData(metricsKey, updated)}
+            lockedNote={`기록이 있는 주가 ${metricsQuery.data?.requiredWeeks ?? 2}주 모이면 해석이 열려요 (${metricsQuery.data?.currentWeeks ?? 0}/${metricsQuery.data?.requiredWeeks ?? 2})`}
+          />
+        </>
+      ) : null}
+    </div>
+  )
+
+  return (
+    <div className="flex flex-col gap-5">
+      <PageHeader title="나의 변화" />
+
+      <div className="flex flex-col gap-5 lg:flex-row lg:flex-wrap lg:items-center">{selectors}</div>
+
+      <Split main={comparison} side={weeklyFlow} />
+    </div>
   )
 }
