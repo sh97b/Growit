@@ -32,14 +32,15 @@ public class CompareService {
 
 	private static final ZoneId SERVER_ZONE = ZoneId.of("Asia/Seoul");
 	private static final int REQUIRED_RECORD_COUNT = 3;
+	/** 과거 기록을 못 찾을 때 가장 오래된 기록으로 대신 쓰려면(pastIsOldest) 현재 기록과 최소 이만큼 떨어져 있어야 한다. */
+	private static final int MIN_OLDEST_FALLBACK_GAP_DAYS = 3;
 	private static final int CONTENT_MAX = 300;
 	private static final int DIFFICULTY_MAX = 200;
 	private static final int INTERPRETATION_MAX = 200;
 	private static final String PROMPT_RESOURCE_NAME = "ai-compare-system.txt";
-	/** prompts/ai-compare-system.txt를 바꿀 때마다 올린다. */
-	static final int PROMPT_VERSION = 2;
-	private static final Map<String, Integer> OFFSET_DAYS =
-			Map.of("1W", 7, "2W", 14, "1M", 30, "3M", 90);
+	/** prompts/ai-compare-system.txt를 바꿀 때마다, 또는 기준일 규칙처럼 저장된 결과의 모양이 바뀌면 올린다. */
+	static final int PROMPT_VERSION = 3;
+	private static final Set<String> VALID_COMPARE_TO = Set.of("1W", "2W", "1M", "3M");
 	private static final List<String> FORBIDDEN_WORDS =
 			List.of("실력", "늘었", "향상", "잘했", "훌륭", "대단", "점수", "순위");
 
@@ -67,30 +68,45 @@ public class CompareService {
 	public AiCompareResponse compare(Long userId, CompareRequest request) {
 		Hobby hobby = hobbyRepository.findByIdAndUserId(request.hobbyId(), userId)
 				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "활동 분야를 찾을 수 없어요"));
-		Integer offsetDays = OFFSET_DAYS.get(request.compareTo());
-		if (offsetDays == null) {
+		if (!VALID_COMPARE_TO.contains(request.compareTo())) {
 			throw new ApiException(ErrorCode.VALIDATION_ERROR, "compareTo 값이 올바르지 않아요");
 		}
 
 		long totalCount = activityRecordRepository.countByUserIdAndHobbyId(userId, hobby.getId());
 		if (totalCount < REQUIRED_RECORD_COUNT) {
-			return AiCompareResponse.locked(REQUIRED_RECORD_COUNT, (int) totalCount);
+			return AiCompareResponse.lockedNotEnoughRecords(REQUIRED_RECORD_COUNT, (int) totalCount);
 		}
-
-		LocalDate today = LocalDate.now(SERVER_ZONE);
-		LocalDate pastDate = today.minusDays(offsetDays);
 
 		ActivityRecord current = activityRecordRepository
 				.findFirstByUserIdAndHobbyIdOrderByRecordDateDescIdDesc(userId, hobby.getId())
 				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "기록을 찾을 수 없어요"));
+		LocalDate baseDate = current.getRecordDate();
+		LocalDate targetDate = applyOffset(baseDate, request.compareTo());
+
 		ActivityRecord past = activityRecordRepository
 				.findFirstByUserIdAndHobbyIdAndRecordDateLessThanEqualOrderByRecordDateDescIdDesc(
-						userId, hobby.getId(), pastDate)
+						userId, hobby.getId(), targetDate)
+				.filter(record -> !record.getId().equals(current.getId()))
 				.orElse(null);
 
-		if (past == null || past.getId().equals(current.getId())) {
-			return AiCompareResponse.locked(REQUIRED_RECORD_COUNT, (int) totalCount);
+		boolean pastIsOldest = false;
+		if (past == null) {
+			ActivityRecord oldest = activityRecordRepository
+					.findFirstByUserIdAndHobbyIdOrderByRecordDateAscIdAsc(userId, hobby.getId())
+					.orElse(null);
+			long gapDays = oldest == null ? 0
+					: java.time.temporal.ChronoUnit.DAYS.between(oldest.getRecordDate(), current.getRecordDate());
+			if (oldest != null && !oldest.getId().equals(current.getId()) && gapDays >= MIN_OLDEST_FALLBACK_GAP_DAYS) {
+				past = oldest;
+				pastIsOldest = true;
+			} else {
+				LocalDate oldestDate = oldest == null ? null : oldest.getRecordDate();
+				return AiCompareResponse.lockedNoPastRecord(REQUIRED_RECORD_COUNT, (int) totalCount, oldestDate,
+						current.getRecordDate());
+			}
 		}
+
+		boolean anchoredToLatest = !baseDate.equals(LocalDate.now(SERVER_ZONE));
 
 		String cacheKey = CacheKeys.sha256(PROMPT_VERSION + "|COMPARE|" + hobby.getId()
 				+ "|" + past.getId() + ":" + past.getUpdatedAt()
@@ -116,16 +132,27 @@ public class CompareService {
 		AiCallResult result = aiCallService.call(userId, AiResultType.COMPARE, systemPrompt, payload);
 		StoredCompareResult stored = validate(result.content(), past.getId(), current.getId());
 
-		CompareMetrics metrics = computeMetrics(userId, hobby.getId(), pastDate, today);
+		CompareMetrics metrics = computeMetrics(userId, hobby.getId(), past.getRecordDate(), baseDate);
 		StoredCompareResult withMetrics = new StoredCompareResult(stored.interpretation(), stored.pastRecordId(),
-				stored.currentRecordId(), metrics);
+				stored.currentRecordId(), metrics, baseDate, anchoredToLatest, pastIsOldest);
 
-		AiResult saved = new AiResult(userId, hobby.getId(), AiResultType.COMPARE.name(), pastDate, today,
-				toJson(withMetrics), toJson(List.of(past.getId(), current.getId())), cacheKey, PROMPT_VERSION,
-				result.model());
+		AiResult saved = new AiResult(userId, hobby.getId(), AiResultType.COMPARE.name(), past.getRecordDate(),
+				baseDate, toJson(withMetrics), toJson(List.of(past.getId(), current.getId())), cacheKey,
+				PROMPT_VERSION, result.model());
 		aiResultRepository.save(saved);
 
 		return toResponse(saved, false, userId, past, current);
+	}
+
+	/** 1W/2W는 일수, 1M/3M은 달력 월 단위로 뺀다(2월 같은 짧은 달을 자연스럽게 다룬다). */
+	private LocalDate applyOffset(LocalDate base, String compareTo) {
+		return switch (compareTo) {
+			case "1W" -> base.minusDays(7);
+			case "2W" -> base.minusDays(14);
+			case "1M" -> base.minusMonths(1);
+			case "3M" -> base.minusMonths(3);
+			default -> throw new ApiException(ErrorCode.VALIDATION_ERROR, "compareTo 값이 올바르지 않아요");
+		};
 	}
 
 	private ComparePayloadRecord toPayloadRecord(ActivityRecord record) {
@@ -151,7 +178,7 @@ public class CompareService {
 		Long usedPastId = containsId(node.path("pastRecordIds"), pastId, allowed) ? pastId : null;
 		Long usedCurrentId = containsId(node.path("currentRecordIds"), currentId, allowed) ? currentId : null;
 
-		return new StoredCompareResult(interpretation, usedPastId, usedCurrentId, null);
+		return new StoredCompareResult(interpretation, usedPastId, usedCurrentId, null, null, false, false);
 	}
 
 	private boolean containsId(JsonNode idsNode, long targetId, Set<Long> allowed) {
@@ -244,10 +271,10 @@ public class CompareService {
 	}
 
 	AiCompareResponse toResponse(AiResult result, boolean reused, Long userId) {
-		ActivityRecord past = activityRecordRepository.findByIdAndUserId(readJson(result.getResult()).pastRecordId(),
-				userId).orElse(null);
-		ActivityRecord current = activityRecordRepository
-				.findByIdAndUserId(readJson(result.getResult()).currentRecordId(), userId).orElse(null);
+		StoredCompareResult stored = readJson(result.getResult());
+		ActivityRecord past = activityRecordRepository.findByIdAndUserId(stored.pastRecordId(), userId).orElse(null);
+		ActivityRecord current = activityRecordRepository.findByIdAndUserId(stored.currentRecordId(), userId)
+				.orElse(null);
 		return toResponse(result, reused, userId, past, current);
 	}
 
@@ -255,12 +282,15 @@ public class CompareService {
 			ActivityRecord current) {
 		StoredCompareResult stored = readJson(result.getResult());
 		return new AiCompareResponse(
-				false, null, null,
+				false, null, null, null, null, null,
 				result.getId(),
 				result.getStartDate(),
 				result.getEndDate(),
 				result.getCreatedAt(),
 				reused,
+				stored.baseDate(),
+				stored.anchoredToLatest(),
+				stored.pastIsOldest(),
 				stored.interpretation(),
 				past == null ? null : toCard(past),
 				current == null ? null : toCard(current),

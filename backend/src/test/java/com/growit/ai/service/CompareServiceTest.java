@@ -44,7 +44,7 @@ class CompareServiceTest {
 	private AiLogRepository aiLogRepository;
 
 	private final AiChatClient aiChatClient = mock(AiChatClient.class);
-	private final ObjectMapper objectMapper = new ObjectMapper();
+	private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
 
 	private AiProperties enabledProperties() {
 		AiProperties properties = new AiProperties();
@@ -85,22 +85,145 @@ class CompareServiceTest {
 		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "2W"));
 
 		assertThat(response.locked()).isTrue();
+		assertThat(response.lockReason()).isEqualTo("NOT_ENOUGH_RECORDS");
 		assertThat(response.requiredCount()).isEqualTo(3);
 		assertThat(response.currentCount()).isEqualTo(2);
 		verifyNoInteractions(aiChatClient);
 	}
 
 	@Test
-	void compare_noPastRecordBeforeOffset_returnsLockedWithoutCallingProvider() {
+	void compare_noPastRecordAndGapTooSmall_returnsLockedWithNoPastRecordReason() {
 		Long hobbyId = createHobby(1L);
-		createRecord(1L, hobbyId, LocalDate.now().minusDays(1), "연습1");
-		createRecord(1L, hobbyId, LocalDate.now().minusDays(2), "연습2");
+		// 이틀 간격 3개: 가장 오래된 기록과 현재 기록의 간격이 3일 미만이라 대신 쓸 수 없다.
+		LocalDate oldest = LocalDate.now().minusDays(2);
+		createRecord(1L, hobbyId, oldest, "연습1");
+		createRecord(1L, hobbyId, LocalDate.now().minusDays(1), "연습2");
 		createRecord(1L, hobbyId, LocalDate.now(), "연습3");
 
 		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "3M"));
 
 		assertThat(response.locked()).isTrue();
+		assertThat(response.lockReason()).isEqualTo("NO_PAST_RECORD");
+		assertThat(response.requiredCount()).isEqualTo(3);
+		assertThat(response.currentCount()).isEqualTo(3);
+		assertThat(response.oldestRecordDate()).isEqualTo(oldest);
+		assertThat(response.latestRecordDate()).isEqualTo(LocalDate.now());
 		verifyNoInteractions(aiChatClient);
+	}
+
+	@Test
+	void compare_allSameDate_returnsLockedWithNoPastRecordReason() {
+		Long hobbyId = createHobby(1L);
+		LocalDate sameDate = LocalDate.now();
+		createRecord(1L, hobbyId, sameDate, "연습1");
+		createRecord(1L, hobbyId, sameDate, "연습2");
+		createRecord(1L, hobbyId, sameDate, "연습3");
+
+		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "1W"));
+
+		assertThat(response.locked()).isTrue();
+		assertThat(response.lockReason()).isEqualTo("NO_PAST_RECORD");
+		verifyNoInteractions(aiChatClient);
+	}
+
+	@Test
+	void compare_sixRecordsOverThreeWeeks_1W_findsRecordJustBeforeTarget() {
+		Long hobbyId = createHobby(1L);
+		LocalDate today = LocalDate.now();
+		createRecord(1L, hobbyId, today.minusDays(18), "연습1"); // 10/27 상당
+		ActivityRecord second = createRecord(1L, hobbyId, today.minusDays(16), "연습2"); // 10/29 상당
+		createRecord(1L, hobbyId, today.minusDays(14), "연습3"); // 10/31 상당
+		createRecord(1L, hobbyId, today.minusDays(11), "연습4"); // 11/3 상당
+		createRecord(1L, hobbyId, today.minusDays(10), "연습5"); // 11/4 상당
+		ActivityRecord current = createRecord(1L, hobbyId, today.minusDays(8), "연습6"); // 11/6 상당(기준일)
+
+		stubAiResponse(("{\"interpretation\":\"기록상 달라졌어요\",\"pastRecordIds\":[%d],\"currentRecordIds\":[%d]}")
+				.formatted(second.getId(), current.getId()));
+
+		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "1W"));
+
+		assertThat(response.locked()).isFalse();
+		assertThat(response.baseDate()).isEqualTo(current.getRecordDate());
+		assertThat(response.pastRecord().id()).isEqualTo(second.getId());
+		assertThat(response.currentRecord().id()).isEqualTo(current.getId());
+		assertThat(response.pastIsOldest()).isFalse();
+	}
+
+	@Test
+	void compare_sixRecordsOverThreeWeeks_2W_fallsBackToOldestRecord() {
+		Long hobbyId = createHobby(1L);
+		LocalDate today = LocalDate.now();
+		ActivityRecord oldest = createRecord(1L, hobbyId, today.minusDays(18), "연습1"); // 10/27 상당
+		createRecord(1L, hobbyId, today.minusDays(16), "연습2");
+		createRecord(1L, hobbyId, today.minusDays(14), "연습3");
+		createRecord(1L, hobbyId, today.minusDays(11), "연습4");
+		createRecord(1L, hobbyId, today.minusDays(10), "연습5");
+		ActivityRecord current = createRecord(1L, hobbyId, today.minusDays(8), "연습6");
+
+		stubAiResponse(("{\"interpretation\":\"기록상 달라졌어요\",\"pastRecordIds\":[%d],\"currentRecordIds\":[%d]}")
+				.formatted(oldest.getId(), current.getId()));
+
+		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "2W"));
+
+		assertThat(response.locked()).isFalse();
+		assertThat(response.pastIsOldest()).isTrue();
+		assertThat(response.pastRecord().id()).isEqualTo(oldest.getId());
+	}
+
+	@Test
+	void compare_sixRecordsOverThreeWeeks_1MAnd3M_fallBackToOldestRecord() {
+		Long hobbyId = createHobby(1L);
+		LocalDate today = LocalDate.now();
+		ActivityRecord oldest = createRecord(1L, hobbyId, today.minusDays(18), "연습1");
+		createRecord(1L, hobbyId, today.minusDays(16), "연습2");
+		createRecord(1L, hobbyId, today.minusDays(14), "연습3");
+		createRecord(1L, hobbyId, today.minusDays(11), "연습4");
+		createRecord(1L, hobbyId, today.minusDays(10), "연습5");
+		ActivityRecord current = createRecord(1L, hobbyId, today.minusDays(8), "연습6");
+
+		stubAiResponse(("{\"interpretation\":\"기록상 달라졌어요\",\"pastRecordIds\":[%d],\"currentRecordIds\":[%d]}")
+				.formatted(oldest.getId(), current.getId()));
+
+		AiCompareResponse oneMonth = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "1M"));
+		assertThat(oneMonth.locked()).isFalse();
+		assertThat(oneMonth.pastIsOldest()).isTrue();
+		assertThat(oneMonth.pastRecord().id()).isEqualTo(oldest.getId());
+
+		AiCompareResponse threeMonths = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "3M"));
+		assertThat(threeMonths.locked()).isFalse();
+		assertThat(threeMonths.pastIsOldest()).isTrue();
+		assertThat(threeMonths.pastRecord().id()).isEqualTo(oldest.getId());
+	}
+
+	@Test
+	void compare_currentRecordDatedToday_anchoredToLatestIsFalse() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord past = createRecord(1L, hobbyId, LocalDate.now().minusDays(20), "예전 연습");
+		createRecord(1L, hobbyId, LocalDate.now().minusDays(10), "중간 연습");
+		ActivityRecord current = createRecord(1L, hobbyId, LocalDate.now(), "최신 연습");
+
+		stubAiResponse(("{\"interpretation\":\"기록상 달라졌어요\",\"pastRecordIds\":[%d],\"currentRecordIds\":[%d]}")
+				.formatted(past.getId(), current.getId()));
+
+		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "2W"));
+
+		assertThat(response.anchoredToLatest()).isFalse();
+	}
+
+	@Test
+	void compare_currentRecordNotDatedToday_anchoredToLatestIsTrue() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord past = createRecord(1L, hobbyId, LocalDate.now().minusDays(30), "예전 연습");
+		createRecord(1L, hobbyId, LocalDate.now().minusDays(20), "중간 연습");
+		ActivityRecord current = createRecord(1L, hobbyId, LocalDate.now().minusDays(8), "최신 연습");
+
+		stubAiResponse(("{\"interpretation\":\"기록상 달라졌어요\",\"pastRecordIds\":[%d],\"currentRecordIds\":[%d]}")
+				.formatted(past.getId(), current.getId()));
+
+		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "2W"));
+
+		assertThat(response.anchoredToLatest()).isTrue();
+		assertThat(response.baseDate()).isEqualTo(current.getRecordDate());
 	}
 
 	@Test

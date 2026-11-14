@@ -54,6 +54,8 @@ public interface ActivityRecordRepository
 	Optional<ActivityRecord> findFirstByUserIdAndHobbyIdAndRecordDateLessThanEqualOrderByRecordDateDescIdDesc(
 			Long userId, Long hobbyId, LocalDate recordDate);
 
+	Optional<ActivityRecord> findFirstByUserIdAndHobbyIdOrderByRecordDateAscIdAsc(Long userId, Long hobbyId);
+
 	@Query("select count(distinct r.recordDate) from ActivityRecord r "
 			+ "where r.userId = :userId and r.hobbyId = :hobbyId and r.recordDate <= :onOrBefore")
 	long countDistinctRecordDateByUserIdAndHobbyIdUpTo(@Param("userId") Long userId, @Param("hobbyId") Long hobbyId,

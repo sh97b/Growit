@@ -26,15 +26,23 @@ export type CompareMetrics = {
   topTags: { tag: string; count: number }[]
 }
 
+export type CompareLockReason = 'NOT_ENOUGH_RECORDS' | 'NO_PAST_RECORD'
+
 export type CompareResult = {
   locked: boolean
+  lockReason: CompareLockReason | null
   requiredCount: number | null
   currentCount: number | null
+  oldestRecordDate: string | null
+  latestRecordDate: string | null
   id: number | null
   pastDate: string | null
   currentDate: string | null
   createdAt: string | null
   reused: boolean
+  baseDate: string | null
+  anchoredToLatest: boolean
+  pastIsOldest: boolean
   interpretation: string | null
   pastRecord: CompareRecordCard | null
   currentRecord: CompareRecordCard | null

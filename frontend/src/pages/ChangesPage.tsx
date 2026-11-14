@@ -167,7 +167,7 @@ export function ChangesPage() {
         </div>
       ) : null}
 
-      {result?.locked ? (
+      {result?.locked && result.lockReason !== 'NO_PAST_RECORD' ? (
         <div className="flex flex-col items-start gap-3 rounded-2xl bg-surface p-7">
           <p className="text-ink">기록이 3개 쌓이면 비교가 열려요</p>
           <p className="text-sm font-medium text-ink-2">{result.currentCount ?? 0}/{result.requiredCount ?? 3}</p>
@@ -177,8 +177,33 @@ export function ChangesPage() {
         </div>
       ) : null}
 
+      {result?.locked && result.lockReason === 'NO_PAST_RECORD' ? (
+        <div className="flex flex-col items-start gap-3 rounded-2xl bg-surface p-7">
+          <p className="text-ink">비교할 이전 기록이 아직 없어요. 기록이 며칠 더 쌓이면 비교가 열려요</p>
+          <p className="text-sm text-ink-2">
+            {result.oldestRecordDate ? `가장 오래된 기록 ${formatMonthDay(result.oldestRecordDate)}` : ''}
+            {result.oldestRecordDate && result.latestRecordDate ? ' · ' : ''}
+            {result.latestRecordDate ? `최근 기록 ${formatMonthDay(result.latestRecordDate)}` : ''}
+          </p>
+          <Link to="/records/new" className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink underline underline-offset-4">
+            기록하기
+          </Link>
+        </div>
+      ) : null}
+
       {result && !result.locked ? (
         <div className="flex flex-col gap-5">
+          {result.anchoredToLatest ? (
+            <p className="text-sm text-ink-2">
+              마지막 기록({result.currentDate ? formatMonthDay(result.currentDate) : ''})을 기준으로 비교했어요
+            </p>
+          ) : null}
+          {result.pastIsOldest ? (
+            <p className="text-sm text-ink-2">
+              {PERIODS.find((p) => p.value === compareTo)?.label ?? '이전'} 기록이 아직 없어서 가장 오래된 기록
+              {result.pastDate ? ` (${formatMonthDay(result.pastDate)})` : ''}과 비교했어요
+            </p>
+          ) : null}
           <RecordPairCards
             left={
               result.pastRecord
