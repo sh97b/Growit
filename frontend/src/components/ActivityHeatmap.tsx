@@ -1,33 +1,34 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Loading } from './Loading'
-import { useIsDesktop, useMediaQuery } from '../hooks/useIsDesktop'
 import { addDays, formatMonthDay, startOfWeekLocal, todayLocalDate } from '../lib/date'
 import { fetchActivityMap } from '../lib/stats'
 
 type Props = {
-  /** 토글이 없을 때(홈의 12주 지도)만 쓰는 고정 주 수. toggle이 true면 무시된다. */
+  /** 토글이 없을 때만 쓰는 고정 주 수. toggle이 true면 무시된다(half/full을 직접 고른다). */
   weeks: number
   hobbyId?: number | null
-  /** 지난 기록의 1년 지도처럼 [6개월|1년] 토글을 둘지 여부(LAYOUT-V2 5단계). */
+  /** 지난 기록의 1년 지도·모바일처럼 [6개월|1년] 토글을 둘지 여부. */
   toggle?: boolean
 }
 
 /*
- * LAYOUT-V2 5단계: 칸 크기를 컨테이너 폭에 맞춰 줄이지 않고 rem 고정값으로 그린다(칸 0.7rem,
- * 간격 0.2rem). SVG의 viewBox 숫자를 그대로 rem 값으로 쓰고(1 유닛 = 1rem), 렌더링 폭도 같은
- * 숫자로 된 rem 단위를 줘서 축소 없이 1:1로 보이게 한다 — 카드가 좁으면 칸이 작아지는 대신
- * 카드 안에서만 가로로 스크롤된다.
+ * L3: SVG를 버리고 HTML grid로 다시 그린다. SVG의 viewBox 확대·축소가 <text>의 font-size까지
+ * 함께 키워 월 라벨이 거대하게 겹쳐 보이던 문제(L3 증거 a)의 원인이었다 — HTML에는 그런 확대·축소
+ * 변환이 없으므로 라벨을 고정 12px로 둬도 더 이상 커지지 않는다.
  */
-const CELL = 0.7
-const GAP = 0.2
-const PITCH = CELL + GAP
-const MONTH_LABEL_HEIGHT = 1.1
-/* 활동 지도 라벨만 디자인 규칙의 예외로 최소 12px을 쓴다(다른 글자 토큰처럼 14px까지는 안 올린다). */
-const LABEL_FONT_STYLE = { fontSize: 'max(12px, 0.75rem)' } as const
-
+const GAP_PX = 3
+const HALF_WEEKS = 26
 const FULL_WEEKS = 52
-const WIDE_DESKTOP_QUERY = '(min-width: 1280px)'
+const FULL_CELL_PX = 10
+/* 활동 지도 라벨만 디자인 규칙의 예외로 고정 12px을 쓴다(다른 글자 토큰처럼 rem으로 늘어나지 않는다). */
+const LABEL_STYLE: CSSProperties = { fontSize: '12px', lineHeight: 1, whiteSpace: 'nowrap' }
+const LABEL_COL_PX = 18
+const WEEKDAY_LABELS: { row: number; label: string }[] = [
+  { row: 0, label: '월' },
+  { row: 2, label: '수' },
+  { row: 4, label: '금' },
+]
 
 /** 기록 수를 0·1·2·3+ 네 단계로 나눈다(디자인 §7의 활동 지도 초록 토큰 재사용). */
 function levelOf(count: number): 0 | 1 | 2 | 3 {
@@ -52,18 +53,11 @@ function monthLabel(isoDate: string): string {
 export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: Props) {
   const today = todayLocalDate()
   const currentWeekStart = startOfWeekLocal(new Date())
-  const isDesktop = useIsDesktop()
-  const isWideDesktop = useMediaQuery(WIDE_DESKTOP_QUERY)
-  const halfWeeks = isDesktop ? 26 : 24
-  // 토글이 있을 때 기본 선택: 넓은 데스크톱(1280 이상)만 1년이 한 화면에 들어가 기본으로 펼쳐 보여준다.
-  const [range, setRange] = useState<'half' | 'full'>(isWideDesktop ? 'full' : 'half')
-  const weeks = toggle ? (range === 'full' ? FULL_WEEKS : halfWeeks) : fixedWeeks
+  const [range, setRange] = useState<'half' | 'full'>('half')
+  const weeks = toggle ? (range === 'full' ? FULL_WEEKS : HALF_WEEKS) : fixedWeeks
+  const fixedCell = toggle && range === 'full'
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
-  // 364칸까지도 Tab만으로 전부 거치면 접근성이 떨어져, 한 칸만 탭 순서에 두고(roving tabindex)
-  // 그 칸에서 방향키로 다른 칸으로 옮겨 다니게 한다. 기본 초점은 오늘 칸.
-  const [focusedDate, setFocusedDate] = useState<string>(today)
-  const cellRefs = useRef(new Map<string, SVGRectElement>())
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const weekStarts = useMemo(
@@ -71,61 +65,98 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
     [currentWeekStart, weeks],
   )
   const from = weekStarts[0]
+  const columns = useMemo(
+    () => weekStarts.map((weekStart) => Array.from({ length: 7 }, (_, dayIndex) => addDays(weekStart, dayIndex))),
+    [weekStarts],
+  )
 
   const mapQuery = useQuery({
     queryKey: ['stats', 'activity-map', 'heatmap', from, today, hobbyId ?? null],
     queryFn: () => fetchActivityMap({ from, to: today, hobbyId: hobbyId ?? undefined }),
   })
 
-  if (mapQuery.isLoading) return <Loading />
-
   const countByDate = new Map<string, number>()
   for (const entry of mapQuery.data ?? []) {
     countByDate.set(entry.date, (countByDate.get(entry.date) ?? 0) + entry.count)
   }
 
-  const columns = weekStarts.map((weekStart) => Array.from({ length: 7 }, (_, dayIndex) => addDays(weekStart, dayIndex)))
+  // 같은 칸에서 방향키로 옮겨 다니는 roving tabindex. 기록이 있는 칸만 버튼(상호작용)이라
+  // 포커스도 그 칸들 사이에서만 움직인다 — 없으면 전체를 훑어도 선택할 게 없다.
+  const interactiveDates = useMemo(() => {
+    const set = new Set<string>()
+    for (const week of columns) {
+      for (const date of week) {
+        if (date <= today && (countByDate.get(date) ?? 0) > 0) set.add(date)
+      }
+    }
+    return set
+  }, [columns, today, mapQuery.data])
+  const [focusedDate, setFocusedDate] = useState<string | null>(null)
+  const cellRefs = useRef(new Map<string, HTMLButtonElement>())
 
-  const width = columns.length * PITCH
-  const height = MONTH_LABEL_HEIGHT + 7 * PITCH
+  useEffect(() => {
+    if (focusedDate && interactiveDates.has(focusedDate)) return
+    let latest: string | null = null
+    for (const date of interactiveDates) {
+      if (!latest || date > latest) latest = date
+    }
+    setFocusedDate(latest)
+  }, [interactiveDates, focusedDate])
 
-  const monthLabels: { x: number; label: string }[] = []
+  // 1년(full)을 고르면 카드 안에서만 가로로 밀리게 하고, 최신 주(오른쪽 끝)가 먼저 보이게 한다.
+  useEffect(() => {
+    if (!fixedCell) return
+    const el = scrollRef.current
+    if (el) el.scrollLeft = el.scrollWidth
+  }, [fixedCell])
+
+  if (mapQuery.isLoading) return <Loading />
+
+  const monthLabels: { col: number; label: string }[] = []
   let lastMonth = ''
+  let lastAcceptedCol = -Infinity
   columns.forEach((week, colIndex) => {
     const label = monthLabel(week[0])
-    if (label !== lastMonth) {
-      monthLabels.push({ x: colIndex * PITCH, label })
-      lastMonth = label
-    }
+    if (label === lastMonth) return
+    lastMonth = label
+    // 라벨끼리 3열 미만으로 가까우면(겹치면) 뒤의 라벨을 숨긴다.
+    if (colIndex - lastAcceptedCol < 3) return
+    monthLabels.push({ col: colIndex, label })
+    lastAcceptedCol = colIndex
   })
 
   const selectedCount = selectedDate ? (countByDate.get(selectedDate) ?? 0) : null
 
   function moveFocus(colIndex: number, rowIndex: number, key: string): void {
-    let nextCol = colIndex
-    let nextRow = rowIndex
-    if (key === 'ArrowRight') nextCol = Math.min(columns.length - 1, colIndex + 1)
-    else if (key === 'ArrowLeft') nextCol = Math.max(0, colIndex - 1)
-    else if (key === 'ArrowDown') nextRow = Math.min(6, rowIndex + 1)
-    else if (key === 'ArrowUp') nextRow = Math.max(0, rowIndex - 1)
-    else return
-    const nextDate = columns[nextCol][nextRow]
-    if (nextDate > today) return
-    setFocusedDate(nextDate)
-    setSelectedDate(nextDate)
-    cellRefs.current.get(nextDate)?.focus()
+    let col = colIndex
+    let row = rowIndex
+    const [dCol, dRow] =
+      key === 'ArrowRight' ? [1, 0] : key === 'ArrowLeft' ? [-1, 0] : key === 'ArrowDown' ? [0, 1] : key === 'ArrowUp' ? [0, -1] : [0, 0]
+    if (dCol === 0 && dRow === 0) return
+    // 다음 상호작용 가능한 칸(기록이 있는 칸)을 찾을 때까지 같은 방향으로 계속 이동한다.
+    for (let step = 0; step < columns.length * 7; step += 1) {
+      col += dCol
+      row += dRow
+      if (col < 0 || col >= columns.length || row < 0 || row > 6) return
+      const candidate = columns[col][row]
+      if (interactiveDates.has(candidate)) {
+        setFocusedDate(candidate)
+        setSelectedDate(candidate)
+        cellRefs.current.get(candidate)?.focus()
+        return
+      }
+    }
   }
 
   function selectRange(next: 'half' | 'full') {
     setRange(next)
-    // 1년을 선택하면 카드 안에서 오른쪽 끝(최신 주)이 먼저 보이게 한다.
-    if (next === 'full') {
-      requestAnimationFrame(() => {
-        const el = scrollRef.current
-        if (el) el.scrollLeft = el.scrollWidth
-      })
-    }
   }
+
+  const gridVars = {
+    '--weeks': weeks,
+    '--label-col': `${LABEL_COL_PX}px`,
+    '--cell': fixedCell ? `${FULL_CELL_PX}px` : `clamp(9px, calc((100cqw - var(--label-col)) / var(--weeks) - ${GAP_PX}px), 16px)`,
+  } as CSSProperties
 
   return (
     <div className="flex flex-col gap-2">
@@ -158,73 +189,129 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
         </div>
       ) : null}
 
-      <div ref={scrollRef} className="scrollbar-thin-fade overflow-x-auto">
-        <svg
-          viewBox={`0 0 ${width} ${height}`}
-          role="img"
-          aria-label={`최근 ${weeks}주 활동 지도`}
-          style={{ width: `${width}rem`, height: `${height}rem`, flexShrink: 0 }}
+      <div
+        style={{ containerType: 'inline-size', ...gridVars } as CSSProperties}
+        role="group"
+        aria-label={`최근 ${weeks}주 활동 지도`}
+      >
+        <div
+          ref={scrollRef}
+          className={fixedCell ? 'scrollbar-none overflow-x-auto' : 'scrollbar-thin-fade overflow-x-auto'}
         >
-          {monthLabels.map(({ x, label }) => (
-            <text key={x} x={x} y={0.85} fill="var(--color-ink-3)" style={LABEL_FONT_STYLE}>
-              {label}
-            </text>
-          ))}
-          {columns.map((week, colIndex) =>
-            week.map((date, rowIndex) => {
-              const count = countByDate.get(date) ?? 0
-              const level = levelOf(count)
-              const x = colIndex * PITCH
-              const y = MONTH_LABEL_HEIGHT + rowIndex * PITCH
-              const isFuture = date > today
-              return (
-                <rect
-                  key={date}
-                  ref={(node) => {
-                    if (node) cellRefs.current.set(date, node)
-                    else cellRefs.current.delete(date)
-                  }}
-                  x={x}
-                  y={y}
-                  width={CELL}
-                  height={CELL}
-                  rx={0.15}
-                  fill={isFuture ? 'transparent' : LEVEL_BG[level]}
-                  tabIndex={isFuture ? -1 : date === focusedDate ? 0 : -1}
-                  role={isFuture ? undefined : 'img'}
-                  aria-label={isFuture ? undefined : `${formatMonthDay(date)} · 기록 ${count}개`}
-                  onClick={isFuture ? undefined : () => setSelectedDate(date)}
-                  onFocus={isFuture ? undefined : () => setFocusedDate(date)}
-                  onKeyDown={
-                    isFuture
-                      ? undefined
-                      : (event) => {
-                          if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault()
-                            setSelectedDate(date)
-                            return
-                          }
-                          if (event.key.startsWith('Arrow')) {
-                            event.preventDefault()
-                            moveFocus(colIndex, rowIndex, event.key)
-                          }
-                        }
-                  }
-                  style={{ cursor: isFuture ? 'default' : 'pointer' }}
+          <div
+            style={{
+              display: 'inline-grid',
+              gridTemplateColumns: 'var(--label-col) 1fr',
+              columnGap: 0,
+              rowGap: '2px',
+              justifyItems: 'start',
+            }}
+          >
+            <div />
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: `repeat(${weeks}, var(--cell))`,
+                columnGap: `${GAP_PX}px`,
+                height: '14px',
+              }}
+            >
+              {monthLabels.map(({ col, label }) => (
+                <span key={col} style={{ ...LABEL_STYLE, gridColumn: col + 1, color: 'var(--color-ink-3)' }}>
+                  {label}
+                </span>
+              ))}
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateRows: `repeat(7, var(--cell))`,
+                rowGap: `${GAP_PX}px`,
+              }}
+            >
+              {WEEKDAY_LABELS.map(({ row, label }) => (
+                <span
+                  key={row}
+                  style={{ ...LABEL_STYLE, gridRow: row + 1, color: 'var(--color-ink-3)', alignSelf: 'center' }}
                 >
-                  {isFuture ? null : <title>{`${formatMonthDay(date)} · 기록 ${count}개`}</title>}
-                </rect>
-              )
-            }),
-          )}
-        </svg>
+                  {label}
+                </span>
+              ))}
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridAutoFlow: 'column',
+                gridTemplateRows: `repeat(7, var(--cell))`,
+                gridAutoColumns: 'var(--cell)',
+                columnGap: `${GAP_PX}px`,
+                rowGap: `${GAP_PX}px`,
+              }}
+            >
+              {columns.map((week, colIndex) =>
+                week.map((date, rowIndex) => {
+                  const count = countByDate.get(date) ?? 0
+                  const level = levelOf(date > today ? 0 : count)
+                  const interactive = interactiveDates.has(date)
+                  const background = date > today ? 'transparent' : LEVEL_BG[level]
+                  if (!interactive) {
+                    return (
+                      <div
+                        key={date}
+                        aria-hidden="true"
+                        style={{ width: '100%', aspectRatio: '1', borderRadius: '2px', background }}
+                      />
+                    )
+                  }
+                  return (
+                    <button
+                      key={date}
+                      type="button"
+                      ref={(node) => {
+                        if (node) cellRefs.current.set(date, node)
+                        else cellRefs.current.delete(date)
+                      }}
+                      tabIndex={date === focusedDate ? 0 : -1}
+                      aria-label={`${formatMonthDay(date)} · 기록 ${count}개`}
+                      title={`${formatMonthDay(date)} · 기록 ${count}개`}
+                      onClick={() => setSelectedDate(date)}
+                      onFocus={() => setFocusedDate(date)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          setSelectedDate(date)
+                          return
+                        }
+                        if (event.key.startsWith('Arrow')) {
+                          event.preventDefault()
+                          moveFocus(colIndex, rowIndex, event.key)
+                        }
+                      }}
+                      style={{
+                        width: '100%',
+                        aspectRatio: '1',
+                        borderRadius: '2px',
+                        background,
+                        border: 'none',
+                        padding: 0,
+                        cursor: 'pointer',
+                      }}
+                    />
+                  )
+                }),
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="flex items-center justify-between gap-3">
-        <p className="min-h-5 text-caption-min text-ink-2" aria-live="polite" style={{ fontSize: 'max(12px, 0.75rem)' }}>
+        <p className="min-h-5 text-caption-min text-ink-2" aria-live="polite">
           {selectedDate ? `${formatMonthDay(selectedDate)} · 기록 ${selectedCount}개` : ' '}
         </p>
-        <div className="flex items-center gap-1 text-ink-2" style={{ fontSize: 'max(12px, 0.75rem)' }}>
+        <div className="flex items-center gap-1 text-caption-min text-ink-2">
           <span>적음</span>
           <span className="h-3 w-3 rounded-sm" style={{ background: LEVEL_BG[0] }} />
           <span className="h-3 w-3 rounded-sm" style={{ background: LEVEL_BG[1] }} />

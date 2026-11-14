@@ -155,8 +155,8 @@ export function RecordsPage() {
   )
 
   const side = (
-    <div className="rounded-2xl bg-surface p-5">
-      <ActivityHeatmap weeks={52} toggle hobbyId={hobbyId} />
+    <div className="hidden rounded-2xl bg-surface p-5 lg:block">
+      <ActivityHeatmap weeks={52} hobbyId={hobbyId} />
       <YearSummary hobbyId={hobbyId} />
     </div>
   )

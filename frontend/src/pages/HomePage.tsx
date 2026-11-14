@@ -133,7 +133,8 @@ export function HomePage() {
   )
 
   // 사이드(데스크톱 Split.side)와 모바일 둘 다에서 쓰는 같은 블록 — 최근 7일·쌓인 기록 3칸·
-  // 자주 하는 주제 칩·최근 12주 활동 지도. 전부 폭이 좁아도 자연스러운 크기라 항상 보여준다
+  // 자주 하는 주제 칩·최근 26주 활동 지도(L3: 사이드 카드 폭을 채우려고 12→26으로 늘림, 디자인과
+  // 다르게 한 곳). 전부 폭이 좁아도 자연스러운 크기라 항상 보여준다
   // (예전 F3의 ResizeObserver 기반 우선순위 숨김은 사이드 칼럼으로 옮기며 더 필요하지 않게 됐다).
   const sideBlocks = (
     <>
@@ -142,7 +143,7 @@ export function HomePage() {
       {state !== 'first' ? <TopicChips /> : null}
       {state !== 'first' ? (
         <div className="rounded-2xl bg-surface p-5">
-          <ActivityHeatmap weeks={12} />
+          <ActivityHeatmap weeks={26} />
         </div>
       ) : null}
     </>

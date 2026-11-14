@@ -205,6 +205,14 @@ select:focus-visible {
   border-radius: 9999px;
 }
 
+/* 활동 지도의 모바일 1년 보기처럼, 가로로 밀리되 스크롤바 자체를 숨기고 싶을 때(L3). */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 /* 높이가 있는 콘텐츠를 부드럽게 접고 펴는 데 쓰는 grid 트릭(JS로 높이를 재지 않아도 된다). */
 .grid-collapse {
   display: grid;
