@@ -159,7 +159,7 @@ export function HomePage() {
 
   const greeting = (
     <div className="flex flex-col gap-1.5">
-      <h1 className="font-serif text-2xl font-semibold lg:text-[2rem]">
+      <h1 className="font-serif text-[22px] font-semibold lg:text-[2rem]">
         {state === 'comeback' ? `다시 오셨네요, ${name}님` : state === 'first' ? `${name}님, 환영합니다` : `안녕하세요, ${name}님`}
       </h1>
       <span className="text-sm text-ink-2">{formatMonthDayWeekday(today)}</span>
