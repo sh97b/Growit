@@ -494,7 +494,7 @@ function QuickRecordInput() {
           기록하기
         </Link>
       ) : (
-        <div className="flex flex-col gap-2 rounded-xl bg-surface px-[1.125rem] py-3.5">
+        <div className="flex flex-col gap-2 rounded-xl bg-surface px-3.5 py-3.5 lg:px-[1.125rem]">
           <span className="text-sm text-ink-2">
             오늘 한 줄만 남겨도 충분해요{hasMultipleHobbies ? '' : ` · 분야는 ${hobbyName}예요`}
           </span>
