@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AiLabel } from '../components/AiLabel'
 import { AiViewCard } from '../components/AiViewCard'
 import { ChevronRightIcon } from '../components/icons'
+import { Dropdown } from '../components/Dropdown'
 import { FeedbackRow } from '../components/FeedbackRow'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
@@ -15,6 +16,7 @@ import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useHobbies } from '../hooks/useHobbies'
 import { ApiError } from '../lib/api'
 import {
+  fetchAiUsage,
   fetchCompare,
   fetchMetricsInterpretation,
   submitAiResultFeedback,
@@ -23,6 +25,7 @@ import {
   type CompareTo,
 } from '../lib/ai'
 import { addDays, formatDurationMinutes, formatMonthDay, startOfWeekLocal, todayLocalDate } from '../lib/date'
+import { fetchRecords } from '../lib/records'
 import { pickClass } from '../lib/recordForm'
 import { fetchWeeks, type WeekSummary } from '../lib/stats'
 
@@ -64,28 +67,39 @@ export function ChangesPage() {
   const { data: currentUser, isLoading: userLoading } = useCurrentUser()
   const { data: activeHobbies, isLoading: hobbiesLoading } = useHobbies(false)
   const [hobbyId, setHobbyId] = useState<number | null>(null)
-  const [compareTo, setCompareTo] = useState<CompareTo>('1M')
-  const [result, setResult] = useState<CompareResult | null>(null)
+  // O1(B.1): 기본 기간은 1주 전("변화 보기" 버튼 없이 페이지 진입과 동시에 바로 비교를 불러온다).
+  const [compareTo, setCompareTo] = useState<CompareTo>('1W')
   const [feedbackError, setFeedbackError] = useState<string | null>(null)
   const [metric, setMetric] = useState<Metric>('days')
   const [selectedWeekStart, setSelectedWeekStart] = useState<string | null>(null)
   const [metricsOpen, setMetricsOpen] = useState(false)
   const queryClient = useQueryClient()
 
-  const mutation = useMutation({
-    mutationFn: () => fetchCompare({ hobbyId: effectiveHobbyId!, compareTo }),
-    onSuccess: (data) => setResult(data),
+  // 기본 분야 = 가장 최근에 기록을 쓴 분야(지시문 B.1). 사용자가 직접 고르면 그 선택을 우선한다.
+  const recentRecordQuery = useQuery({ queryKey: ['records', 'recent'], queryFn: () => fetchRecords({ size: 1 }) })
+  const recentHobbyId = recentRecordQuery.data?.items[0]?.hobbyId ?? null
+  const hobby =
+    activeHobbies?.find((h) => h.id === hobbyId) ??
+    activeHobbies?.find((h) => h.id === recentHobbyId) ??
+    activeHobbies?.[0] ??
+    null
+  const effectiveHobbyId = hobby?.id ?? null
+
+  const compareKey = ['ai', 'compare', effectiveHobbyId, compareTo]
+  const compareQuery = useQuery({
+    queryKey: compareKey,
+    queryFn: () => fetchCompare({ hobbyId: effectiveHobbyId!, compareTo }),
+    enabled: effectiveHobbyId != null,
+    retry: false,
   })
+  const result = compareQuery.data ?? null
 
   const feedbackMutation = useMutation({
     mutationFn: ({ id, value }: { id: number; value: 'HELPFUL' | 'NOT_HELPFUL' }) =>
       submitAiResultFeedback<CompareResult>(id, value),
   })
 
-  // hobbyId가 null이거나(처음 진입) 더 이상 활성 분야 목록에 없으면(분야가 보관되는 등) 첫 활성 분야로
-  // 보정한다. 화면에 보이는 선택과 요청에 실제로 쓰이는 값이 반드시 같은 값에서 나오게 한다.
-  const hobby = activeHobbies?.find((h) => h.id === hobbyId) ?? activeHobbies?.[0] ?? null
-  const effectiveHobbyId = hobby?.id ?? null
+  const usageQuery = useQuery({ queryKey: ['ai', 'usage'], queryFn: fetchAiUsage })
 
   const currentWeekStart = startOfWeekLocal(new Date())
   const weeksFrom = addDays(currentWeekStart, -7 * (WEEK_COUNT - 1))
@@ -117,8 +131,7 @@ export function ChangesPage() {
     }
     return [...counts.entries()].sort((a, b) => b[1] - a[1])
   }, [weeks])
-  // 기본 선택 = 기록이 있는 가장 최근 주(기록이 하나도 없으면 이번 주). 전에는 배열의 마지막 주(이번 주)를
-  // 그대로 썼는데, 이번 주가 아직 비어 있으면(0일) 기본값부터 "쉬어 간 주"로 보여 혼란스러웠다(지시문 4).
+  // 기본 선택 = 기록이 있는 가장 최근 주(기록이 하나도 없으면 이번 주).
   const defaultWeekStart = useMemo(() => {
     for (let i = weeks.length - 1; i >= 0; i -= 1) {
       if (weeks[i].recordedDays > 0) return weeks[i].weekStart
@@ -131,6 +144,12 @@ export function ChangesPage() {
     [weeks, effectiveWeekStart],
   )
   const selectedWeekIndex = weeks.findIndex((w) => w.weekStart === effectiveWeekStart)
+  // O1(B.2): 기록이 없는 주는 아래 글자 목록에서 아예 빼고, 그래프 막대만 기준선으로 보여준다.
+  const recordedWeeks = useMemo(() => weeks.filter((w) => w.recordedDays > 0), [weeks])
+
+  useEffect(() => {
+    setSelectedWeekStart(null)
+  }, [effectiveHobbyId])
 
   if (userLoading || hobbiesLoading) {
     return <Loading />
@@ -164,36 +183,29 @@ export function ChangesPage() {
   function handleFeedback(value: 'HELPFUL' | 'NOT_HELPFUL') {
     if (!result?.id || feedbackMutation.isPending) return
     setFeedbackError(null)
-    setResult((prev) => (prev ? { ...prev, feedback: value } : prev))
+    const previous = result
+    queryClient.setQueryData<CompareResult>(compareKey, (prev) => (prev ? { ...prev, feedback: value } : prev))
     feedbackMutation.mutate(
       { id: result.id, value },
       {
         onError: (mutationError) => {
-          setResult((prev) => (prev ? { ...prev, feedback: result.feedback } : prev))
+          queryClient.setQueryData<CompareResult>(compareKey, previous)
           setFeedbackError(mutationError instanceof ApiError ? mutationError.message : '잠시 후 다시 시도해 주세요')
         },
       },
     )
   }
 
+  const hobbyOptions = activeHobbies.map((h) => ({ value: String(h.id), label: h.name }))
+
   const controlsRow = (
     <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
-      <div className="flex flex-wrap gap-2">
-        {activeHobbies.map((h) => (
-          <button
-            key={h.id}
-            type="button"
-            aria-pressed={effectiveHobbyId === h.id}
-            onClick={() => {
-              setHobbyId(h.id)
-              setResult(null)
-            }}
-            className={pickClass(effectiveHobbyId === h.id)}
-          >
-            {h.name}
-          </button>
-        ))}
-      </div>
+      <Dropdown
+        aria-label="분야"
+        value={String(effectiveHobbyId ?? activeHobbies[0]?.id ?? '')}
+        options={hobbyOptions}
+        onChange={(value) => setHobbyId(Number(value))}
+      />
 
       <div className="flex flex-wrap gap-2">
         {PERIODS.map((period) => (
@@ -201,29 +213,19 @@ export function ChangesPage() {
             key={period.value}
             type="button"
             aria-pressed={compareTo === period.value}
-            onClick={() => {
-              setCompareTo(period.value)
-              setResult(null)
-            }}
+            onClick={() => setCompareTo(period.value)}
             className={pickClass(compareTo === period.value)}
           >
             {period.label}
           </button>
         ))}
       </div>
+
+      {usageQuery.data ? (
+        <span className="text-caption-min text-ink-2 lg:ml-auto">오늘 {usageQuery.data.remaining}회 남음</span>
+      ) : null}
     </div>
   )
-
-  const compareAction = !result ? (
-    <button
-      type="button"
-      disabled={mutation.isPending || effectiveHobbyId == null}
-      onClick={() => mutation.mutate()}
-      className="inline-flex min-h-10 w-fit items-center justify-center rounded-lg bg-base px-5 text-body-min font-medium text-white disabled:bg-line disabled:text-[#5F594F]"
-    >
-      변화 보기
-    </button>
-  ) : null
 
   // 한 줄 지표 카드: 기록한 날·쌓인 시간·자주 나온 주제를 컴팩트한 카드 하나에 모은다(지시문 3).
   const metricsCard = result?.metrics ? (() => {
@@ -259,9 +261,11 @@ export function ChangesPage() {
     )
   })() : null
 
+  // O1(B.1): [변화 보기] 버튼 없이 페이지 진입·분야·기간 변경 즉시 자동으로 부른다. 불러오는 동안은
+  // 카드 모양 스켈레톤을 보여주고(isFetching, 초기 로딩·분야/기간 변경 둘 다 포함) 왼쪽을 비워 두지 않는다.
   const comparison = (
     <div className="flex flex-col gap-5">
-      {mutation.isPending ? (
+      {compareQuery.isFetching ? (
         <div className="flex flex-col gap-3.5 rounded-2xl bg-surface p-7">
           <AiLabel>기록을 천천히 읽고 있어요</AiLabel>
           <div className="h-3.5 w-[80%] animate-pulse rounded-full bg-rest" />
@@ -269,22 +273,22 @@ export function ChangesPage() {
         </div>
       ) : null}
 
-      {mutation.isError ? (
+      {!compareQuery.isFetching && compareQuery.isError ? (
         <div className="flex flex-col gap-3">
           <Note variant="sand">
-            {mutation.error instanceof ApiError ? mutation.error.message : '잠시 후 다시 시도해 주세요'}
+            {compareQuery.error instanceof ApiError ? compareQuery.error.message : '잠시 후 다시 시도해 주세요'}
           </Note>
           <button
             type="button"
-            onClick={() => mutation.mutate()}
+            onClick={() => compareQuery.refetch()}
             className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink underline underline-offset-4"
           >
-            다시 받기
+            다시 시도
           </button>
         </div>
       ) : null}
 
-      {result?.locked && result.lockReason !== 'NO_PAST_RECORD' ? (
+      {!compareQuery.isFetching && result?.locked && result.lockReason !== 'NO_PAST_RECORD' ? (
         <div className="flex flex-col items-start gap-3 rounded-2xl bg-surface p-7">
           <p className="text-ink">기록이 3개 쌓이면 비교가 열려요</p>
           <p className="text-sm font-medium text-ink-2">{result.currentCount ?? 0}/{result.requiredCount ?? 3}</p>
@@ -294,7 +298,7 @@ export function ChangesPage() {
         </div>
       ) : null}
 
-      {result?.locked && result.lockReason === 'NO_PAST_RECORD' ? (
+      {!compareQuery.isFetching && result?.locked && result.lockReason === 'NO_PAST_RECORD' ? (
         <div className="flex flex-col items-start gap-3 rounded-2xl bg-surface p-7">
           <p className="text-ink">비교할 이전 기록이 아직 없어요. 기록이 며칠 더 쌓이면 비교가 열려요</p>
           <p className="text-sm text-ink-2">
@@ -308,7 +312,7 @@ export function ChangesPage() {
         </div>
       ) : null}
 
-      {result && !result.locked ? (
+      {!compareQuery.isFetching && result && !result.locked ? (
         <div className="flex flex-col gap-5">
           {result.anchoredToLatest ? (
             <p className="text-sm text-ink-2">
@@ -351,14 +355,6 @@ export function ChangesPage() {
           </div>
 
           {metricsCard}
-
-          <button
-            type="button"
-            onClick={() => setResult(null)}
-            className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink underline underline-offset-4"
-          >
-            다시 비교하기
-          </button>
         </div>
       ) : null}
     </div>
@@ -367,11 +363,13 @@ export function ChangesPage() {
   const selectedWeekSummary = selectedWeek ? (
     <div className="flex flex-col gap-1.5 rounded-2xl bg-surface p-4">
       <span className="text-sm font-semibold text-ink">
-        선택한 주 · {formatMonthDay(selectedWeek.weekStart)} – {formatMonthDay(addDays(selectedWeek.weekStart, 6))}
+        {/* O1(B.2): 한 줄로 쓰고 "주 0일" 같은 붙임 표기를 쓰지 않는다. */}
+        {formatMonthDay(selectedWeek.weekStart)} – {formatMonthDay(addDays(selectedWeek.weekStart, 6))} ·{' '}
+        {selectedWeek.recordedDays > 0 ? `${selectedWeek.recordedDays}일` : '기록 없음'}
       </span>
-      <span className="tabular-nums text-sm text-ink-2">
-        기록한 날 {selectedWeek.recordedDays}일 · {formatDurationMinutes(selectedWeek.totalMinutes)}
-      </span>
+      {selectedWeek.recordedDays > 0 ? (
+        <span className="tabular-nums text-sm text-ink-2">{formatDurationMinutes(selectedWeek.totalMinutes)}</span>
+      ) : null}
       <Link to={`/weeks/${selectedWeek.weekStart}`} className="inline-flex min-h-9 w-fit items-center gap-1 text-sm font-medium text-base-ink no-underline underline underline-offset-4">
         주 상세 보기
         <ChevronRightIcon width={16} height={16} />
@@ -500,12 +498,14 @@ export function ChangesPage() {
                   const barHeight = Math.max(3, Math.round(ratio * CHART_HEIGHT))
                   const isSelected = week.weekStart === effectiveWeekStart
                   const valueLabel = metric === 'days' ? String(week.recordedDays) : formatDurationMinutes(week.totalMinutes)
+                  // O1(B.2): 접근성 텍스트에서도 기록 없는 주는 "기록 없음"으로 묶는다.
+                  const accessibleLabel = value > 0 ? valueLabel : '기록 없음'
                   return (
                     <button
                       key={week.weekStart}
                       type="button"
                       onClick={() => setSelectedWeekStart(week.weekStart)}
-                      aria-label={`${formatMonthDay(week.weekStart)} 주, ${valueLabel}`}
+                      aria-label={`${formatMonthDay(week.weekStart)} 주, ${accessibleLabel}`}
                       aria-pressed={isSelected}
                       className="relative flex h-full flex-1 flex-col items-center justify-end bg-transparent p-0"
                     >
@@ -549,9 +549,10 @@ export function ChangesPage() {
             {metricsInterpretation}
           </div>
 
-          {metric === 'tags' ? null : (
+          {/* O1(B.2): 기록이 없는 주는 이 목록에 나열하지 않는다(값 0인 줄 전체 삭제). */}
+          {metric === 'tags' || recordedWeeks.length === 0 ? null : (
             <div className="flex flex-col">
-              {[...weeks].reverse().map((week) => (
+              {[...recordedWeeks].reverse().map((week) => (
                 <div key={week.weekStart} className="flex items-center justify-between gap-3 border-t border-line py-3 last:border-b">
                   <span>{formatMonthDay(week.weekStart)} 주</span>
                   <span className="tabular-nums font-semibold">
@@ -568,7 +569,7 @@ export function ChangesPage() {
 
   return (
     <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
-      <ReviewHeaderRow title="나의 변화" action={compareAction} />
+      <ReviewHeaderRow title="나의 변화" />
       {controlsRow}
       <Split main={comparison} side={weeklyFlow} className="lg:min-h-0 lg:flex-1" />
     </div>
