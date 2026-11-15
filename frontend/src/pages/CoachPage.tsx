@@ -297,13 +297,10 @@ export function CoachPage() {
   const showAutoGeneratingSkeleton =
     autoMutation.isPending && selectedId == null && !shownResult && !mutation.isPending
 
+  // P1 4단계: "새로 도착" 표시는 이제 CoachResultView의 메타 줄 배지 하나로 충분해(isNew),
+  // 여기서 별도의 큰 색 배너를 그리지 않는다.
   const detail = (
     <div className="flex flex-col gap-5">
-      {shownResult?.isNew ? (
-        <div className="flex items-center justify-between gap-3 rounded-xl bg-[color-mix(in_srgb,var(--color-base)_9%,white)] px-4 py-2.5">
-          <span className="text-sm font-medium text-base-ink">새 회고가 도착했어요</span>
-        </div>
-      ) : null}
 
       {mutation.isPending ? (
         <div className="flex flex-col gap-3.5 rounded-2xl bg-surface p-7">
@@ -443,20 +440,17 @@ export function CoachPage() {
                 onClick={() => selectResult(item.id)}
                 aria-current={selectedId === item.id || (selectedId == null && shownResult?.id === item.id)}
                 className={[
-                  'flex items-center gap-3 rounded-xl border px-4 py-3 text-left',
+                  'flex items-center gap-3 rounded-xl border-l-4 border-y border-r px-4 py-3 text-left',
                   selectedId === item.id || (selectedId == null && shownResult?.id === item.id)
-                    ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_9%,white)]'
-                    : 'border-line bg-white',
+                    ? 'border-y-base border-r-base border-l-base bg-[color-mix(in_srgb,var(--color-base)_9%,white)]'
+                    : 'border-y-line border-r-line border-l-transparent bg-white',
                 ].join(' ')}
               >
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="flex items-center gap-1.5 text-caption-min font-semibold tabular-nums text-ink-2">
-                    {formatMonthDay(item.createdAt.slice(0, 10))}
-                    {item.hobbyName ? ` · ${item.hobbyName}` : ''}
+                  <span className="flex items-center gap-1.5 text-caption-min text-ink-2">
+                    {formatMonthDay(item.createdAt.slice(0, 10))} · {item.hobbyName ?? '전체'}
                     {item.isNew ? (
-                      <span className="inline-flex h-5 items-center rounded-md bg-[color-mix(in_srgb,var(--color-base)_16%,white)] px-1.5 text-[0.6875rem] font-medium text-base-ink">
-                        새 회고
-                      </span>
+                      <span aria-label="새 회고" className="h-1.5 w-1.5 flex-none rounded-full bg-base" />
                     ) : null}
                   </span>
                   <span className="truncate text-body-min text-ink">{item.nextActionTitle ?? item.summary ?? '회고 결과'}</span>
