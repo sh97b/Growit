@@ -1,7 +1,7 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { SettingsShell } from './PageLayout'
 import { Button } from './Button'
-import { ChevronLeftIcon } from './icons'
+import { ChevronLeftIcon, ChevronRightIcon } from './icons'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useAuth } from '../lib/auth'
 
@@ -45,16 +45,23 @@ export function SettingsLayout() {
             to={item.to}
             aria-current={active ? 'page' : undefined}
             className={[
-              'flex min-h-11 items-center border-t border-line px-1 text-body-min text-ink no-underline last:border-b',
-              'lg:rounded-lg lg:border-t-0 lg:px-3 lg:last:border-b-0',
+              // S1 D-6단계: 모바일 행 높이 52px, 오른쪽 › 아이콘.
+              'flex min-h-[3.25rem] items-center justify-between gap-2 border-t border-line px-1 text-body-min text-ink no-underline last:border-b',
+              'lg:min-h-11 lg:rounded-lg lg:border-t-0 lg:px-3 lg:last:border-b-0',
               active ? 'lg:bg-surface lg:font-semibold lg:text-ink' : 'lg:text-ink-2',
             ].join(' ')}
           >
             {item.label}
+            <ChevronRightIcon width={16} height={16} className="flex-none text-ink-3 lg:hidden" />
           </Link>
         )
       })}
-      <Button type="button" variant="secondary" onClick={handleLogout} className="mt-3 self-start lg:mt-5">
+      <Button
+        type="button"
+        variant="secondary"
+        onClick={handleLogout}
+        className="mt-3 w-full lg:mt-5 lg:w-auto lg:self-start"
+      >
         로그아웃
       </Button>
     </nav>
