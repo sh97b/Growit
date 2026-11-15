@@ -325,20 +325,25 @@ export function ChangesPage() {
 
       {!compareQuery.isFetching && result && !result.locked ? (
         <div className="flex flex-col gap-5">
-          <RecordPairCards
-            left={
-              result.pastRecord
-                ? { id: result.pastRecord.id, label: `${result.pastDate ? formatMonthDay(result.pastDate) : ''} 전후`, content: result.pastRecord.content }
-                : null
-            }
-            right={
-              result.currentRecord
-                ? { id: result.currentRecord.id, label: `최근 · ${result.currentDate ? formatMonthDay(result.currentDate) : ''}`, content: result.currentRecord.content }
-                : null
-            }
-          />
+          {/* S1 D-4단계: 모바일은 변화 해석 카드를 맨 위(강조)로, 과거·현재 카드를 그 아래로 둔다.
+              DOM 순서(데스크톱 원래 순서: 과거·현재 → 해석 → 지표)는 그대로 두고 CSS order만
+              모바일에서 바꾼다(lg: 접두사에서는 숫자를 원래 DOM 순서와 같게 둬 데스크톱은 그대로). */}
+          <div className="order-2 lg:order-1">
+            <RecordPairCards
+              left={
+                result.pastRecord
+                  ? { id: result.pastRecord.id, label: `${result.pastDate ? formatMonthDay(result.pastDate) : ''} 전후`, content: result.pastRecord.content }
+                  : null
+              }
+              right={
+                result.currentRecord
+                  ? { id: result.currentRecord.id, label: `최근 · ${result.currentDate ? formatMonthDay(result.currentDate) : ''}`, content: result.currentRecord.content }
+                  : null
+              }
+            />
+          </div>
 
-          <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-7">
+          <div className="order-1 flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-7 lg:order-2">
             <AiLabel>변화 해석</AiLabel>
             <p className="font-serif text-lg leading-[1.55]">{result.interpretation}</p>
             {/* 근거 칩은 원래 두지 않는다 — compare의 근거는 항상 pastRecord·currentRecord뿐이라
@@ -354,7 +359,7 @@ export function ChangesPage() {
             />
           </div>
 
-          {metricsCard}
+          <div className="order-3">{metricsCard}</div>
         </div>
       ) : null}
     </div>
