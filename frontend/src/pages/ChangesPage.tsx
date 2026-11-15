@@ -439,9 +439,12 @@ export function ChangesPage() {
 
   const weeklyFlow = (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
+      {/* 모바일(세 버튼 "기록한 날/시간/태그" + 제목)을 한 줄에 nowrap으로 두면 360px 폭에서
+          넘쳐 가로 스크롤과 버튼 잘림이 생겼다. 모바일은 제목과 세그먼트를 세로로 쌓고 세그먼트는
+          전체 폭을 3등분(flex-1)한다. 데스크톱은 기존처럼 한 줄. */}
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between lg:gap-3">
         <h2 className="text-card-title">주별 흐름</h2>
-        <div className="inline-flex rounded-lg border border-line-2 bg-white p-[0.1875rem]" role="group" aria-label="지표">
+        <div className="flex rounded-lg border border-line-2 bg-white p-[0.1875rem] lg:inline-flex" role="group" aria-label="지표">
           {METRIC_TABS.map((tab) => (
             <button
               key={tab.value}
@@ -449,7 +452,7 @@ export function ChangesPage() {
               aria-pressed={metric === tab.value}
               onClick={() => setMetric(tab.value)}
               className={[
-                'min-h-9 whitespace-nowrap rounded-md px-3.5 text-sm font-medium',
+                'min-h-9 flex-1 whitespace-nowrap rounded-md px-2 text-sm font-medium lg:flex-none lg:px-3.5',
                 metric === tab.value ? 'bg-ink text-white' : 'bg-transparent text-ink-2',
               ].join(' ')}
             >

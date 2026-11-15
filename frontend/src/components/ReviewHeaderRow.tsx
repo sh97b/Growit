@@ -16,9 +16,14 @@ export function ReviewHeaderRow({ title, action }: Props) {
   return (
     <>
       <h1 className="sr-only">{title}</h1>
-      <div className="flex items-center justify-between gap-3">
+      {/* 모바일에서 탭 박스(ReviewTabs)가 w-full이라, 오른쪽 action과 한 줄에 같이 두면 폭이
+          넘쳐 문서 가로 스크롤과 action 글자 잘림이 생겼다(탭+action을 한 줄에 nowrap으로 배치).
+          모바일은 세로로 쌓고(탭 → action), 데스크톱만 한 줄로 되돌린다. */}
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between lg:gap-3">
         <ReviewTabs />
-        {action ? <div className="flex flex-none items-center gap-2">{action}</div> : null}
+        {action ? (
+          <div className="flex flex-none items-center justify-end gap-2 lg:justify-start">{action}</div>
+        ) : null}
       </div>
     </>
   )
