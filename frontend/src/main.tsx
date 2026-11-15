@@ -17,7 +17,10 @@ function shouldRetry(failureCount: number, error: unknown): boolean {
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: shouldRetry },
+    // S1 A단계: staleTime이 0이면 화면을 바꿀 때마다 캐시가 있어도 조용히 다시 불러오다가
+    // 응답이 돌아오면 데이터가 바뀌어 깜박이는 경우가 있었다. 30초 동안은 같은 키를 다시
+    // 그릴 때 캐시를 그대로 쓰고 백그라운드 재요청도 하지 않는다.
+    queries: { retry: shouldRetry, staleTime: 30_000 },
     mutations: { retry: shouldRetry },
   },
 })

@@ -82,13 +82,14 @@ export function CoachPage() {
 
   const selectedId = Number(searchParams.get('r')) || null
 
-  const { containerRef, pageSize: fitPageSize, ready: fitReady } = useFitPageSize({
+  // S1 A단계: ready로 렌더·쿼리를 막지 않는다 — 기본값(또는 직전 값)으로 즉시 그린다.
+  const { containerRef, pageSize: fitPageSize } = useFitPageSize({
     itemHeightRem: LIST_ROW_HEIGHT_REM,
     min: 2,
     max: 12,
+    defaultSize: 6,
   })
   const pageSize = isDesktop ? fitPageSize : 6
-  const pageSizeReady = isDesktop ? fitReady : true
   useStablePageOnResize(page, setPage, pageSize)
 
   const listQuery = useQuery({
@@ -102,7 +103,7 @@ export function CoachPage() {
         page,
         size: pageSize,
       }),
-    enabled: !!currentUser?.aiEnabled && pageSizeReady,
+    enabled: !!currentUser?.aiEnabled,
     placeholderData: keepPreviousData,
   })
 
@@ -421,10 +422,10 @@ export function CoachPage() {
           footer={<Pagination page={page} totalPages={totalPages} onChange={setPage} />}
         >
       <div className="flex flex-col gap-4">
-        {!pageSizeReady || listQuery.isLoading ? <Loading /> : null}
+        {listQuery.isLoading ? <Loading /> : null}
         {listQuery.isError ? <Note variant="sand">잠시 후 다시 시도해 주세요</Note> : null}
 
-        {pageSizeReady && listQuery.data && items.length === 0 ? (
+        {listQuery.data && items.length === 0 ? (
           <div className="flex flex-col items-start gap-2 rounded-2xl bg-surface p-5">
             <p className="text-sm text-ink-2">조건에 맞는 회고가 없어요.</p>
             {filter.hasActiveFilter ? (
@@ -439,7 +440,7 @@ export function CoachPage() {
           </div>
         ) : null}
 
-        {pageSizeReady && items.length > 0 ? (
+        {items.length > 0 ? (
           <div className="flex flex-col gap-2">
             {items.map((item) => (
               <button

@@ -119,10 +119,12 @@ export function HobbiesPage() {
   const [page, setPage] = useState(0)
   const isDesktop = useIsDesktop()
 
-  const { containerRef, pageSize: fitPageSize, ready: fitReady } = useFitPageSize({
+  // S1 A단계: ready로 렌더를 막지 않는다 — 기본값(또는 직전 값)으로 즉시 그리고, 측정되면 보정한다.
+  const { containerRef, pageSize: fitPageSize } = useFitPageSize({
     itemHeightRem: ROW_HEIGHT_REM,
     min: 3,
     max: 20,
+    defaultSize: 6,
   })
   const pageSize = isDesktop ? fitPageSize : MOBILE_PAGE_SIZE
   useStablePageOnResize(page, setPage, pageSize)
@@ -208,7 +210,7 @@ export function HobbiesPage() {
         </button>
       </div>
 
-      {isLoading || (isDesktop && !fitReady) ? (
+      {isLoading ? (
         <Loading />
       ) : (
         <ListPane

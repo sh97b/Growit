@@ -47,15 +47,16 @@ export function RecordsPage() {
 
   // 고정 개수 대신 목록 영역의 실제 높이에 맞춰 한 페이지 개수를 계산한다(F3).
   // 모바일은 페이지 스크롤을 유지하므로 1열 5개를 그대로 쓴다.
-  const { containerRef, pageSize: fitPageSize, ready: fitReady } = useFitPageSize({
+  // S1 A단계: ready로 렌더·쿼리를 막지 않는다 — 기본값(또는 직전 값)으로 즉시 그린다.
+  const { containerRef, pageSize: fitPageSize } = useFitPageSize({
     itemHeightRem: CARD_MIN_HEIGHT_REM,
     gapRem: CARD_GAP_REM,
     columns: 1,
     min: 2,
     max: 12,
+    defaultSize: 6,
   })
   const pageSize = isDesktop ? fitPageSize : 5
-  const pageSizeReady = isDesktop ? fitReady : true
   useStablePageOnResize(page, setPage, pageSize)
   const { data: activeHobbies } = useHobbies(false)
   const { data: allHobbies } = useHobbies(true)
@@ -82,7 +83,6 @@ export function RecordsPage() {
         page,
         size: pageSize,
       }),
-    enabled: pageSizeReady,
     placeholderData: keepPreviousData,
   })
 
@@ -144,9 +144,9 @@ export function RecordsPage() {
         className="lg:min-h-0 lg:flex-1"
         footer={<Pagination page={page} totalPages={totalPages} onChange={setPage} />}
       >
-        {!pageSizeReady || listQuery.isLoading ? <Loading /> : null}
+        {listQuery.isLoading ? <Loading /> : null}
 
-        {pageSizeReady && !listQuery.isLoading && totalCount === 0 ? (
+        {!listQuery.isLoading && totalCount === 0 ? (
           <div className="flex flex-col items-start gap-2 rounded-2xl bg-surface p-5">
             <p className="text-sm text-ink-2">조건에 맞는 기록이 없어요.</p>
             {filter.hasActiveFilter ? (
@@ -161,7 +161,7 @@ export function RecordsPage() {
           </div>
         ) : null}
 
-        {pageSizeReady && !listQuery.isLoading && totalCount > 0 ? (
+        {!listQuery.isLoading && totalCount > 0 ? (
           <div className="grid grid-cols-1 content-start gap-3">
             {records.map((record) => {
               const firstTag = record.analysis?.tags[0]
