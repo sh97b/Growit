@@ -494,17 +494,19 @@ function QuickRecordInput() {
           기록하기
         </Link>
       ) : (
-        <div className="flex flex-col gap-2 rounded-xl bg-surface px-3.5 py-3.5 lg:px-[1.125rem]">
-          <span className="text-sm text-ink-2">
+        <div className="flex flex-col gap-2 rounded-xl bg-surface py-3.5 pl-0 pr-0 lg:px-[1.125rem]">
+          <span className="px-3.5 text-sm text-ink-2 lg:px-0">
             오늘 한 줄만 남겨도 충분해요{hasMultipleHobbies ? '' : ` · 분야는 ${hobbyName}예요`}
           </span>
 
           {/* R1 3번: 모바일(폭 1024 미만)은 위 줄 = 입력칸 전체 폭, 아래 줄 = 분야 알약(왼쪽)과
               저장(오른쪽)으로 세로 쌓기 — 한 줄에 셋을 다 넣으면 폭 360px에서 저장 버튼 글자가
-              세로로 줄바꿈되던 문제라 분리했다. 데스크톱은 기존처럼 한 줄. */}
-          <div className="flex flex-col gap-2 lg:hidden">
+              세로로 줄바꿈되던 문제라 분리했다. 데스크톱은 기존처럼 한 줄. 입력칸이 돌아보기
+              검색창만큼 넓어 보이도록 모바일에서는 카드 좌우 안쪽 여백을 없애고(입력·버튼 행만)
+              화면 가장자리까지 채운다(FilterBar의 검색창과 같은 여백 기준: 페이지 컨테이너 16px뿐). */}
+          <div className="flex flex-col gap-2 px-0 lg:hidden">
             {inputField}
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-2 px-3.5">
               {hobbyDropdown ?? <span />}
               {saveButton}
             </div>
@@ -515,7 +517,7 @@ function QuickRecordInput() {
             {saveButton}
           </div>
 
-          {error ? <span className="text-caption-min text-[#6B3F0F]">{error}</span> : null}
+          {error ? <span className="px-3.5 text-caption-min text-[#6B3F0F] lg:px-0">{error}</span> : null}
         </div>
       )}
     </>
