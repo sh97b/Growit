@@ -46,7 +46,9 @@ export function useFitPageSize({
       const gapPx = gapRem * rootFontSizePx
       const height = el2.clientHeight
       if (height <= 0 || itemHeightPx <= 0) return
-      const rows = Math.max(1, Math.floor((height + gapPx) / (itemHeightPx + gapPx)))
+      // min이 0인 호출(예: 홈의 "0~3개만" 측정)에서는 공간이 없으면 실제로 0까지 내려가야 하므로
+      // 더 이상 최소 1행을 강제하지 않는다(그 외 호출은 이미 min으로 하한을 보장한다).
+      const rows = Math.max(0, Math.floor((height + gapPx) / (itemHeightPx + gapPx)))
       const next = Math.min(max, Math.max(min, rows * columns))
       setPageSize((prev) => (prev === next ? prev : next))
       setReady(true)

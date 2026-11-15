@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Loading } from './Loading'
+import { ChevronRightIcon } from './icons'
 import { useHobbies } from '../hooks/useHobbies'
 import { formatMonthDay, todayLocalDate } from '../lib/date'
 import { fetchRecords } from '../lib/records'
@@ -34,9 +35,10 @@ export function RecentRecordsCard({ limit = 3, showAllLink = true }: { limit?: n
         {showAllLink ? (
           <Link
             to="/records"
-            className="inline-flex min-h-9 flex-none items-center text-sm font-medium text-base-ink underline underline-offset-4"
+            className="inline-flex min-h-9 flex-none items-center gap-0.5 rounded-full px-2 text-sm font-medium text-base-ink no-underline hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
           >
             지난 기록 모두 보기
+            <ChevronRightIcon width={16} height={16} />
           </Link>
         ) : null}
       </div>

@@ -63,10 +63,13 @@ export function CoachActionCard({
   result,
   comeback,
   onResultChange,
+  hideReactions = false,
 }: {
   result: CoachResult
   comeback: boolean
   onResultChange: (updated: CoachResult) => void
+  /** 홈의 만료(EXPIRED) 회고 카드처럼, 행동 내용은 보여주되 반응 버튼만 숨길 때 쓴다(P1 5단계). */
+  hideReactions?: boolean
 }) {
   const action = comeback ? result.comebackAction : result.nextAction
   const [simplifyError, setSimplifyError] = useState<string | null>(null)
@@ -125,7 +128,7 @@ export function CoachActionCard({
       <p className="text-section-title">{action.title}</p>
       <span className="text-caption-min text-ink-2">{action.minutes}분 · {action.reason}</span>
       <EvidenceRow evidence={action.evidence} />
-      {result.reaction === 'TRIED' || result.reaction === 'REST_TODAY' ? (
+      {hideReactions ? null : result.reaction === 'TRIED' || result.reaction === 'REST_TODAY' ? (
         <p className="text-sm text-ink-2">{reactionLine(result.reaction, result.id ?? 0)}</p>
       ) : (
         <div className="flex flex-wrap gap-2">

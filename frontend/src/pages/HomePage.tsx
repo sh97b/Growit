@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ActivityHeatmap } from '../components/ActivityHeatmap'
@@ -11,10 +11,13 @@ import { Split } from '../components/PageLayout'
 import { RecentRecordsCard } from '../components/RecentRecordsCard'
 import { RecentWeekStrip } from '../components/RecentWeekStrip'
 import { TopicChips } from '../components/TopicChips'
-import { PlusIcon } from '../components/icons'
+import { ChevronRightIcon, PlusIcon } from '../components/icons'
 import { useCurrentUser } from '../hooks/useCurrentUser'
+import { useFitPageSize } from '../hooks/useFitPageSize'
 import { useHobbies } from '../hooks/useHobbies'
-import { fetchLatestCoach, generateAutoCoach, type CoachResult } from '../lib/ai'
+import { useIsDesktop } from '../hooks/useIsDesktop'
+import { useOverflowHidePriority } from '../hooks/useOverflowHidePriority'
+import { fetchLatestCoach, generateAutoCoach, type CoachAutoResponse, type CoachResult } from '../lib/ai'
 import { reactionLine } from '../lib/coachReaction'
 import { ApiError } from '../lib/api'
 import {
@@ -29,6 +32,9 @@ import { takeDroppedOfflineMessages } from '../hooks/useOfflineSync'
 import { createRecord, fetchRecords } from '../lib/records'
 import { fetchActivityMap, fetchSummary, type StatsSummary } from '../lib/stats'
 
+/** 홈 최근 기록 한 줄의 추정 높이(테두리+패딩+두 줄, rem). 남은 열 높이에 맞춰 0~3개만 보여준다. */
+const RECENT_ROW_HEIGHT_REM = 5.75
+
 const primaryLinkClass =
   'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-base px-5 text-body-min font-medium text-white no-underline lg:w-fit'
 
@@ -42,9 +48,13 @@ const AUTO_COACH_DATE_KEY = 'growit_auto_coach_date'
 /**
  * 홈에 들어올 때마다 서버에 자동 회고 조건(기록 5개 이상 쌓임, O1 E)을 확인한다. sessionStorage에
  * 오늘 날짜를 적어 두고 하루 한 번만 호출한다(서버도 같은 입력이면 멱등이라 이중 안전장치).
+ * 응답(GENERATED/EXISTS/NOT_ELIGIBLE 등)을 돌려줘 사이드의 회고 카드가 "기록 n/5" 진행 표시에
+ * 쓸 수 있게 한다 — 같은 날 두 번째 접속처럼 호출을 건너뛴 경우에는 null을 돌려주고, 그때는
+ * latest 쿼리(저장된 결과)만으로 카드를 그린다(P1 5단계).
  */
-function useAutoCoachOncePerDay() {
+function useAutoCoachOncePerDay(): CoachAutoResponse | null {
   const queryClient = useQueryClient()
+  const [autoStatus, setAutoStatus] = useState<CoachAutoResponse | null>(null)
 
   useEffect(() => {
     const today = todayLocalDate()
@@ -57,18 +67,21 @@ function useAutoCoachOncePerDay() {
     if (lastCalled === today) return
 
     generateAutoCoach()
-      .then(() => {
+      .then((data) => {
         try {
           sessionStorage.setItem(AUTO_COACH_DATE_KEY, today)
         } catch {
           // 저장 실패는 무시한다(다음 접속에서 다시 시도될 뿐).
         }
+        setAutoStatus(data)
         queryClient.invalidateQueries({ queryKey: ['ai', 'coach', 'latest'] })
       })
       .catch(() => {
         // 실패해도 홈은 평소대로 보여준다. 다음 접속에서 다시 시도된다.
       })
   }, [])
+
+  return autoStatus
 }
 
 export function HomePage() {
@@ -76,7 +89,41 @@ export function HomePage() {
   const summaryQuery = useQuery({ queryKey: ['stats', 'summary'], queryFn: fetchSummary })
   const [today] = useState(() => new Date())
   const [droppedMessages] = useState(() => takeDroppedOfflineMessages())
-  useAutoCoachOncePerDay()
+  const isDesktop = useIsDesktop()
+  const autoStatus = useAutoCoachOncePerDay()
+
+  // P1 5단계: 본문의 최근 기록은 열에 남은 높이에 정확히 들어가는 개수(0~3개)만 보여준다
+  // (useFitPageSize를 그대로 재사용 — 목록 페이지네이션과 같은 "남은 높이 ÷ 한 줄 높이" 계산).
+  const { containerRef: recentRef, pageSize: recentFit, ready: recentReady } = useFitPageSize({
+    itemHeightRem: RECENT_ROW_HEIGHT_REM,
+    columns: 1,
+    min: 0,
+    max: 3,
+  })
+  const recentLimit = isDesktop ? (recentReady ? recentFit : 3) : 3
+
+  // 아래 세 훅은 summary가 아직 로딩 중이어도(이 아래 early return보다 먼저) 매 렌더마다 똑같이
+  // 호출돼야 한다(Hooks 규칙) — summary 로딩 전에는 잠정적으로 안전한 기본값으로 계산해 두고,
+  // 실제 상태별 분기는 이 함수의 나머지 부분(이미 로딩이 끝난 뒤)에서 한다.
+  const summaryPreview = summaryQuery.data
+  const statePreview: 'first' | 'comeback' | 'done' | 'off' | null = !summaryPreview
+    ? null
+    : summaryPreview.recordedDays === 0
+      ? 'first'
+      : (summaryPreview.daysSinceLastRecord ?? 0) >= 7
+        ? 'comeback'
+        : summaryPreview.todayRecorded
+          ? 'done'
+          : 'off'
+
+  const restedWeekQuery = useQuery({
+    queryKey: ['stats', 'activity-map', 'week-check', startOfWeekLocal(today), todayLocalDate()],
+    queryFn: () => fetchActivityMap({ from: startOfWeekLocal(today), to: todayLocalDate() }),
+    enabled: statePreview === 'comeback',
+  })
+
+  const sideItemCount = statePreview == null || statePreview === 'first' ? 0 : 4
+  const { containerRef: sideFitRef, itemRefs: sideItemRefs } = useOverflowHidePriority(sideItemCount)
 
   if (userLoading || summaryQuery.isLoading) {
     return <Loading />
@@ -103,17 +150,10 @@ export function HomePage() {
 
   const summary = summaryQuery.data
   const name = displayNameOf(currentUser)
-
-  const state: 'first' | 'comeback' | 'done' | 'off' =
-    summary.recordedDays === 0
-      ? 'first'
-      : (summary.daysSinceLastRecord ?? 0) >= 7
-        ? 'comeback'
-        : summary.todayRecorded
-          ? 'done'
-          : 'off'
+  const state = statePreview!
 
   const showWeekStrip = state === 'done' || state === 'off'
+  const restedWeek = state === 'comeback' && (restedWeekQuery.data ?? []).length === 0
 
   const greeting = (
     <div className="flex flex-col gap-1.5">
@@ -124,28 +164,52 @@ export function HomePage() {
       {state === 'first' ? (
         <p className="text-body-min text-ink-2">오늘 있었던 일을 한 줄만 적어도 첫 기록이 돼요.</p>
       ) : null}
+      {/* P1 5단계: 쉬었다 돌아온 문구와 "이번 주는 쉬어 간 주예요" 안내를 한 줄로 합친다. */}
       {state === 'comeback' && summary.lastRecordedDate ? (
         <p className="text-body-min text-ink-2">
           마지막 기록은 {formatMonthDay(summary.lastRecordedDate)}이에요. 쌓아 둔 기록은 그대로 있어요.
+          {restedWeek ? ' 이번 주는 쉬어 간 주예요 — 쉬는 시간도 흐름의 일부예요.' : ''}
         </p>
       ) : null}
     </div>
   )
 
-  // 사이드(데스크톱 Split.side)와 모바일 둘 다에서 쓰는 같은 블록 — 최근 7일·쌓인 기록 3칸·
-  // 자주 하는 주제 칩·최근 26주 활동 지도(L3: 사이드 카드 폭을 채우려고 12→26으로 늘림, 디자인과
-  // 다르게 한 곳). 전부 폭이 좁아도 자연스러운 크기라 항상 보여준다
-  // (예전 F3의 ResizeObserver 기반 우선순위 숨김은 사이드 칼럼으로 옮기며 더 필요하지 않게 됐다).
-  const sideBlocks = (
+  // P1 5단계: 사이드는 우선순위 순서(① 최근 회고 카드 ② 활동 지도 ③ 쌓인 기록 3칸 ④ 자주 하는
+  // 주제)로 두고, 열이 실제로 넘칠 때만 아래 블록부터 숨긴다(useOverflowHidePriority). 최근 7일
+  // 줄은 이 우선순위 목록에 없던 기존 블록이라(지시문 목록에 없음) 숨김 대상에서 빼고 그대로 맨
+  // 위에 둔다 — 작아서 공간을 거의 안 차지하고, done/off 상태에서만 보이던 기존 규칙도 유지한다.
+  const sideItems: { key: string; node: ReactNode }[] =
+    state === 'first'
+      ? []
+      : [
+          { key: 'coach', node: <HomeCoachCard comeback={state === 'comeback'} autoStatus={autoStatus} /> },
+          {
+            key: 'heatmap',
+            node: (
+              <div className="rounded-2xl bg-surface p-5">
+                <ActivityHeatmap weeks={26} />
+              </div>
+            ),
+          },
+          { key: 'stats', node: <StatsTiles summary={summary} /> },
+          { key: 'topics', node: <TopicChips /> },
+        ]
+
+  const sideDesktop = (
     <>
       {showWeekStrip ? <RecentWeekStrip /> : null}
-      {state !== 'first' ? <StatsTiles summary={summary} /> : null}
-      {state !== 'first' ? <TopicChips /> : null}
-      {state !== 'first' ? (
-        <div className="rounded-2xl bg-surface p-5">
-          <ActivityHeatmap weeks={26} />
-        </div>
-      ) : null}
+      <div ref={sideFitRef} className="flex flex-1 min-h-0 flex-col gap-7 overflow-hidden">
+        {sideItems.map((item, index) => (
+          <div
+            key={item.key}
+            ref={(el) => {
+              sideItemRefs.current[index] = el
+            }}
+          >
+            {item.node}
+          </div>
+        ))}
+      </div>
     </>
   )
 
@@ -161,13 +225,22 @@ export function HomePage() {
 
       {state === 'first' ? <FirstUseBoard /> : null}
       {state === 'comeback' ? <ComebackBoard /> : null}
-      {state === 'done' ? <DoneBoard /> : null}
       {state === 'off' ? <AiOffBoard /> : null}
 
-      {/* 사이드에 들어가는 최근 7일·쌓인 기록·주제 칩·활동 지도는 모바일에서 여기 순서대로 보인다. */}
-      <div className="flex flex-col gap-7 lg:hidden">{sideBlocks}</div>
+      {/* 사이드에 들어가는 최근 7일·회고 카드·활동 지도·쌓인 기록·주제 칩은 모바일에서 이 순서대로 보인다
+          (모바일은 넘칠 공간 자체가 없어 우선순위 숨김을 적용하지 않고 전부 보여준다). */}
+      <div className="flex flex-col gap-7 lg:hidden">
+        {showWeekStrip ? <RecentWeekStrip /> : null}
+        {sideItems.map((item) => (
+          <div key={item.key}>{item.node}</div>
+        ))}
+      </div>
 
-      {state !== 'first' ? <RecentRecordsCard limit={3} /> : null}
+      {state !== 'first' ? (
+        <div ref={recentRef} className="lg:min-h-0 lg:flex-1 lg:overflow-hidden">
+          <RecentRecordsCard limit={recentLimit} />
+        </div>
+      ) : null}
     </>
   )
 
@@ -175,7 +248,7 @@ export function HomePage() {
     <div className="flex flex-col gap-7 lg:min-h-0 lg:flex-1">
       <Split
         main={main}
-        side={<div className="hidden lg:flex lg:flex-col lg:gap-7">{sideBlocks}</div>}
+        side={<div className="hidden lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:gap-7">{sideDesktop}</div>}
         className="lg:min-h-0 lg:flex-1"
       />
     </div>
@@ -230,15 +303,15 @@ function AiOffBoard() {
   )
 }
 
-function DoneBoard() {
-  return <HomeAiCard comeback={false} />
-}
-
 /**
- * 최신 COACH 결과가 있으면 "다음 작은 행동"(쉬었다 돌아온 경우 복귀 행동) 카드를, 없으면 회고 받기
- * 버튼만 보여준다. 홈에서는 비용 보호를 위해 AI를 새로 부르지 않고 저장된 최신 결과만 읽는다.
+ * 홈 사이드의 "최근 회고 카드"(P1 5단계). 전에는 '오늘 기록 완료' 상태에서만 본문 안에 보였는데,
+ * 이제 상태와 무관하게 사이드 1순위 블록으로 항상 보인다(회고가 아예 없을 때는 진행 안내로 대체).
+ * cardState가 EXPIRED여도 카드를 숨기지 않고 날짜·내용은 그대로 보여주되 반응 버튼만 숨긴다
+ * (전에는 EXPIRED를 "회고 없음"과 똑같이 취급해 카드 전체가 "회고 받기" 안내로 바뀌었는데, 그
+ * 회고 자체는 여전히 유효한 정보라 숨길 이유가 없다는 게 이번 지시의 핵심 — 서버 `latest()`는
+ * 이미 EXPIRED여도 result를 그대로 돌려주고 있어 이 부분은 프론트 로직만 바꾸면 됐다).
  */
-function HomeAiCard({ comeback }: { comeback: boolean }) {
+function HomeCoachCard({ comeback, autoStatus }: { comeback: boolean; autoStatus: CoachAutoResponse | null }) {
   const queryClient = useQueryClient()
   const { data, isLoading } = useQuery({ queryKey: ['ai', 'coach', 'latest'], queryFn: fetchLatestCoach })
 
@@ -247,52 +320,74 @@ function HomeAiCard({ comeback }: { comeback: boolean }) {
   }
 
   const action = data ? (comeback ? data.comebackAction : data.nextAction) : null
-  const newBanner = data?.isNew ? (
-    <div className="flex items-center justify-between gap-3 rounded-xl bg-[color-mix(in_srgb,var(--color-base)_9%,white)] px-4 py-2.5">
-      <AiLabel>새 회고가 도착했어요</AiLabel>
-      <Link
-        to={data.id != null ? `/coach?r=${data.id}` : '/coach'}
-        className="inline-flex min-h-9 items-center justify-center rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink no-underline"
-      >
-        열어 보기
-      </Link>
+
+  // 회고가 아예 없으면: 오늘 접속 때 자동 생성 조건을 이미 확인했다면(autoStatus) 정확한 진행
+  // 수치를, 아니면(같은 날 두 번째 접속 등으로 건너뛴 경우) 일반 안내만 보여준다.
+  if (!data || !action) {
+    if (autoStatus && autoStatus.status === 'NOT_ELIGIBLE' && !autoStatus.hasAnyCoach) {
+      const ratio = Math.min(100, (autoStatus.newRecordsSinceLast / Math.max(1, autoStatus.requiredCount)) * 100)
+      return (
+        <div className="flex flex-col items-start gap-3 rounded-2xl bg-surface p-5">
+          <h2 className="text-card-title">AI 회고</h2>
+          <p className="text-caption-min text-ink-2">
+            기록 {autoStatus.newRecordsSinceLast}/{autoStatus.requiredCount} · {autoStatus.requiredCount}개가 쌓이면
+            회고가 자동으로 도착해요
+          </p>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-rest">
+            <div className="h-full rounded-full bg-base" style={{ width: `${ratio}%` }} />
+          </div>
+          <Link to="/records/new" className="inline-flex min-h-9 items-center text-sm font-medium text-base-ink underline underline-offset-4">
+            기록하기
+          </Link>
+        </div>
+      )
+    }
+    return (
+      <div className="flex flex-col items-start gap-2 rounded-2xl bg-surface p-5">
+        <h2 className="text-card-title">AI 회고</h2>
+        <p className="text-caption-min text-ink-2">아직 받은 회고가 없어요.</p>
+      </div>
+    )
+  }
+
+  const expired = data.cardState === 'EXPIRED'
+
+  const newBanner = data.isNew ? (
+    <div className="flex items-center gap-1.5">
+      <AiLabel>새로 도착</AiLabel>
     </div>
   ) : null
 
-  // EXPIRED(7일 지남 또는 "해봤어요"가 어제 이전)는 새 회고를 받도록 안내한다.
-  if (!data || !action || data.cardState === 'EXPIRED') {
-    return (
-      <>
-        {newBanner}
-        <Band className="flex flex-col items-start gap-3.5">
-          <h2 className="text-lg font-semibold">AI 회고</h2>
-          <Link to="/coach" className={primaryLinkClass}>
-            회고 받기
-          </Link>
-        </Band>
-      </>
-    )
-  }
-
-  // CELEBRATE·RESTING은 카드와 반응 버튼을 접고 짧은 응원 문구만 보여준다.
-  if (data.cardState === 'CELEBRATE' || data.cardState === 'RESTING') {
-    return (
-      <>
-        {newBanner}
-        <p className="text-body-min text-ink-2">{encouragementLine(data)}</p>
-      </>
-    )
-  }
-
-  return (
-    <div className="flex flex-col gap-2">
-      {newBanner}
-      {!comeback && data.periodSummary ? <p className="text-sm text-ink-2">{data.periodSummary}</p> : null}
+  // CELEBRATE·RESTING은 행동 카드 대신 짧은 응원 문구만 보여준다(기존 동작 유지).
+  const body =
+    !expired && (data.cardState === 'CELEBRATE' || data.cardState === 'RESTING') ? (
+      <p className="text-body-min text-ink-2">{encouragementLine(data)}</p>
+    ) : (
       <CoachActionCard
         result={data}
         comeback={comeback}
+        hideReactions={expired}
         onResultChange={(updated) => queryClient.setQueryData(['ai', 'coach', 'latest'], updated)}
       />
+    )
+
+  return (
+    <div className="flex flex-col gap-2.5 rounded-2xl bg-surface p-5">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-card-title">
+          {data.startDate ? `${formatMonthDay(data.startDate)} 회고` : 'AI 회고'}
+        </h2>
+        {newBanner}
+      </div>
+      {data.periodSummary ? <p className="line-clamp-2 text-body-min text-ink-2">{data.periodSummary}</p> : null}
+      {body}
+      <Link
+        to={data.id != null ? `/coach?r=${data.id}` : '/coach'}
+        className="inline-flex min-h-9 w-fit items-center gap-0.5 text-sm font-medium text-base-ink no-underline"
+      >
+        회고 보기
+        <ChevronRightIcon width={14} height={14} />
+      </Link>
     </div>
   )
 }
@@ -312,14 +407,6 @@ function ComebackBoard() {
   const [content, setContent] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [now] = useState(() => new Date())
-
-  const today = todayLocalDate()
-  const weekStart = startOfWeekLocal(now)
-  const weekCheckQuery = useQuery({
-    queryKey: ['stats', 'activity-map', 'week-check', weekStart, today],
-    queryFn: () => fetchActivityMap({ from: weekStart, to: today }),
-  })
 
   if (hobbiesLoading || recentQuery.isLoading) {
     return <Loading />
@@ -330,7 +417,6 @@ function ComebackBoard() {
   const hobbyId =
     recentHobbyId != null && activeIds.has(recentHobbyId) ? recentHobbyId : (activeHobbies?.[0]?.id ?? null)
   const hobbyName = activeHobbies?.find((hobby) => hobby.id === hobbyId)?.name ?? ''
-  const restedWeek = (weekCheckQuery.data ?? []).length === 0
 
   async function handleSave() {
     if (submitting || hobbyId == null) return
@@ -387,10 +473,6 @@ function ComebackBoard() {
           {error ? <span className="text-caption-min text-[#6B3F0F]">{error}</span> : null}
         </div>
       )}
-
-      <HomeAiCard comeback />
-
-      {restedWeek ? <Note variant="calm">이번 주는 쉬어 간 주예요. 쉬는 시간도 흐름의 일부예요.</Note> : null}
     </>
   )
 }
