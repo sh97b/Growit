@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { AccountMenu } from './AccountMenu'
 import { isReviewPath } from './nav-items'
 import { PlusIcon } from './icons'
+import growitLogo from '../assets/brand/growit-logo.svg'
 
 export function Header() {
   const location = useLocation()
@@ -12,8 +13,8 @@ export function Header() {
   return (
     <header className="hidden h-[4.25rem] flex-none border-b border-line bg-paper lg:block">
       <div className="app-shell-container flex h-full items-center">
-        <Link to="/" className="mr-11 font-serif text-xl font-semibold text-ink no-underline">
-          Growit
+        <Link to="/" className="mr-11 inline-flex items-center no-underline">
+          <img src={growitLogo} alt="Growit" className="h-7 w-auto max-w-[9rem]" />
         </Link>
         <nav className="flex h-full gap-7" aria-label="주 메뉴">
           <Link

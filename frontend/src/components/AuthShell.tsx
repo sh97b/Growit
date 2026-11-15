@@ -1,17 +1,23 @@
 import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
+import growitLogo from '../assets/brand/growit-logo.svg'
 
 export function AuthShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col bg-paper">
       <header className="hidden h-[4.25rem] flex-none items-center border-b border-line bg-paper lg:flex">
         <div className="mx-auto w-full max-w-[90rem] px-10">
-          <span className="font-serif text-xl font-semibold text-ink">Growit</span>
+          <Link to="/" className="inline-flex items-center no-underline">
+            <img src={growitLogo} alt="Growit" className="h-7 w-auto max-w-[9rem]" />
+          </Link>
         </div>
       </header>
 
       <main className="flex flex-1 flex-col lg:items-center lg:justify-center">
         <div className="mx-auto flex w-full max-w-[26.25rem] flex-1 flex-col gap-6 px-5 pb-8 pt-6 lg:hidden">
-          <span className="font-serif text-xl font-semibold text-ink">Growit</span>
+          <Link to="/" className="inline-flex items-center self-start no-underline">
+            <img src={growitLogo} alt="Growit" className="h-6 w-auto max-w-[8rem]" />
+          </Link>
           {children}
         </div>
 

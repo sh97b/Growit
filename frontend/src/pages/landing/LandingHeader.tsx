@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import growitLogo from '../../assets/brand/growit-logo.svg'
 import { WRAP } from './shared'
 
 const NAV_LINKS = [
@@ -12,8 +13,8 @@ export function LandingHeader() {
   return (
     <header className="sticky top-0 z-[9] border-b border-line bg-[color-mix(in_srgb,var(--color-paper)_94%,transparent)]">
       <div className={[WRAP, 'flex h-[56px] items-center gap-1 lg:h-[72px]'].join(' ')}>
-        <Link to="/" className="mr-auto inline-flex items-center font-serif text-[20px] font-semibold text-ink no-underline lg:mr-[36px] lg:text-[22px]">
-          Growit
+        <Link to="/" className="mr-auto inline-flex items-center no-underline lg:mr-[36px]">
+          <img src={growitLogo} alt="Growit" className="h-[22px] w-auto max-w-[8rem] lg:h-[26px]" />
         </Link>
         <nav className="hidden items-center gap-[6px] lg:flex" aria-label="랜딩 섹션 이동">
           {NAV_LINKS.map((link) => (
