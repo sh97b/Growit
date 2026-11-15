@@ -473,13 +473,15 @@ public class CoachService {
 				: (stored.simplifiedAction() != null ? stored.simplifiedAction() : stored.comebackAction());
 		String summary = stored.periodSummary() == null ? null
 				: stored.periodSummary().substring(0, Math.min(100, stored.periodSummary().length()));
+		String hobbyName = result.getHobbyId() == null ? "전체 분야"
+				: hobbyNames.getOrDefault(result.getHobbyId(), "분야");
 		return new com.growit.ai.dto.AiCoachListItemResponse(
 				result.getId(),
 				result.getCreatedAt(),
 				result.getStartDate(),
 				result.getEndDate(),
 				result.getHobbyId(),
-				hobbyNames.getOrDefault(result.getHobbyId(), "분야"),
+				hobbyName,
 				summary,
 				currentAction == null ? null : currentAction.title(),
 				result.isAuto(),

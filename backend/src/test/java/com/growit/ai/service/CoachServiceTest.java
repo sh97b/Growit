@@ -339,6 +339,17 @@ class CoachServiceTest {
 	}
 
 	@Test
+	void search_hobbyIdNull_hobbyNameIsAllHobbies() {
+		saveCoachResult(1L, null, "전체 분야 요약", null, "o");
+
+		var result = service(enabledProperties()).search(1L, null, null, null, null, 0, 20);
+
+		assertThat(result.items()).hasSize(1);
+		assertThat(result.items().get(0).hobbyId()).isNull();
+		assertThat(result.items().get(0).hobbyName()).isEqualTo("전체 분야");
+	}
+
+	@Test
 	void search_pagination_splitsAcrossPages() {
 		Long hobbyId = createHobby(1L);
 		for (int i = 0; i < 5; i++) {

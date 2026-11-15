@@ -24,8 +24,13 @@ export function PageHeader({ title, subtitle, action }: PageHeaderProps) {
 }
 
 const GRID_BASE = 'lg:grid lg:grid-cols-12 lg:items-start lg:gap-8'
-/** 사이드 열은 헤더 높이(4.25rem) + 1.5rem 아래에서 고정된다. */
-const SIDE_STICKY = 'lg:sticky lg:top-[5.75rem]'
+/**
+ * 사이드 열은 헤더 높이(4.25rem) + 1.5rem 아래에서 고정된다(N1: 내용이 그 자리에서 다 못 들어가면
+ * 열 자신만 내부 스크롤한다 — 바깥 main은 더 이상 스크롤하지 않으므로, 뷰포트보다 긴 사이드 열은
+ * 이 자체 스크롤이 없으면 화면 아래로 잘려 보이지 않게 된다).
+ */
+const SIDE_STICKY =
+  'lg:sticky lg:top-[5.75rem] lg:max-h-[calc(100dvh-5.75rem-1.5rem)] lg:overflow-y-auto lg:overscroll-contain scrollbar-thin-fade'
 
 type SplitProps = { main: ReactNode; side: ReactNode; className?: string }
 

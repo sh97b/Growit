@@ -5,13 +5,15 @@ import { ChevronRightIcon } from '../components/icons'
 import { CoachResultView } from '../components/CoachResultView'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
-import { PageHeader, SplitWide } from '../components/PageLayout'
+import { ReviewHeaderRow } from '../components/ReviewHeaderRow'
+import { SplitWide } from '../components/PageLayout'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useFitPageSize, useStablePageOnResize } from '../hooks/useFitPageSize'
 import { useHobbies } from '../hooks/useHobbies'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import { ApiError } from '../lib/api'
 import {
+  fetchAiUsage,
   fetchCoach,
   fetchCoachList,
   fetchCoachResult,
@@ -29,14 +31,7 @@ const PERIODS: { value: CoachPeriod; label: string }[] = [
   { value: '1M', label: '한 달' },
 ]
 
-const LATEST_VALID_DAYS = 7
 const LIST_ROW_HEIGHT_REM = 5.5
-
-function isRecentEnough(createdAt: string | null): boolean {
-  if (!createdAt) return false
-  const ageMs = Date.now() - new Date(createdAt).getTime()
-  return ageMs < LATEST_VALID_DAYS * 24 * 60 * 60 * 1000
-}
 
 type DateFilter = 'ALL' | '30D' | 'MONTH' | 'CUSTOM'
 
@@ -133,13 +128,12 @@ export function CoachPage() {
     },
   })
 
-  const shownResult =
-    result ??
-    (selectedId != null
-      ? selectedQuery.data ?? null
-      : latestQuery.data && isRecentEnough(latestQuery.data.createdAt)
-        ? latestQuery.data
-        : null)
+  const usageQuery = useQuery({ queryKey: ['ai', 'usage'], queryFn: fetchAiUsage })
+
+  // 전에는 "7일 안에 받은 것만" 보여줬는데, 목록에는 더 오래된 회고가 있는데도 오른쪽은 "아직 받은
+  // 회고가 없어요"로 나오는 모순이 생겼다(지시문 5) — latestQuery는 정말 하나도 없을 때만 null/204를
+  // 주므로(CoachService.latest), 나이 제한 없이 그대로 쓰면 된다.
+  const shownResult = result ?? (selectedId != null ? selectedQuery.data ?? null : latestQuery.data ?? null)
 
   // 자동 회고를 열면 한 번만 viewed 처리한다(이 화면에 머무는 동안 중복 호출 방지).
   useEffect(() => {
@@ -180,7 +174,7 @@ export function CoachPage() {
   if (!currentUser?.aiEnabled) {
     return (
       <div className="flex flex-col gap-4">
-        <PageHeader title="AI 회고" />
+        <ReviewHeaderRow title="AI 회고" />
         <Note variant="calm">
           <span>
             AI 정리가 꺼져 있어요. 켜면 기간을 돌아보는 회고를 받을 수 있어요.{' '}
@@ -193,61 +187,70 @@ export function CoachPage() {
     )
   }
 
-  const selectors = (
-    <>
-      {activeHobbies && activeHobbies.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
+  // 탭 박스 아래 한 줄: 분야 필터만(지시문 5). 기간·[회고 받기]는 오른쪽 "새 회고 받기" 카드로 옮겼다.
+  const hobbyFilter =
+    activeHobbies && activeHobbies.length > 0 ? (
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          aria-pressed={effectiveHobbyId === null}
+          onClick={() => {
+            setHobbyId(null)
+            setPage(0)
+          }}
+          className={pickClass(effectiveHobbyId === null)}
+        >
+          전체
+        </button>
+        {activeHobbies.map((hobby) => (
           <button
+            key={hobby.id}
             type="button"
-            aria-pressed={effectiveHobbyId === null}
+            aria-pressed={effectiveHobbyId === hobby.id}
             onClick={() => {
-              setHobbyId(null)
+              setHobbyId(hobby.id)
               setPage(0)
             }}
-            className={pickClass(effectiveHobbyId === null)}
+            className={pickClass(effectiveHobbyId === hobby.id)}
           >
-            전체
-          </button>
-          {activeHobbies.map((hobby) => (
-            <button
-              key={hobby.id}
-              type="button"
-              aria-pressed={effectiveHobbyId === hobby.id}
-              onClick={() => {
-                setHobbyId(hobby.id)
-                setPage(0)
-              }}
-              className={pickClass(effectiveHobbyId === hobby.id)}
-            >
-              {hobby.name}
-            </button>
-          ))}
-        </div>
-      ) : null}
-
-      <div className="flex flex-wrap gap-2">
-        {PERIODS.map((item) => (
-          <button
-            key={item.value}
-            type="button"
-            aria-pressed={period === item.value}
-            onClick={() => setPeriod(item.value)}
-            className={pickClass(period === item.value)}
-          >
-            {item.label}
+            {hobby.name}
           </button>
         ))}
       </div>
+    ) : null
 
-      <button
-        type="button"
-        disabled={mutation.isPending}
-        onClick={() => mutation.mutate()}
-        className="inline-flex min-h-11 w-fit items-center justify-center rounded-lg bg-base px-5 text-body-min font-medium text-white disabled:bg-line disabled:text-[#5F594F] lg:ml-auto"
-      >
-        {shownResult ? '새 회고 받기' : '회고 받기'}
-      </button>
-    </>
+  const newCoachCard = (
+    <div className="flex flex-col gap-3 rounded-2xl border border-line-2 bg-white p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex rounded-lg border border-line-2 bg-white p-[0.1875rem]" role="group" aria-label="회고 기간">
+          {PERIODS.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              aria-pressed={period === item.value}
+              onClick={() => setPeriod(item.value)}
+              className={[
+                'min-h-9 whitespace-nowrap rounded-md px-3 text-sm font-medium',
+                period === item.value ? 'bg-ink text-white' : 'bg-transparent text-ink-2',
+              ].join(' ')}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          disabled={mutation.isPending}
+          onClick={() => mutation.mutate()}
+          className="inline-flex min-h-10 w-fit items-center justify-center rounded-lg bg-base px-5 text-body-min font-medium text-white disabled:bg-line disabled:text-[#5F594F]"
+        >
+          {shownResult ? '새 회고 받기' : '회고 받기'}
+        </button>
+      </div>
+      {usageQuery.data ? (
+        <p className="text-caption-min text-ink-2">오늘 남은 횟수 {usageQuery.data.remaining}/{usageQuery.data.limit}</p>
+      ) : null}
+    </div>
   )
 
   const detail = (
@@ -275,7 +278,14 @@ export function CoachPage() {
         </div>
       ) : null}
 
-      {selectedId != null && selectedQuery.isLoading ? <Loading /> : null}
+      {/* 불러오는 중에는 빈 안내 대신 자리 표시(스켈레톤)를 먼저 보여준다(지시문 5). */}
+      {selectedId != null && selectedQuery.isLoading && !mutation.isPending ? (
+        <div className="flex flex-col gap-3.5 rounded-2xl bg-surface p-7">
+          <div className="h-3.5 w-1/3 animate-pulse rounded-full bg-rest" />
+          <div className="h-3.5 w-full animate-pulse rounded-full bg-rest" />
+          <div className="h-3.5 w-[85%] animate-pulse rounded-full bg-rest" />
+        </div>
+      ) : null}
       {selectedId != null && selectedQuery.isError ? (
         <Note variant="sand">
           {selectedQuery.error instanceof ApiError && selectedQuery.error.status === 404
@@ -298,7 +308,7 @@ export function CoachPage() {
         <CoachResultView result={shownResult} onResultChange={(updated) => setResult(updated)} />
       ) : null}
 
-      {!shownResult && !mutation.isPending && selectedId == null ? (
+      {!shownResult && !mutation.isPending && selectedId == null && !selectedQuery.isLoading ? (
         <Note variant="calm">아직 받은 회고가 없어요. [회고 받기]를 눌러 보세요.</Note>
       ) : null}
     </div>
@@ -479,8 +489,9 @@ export function CoachPage() {
           </>
         ) : (
           <>
-            <PageHeader title="AI 회고" />
-            <div className="flex flex-col gap-5">{selectors}</div>
+            <ReviewHeaderRow title="AI 회고" />
+            {hobbyFilter}
+            {newCoachCard}
             {listPanel}
           </>
         )}
@@ -489,10 +500,10 @@ export function CoachPage() {
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      <PageHeader title="AI 회고" />
-      <div className="flex flex-col gap-5 lg:flex-row lg:flex-wrap lg:items-center">{selectors}</div>
-      <SplitWide main={listPanel} side={detail} />
+    <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
+      <ReviewHeaderRow title="AI 회고" />
+      {hobbyFilter}
+      <SplitWide main={listPanel} side={<>{newCoachCard}{detail}</>} className="lg:min-h-0 lg:flex-1" />
     </div>
   )
 }

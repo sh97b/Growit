@@ -9,7 +9,7 @@ const TABS = [
 export function ReviewTabs() {
   return (
     <div
-      className="flex flex-none gap-0.5 rounded-lg border border-line-2 bg-white p-[0.1875rem]"
+      className="flex flex-none gap-0.5 rounded-lg border border-line-2 bg-white p-[0.1875rem] lg:w-fit lg:self-start"
       role="group"
       aria-label="돌아보기"
     >

@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ActivityHeatmap } from '../components/ActivityHeatmap'
 import { Loading } from '../components/Loading'
-import { PageHeader, Split } from '../components/PageLayout'
+import { Split } from '../components/PageLayout'
 import { Pagination } from '../components/Pagination'
+import { ReviewHeaderRow } from '../components/ReviewHeaderRow'
 import { PlusIcon } from '../components/icons'
 import { useFitPageSize, useStablePageOnResize } from '../hooks/useFitPageSize'
 import { useHobbies } from '../hooks/useHobbies'
@@ -94,8 +95,8 @@ export function RecordsPage() {
 
   if (noRecordsAtAll) {
     return (
-      <div className="flex flex-col gap-5 lg:min-h-0 lg:flex-1">
-        <PageHeader title="지난 기록" />
+      <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
+        <ReviewHeaderRow title="지난 기록" />
         <div className="flex max-w-[45rem] flex-col items-start gap-4 rounded-2xl bg-surface p-5">
           <p className="text-[1.0625rem] text-ink">아직 기록이 없어요. 첫 기록이 여기에 쌓여요.</p>
           <Link
@@ -162,8 +163,8 @@ export function RecordsPage() {
   )
 
   return (
-    <div className="flex flex-col gap-5 lg:min-h-0 lg:flex-1">
-      <PageHeader title="지난 기록" />
+    <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
+      <ReviewHeaderRow title="지난 기록" />
       <Split main={main} side={side} className="lg:min-h-0 lg:flex-1" />
     </div>
   )
