@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { AiLabel } from './AiLabel'
@@ -41,18 +41,43 @@ export const RESULT_CARD_CLASS = 'rounded-2xl border border-line bg-white p-5'
 /*
  * 항목은 카드 안에서 배경 없는 평문(16px, 줄 높이 1.7)과 그 아래 근거 칩 한 줄로만 구성한다(카드
  * 안에 또 테두리 카드를 두지 않는다). 섹션 제목은 섹션 제목 토큰(20px)을 쓴다.
+ *
+ * S1 D-5단계: 모바일에서는 기본 접힘(제목 줄 44px 버튼)인 접이식으로 만들고, 데스크톱은 이전처럼
+ * 항상 펼쳐 둔다(펼침 상태와 무관하게 lg: 접두사로 항상 보여주는 블록을 따로 둬 데스크톱 동작을
+ * 전혀 바꾸지 않는다).
  */
 function TextItemBlock({ title, items }: { title: string; items: CoachTextItem[] }) {
+  const [open, setOpen] = useState(false)
+  const contentId = useId()
   if (items.length === 0) return null
-  return (
-    <div className={`flex flex-col gap-3 ${RESULT_CARD_CLASS}`}>
-      <h2 className="text-section-title">{title}</h2>
+  const content = (
+    <>
       {items.map((item, index) => (
         <div key={index} className="flex flex-col gap-2">
           <p className="text-body-min leading-[1.7] text-ink">{item.text}</p>
           <EvidenceRow evidence={item.evidence} />
         </div>
       ))}
+    </>
+  )
+  return (
+    <div className={`flex flex-col gap-3 ${RESULT_CARD_CLASS}`}>
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={open}
+        aria-controls={contentId}
+        className="flex min-h-11 w-full items-center justify-between gap-2 bg-transparent p-0 text-left lg:hidden"
+      >
+        <h2 className="text-section-title">{title}</h2>
+        <span aria-hidden="true" className="text-caption-min text-ink-2">
+          {open ? '▴' : '▾'}
+        </span>
+      </button>
+      <h2 className="hidden text-section-title lg:block">{title}</h2>
+      <div id={contentId} className={open ? 'flex flex-col gap-3' : 'hidden lg:flex lg:flex-col lg:gap-3'}>
+        {content}
+      </div>
     </div>
   )
 }
@@ -197,12 +222,13 @@ export function CoachResultView({
     )
   }
 
-  // P1 4단계: 한 열 문서 구성(최대 44rem) — 메타 줄 → AI 회고 한 줄(카드 배경 없음) → 섹션들 →
-  // 다음 작은 행동(유일한 강조 카드) → 맨 아래 피드백. O1(C.5)의 세로 배치 순서를 그대로 쓰되
-  // 장식적인 큰 글씨와 카드 안의 카드를 없애 가독성을 높인다.
+  // P1 4단계: 데스크톱은 한 열 문서 구성(최대 44rem) — 메타 줄 → AI 회고 한 줄(카드 배경 없음) →
+  // 섹션들 → 다음 작은 행동(유일한 강조 카드) → 맨 아래 피드백.
+  // S1 D-5단계: 모바일은 다음 작은 행동을 맨 위(강조)로 올린다 — DOM 순서(데스크톱 순서)는 그대로
+  // 두고 CSS order만 모바일에서 바꾼다(lg: 값은 원래 DOM 순서와 같게 둬 데스크톱은 그대로).
   return (
     <div className="flex flex-col gap-4 lg:max-w-[48rem]">
-      <div className="flex flex-wrap items-center gap-2 text-caption-min text-ink-2">
+      <div className="order-2 flex flex-wrap items-center gap-2 text-caption-min text-ink-2 lg:order-1">
         {result.startDate && result.endDate ? (
           <span>
             {formatMonthDay(result.startDate)} – {formatMonthDay(result.endDate)} · 전체 분야
@@ -216,21 +242,31 @@ export function CoachResultView({
         ) : null}
       </div>
 
-      <p className={`font-serif text-section-title leading-[1.7] text-ink ${RESULT_CARD_CLASS}`}>{result.periodSummary}</p>
+      <p className={`order-3 font-serif text-section-title leading-[1.7] text-ink lg:order-2 ${RESULT_CARD_CLASS}`}>
+        {result.periodSummary}
+      </p>
 
-      <TextItemBlock title="새로 해 본 것 · 나아진 점" items={result.changes} />
-      <TextItemBlock title="아직 남은 어려움" items={result.repeatedDifficulties} />
+      <div className="order-4 lg:order-3">
+        <TextItemBlock title="새로 해 본 것 · 나아진 점" items={result.changes} />
+      </div>
+      <div className="order-5 lg:order-4">
+        <TextItemBlock title="아직 남은 어려움" items={result.repeatedDifficulties} />
+      </div>
 
-      <CoachActionCard result={result} comeback={result.mode === 'COMEBACK'} onResultChange={onResultChange} />
+      <div className="order-1 lg:order-5">
+        <CoachActionCard result={result} comeback={result.mode === 'COMEBACK'} onResultChange={onResultChange} />
+      </div>
 
-      <FeedbackRow
-        question="이 회고가 도움됐나요?"
-        status={result.feedback === 'HELPFUL' ? 'positive' : result.feedback === 'NOT_HELPFUL' ? 'negative' : null}
-        pending={feedbackMutation.isPending}
-        onPositive={() => handleFeedback('HELPFUL')}
-        onNegative={() => handleFeedback('NOT_HELPFUL')}
-        errorMessage={feedbackError}
-      />
+      <div className="order-6">
+        <FeedbackRow
+          question="이 회고가 도움됐나요?"
+          status={result.feedback === 'HELPFUL' ? 'positive' : result.feedback === 'NOT_HELPFUL' ? 'negative' : null}
+          pending={feedbackMutation.isPending}
+          onPositive={() => handleFeedback('HELPFUL')}
+          onNegative={() => handleFeedback('NOT_HELPFUL')}
+          errorMessage={feedbackError}
+        />
+      </div>
     </div>
   )
 }

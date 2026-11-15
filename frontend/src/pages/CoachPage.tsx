@@ -508,9 +508,9 @@ export function CoachPage() {
                     return next
                   })
                 }
-                className="inline-flex items-center gap-1 bg-transparent p-0 text-ink-2"
+                className="inline-flex min-h-9 items-center gap-1 bg-transparent p-0 text-caption-min text-ink-2"
               >
-                ← 목록으로
+                ‹ 회고
               </button>
             </nav>
             {detail}
