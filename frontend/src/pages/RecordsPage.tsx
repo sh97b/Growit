@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { ActivityHeatmap } from '../components/ActivityHeatmap'
 import { FilterBar } from '../components/FilterBar'
+import { ListPane } from '../components/ListPane'
 import { Loading } from '../components/Loading'
 import { Split } from '../components/PageLayout'
 import { Pagination } from '../components/Pagination'
@@ -46,7 +47,7 @@ export function RecordsPage() {
 
   // 고정 개수 대신 목록 영역의 실제 높이에 맞춰 한 페이지 개수를 계산한다(F3).
   // 모바일은 페이지 스크롤을 유지하므로 1열 5개를 그대로 쓴다.
-  const { containerRef, pageSize: fitPageSize } = useFitPageSize({
+  const { containerRef, pageSize: fitPageSize, ready: fitReady } = useFitPageSize({
     itemHeightRem: CARD_MIN_HEIGHT_REM,
     gapRem: CARD_GAP_REM,
     columns: 1,
@@ -54,6 +55,7 @@ export function RecordsPage() {
     max: 12,
   })
   const pageSize = isDesktop ? fitPageSize : 5
+  const pageSizeReady = isDesktop ? fitReady : true
   useStablePageOnResize(page, setPage, pageSize)
   const { data: activeHobbies } = useHobbies(false)
   const { data: allHobbies } = useHobbies(true)
@@ -80,7 +82,17 @@ export function RecordsPage() {
         page,
         size: pageSize,
       }),
+    enabled: pageSizeReady,
+    placeholderData: keepPreviousData,
   })
+
+  // P1 2단계: 검색·필터로 총 페이지가 줄어들어 현재 페이지가 범위를 벗어나면 마지막 페이지로 보정한다.
+  useEffect(() => {
+    const total = listQuery.data?.totalCount
+    if (total == null) return
+    const lastPage = Math.max(0, Math.ceil(total / pageSize) - 1)
+    if (page > lastPage) setPage(lastPage)
+  }, [listQuery.data?.totalCount, pageSize, page])
 
   if (totalQuery.isLoading) {
     return <Loading />
@@ -127,51 +139,55 @@ export function RecordsPage() {
 
       {filterBar}
 
-      {listQuery.isLoading ? <Loading /> : null}
+      <ListPane
+        listRef={containerRef}
+        className="lg:min-h-0 lg:flex-1"
+        footer={<Pagination page={page} totalPages={totalPages} onChange={setPage} />}
+      >
+        {!pageSizeReady || listQuery.isLoading ? <Loading /> : null}
 
-      {!listQuery.isLoading && totalCount === 0 ? (
-        <div className="flex flex-col items-start gap-2 rounded-2xl bg-surface p-5">
-          <p className="text-sm text-ink-2">조건에 맞는 기록이 없어요.</p>
-          {filter.hasActiveFilter ? (
-            <button
-              type="button"
-              onClick={filter.reset}
-              className="inline-flex min-h-9 items-center text-sm font-medium text-base-ink underline underline-offset-4"
-            >
-              초기화
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-
-      {!listQuery.isLoading && totalCount > 0 ? (
-        <div ref={containerRef} className="grid grid-cols-1 content-start gap-3 lg:flex-1 lg:min-h-0">
-          {records.map((record) => {
-            const firstTag = record.analysis?.tags[0]
-            return (
-              <Link
-                key={record.id}
-                to={`/records/${record.id}`}
-                className="flex flex-col gap-1.5 rounded-xl border border-line bg-white px-4 py-4 text-ink no-underline"
+        {pageSizeReady && !listQuery.isLoading && totalCount === 0 ? (
+          <div className="flex flex-col items-start gap-2 rounded-2xl bg-surface p-5">
+            <p className="text-sm text-ink-2">조건에 맞는 기록이 없어요.</p>
+            {filter.hasActiveFilter ? (
+              <button
+                type="button"
+                onClick={filter.reset}
+                className="inline-flex min-h-9 items-center text-sm font-medium text-base-ink underline underline-offset-4"
               >
-                <span className="flex items-center justify-between gap-2">
-                  <span className="text-caption-min font-semibold text-ink-2">
-                    {formatMonthDay(record.recordDate)} · {hobbyNameById.get(record.hobbyId) ?? ''}
-                  </span>
-                  {firstTag ? (
-                    <span className="inline-flex h-6 flex-none items-center rounded-md bg-tag-topic-bg px-2 text-caption-min font-medium text-tag-topic-fg">
-                      {firstTag}
-                    </span>
-                  ) : null}
-                </span>
-                <p className="truncate font-serif text-lg text-ink">{highlightMatch(record.content, filter.q)}</p>
-              </Link>
-            )
-          })}
-        </div>
-      ) : null}
+                초기화
+              </button>
+            ) : null}
+          </div>
+        ) : null}
 
-      <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+        {pageSizeReady && !listQuery.isLoading && totalCount > 0 ? (
+          <div className="grid grid-cols-1 content-start gap-3">
+            {records.map((record) => {
+              const firstTag = record.analysis?.tags[0]
+              return (
+                <Link
+                  key={record.id}
+                  to={`/records/${record.id}`}
+                  className="flex flex-col gap-1.5 rounded-xl border border-line bg-white px-4 py-4 text-ink no-underline"
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="text-caption-min font-semibold text-ink-2">
+                      {formatMonthDay(record.recordDate)} · {hobbyNameById.get(record.hobbyId) ?? ''}
+                    </span>
+                    {firstTag ? (
+                      <span className="inline-flex h-6 flex-none items-center rounded-md bg-tag-topic-bg px-2 text-caption-min font-medium text-tag-topic-fg">
+                        {firstTag}
+                      </span>
+                    ) : null}
+                  </span>
+                  <p className="truncate font-serif text-lg text-ink">{highlightMatch(record.content, filter.q)}</p>
+                </Link>
+              )
+            })}
+          </div>
+        ) : null}
+      </ListPane>
     </>
   )
 

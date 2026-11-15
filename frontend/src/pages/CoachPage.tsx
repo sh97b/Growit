@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronRightIcon } from '../components/icons'
 import { CoachResultView } from '../components/CoachResultView'
 import { FilterBar } from '../components/FilterBar'
+import { ListPane } from '../components/ListPane'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
+import { Pagination } from '../components/Pagination'
 import { ReviewHeaderRow } from '../components/ReviewHeaderRow'
 import { SplitWide } from '../components/PageLayout'
 import { useCurrentUser } from '../hooks/useCurrentUser'
@@ -60,12 +62,13 @@ export function CoachPage() {
 
   const selectedId = Number(searchParams.get('r')) || null
 
-  const { containerRef, pageSize: fitPageSize } = useFitPageSize({
+  const { containerRef, pageSize: fitPageSize, ready: fitReady } = useFitPageSize({
     itemHeightRem: LIST_ROW_HEIGHT_REM,
     min: 2,
     max: 12,
   })
   const pageSize = isDesktop ? fitPageSize : 6
+  const pageSizeReady = isDesktop ? fitReady : true
   useStablePageOnResize(page, setPage, pageSize)
 
   const listQuery = useQuery({
@@ -79,8 +82,17 @@ export function CoachPage() {
         page,
         size: pageSize,
       }),
-    enabled: !!currentUser?.aiEnabled,
+    enabled: !!currentUser?.aiEnabled && pageSizeReady,
+    placeholderData: keepPreviousData,
   })
+
+  // P1 2단계: 검색·필터로 총 페이지가 줄어들어 현재 페이지가 범위를 벗어나면 마지막 페이지로 보정한다.
+  useEffect(() => {
+    const total = listQuery.data?.totalCount
+    if (total == null) return
+    const lastPage = Math.max(0, Math.ceil(total / pageSize) - 1)
+    if (page > lastPage) setPage(lastPage)
+  }, [listQuery.data?.totalCount, pageSize, page])
 
   const latestQuery = useQuery({
     queryKey: ['ai', 'coach', 'latest'],
@@ -362,80 +374,64 @@ export function CoachPage() {
   )
 
   const listPanel = (
-    <div className="flex flex-col gap-4">
-      {listQuery.isLoading ? <Loading /> : null}
-      {listQuery.isError ? <Note variant="sand">잠시 후 다시 시도해 주세요</Note> : null}
+    <ListPane
+      listRef={containerRef}
+      className="lg:min-h-0 lg:flex-1"
+      footer={<Pagination page={page} totalPages={totalPages} onChange={setPage} />}
+    >
+      <div className="flex flex-col gap-4">
+        {!pageSizeReady || listQuery.isLoading ? <Loading /> : null}
+        {listQuery.isError ? <Note variant="sand">잠시 후 다시 시도해 주세요</Note> : null}
 
-      {listQuery.data && items.length === 0 ? (
-        <div className="flex flex-col items-start gap-2 rounded-2xl bg-surface p-5">
-          <p className="text-sm text-ink-2">조건에 맞는 회고가 없어요.</p>
-          {filter.hasActiveFilter ? (
-            <button
-              type="button"
-              onClick={filter.reset}
-              className="inline-flex min-h-9 items-center text-sm font-medium text-base-ink underline underline-offset-4"
-            >
-              필터 지우기
-            </button>
-          ) : null}
-        </div>
-      ) : null}
+        {pageSizeReady && listQuery.data && items.length === 0 ? (
+          <div className="flex flex-col items-start gap-2 rounded-2xl bg-surface p-5">
+            <p className="text-sm text-ink-2">조건에 맞는 회고가 없어요.</p>
+            {filter.hasActiveFilter ? (
+              <button
+                type="button"
+                onClick={filter.reset}
+                className="inline-flex min-h-9 items-center text-sm font-medium text-base-ink underline underline-offset-4"
+              >
+                필터 지우기
+              </button>
+            ) : null}
+          </div>
+        ) : null}
 
-      {items.length > 0 ? (
-        <div ref={containerRef} className="flex flex-col gap-2 lg:min-h-0 lg:flex-1">
-          {items.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => selectResult(item.id)}
-              aria-current={selectedId === item.id || (selectedId == null && shownResult?.id === item.id)}
-              className={[
-                'flex items-center gap-3 rounded-xl border px-4 py-3 text-left',
-                selectedId === item.id || (selectedId == null && shownResult?.id === item.id)
-                  ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_9%,white)]'
-                  : 'border-line bg-white',
-              ].join(' ')}
-            >
-              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="flex items-center gap-1.5 text-caption-min font-semibold tabular-nums text-ink-2">
-                  {formatMonthDay(item.createdAt.slice(0, 10))}
-                  {item.hobbyName ? ` · ${item.hobbyName}` : ''}
-                  {item.isNew ? (
-                    <span className="inline-flex h-5 items-center rounded-md bg-[color-mix(in_srgb,var(--color-base)_16%,white)] px-1.5 text-[0.6875rem] font-medium text-base-ink">
-                      새 회고
-                    </span>
-                  ) : null}
+        {pageSizeReady && items.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            {items.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => selectResult(item.id)}
+                aria-current={selectedId === item.id || (selectedId == null && shownResult?.id === item.id)}
+                className={[
+                  'flex items-center gap-3 rounded-xl border px-4 py-3 text-left',
+                  selectedId === item.id || (selectedId == null && shownResult?.id === item.id)
+                    ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_9%,white)]'
+                    : 'border-line bg-white',
+                ].join(' ')}
+              >
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="flex items-center gap-1.5 text-caption-min font-semibold tabular-nums text-ink-2">
+                    {formatMonthDay(item.createdAt.slice(0, 10))}
+                    {item.hobbyName ? ` · ${item.hobbyName}` : ''}
+                    {item.isNew ? (
+                      <span className="inline-flex h-5 items-center rounded-md bg-[color-mix(in_srgb,var(--color-base)_16%,white)] px-1.5 text-[0.6875rem] font-medium text-base-ink">
+                        새 회고
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="truncate text-body-min text-ink">{item.nextActionTitle ?? item.summary ?? '회고 결과'}</span>
                 </span>
-                <span className="truncate text-body-min text-ink">{item.nextActionTitle ?? item.summary ?? '회고 결과'}</span>
-              </span>
-              <ChevronRightIcon width={16} height={16} className="flex-none text-ink-2" />
-            </button>
-          ))}
-        </div>
-      ) : null}
-
-      {totalPages > 1 ? (
-        <div className="flex items-center justify-between gap-2">
-          <button
-            type="button"
-            disabled={page <= 0}
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-            className="inline-flex min-h-9 items-center text-sm font-medium text-base-ink underline underline-offset-4 disabled:text-ink-3 disabled:no-underline"
-          >
-            이전
-          </button>
-          <span className="text-caption-min text-ink-2">{page + 1} / {totalPages}</span>
-          <button
-            type="button"
-            disabled={page >= totalPages - 1}
-            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-            className="inline-flex min-h-9 items-center text-sm font-medium text-base-ink underline underline-offset-4 disabled:text-ink-3 disabled:no-underline"
-          >
-            다음
-          </button>
-        </div>
-      ) : null}
-    </div>
+                <ChevronRightIcon width={16} height={16} className="flex-none text-ink-2" />
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </ListPane>
   )
 
   // 모바일: r이 있으면 상세만, 없으면 목록만 보여준다(위아래로 쌓지 않는다).

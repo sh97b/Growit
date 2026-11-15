@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 type UseFitPageSizeOptions = {
   /** 카드(또는 줄) 하나의 최소 높이(rem). 현재 루트 글자 크기 기준 px로 환산해 계산한다. */
@@ -25,11 +25,14 @@ export function useFitPageSize({
   min = 2,
   max = 12,
   debounceMs = 150,
-}: UseFitPageSizeOptions): { containerRef: React.RefObject<HTMLDivElement | null>; pageSize: number } {
+}: UseFitPageSizeOptions): { containerRef: React.RefObject<HTMLDivElement | null>; pageSize: number; ready: boolean } {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [pageSize, setPageSize] = useState(max)
+  // P1 2단계: 첫 측정이 끝나기 전에는 카드를 그리지 않는다(값이 확정되기 전에 max개를 그렸다가
+  // 다시 줄어드는 깜박임을 막는다). useLayoutEffect로 페인트 전에 첫 측정을 동기로 끝낸다.
+  const [ready, setReady] = useState(false)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = containerRef.current
     if (!el) return
 
@@ -46,6 +49,7 @@ export function useFitPageSize({
       const rows = Math.max(1, Math.floor((height + gapPx) / (itemHeightPx + gapPx)))
       const next = Math.min(max, Math.max(min, rows * columns))
       setPageSize((prev) => (prev === next ? prev : next))
+      setReady(true)
     }
 
     const observer = new ResizeObserver(() => {
@@ -61,7 +65,7 @@ export function useFitPageSize({
     }
   }, [itemHeightRem, columns, gapRem, min, max, debounceMs])
 
-  return { containerRef, pageSize }
+  return { containerRef, pageSize, ready }
 }
 
 /**
