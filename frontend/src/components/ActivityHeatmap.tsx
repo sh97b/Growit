@@ -224,6 +224,7 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
           if (node) cellRefs.current.set(date, node)
           else cellRefs.current.delete(date)
         }}
+        className="heatmap-cell"
         tabIndex={date === focusedDate ? 0 : -1}
         aria-label={`${formatMonthDay(date)} · 기록 ${count}개`}
         title={`${formatMonthDay(date)} · 기록 ${count}개`}
@@ -346,7 +347,7 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
           <div
             ref={scrollRef}
             onScroll={updateScrollButtons}
-            className="scrollbar-thin-fade min-w-0 flex-1 overflow-x-auto"
+            className="scrollbar-thin-fade min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
             role="group"
             aria-label={`최근 ${weeks}주 활동 지도`}
           >
@@ -416,7 +417,7 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
         <div style={{ containerType: 'inline-size', ...makeGridVars(weeks) } as CSSProperties}>
           <div
             ref={fixedCell ? scrollRef : undefined}
-            className={fixedCell ? 'scrollbar-none overflow-x-auto' : 'overflow-x-visible'}
+            className={fixedCell ? 'scrollbar-none overflow-x-auto overflow-y-hidden' : 'overflow-x-visible overflow-y-hidden'}
           >
             {renderClampedRow()}
           </div>

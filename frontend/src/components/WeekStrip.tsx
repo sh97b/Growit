@@ -6,7 +6,9 @@ export function WeekStrip({ days }: { days: WeekStripDay[] }) {
   return (
     <div className="flex flex-col gap-3.5">
       <h2 className="text-base font-semibold">최근 7일</h2>
-      <div className="flex justify-between gap-1">
+      {/* P1 1단계: "오늘" 동그라미의 box-shadow 이중 링이 부모(Split 사이드 열의 overflow-y:auto로
+          overflow-x도 auto가 되는 조상)에 잘리지 않게 위아래·양옆에 여유 패딩을 둔다. */}
+      <div className="flex justify-between gap-1 px-1.5 py-1">
         {days.map((day) => {
           const localDate = toLocalDate(day.date)
           const label = `${formatMonthDayWeekday(localDate)}, 기록 ${day.hasRecord ? '있음' : '없음'}`
