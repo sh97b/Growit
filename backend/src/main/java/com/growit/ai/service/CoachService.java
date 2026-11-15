@@ -473,8 +473,11 @@ public class CoachService {
 				: (stored.simplifiedAction() != null ? stored.simplifiedAction() : stored.comebackAction());
 		String summary = stored.periodSummary() == null ? null
 				: stored.periodSummary().substring(0, Math.min(100, stored.periodSummary().length()));
-		String hobbyName = result.getHobbyId() == null ? "전체 분야"
-				: hobbyNames.getOrDefault(result.getHobbyId(), "분야");
+		// O1(C.6): hobbyId가 있어도 그 분야가 이미 삭제됐으면(기록을 모두 지운 뒤 분야 삭제) hobbyNames에
+		// 없어 getOrDefault가 자리표시자로 떨어진다 — "분야"라는 글자 자체를 보여주는 대신 "전체"와
+		// 구분되는 "삭제된 분야"로 표시해 진짜 전체 대상 회고와 섞이지 않게 한다.
+		String hobbyName = result.getHobbyId() == null ? "전체"
+				: hobbyNames.getOrDefault(result.getHobbyId(), "삭제된 분야");
 		return new com.growit.ai.dto.AiCoachListItemResponse(
 				result.getId(),
 				result.getCreatedAt(),

@@ -3,11 +3,13 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronRightIcon } from '../components/icons'
 import { CoachResultView } from '../components/CoachResultView'
+import { FilterBar } from '../components/FilterBar'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
 import { ReviewHeaderRow } from '../components/ReviewHeaderRow'
 import { SplitWide } from '../components/PageLayout'
 import { useCurrentUser } from '../hooks/useCurrentUser'
+import { useFilterBarQuery, resolveDateRange } from '../hooks/useFilterBarQuery'
 import { useFitPageSize, useStablePageOnResize } from '../hooks/useFitPageSize'
 import { useHobbies } from '../hooks/useHobbies'
 import { useIsDesktop } from '../hooks/useIsDesktop'
@@ -22,8 +24,7 @@ import {
   type CoachPeriod,
   type CoachResult,
 } from '../lib/ai'
-import { formatMonthDay, formatLocalDate, todayLocalDate } from '../lib/date'
-import { pickClass } from '../lib/recordForm'
+import { formatMonthDay } from '../lib/date'
 
 const PERIODS: { value: CoachPeriod; label: string }[] = [
   { value: 'THIS_WEEK', label: '이번 주' },
@@ -33,51 +34,24 @@ const PERIODS: { value: CoachPeriod; label: string }[] = [
 
 const LIST_ROW_HEIGHT_REM = 5.5
 
-type DateFilter = 'ALL' | '30D' | 'MONTH' | 'CUSTOM'
-
-function startOfThisMonth(): string {
-  const now = new Date()
-  return formatLocalDate(new Date(now.getFullYear(), now.getMonth(), 1))
-}
-
-function daysAgo(days: number): string {
-  const date = new Date()
-  date.setDate(date.getDate() - days)
-  return formatLocalDate(date)
-}
-
 export function CoachPage() {
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
   const isDesktop = useIsDesktop()
   const { data: currentUser, isLoading: userLoading } = useCurrentUser()
   const { data: activeHobbies, isLoading: hobbiesLoading } = useHobbies(false)
-  const [hobbyId, setHobbyId] = useState<number | null>(null)
+  const filter = useFilterBarQuery()
+  const { from: listFrom, to: listTo } = resolveDateRange(filter.range)
   const [period, setPeriod] = useState<CoachPeriod>('2W')
   const [result, setResult] = useState<CoachResult | null>(null)
   const viewedIds = useRef(new Set<number>())
-
-  const [queryInput, setQueryInput] = useState('')
-  const [debouncedQuery, setDebouncedQuery] = useState('')
-  const [dateFilter, setDateFilter] = useState<DateFilter>('ALL')
-  const [customFrom, setCustomFrom] = useState('')
-  const [customTo, setCustomTo] = useState('')
   const [page, setPage] = useState(0)
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(queryInput.trim()), 300)
-    return () => clearTimeout(timer)
-  }, [queryInput])
+    setPage(0)
+  }, [filter.hobbyId, filter.q, filter.range.range, filter.range.from, filter.range.to])
 
   const selectedId = Number(searchParams.get('r')) || null
-
-  // 전체(null)를 기본으로 하고, 특정 분야를 고르면 그 값을 쓴다. 분야 목록이 바뀌어 더 이상
-  // 활성 목록에 없는 분야가 선택돼 있으면(보관 등) 전체로 되돌린다.
-  const effectiveHobbyId =
-    hobbyId != null && activeHobbies?.some((hobby) => hobby.id === hobbyId) ? hobbyId : null
-
-  const listFrom = dateFilter === '30D' ? daysAgo(30) : dateFilter === 'MONTH' ? startOfThisMonth() : dateFilter === 'CUSTOM' ? customFrom || undefined : undefined
-  const listTo = dateFilter === '30D' || dateFilter === 'MONTH' ? todayLocalDate() : dateFilter === 'CUSTOM' ? customTo || undefined : undefined
 
   const { containerRef, pageSize: fitPageSize } = useFitPageSize({
     itemHeightRem: LIST_ROW_HEIGHT_REM,
@@ -88,11 +62,11 @@ export function CoachPage() {
   useStablePageOnResize(page, setPage, pageSize)
 
   const listQuery = useQuery({
-    queryKey: ['ai', 'coach', 'list', effectiveHobbyId, debouncedQuery, listFrom, listTo, page, pageSize],
+    queryKey: ['ai', 'coach', 'list', filter.hobbyId, filter.q, listFrom, listTo, page, pageSize],
     queryFn: () =>
       fetchCoachList({
-        hobbyId: effectiveHobbyId ?? undefined,
-        q: debouncedQuery || undefined,
+        hobbyId: filter.hobbyId ?? undefined,
+        q: filter.q || undefined,
         from: listFrom,
         to: listTo,
         page,
@@ -114,7 +88,7 @@ export function CoachPage() {
   })
 
   const mutation = useMutation({
-    mutationFn: () => fetchCoach({ hobbyId: effectiveHobbyId ?? undefined, period }),
+    mutationFn: () => fetchCoach({ hobbyId: filter.hobbyId ?? undefined, period }),
     onSuccess: (data) => {
       setResult(data)
       if (data.id != null) {
@@ -158,15 +132,6 @@ export function CoachPage() {
     })
   }
 
-  function clearFilters() {
-    setQueryInput('')
-    setDebouncedQuery('')
-    setDateFilter('ALL')
-    setCustomFrom('')
-    setCustomTo('')
-    setPage(0)
-  }
-
   if (userLoading || hobbiesLoading || (selectedId == null && latestQuery.isLoading)) {
     return <Loading />
   }
@@ -187,41 +152,11 @@ export function CoachPage() {
     )
   }
 
-  // 탭 박스 아래 한 줄: 분야 필터만(지시문 5). 기간·[회고 받기]는 오른쪽 "새 회고 받기" 카드로 옮겼다.
-  const hobbyFilter =
-    activeHobbies && activeHobbies.length > 0 ? (
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          aria-pressed={effectiveHobbyId === null}
-          onClick={() => {
-            setHobbyId(null)
-            setPage(0)
-          }}
-          className={pickClass(effectiveHobbyId === null)}
-        >
-          전체
-        </button>
-        {activeHobbies.map((hobby) => (
-          <button
-            key={hobby.id}
-            type="button"
-            aria-pressed={effectiveHobbyId === hobby.id}
-            onClick={() => {
-              setHobbyId(hobby.id)
-              setPage(0)
-            }}
-            className={pickClass(effectiveHobbyId === hobby.id)}
-          >
-            {hobby.name}
-          </button>
-        ))}
-      </div>
-    ) : null
-
-  const newCoachCard = (
-    <div className="flex flex-col gap-3 rounded-2xl border border-line-2 bg-white p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+  // 머리줄 1행 오른쪽 액션(지시문 3·4): 기간 세그먼트 + [회고 받기] 버튼, 그 아래 남은 횟수를 작은
+  // 보조 글자로 — 전에는 본문에 별도의 큰 카드였는데, 머리줄 액션으로 옮겨 높이를 줄인다.
+  const headerAction = (
+    <div className="flex flex-col items-end gap-1">
+      <div className="flex items-center gap-2">
         <div className="inline-flex rounded-lg border border-line-2 bg-white p-[0.1875rem]" role="group" aria-label="회고 기간">
           {PERIODS.map((item) => (
             <button
@@ -242,13 +177,13 @@ export function CoachPage() {
           type="button"
           disabled={mutation.isPending}
           onClick={() => mutation.mutate()}
-          className="inline-flex min-h-10 w-fit items-center justify-center rounded-lg bg-base px-5 text-body-min font-medium text-white disabled:bg-line disabled:text-[#5F594F]"
+          className="inline-flex min-h-10 w-fit flex-none items-center justify-center rounded-lg bg-base px-4 text-sm font-medium text-white disabled:bg-line disabled:text-[#5F594F]"
         >
           {shownResult ? '새 회고 받기' : '회고 받기'}
         </button>
       </div>
       {usageQuery.data ? (
-        <p className="text-caption-min text-ink-2">오늘 남은 횟수 {usageQuery.data.remaining}/{usageQuery.data.limit}</p>
+        <p className="text-caption-min text-ink-2">오늘 {usageQuery.data.remaining}/{usageQuery.data.limit}</p>
       ) : null}
     </div>
   )
@@ -317,98 +252,38 @@ export function CoachPage() {
   const items = listQuery.data?.items ?? []
   const totalPages = Math.ceil((listQuery.data?.totalCount ?? 0) / pageSize)
 
+  const filterBar = (
+    <FilterBar
+      search={{ value: filter.q, onChange: filter.setQ, placeholder: '회고 내용 검색' }}
+      hobby={{ value: filter.hobbyId, options: activeHobbies ?? [], onChange: filter.setHobbyId }}
+      range={{ value: filter.range, onChange: filter.setRange }}
+      hasActiveFilter={filter.hasActiveFilter}
+      onReset={filter.reset}
+    />
+  )
+
   const listPanel = (
     <div className="flex flex-col gap-4">
-      <div className="relative">
-        <input
-          type="search"
-          value={queryInput}
-          onChange={(event) => {
-            setQueryInput(event.target.value)
-            setPage(0)
-          }}
-          placeholder="회고 내용 검색"
-          className="h-11 w-full rounded-lg border border-line-2 bg-white px-4 pr-10 text-body-min text-ink placeholder:text-ink-3"
-        />
-        {queryInput ? (
-          <button
-            type="button"
-            onClick={() => {
-              setQueryInput('')
-              setPage(0)
-            }}
-            aria-label="검색어 지우기"
-            className="absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-ink-2"
-          >
-            ×
-          </button>
-        ) : null}
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {([
-          ['ALL', '전체'],
-          ['30D', '최근 30일'],
-          ['MONTH', '이번 달'],
-          ['CUSTOM', '직접 선택'],
-        ] as [DateFilter, string][]).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            aria-pressed={dateFilter === value}
-            onClick={() => {
-              setDateFilter(value)
-              setPage(0)
-            }}
-            className={pickClass(dateFilter === value)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {dateFilter === 'CUSTOM' ? (
-        <div className="flex items-center gap-2">
-          <input
-            type="date"
-            value={customFrom}
-            onChange={(event) => {
-              setCustomFrom(event.target.value)
-              setPage(0)
-            }}
-            className="h-11 flex-1 rounded-lg border border-line-2 bg-white px-3 text-sm text-ink"
-          />
-          <span className="text-ink-2">–</span>
-          <input
-            type="date"
-            value={customTo}
-            onChange={(event) => {
-              setCustomTo(event.target.value)
-              setPage(0)
-            }}
-            className="h-11 flex-1 rounded-lg border border-line-2 bg-white px-3 text-sm text-ink"
-          />
-        </div>
-      ) : null}
-
       {listQuery.isLoading ? <Loading /> : null}
       {listQuery.isError ? <Note variant="sand">잠시 후 다시 시도해 주세요</Note> : null}
 
       {listQuery.data && items.length === 0 ? (
         <div className="flex flex-col items-start gap-2 rounded-2xl bg-surface p-5">
           <p className="text-sm text-ink-2">조건에 맞는 회고가 없어요.</p>
-          <button
-            type="button"
-            onClick={clearFilters}
-            className="inline-flex min-h-9 items-center text-sm font-medium text-base-ink underline underline-offset-4"
-          >
-            필터 지우기
-          </button>
+          {filter.hasActiveFilter ? (
+            <button
+              type="button"
+              onClick={filter.reset}
+              className="inline-flex min-h-9 items-center text-sm font-medium text-base-ink underline underline-offset-4"
+            >
+              필터 지우기
+            </button>
+          ) : null}
         </div>
       ) : null}
 
       {items.length > 0 ? (
-        <div ref={containerRef} className="scrollbar-thin-fade flex flex-col gap-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+        <div ref={containerRef} className="flex flex-col gap-2 lg:min-h-0 lg:flex-1">
           {items.map((item) => (
             <button
               key={item.id}
@@ -489,9 +364,8 @@ export function CoachPage() {
           </>
         ) : (
           <>
-            <ReviewHeaderRow title="AI 회고" />
-            {hobbyFilter}
-            {newCoachCard}
+            <ReviewHeaderRow title="AI 회고" action={headerAction} />
+            {filterBar}
             {listPanel}
           </>
         )}
@@ -501,9 +375,9 @@ export function CoachPage() {
 
   return (
     <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
-      <ReviewHeaderRow title="AI 회고" />
-      {hobbyFilter}
-      <SplitWide main={listPanel} side={<>{newCoachCard}{detail}</>} className="lg:min-h-0 lg:flex-1" />
+      <ReviewHeaderRow title="AI 회고" action={headerAction} />
+      {filterBar}
+      <SplitWide main={listPanel} side={detail} className="lg:min-h-0 lg:flex-1" />
     </div>
   )
 }

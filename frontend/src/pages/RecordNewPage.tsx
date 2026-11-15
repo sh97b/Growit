@@ -333,7 +333,11 @@ export function RecordNewPage() {
   return (
     <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1 lg:gap-4">
       <PageHeader title="오늘의 기록" />
-      <Split main={main} side={<div className="hidden lg:flex lg:flex-col lg:gap-5">{sideContent}</div>} />
+      <Split
+        main={main}
+        side={<div className="hidden lg:flex lg:flex-col lg:gap-5">{sideContent}</div>}
+        className="lg:min-h-0 lg:flex-1"
+      />
     </div>
   )
 }

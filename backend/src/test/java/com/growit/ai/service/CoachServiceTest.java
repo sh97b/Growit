@@ -346,7 +346,19 @@ class CoachServiceTest {
 
 		assertThat(result.items()).hasSize(1);
 		assertThat(result.items().get(0).hobbyId()).isNull();
-		assertThat(result.items().get(0).hobbyName()).isEqualTo("전체 분야");
+		assertThat(result.items().get(0).hobbyName()).isEqualTo("전체");
+	}
+
+	@Test
+	void search_hobbyDeletedAfterResult_hobbyNameIsDeletedPlaceholderNotRawLabel() {
+		Long hobbyId = createHobby(1L);
+		saveCoachResult(1L, hobbyId, "요약", null, "o");
+		hobbyRepository.deleteById(hobbyId);
+
+		var result = service(enabledProperties()).search(1L, null, null, null, null, 0, 20);
+
+		assertThat(result.items()).hasSize(1);
+		assertThat(result.items().get(0).hobbyName()).isEqualTo("삭제된 분야");
 	}
 
 	@Test

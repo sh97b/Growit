@@ -210,11 +210,105 @@ class RecordServiceTest {
 		service.create(2L,
 				new RecordCreateRequest(otherHobbyId, LocalDate.of(2026, 10, 2), "남의 기록", null, null, null, null));
 
-		RecordListResponse response = service.list(1L, null, null, null, null, null);
+		RecordListResponse response = service.list(1L, null, null, null, null, null, null);
 
 		assertThat(response.totalCount()).isEqualTo(2);
 		assertThat(response.items()).extracting(RecordSummaryResponse::recordDate)
 				.containsExactly(LocalDate.of(2026, 10, 2), LocalDate.of(2026, 10, 1));
+	}
+
+	@Test
+	void list_searchQuery_matchesContentAndDifficultyCaseInsensitive() {
+		RecordService service = recordService();
+		Long hobbyId = createHobby(1L, "기타");
+		service.create(1L,
+				new RecordCreateRequest(hobbyId, LocalDate.of(2026, 10, 1), "코드 진행 연습", null, "박자가 불안정했다", null, null));
+		service.create(1L,
+				new RecordCreateRequest(hobbyId, LocalDate.of(2026, 10, 2), "스케일 연습", null, null, null, null));
+
+		RecordListResponse byContent = service.list(1L, null, null, null, "코드", null, null);
+		assertThat(byContent.totalCount()).isEqualTo(1);
+		assertThat(byContent.items().get(0).content()).isEqualTo("코드 진행 연습");
+
+		RecordListResponse byDifficulty = service.list(1L, null, null, null, "박자", null, null);
+		assertThat(byDifficulty.totalCount()).isEqualTo(1);
+
+		RecordListResponse caseInsensitive = service.list(1L, null, null, null, "SCALE".toLowerCase(), null, null);
+		assertThat(caseInsensitive.totalCount()).isEqualTo(0); // 한글이라 영문 대소문자 케이스는 의미 없지만 메서드 자체는 lower 비교
+
+		RecordListResponse noMatch = service.list(1L, null, null, null, "없는말", null, null);
+		assertThat(noMatch.totalCount()).isEqualTo(0);
+	}
+
+	@Test
+	void list_searchQuery_wildcardCharsTreatedLiterally() {
+		RecordService service = recordService();
+		Long hobbyId = createHobby(1L, "기타");
+		service.create(1L, new RecordCreateRequest(hobbyId, LocalDate.of(2026, 10, 1), "100% 완성", null, null, null, null));
+		service.create(1L, new RecordCreateRequest(hobbyId, LocalDate.of(2026, 10, 2), "그냥 완성", null, null, null, null));
+
+		RecordListResponse literalPercent = service.list(1L, null, null, null, "100%", null, null);
+		assertThat(literalPercent.totalCount()).isEqualTo(1);
+		assertThat(literalPercent.items().get(0).content()).isEqualTo("100% 완성");
+
+		RecordListResponse underscoreAsWildcardWouldMatchAll = service.list(1L, null, null, null, "_", null, null);
+		assertThat(underscoreAsWildcardWouldMatchAll.totalCount()).isEqualTo(0); // _ 가 패턴이 아니라 글자 그대로 취급됨
+	}
+
+	@Test
+	void list_searchQuery_combinesWithHobbyAndDateAndPagination() {
+		RecordService service = recordService();
+		Long hobbyId = createHobby(1L, "기타");
+		Long otherHobbyId = createHobby(1L, "피아노");
+		service.create(1L, new RecordCreateRequest(hobbyId, LocalDate.of(2026, 10, 1), "연습 일지 A", null, null, null, null));
+		service.create(1L,
+				new RecordCreateRequest(otherHobbyId, LocalDate.of(2026, 10, 1), "연습 일지 B", null, null, null, null));
+		service.create(1L,
+				new RecordCreateRequest(hobbyId, LocalDate.of(2026, 9, 1), "지난달 연습 일지", null, null, null, null));
+
+		RecordListResponse byHobby = service.list(1L, hobbyId, null, null, "연습 일지", null, null);
+		assertThat(byHobby.totalCount()).isEqualTo(2);
+
+		RecordListResponse byHobbyAndDate = service.list(1L, hobbyId, LocalDate.of(2026, 10, 1),
+				LocalDate.of(2026, 10, 31), "연습 일지", null, null);
+		assertThat(byHobbyAndDate.totalCount()).isEqualTo(1);
+
+		RecordListResponse paged = service.list(1L, null, null, null, "연습 일지", 0, 1);
+		assertThat(paged.totalCount()).isEqualTo(3);
+		assertThat(paged.items()).hasSize(1);
+	}
+
+	@Test
+	void list_searchQuery_ownRecordsOnly() {
+		RecordService service = recordService();
+		Long hobbyId = createHobby(1L, "기타");
+		Long otherHobbyId = createHobby(2L, "피아노");
+		service.create(1L, new RecordCreateRequest(hobbyId, LocalDate.of(2026, 10, 1), "같은낱말 연습", null, null, null, null));
+		service.create(2L,
+				new RecordCreateRequest(otherHobbyId, LocalDate.of(2026, 10, 1), "같은낱말 연습", null, null, null, null));
+
+		RecordListResponse response = service.list(1L, null, null, null, "같은낱말", null, null);
+		assertThat(response.totalCount()).isEqualTo(1);
+	}
+
+	@Test
+	void list_searchQuery_tooLong_throwsValidationError() {
+		RecordService service = recordService();
+		String tooLong = "가".repeat(51);
+
+		assertThatThrownBy(() -> service.list(1L, null, null, null, tooLong, null, null))
+				.isInstanceOfSatisfying(ApiException.class,
+						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
+	}
+
+	@Test
+	void list_searchQuery_blankIsIgnored() {
+		RecordService service = recordService();
+		Long hobbyId = createHobby(1L, "기타");
+		service.create(1L, new RecordCreateRequest(hobbyId, LocalDate.of(2026, 10, 1), "기록", null, null, null, null));
+
+		RecordListResponse response = service.list(1L, null, null, null, "   ", null, null);
+		assertThat(response.totalCount()).isEqualTo(1);
 	}
 
 	@Test
@@ -333,7 +427,7 @@ class RecordServiceTest {
 		Long hobbyId = createHobby(1L, "기타");
 		service.create(1L, new RecordCreateRequest(hobbyId, LocalDate.now(), "연습했다", null, null, null, null));
 
-		RecordListResponse response = service.list(1L, null, null, null, null, null);
+		RecordListResponse response = service.list(1L, null, null, null, null, null, null);
 
 		assertThat(response.items()).hasSize(1);
 		assertThat(response.items().get(0).content()).isEqualTo("연습했다");

@@ -166,7 +166,7 @@ function RecordEditForm({ record, activeHobbies }: { record: RecordDetail; activ
   return (
     <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
       <PageHeader title="기록 수정" />
-      <Split main={main} side={side} />
+      <Split main={main} side={side} className="lg:min-h-0 lg:flex-1" />
     </div>
   )
 }

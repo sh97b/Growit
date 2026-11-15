@@ -156,7 +156,7 @@ export function RecordDetailPage() {
 
   return (
     <div className="flex flex-col gap-6 lg:min-h-0 lg:flex-1">
-      <Split main={main} side={side} />
+      <Split main={main} side={side} className="lg:min-h-0 lg:flex-1" />
     </div>
   )
 }

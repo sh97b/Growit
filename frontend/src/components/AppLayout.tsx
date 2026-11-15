@@ -15,11 +15,12 @@ export function AppLayout() {
       </header>
       <main className="min-h-0 flex-1 overflow-y-auto lg:flex lg:flex-col lg:overflow-hidden">
         {/*
-          N1: main 자체는 더 이상 스크롤하지 않는다(데스크톱). main은 뷰포트 끝까지 패딩 없이 닿아 있어서,
-          여기서 스크롤바가 생기면 화면 오른쪽 끝에 "문서 스크롤바"처럼 보였다(실제로는 main의 스크롤바였다).
-          스크롤은 안쪽의 패딩 있는 app-shell-main(또는 그 안의 개별 열)이 맡아 테두리 안쪽에서만 보이게 한다.
+          O1(C.1): 데스크톱에서는 main도 app-shell-main도 스크롤하지 않는다. 전에는 app-shell-main이
+          페이지 전체를 스크롤했는데, 그 안의 개별 열(예: 돌아보기 상세 열)도 자기 스크롤을 갖고 있어서
+          스크롤바가 두 개(바깥 페이지 + 안쪽 열) 겹쳐 보였다. 이제 스크롤 책임은 각 페이지의 열에게만
+          있고, app-shell-main은 패딩만 제공하는 고정 높이 컨테이너다.
         */}
-        <div className="scrollbar-thin-fade app-shell-main app-shell-container py-6 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-y-auto">
+        <div className="app-shell-main app-shell-container py-6 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden">
           <Outlet />
         </div>
       </main>

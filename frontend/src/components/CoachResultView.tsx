@@ -118,7 +118,7 @@ export function CoachActionCard({
   return (
     <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-7">
       <AiLabel>{comeback ? '가볍게 다시 시작하려면' : '다음 작은 행동'}</AiLabel>
-      <p className="font-serif text-lg leading-[1.55] lg:text-[1.5rem]">{action.title}</p>
+      <p className="text-section-title">{action.title}</p>
       <span className="text-sm text-ink-2">{action.minutes}분 · {action.reason}</span>
       <EvidenceRow evidence={action.evidence} />
       {result.reaction === 'TRIED' || result.reaction === 'REST_TODAY' ? (
@@ -187,39 +187,37 @@ export function CoachResultView({
     )
   }
 
+  // O1(C.5): 좌우 두 칸으로 나누면 글이 좁아져 한 열로 세로 배치한다(기간 제목 → AI 회고 한 줄 →
+  // 다음 작은 행동 → 새로 해 본 것 → 남은 어려움 → 읽은 기록 수).
   return (
-    <div className="flex flex-col gap-5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
-      <div className="flex flex-col gap-5">
-        {result.startDate && result.endDate ? (
-          <span className="text-caption-min font-semibold text-ink-2">
-            {formatMonthDay(result.startDate)} – {formatMonthDay(result.endDate)}
-          </span>
-        ) : null}
+    <div className="flex flex-col gap-5">
+      {result.startDate && result.endDate ? (
+        <span className="text-caption-min font-semibold text-ink-2">
+          {formatMonthDay(result.startDate)} – {formatMonthDay(result.endDate)}
+        </span>
+      ) : null}
 
-        <div className="flex flex-col gap-3.5 rounded-2xl bg-surface p-7">
-          <AiLabel>AI 회고 한 줄</AiLabel>
-          <p className="font-serif text-lg leading-[1.55] lg:text-[1.5rem]">{result.periodSummary}</p>
-          <FeedbackRow
-            question="이 회고가 도움됐나요?"
-            status={result.feedback === 'HELPFUL' ? 'positive' : result.feedback === 'NOT_HELPFUL' ? 'negative' : null}
-            pending={feedbackMutation.isPending}
-            onPositive={() => handleFeedback('HELPFUL')}
-            onNegative={() => handleFeedback('NOT_HELPFUL')}
-            errorMessage={feedbackError}
-          />
-        </div>
-
-        <TextItemBlock title="새로 해 본 것 · 나아진 점" items={result.changes} />
-        <TextItemBlock title="아직 남은 어려움" items={result.repeatedDifficulties} />
+      <div className="flex flex-col gap-3.5 rounded-2xl bg-surface p-7">
+        <AiLabel>AI 회고 한 줄</AiLabel>
+        <p className="text-section-title">{result.periodSummary}</p>
+        <FeedbackRow
+          question="이 회고가 도움됐나요?"
+          status={result.feedback === 'HELPFUL' ? 'positive' : result.feedback === 'NOT_HELPFUL' ? 'negative' : null}
+          pending={feedbackMutation.isPending}
+          onPositive={() => handleFeedback('HELPFUL')}
+          onNegative={() => handleFeedback('NOT_HELPFUL')}
+          errorMessage={feedbackError}
+        />
       </div>
 
-      <div className="flex flex-col gap-5">
-        <CoachActionCard result={result} comeback={result.mode === 'COMEBACK'} onResultChange={onResultChange} />
+      <CoachActionCard result={result} comeback={result.mode === 'COMEBACK'} onResultChange={onResultChange} />
 
-        {result.recordsRead != null ? (
-          <p className="text-sm text-ink-2">기록 {result.recordsRead}개를 읽었어요</p>
-        ) : null}
-      </div>
+      <TextItemBlock title="새로 해 본 것 · 나아진 점" items={result.changes} />
+      <TextItemBlock title="아직 남은 어려움" items={result.repeatedDifficulties} />
+
+      {result.recordsRead != null ? (
+        <p className="text-sm text-ink-2">기록 {result.recordsRead}개를 읽었어요</p>
+      ) : null}
     </div>
   )
 }

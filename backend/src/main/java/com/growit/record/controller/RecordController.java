@@ -43,15 +43,18 @@ public class RecordController {
 		this.currentUserProvider = currentUserProvider;
 	}
 
-	@Operation(summary = "기록 목록 조회 (최신순, 분야·기간·페이지로 필터링)")
+	@Operation(summary = "기록 목록 조회 (최신순, 분야·기간·검색어·페이지로 필터링)")
+	@ApiResponse(responseCode = "400", description = "VALIDATION_ERROR: 검색어가 50자를 넘음",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@GetMapping
 	public RecordListResponse list(
 			@RequestParam(required = false) Long hobbyId,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+			@RequestParam(required = false) String q,
 			@RequestParam(required = false) Integer page,
 			@RequestParam(required = false) Integer size) {
-		return recordService.list(currentUserProvider.getCurrentUserId(), hobbyId, from, to, page, size);
+		return recordService.list(currentUserProvider.getCurrentUserId(), hobbyId, from, to, q, page, size);
 	}
 
 	@Operation(summary = "기록 상세 조회 (같은 분야의 이전·다음 기록 포함)")

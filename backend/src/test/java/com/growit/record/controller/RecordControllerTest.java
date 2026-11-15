@@ -117,7 +117,7 @@ class RecordControllerTest {
 		given(currentUserProvider.getCurrentUserId()).willReturn(1L);
 		RecordSummaryResponse item = new RecordSummaryResponse(1L, 10L, LocalDate.of(2026, 10, 28), "연습했다", 20, null,
 				Feeling.PROUD, false, AiStatus.SKIPPED, null);
-		given(recordService.list(eq(1L), isNull(), isNull(), isNull(), any(), any()))
+		given(recordService.list(eq(1L), isNull(), isNull(), isNull(), isNull(), any(), any()))
 				.willReturn(new RecordListResponse(List.of(item), 1));
 
 		mockMvc.perform(get("/api/records"))

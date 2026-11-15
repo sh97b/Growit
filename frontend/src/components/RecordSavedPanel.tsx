@@ -175,7 +175,11 @@ export function RecordSavedPanel({
 
     return (
       <div className="flex flex-col gap-6 lg:min-h-0 lg:flex-1">
-        <Split main={main} side={<div className="hidden lg:block"><RecentWeekStrip /></div>} />
+        <Split
+          main={main}
+          side={<div className="hidden lg:block"><RecentWeekStrip /></div>}
+          className="lg:min-h-0 lg:flex-1"
+        />
       </div>
     )
   }
@@ -252,7 +256,11 @@ export function RecordSavedPanel({
 
   return (
     <div className="flex flex-col gap-6 lg:min-h-0 lg:flex-1">
-      <Split main={main} side={<div className="hidden lg:block"><RecentWeekStrip /></div>} />
+      <Split
+        main={main}
+        side={<div className="hidden lg:block"><RecentWeekStrip /></div>}
+        className="lg:min-h-0 lg:flex-1"
+      />
     </div>
   )
 }

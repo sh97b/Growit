@@ -1,12 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ActivityHeatmap } from '../components/ActivityHeatmap'
+import { FilterBar } from '../components/FilterBar'
 import { Loading } from '../components/Loading'
 import { Split } from '../components/PageLayout'
 import { Pagination } from '../components/Pagination'
 import { ReviewHeaderRow } from '../components/ReviewHeaderRow'
 import { PlusIcon } from '../components/icons'
+import { useFilterBarQuery, resolveDateRange } from '../hooks/useFilterBarQuery'
 import { useFitPageSize, useStablePageOnResize } from '../hooks/useFitPageSize'
 import { useHobbies } from '../hooks/useHobbies'
 import { useIsDesktop } from '../hooks/useIsDesktop'
@@ -18,17 +20,30 @@ import { fetchActivityMap } from '../lib/stats'
 const CARD_MIN_HEIGHT_REM = 5.5
 const CARD_GAP_REM = 0.75
 
-function filterPillClass(active: boolean): string {
-  return [
-    'inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium whitespace-nowrap',
-    active ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)] text-ink' : 'border-line-2 bg-white text-ink',
-  ].join(' ')
+/** 검색어와 일치하는 부분을 <mark>로 강조한다(O1 D, 대소문자 구분 없음). */
+function highlightMatch(text: string, query: string): React.ReactNode {
+  if (!query) return text
+  const lowerText = text.toLowerCase()
+  const lowerQuery = query.toLowerCase()
+  const index = lowerText.indexOf(lowerQuery)
+  if (index === -1) return text
+  return (
+    <>
+      {text.slice(0, index)}
+      <mark className="rounded-sm bg-[color-mix(in_srgb,var(--color-base)_28%,white)] text-ink">
+        {text.slice(index, index + query.length)}
+      </mark>
+      {text.slice(index + query.length)}
+    </>
+  )
 }
 
 export function RecordsPage() {
-  const [hobbyId, setHobbyId] = useState<number | null>(null)
   const [page, setPage] = useState(0)
   const isDesktop = useIsDesktop()
+  const filter = useFilterBarQuery()
+  const { from, to } = resolveDateRange(filter.range)
+
   // 고정 개수 대신 목록 영역의 실제 높이에 맞춰 한 페이지 개수를 계산한다(F3).
   // 모바일은 페이지 스크롤을 유지하므로 1열 5개를 그대로 쓴다.
   const { containerRef, pageSize: fitPageSize } = useFitPageSize({
@@ -43,6 +58,10 @@ export function RecordsPage() {
   const { data: activeHobbies } = useHobbies(false)
   const { data: allHobbies } = useHobbies(true)
 
+  useEffect(() => {
+    setPage(0)
+  }, [filter.hobbyId, filter.q, filter.range.range, filter.range.from, filter.range.to])
+
   const hobbyNameById = new Map((allHobbies ?? []).map((hobby) => [hobby.id, hobby.name]))
 
   const totalQuery = useQuery({
@@ -51,11 +70,19 @@ export function RecordsPage() {
   })
 
   const listQuery = useQuery({
-    queryKey: ['records', 'list', hobbyId, page, pageSize],
-    queryFn: () => fetchRecords({ hobbyId: hobbyId ?? undefined, page, size: pageSize }),
+    queryKey: ['records', 'list', filter.hobbyId, filter.q, from, to, page, pageSize],
+    queryFn: () =>
+      fetchRecords({
+        hobbyId: filter.hobbyId ?? undefined,
+        q: filter.q || undefined,
+        from,
+        to,
+        page,
+        size: pageSize,
+      }),
   })
 
-  if (totalQuery.isLoading || listQuery.isLoading) {
+  if (totalQuery.isLoading) {
     return <Loading />
   }
 
@@ -63,35 +90,6 @@ export function RecordsPage() {
   const records = listQuery.data?.items ?? []
   const totalCount = listQuery.data?.totalCount ?? 0
   const totalPages = Math.ceil(totalCount / pageSize)
-
-  function handleHobbyChange(nextHobbyId: number | null) {
-    setHobbyId(nextHobbyId)
-    setPage(0)
-  }
-
-  const hobbyFilter = (
-    <div className="flex flex-wrap gap-2">
-      <button
-        type="button"
-        aria-pressed={hobbyId === null}
-        onClick={() => handleHobbyChange(null)}
-        className={filterPillClass(hobbyId === null)}
-      >
-        전체
-      </button>
-      {(activeHobbies ?? []).map((hobby) => (
-        <button
-          key={hobby.id}
-          type="button"
-          aria-pressed={hobbyId === hobby.id}
-          onClick={() => handleHobbyChange(hobby.id)}
-          className={filterPillClass(hobbyId === hobby.id)}
-        >
-          {hobby.name}
-        </button>
-      ))}
-    </div>
-  )
 
   if (noRecordsAtAll) {
     return (
@@ -111,21 +109,43 @@ export function RecordsPage() {
     )
   }
 
+  const filterBar = (
+    <FilterBar
+      search={{ value: filter.q, onChange: filter.setQ, placeholder: '기록 내용 검색' }}
+      hobby={{ value: filter.hobbyId, options: activeHobbies ?? [], onChange: filter.setHobbyId }}
+      range={{ value: filter.range, onChange: filter.setRange }}
+      hasActiveFilter={filter.hasActiveFilter}
+      onReset={filter.reset}
+    />
+  )
+
   const main = (
     <>
       <div className="rounded-2xl bg-surface p-5 lg:hidden">
-        <ActivityHeatmap weeks={52} toggle hobbyId={hobbyId} />
+        <ActivityHeatmap weeks={52} toggle hobbyId={filter.hobbyId} />
       </div>
 
-      {hobbyFilter}
+      {filterBar}
 
-      {totalCount === 0 ? (
-        <p className="py-6 text-center text-sm text-ink-2">아직 이 분야의 기록이 없어요.</p>
-      ) : (
-        <div
-          ref={containerRef}
-          className="scrollbar-thin-fade grid grid-cols-1 content-start gap-3 lg:flex-1 lg:min-h-0 lg:overflow-y-auto"
-        >
+      {listQuery.isLoading ? <Loading /> : null}
+
+      {!listQuery.isLoading && totalCount === 0 ? (
+        <div className="flex flex-col items-start gap-2 rounded-2xl bg-surface p-5">
+          <p className="text-sm text-ink-2">조건에 맞는 기록이 없어요.</p>
+          {filter.hasActiveFilter ? (
+            <button
+              type="button"
+              onClick={filter.reset}
+              className="inline-flex min-h-9 items-center text-sm font-medium text-base-ink underline underline-offset-4"
+            >
+              초기화
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {!listQuery.isLoading && totalCount > 0 ? (
+        <div ref={containerRef} className="grid grid-cols-1 content-start gap-3 lg:flex-1 lg:min-h-0">
           {records.map((record) => {
             const firstTag = record.analysis?.tags[0]
             return (
@@ -144,12 +164,12 @@ export function RecordsPage() {
                     </span>
                   ) : null}
                 </span>
-                <p className="truncate font-serif text-lg text-ink">{record.content}</p>
+                <p className="truncate font-serif text-lg text-ink">{highlightMatch(record.content, filter.q)}</p>
               </Link>
             )
           })}
         </div>
-      )}
+      ) : null}
 
       <Pagination page={page} totalPages={totalPages} onChange={setPage} />
     </>
@@ -157,8 +177,8 @@ export function RecordsPage() {
 
   const side = (
     <div className="hidden rounded-2xl bg-surface p-5 lg:block">
-      <ActivityHeatmap weeks={52} hobbyId={hobbyId} />
-      <YearSummary hobbyId={hobbyId} />
+      <ActivityHeatmap weeks={52} hobbyId={filter.hobbyId} />
+      <YearSummary hobbyId={filter.hobbyId} />
     </div>
   )
 

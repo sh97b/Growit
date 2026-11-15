@@ -173,7 +173,11 @@ export function HomePage() {
 
   return (
     <div className="flex flex-col gap-7 lg:min-h-0 lg:flex-1">
-      <Split main={main} side={<div className="hidden lg:flex lg:flex-col lg:gap-7">{sideBlocks}</div>} />
+      <Split
+        main={main}
+        side={<div className="hidden lg:flex lg:flex-col lg:gap-7">{sideBlocks}</div>}
+        className="lg:min-h-0 lg:flex-1"
+      />
     </div>
   )
 }

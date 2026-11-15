@@ -71,12 +71,13 @@ public class RecordService {
 	}
 
 	@Transactional
-	public RecordListResponse list(Long userId, Long hobbyId, LocalDate from, LocalDate to, Integer page,
+	public RecordListResponse list(Long userId, Long hobbyId, LocalDate from, LocalDate to, String q, Integer page,
 			Integer size) {
 		int pageNumber = page == null || page < 0 ? 0 : page;
 		int pageSize = size == null || size <= 0 ? DEFAULT_PAGE_SIZE : Math.min(size, MAX_PAGE_SIZE);
+		String normalizedQuery = normalizeSearchQuery(q);
 
-		Specification<ActivityRecord> spec = buildSpec(userId, hobbyId, from, to);
+		Specification<ActivityRecord> spec = buildSpec(userId, hobbyId, from, to, normalizedQuery);
 		PageRequest pageRequest = PageRequest.of(pageNumber, pageSize,
 				Sort.by(Sort.Direction.DESC, "recordDate").and(Sort.by(Sort.Direction.DESC, "id")));
 
@@ -320,7 +321,37 @@ public class RecordService {
 		return new RecordNeighbor(record.getId(), record.getRecordDate());
 	}
 
-	private Specification<ActivityRecord> buildSpec(Long userId, Long hobbyId, LocalDate from, LocalDate to) {
+	private static final int SEARCH_QUERY_MAX_LENGTH = 50;
+
+	/** 공백만 입력하면 필터 없음으로 취급하고, 50자를 넘으면 400으로 거절한다(O1 D). */
+	private String normalizeSearchQuery(String q) {
+		if (q == null) {
+			return null;
+		}
+		String trimmed = q.trim();
+		if (trimmed.isEmpty()) {
+			return null;
+		}
+		if (trimmed.length() > SEARCH_QUERY_MAX_LENGTH) {
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, "검색어는 " + SEARCH_QUERY_MAX_LENGTH + "자 이하로 입력해 주세요");
+		}
+		return trimmed;
+	}
+
+	/** %, _, \ 를 글자 그대로 찾도록 이스케이프한다(LIKE 와일드카드 주입 방지). */
+	private String escapeLikePattern(String raw) {
+		StringBuilder escaped = new StringBuilder();
+		for (char c : raw.toCharArray()) {
+			if (c == '\\' || c == '%' || c == '_') {
+				escaped.append('\\');
+			}
+			escaped.append(c);
+		}
+		return escaped.toString();
+	}
+
+	private Specification<ActivityRecord> buildSpec(Long userId, Long hobbyId, LocalDate from, LocalDate to,
+			String q) {
 		return (root, query, cb) -> {
 			List<Predicate> predicates = new ArrayList<>();
 			predicates.add(cb.equal(root.get("userId"), userId));
@@ -332,6 +363,12 @@ public class RecordService {
 			}
 			if (to != null) {
 				predicates.add(cb.lessThanOrEqualTo(root.get("recordDate"), to));
+			}
+			if (q != null) {
+				String pattern = "%" + escapeLikePattern(q).toLowerCase() + "%";
+				predicates.add(cb.or(
+						cb.like(cb.lower(root.get("content")), pattern, '\\'),
+						cb.like(cb.lower(root.get("difficulty")), pattern, '\\')));
 			}
 			return cb.and(predicates.toArray(new Predicate[0]));
 		};

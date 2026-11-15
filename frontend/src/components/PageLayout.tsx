@@ -23,23 +23,21 @@ export function PageHeader({ title, subtitle, action }: PageHeaderProps) {
   )
 }
 
-const GRID_BASE = 'lg:grid lg:grid-cols-12 lg:items-start lg:gap-8'
-/**
- * 사이드 열은 헤더 높이(4.25rem) + 1.5rem 아래에서 고정된다(N1: 내용이 그 자리에서 다 못 들어가면
- * 열 자신만 내부 스크롤한다 — 바깥 main은 더 이상 스크롤하지 않으므로, 뷰포트보다 긴 사이드 열은
- * 이 자체 스크롤이 없으면 화면 아래로 잘려 보이지 않게 된다).
- */
-const SIDE_STICKY =
-  'lg:sticky lg:top-[5.75rem] lg:max-h-[calc(100dvh-5.75rem-1.5rem)] lg:overflow-y-auto lg:overscroll-contain scrollbar-thin-fade'
+// O1(C.1): app-shell-main은 더 이상 스크롤하지 않는다(바깥 페이지 스크롤 + 안쪽 열 스크롤이 겹쳐
+// 스크롤바가 두 개로 보이던 문제의 원인). 대신 각 열(column)이 자기 몫의 높이(height:100%,
+// min-height:0)를 갖고 필요할 때만 스스로 overflow-y:auto 한다 — 두 열이 같은 그리드 행에서
+// items-stretch로 똑같은 높이를 받으므로, 바깥 페이지가 길어질 일 자체가 없다(sticky 불필요).
+const GRID_BASE = 'lg:grid lg:grid-cols-12 lg:items-stretch lg:gap-8'
+const COLUMN_SCROLL = 'lg:h-full lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain scrollbar-thin-fade'
 
 type SplitProps = { main: ReactNode; side: ReactNode; className?: string }
 
 /** 본문 7열 : 사이드 5열. 모바일은 본문 → 사이드 순서로 세로로 쌓는다. */
 export function Split({ main, side, className = '' }: SplitProps) {
   return (
-    <div className={[GRID_BASE, 'flex flex-col gap-5', className].filter(Boolean).join(' ')}>
-      <div className="flex min-w-0 flex-col gap-5 lg:col-span-7">{main}</div>
-      <div className={['flex min-w-0 flex-col gap-5 lg:col-span-5', SIDE_STICKY].join(' ')}>{side}</div>
+    <div className={[GRID_BASE, 'flex flex-col gap-5 lg:h-full', className].filter(Boolean).join(' ')}>
+      <div className={['flex min-w-0 flex-col gap-5 lg:col-span-7', COLUMN_SCROLL].join(' ')}>{main}</div>
+      <div className={['flex min-w-0 flex-col gap-5 lg:col-span-5', COLUMN_SCROLL].join(' ')}>{side}</div>
     </div>
   )
 }
@@ -47,9 +45,9 @@ export function Split({ main, side, className = '' }: SplitProps) {
 /** 본문 5열 : 사이드 7열. Split과 좌우 비율만 반대다. */
 export function SplitWide({ main, side, className = '' }: SplitProps) {
   return (
-    <div className={[GRID_BASE, 'flex flex-col gap-5', className].filter(Boolean).join(' ')}>
-      <div className="flex min-w-0 flex-col gap-5 lg:col-span-5">{main}</div>
-      <div className={['flex min-w-0 flex-col gap-5 lg:col-span-7', SIDE_STICKY].join(' ')}>{side}</div>
+    <div className={[GRID_BASE, 'flex flex-col gap-5 lg:h-full', className].filter(Boolean).join(' ')}>
+      <div className={['flex min-w-0 flex-col gap-5 lg:col-span-5', COLUMN_SCROLL].join(' ')}>{main}</div>
+      <div className={['flex min-w-0 flex-col gap-5 lg:col-span-7', COLUMN_SCROLL].join(' ')}>{side}</div>
     </div>
   )
 }
@@ -65,8 +63,8 @@ type SettingsShellProps = { menu: ReactNode; content: ReactNode }
 export function SettingsShell({ menu, content }: SettingsShellProps) {
   return (
     <div className={[GRID_BASE, 'flex flex-col gap-5 lg:h-full'].join(' ')}>
-      <div className={['flex min-w-0 flex-col gap-1 lg:col-span-3', SIDE_STICKY].join(' ')}>{menu}</div>
-      <div className="flex min-w-0 flex-col gap-5 lg:col-span-9">
+      <div className={['flex min-w-0 flex-col gap-1 lg:col-span-3', COLUMN_SCROLL].join(' ')}>{menu}</div>
+      <div className={['flex min-w-0 flex-col gap-5 lg:col-span-9', COLUMN_SCROLL].join(' ')}>
         <div className="flex w-full max-w-[56rem] flex-col gap-5">{content}</div>
       </div>
     </div>

@@ -52,9 +52,14 @@ export type RecordSummary = {
 
 export type RecordListResult = { items: RecordSummary[]; totalCount: number }
 
-export function fetchRecords(params: { hobbyId?: number; page?: number; size?: number } = {}) {
+export function fetchRecords(
+  params: { hobbyId?: number; from?: string; to?: string; q?: string; page?: number; size?: number } = {},
+) {
   const query = new URLSearchParams()
   if (params.hobbyId != null) query.set('hobbyId', String(params.hobbyId))
+  if (params.from) query.set('from', params.from)
+  if (params.to) query.set('to', params.to)
+  if (params.q) query.set('q', params.q)
   if (params.page != null) query.set('page', String(params.page))
   if (params.size != null) query.set('size', String(params.size))
   const qs = query.toString()
