@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { ChevronDownIcon } from './icons'
+import { CheckIcon, ChevronDownIcon } from './icons'
 
 export type DropdownOption<T extends string> = { value: T; label: string }
 
@@ -10,13 +10,16 @@ type DropdownProps<T extends string> = {
   'aria-label': string
   /** 팝오버 하나를 드롭다운 패널 아래에 추가로 띄운다(예: 기간의 "직접 선택" 날짜 입력). */
   extra?: { show: boolean; content: (close: () => void) => React.ReactNode }
+  /** 알약 모양(작고 둥근 버튼, 예: 홈 한 줄 기록의 분야 선택 "러닝 ▾"). 기본은 ReviewToolbar류의 각진 버튼. */
+  pill?: boolean
 }
 
 /**
- * 네이티브 select 대신 쓰는 가벼운 키보드·스크린리더 접근 가능한 드롭다운(O1 C.2).
- * 새 라이브러리 없이 button + role="listbox" 패턴으로 직접 구현한다.
+ * 네이티브 select 대신 쓰는 가벼운 키보드·스크린리더 접근 가능한 드롭다운(O1 C.2, R1 1번).
+ * 새 라이브러리 없이 button + role="listbox" 패턴으로 직접 구현한다. 팝오버는 항상 absolute로
+ * 떠서(aria-expanded만 바뀜) 아래 요소를 밀지 않는다.
  */
-export function Dropdown<T extends string>({ value, options, onChange, extra, ...aria }: DropdownProps<T>) {
+export function Dropdown<T extends string>({ value, options, onChange, extra, pill, ...aria }: DropdownProps<T>) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const listId = useId()
@@ -62,7 +65,11 @@ export function Dropdown<T extends string>({ value, options, onChange, extra, ..
             moveFocus(-1)
           }
         }}
-        className="flex h-10 w-full min-h-11 items-center justify-between gap-1.5 whitespace-nowrap rounded-lg border border-line-2 bg-white px-3 text-sm font-medium text-ink lg:w-auto lg:min-h-10 lg:justify-start"
+        className={
+          pill
+            ? 'flex h-9 flex-none items-center gap-1 whitespace-nowrap rounded-full border border-line-2 bg-white px-3 text-sm font-medium text-ink'
+            : 'flex h-10 w-full min-h-11 items-center justify-between gap-1.5 whitespace-nowrap rounded-lg border border-line-2 bg-white px-3 text-sm font-medium text-ink lg:w-auto lg:min-h-10 lg:justify-start'
+        }
       >
         {current?.label ?? '선택'}
         <ChevronDownIcon width={14} height={14} className="flex-none text-ink-2" />
@@ -82,11 +89,12 @@ export function Dropdown<T extends string>({ value, options, onChange, extra, ..
                     if (!extra?.show) setOpen(false)
                   }}
                   className={[
-                    'flex min-h-10 w-full items-center rounded-md px-3 text-left text-sm',
+                    'flex min-h-10 w-full items-center justify-between gap-2 rounded-md px-3 text-left text-sm',
                     option.value === value ? 'bg-surface font-semibold text-ink' : 'text-ink-2',
                   ].join(' ')}
                 >
                   {option.label}
+                  {option.value === value ? <CheckIcon width={14} height={14} className="flex-none text-base" /> : null}
                 </button>
               </li>
             ))}

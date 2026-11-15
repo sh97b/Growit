@@ -65,7 +65,7 @@ export function SettingsShell({ menu, content }: SettingsShellProps) {
     <div className={[GRID_BASE, 'flex flex-col gap-5 lg:h-full'].join(' ')}>
       <div className={['flex min-w-0 flex-col gap-1 lg:col-span-3', COLUMN_SCROLL].join(' ')}>{menu}</div>
       <div className={['flex min-w-0 flex-col gap-5 lg:col-span-9', COLUMN_SCROLL].join(' ')}>
-        <div className="flex w-full max-w-[56rem] flex-col gap-5">{content}</div>
+        <div className="flex w-full max-w-[56rem] flex-col gap-5 lg:h-full lg:min-h-0">{content}</div>
       </div>
     </div>
   )
@@ -80,14 +80,14 @@ type SettingsPageProps = { title: string; description?: ReactNode; children: Rea
  */
 export function SettingsPage({ title, description, children }: SettingsPageProps) {
   return (
-    <div className="flex flex-col gap-5">
-      <nav aria-label="현재 위치" className="hidden items-center gap-1.5 text-caption-min text-ink-3 lg:flex">
+    <div className="flex flex-col gap-5 lg:h-full lg:min-h-0">
+      <nav aria-label="현재 위치" className="hidden flex-none items-center gap-1.5 text-caption-min text-ink-3 lg:flex">
         <span>설정</span>
         <span aria-hidden="true">›</span>
         <span>{title}</span>
       </nav>
-      <h1 className="text-page-title">{title}</h1>
-      {description ? <p className="text-body-min text-ink-2">{description}</p> : null}
+      <h1 className="flex-none text-page-title">{title}</h1>
+      {description ? <p className="flex-none text-body-min text-ink-2">{description}</p> : null}
       {children}
     </div>
   )

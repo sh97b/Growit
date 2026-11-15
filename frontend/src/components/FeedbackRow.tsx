@@ -178,7 +178,7 @@ export function FeedbackRow({
                         aria-pressed={status === 'positive'}
                         onClick={handlePositive}
                         className={[
-                          'inline-flex min-h-10 items-center justify-center rounded-lg border px-4 text-sm font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
+                          'inline-flex min-h-10 flex-none items-center justify-center whitespace-nowrap rounded-lg border px-4 text-sm font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
                           status === 'positive'
                             ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
                             : 'border-line-2 bg-white',
@@ -191,7 +191,7 @@ export function FeedbackRow({
                         aria-pressed={status === 'negative' || status === 'edited'}
                         onClick={handleNegative}
                         className={[
-                          'inline-flex min-h-10 items-center justify-center rounded-lg border px-4 text-sm font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
+                          'inline-flex min-h-10 flex-none items-center justify-center whitespace-nowrap rounded-lg border px-4 text-sm font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
                           status === 'negative' || status === 'edited'
                             ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
                             : 'border-line-2 bg-white',

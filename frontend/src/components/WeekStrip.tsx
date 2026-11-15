@@ -12,18 +12,18 @@ export function WeekStrip({ days }: { days: WeekStripDay[] }) {
         {days.map((day) => {
           const localDate = toLocalDate(day.date)
           const label = `${formatMonthDayWeekday(localDate)}, 기록 ${day.hasRecord ? '있음' : '없음'}`
+          // R1 2번: 모든 원은 같은 크기·같은 2px 테두리(박스 크기 고정, 테두리 색·모양만 변경).
+          // 기록 여부(day.hasRecord, 서버 activity-map 데이터)만으로 채움 여부를 정하고, isToday는
+          // 테두리 모양(점선/실선)에만 쓴다 — 전에는 isToday만으로 채워서 "오늘인데 아직 기록
+          // 안 한 날"도 초록으로 채워지는 버그가 있었다.
+          const circleClass = day.hasRecord
+            ? 'border-transparent bg-base'
+            : day.isToday
+              ? 'border-dashed border-base bg-transparent'
+              : 'border-line-2 bg-transparent'
           return (
             <div key={day.date} aria-label={label} className="flex flex-col items-center gap-1.5">
-              <span
-                className={[
-                  'h-7 w-7 rounded-full border-2',
-                  day.isToday
-                    ? 'border-transparent bg-base'
-                    : day.hasRecord
-                      ? 'border-transparent bg-base'
-                      : 'border-line-2 bg-transparent',
-                ].join(' ')}
-              />
+              <span className={['h-7 w-7 rounded-full border-2', circleClass].join(' ')} />
               <span className={['text-caption-min', day.isToday ? 'font-bold text-ink' : 'text-ink-2'].join(' ')}>
                 {day.isToday ? '오늘' : weekdayLabel(localDate)}
               </span>

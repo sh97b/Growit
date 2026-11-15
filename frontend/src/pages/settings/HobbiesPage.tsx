@@ -1,13 +1,21 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Button } from '../../components/Button'
 import { Field } from '../../components/Field'
 import { Input } from '../../components/Input'
+import { ListPane } from '../../components/ListPane'
 import { Loading } from '../../components/Loading'
 import { Note } from '../../components/Note'
 import { SettingsPage } from '../../components/PageLayout'
+import { Pagination } from '../../components/Pagination'
 import { ApiError } from '../../lib/api'
 import type { Hobby } from '../../lib/hobbies'
 import { useCreateHobby, useHobbies, useUpdateHobby } from '../../hooks/useHobbies'
+import { useFitPageSize, useStablePageOnResize } from '../../hooks/useFitPageSize'
+import { useIsDesktop } from '../../hooks/useIsDesktop'
+
+/** 분야 행 하나의 대략적 높이(이름+기록 수 두 줄, py-4, 테두리, rem). ListPane 개수 계산에 쓴다. */
+const ROW_HEIGHT_REM = 5
+const MOBILE_PAGE_SIZE = 5
 
 function errorMessageOf(error: unknown): string {
   return error instanceof ApiError ? error.message : '잠시 후 다시 시도해 주세요'
@@ -89,14 +97,53 @@ function HobbyRow({ hobby, onError }: { hobby: Hobby; onError: (message: string)
   )
 }
 
+function tabButtonClass(active: boolean): string {
+  return [
+    'inline-flex min-h-9 flex-1 items-center justify-center whitespace-nowrap rounded-md px-3 text-sm font-medium lg:flex-none',
+    active ? 'bg-ink text-white' : 'bg-transparent text-ink-2',
+  ].join(' ')
+}
+
+/**
+ * 활동 분야 관리(R1 4번): 분야가 늘어도 페이지가 길어지지 않게 [사용 중|보관함] 탭 + ListPane
+ * 페이지네이션으로 바꿨다. 데이터는 GET /api/hobbies?includeArchived=true 한 번으로 받아
+ * (useHobbies(true)) 클라이언트에서 active/archived로 나누고 탭별로 다시 페이지를 자른다.
+ */
 export function HobbiesPage() {
   const { data: hobbies, isLoading } = useHobbies(true)
   const createHobby = useCreateHobby()
   const [newName, setNewName] = useState('')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [addedNotice, setAddedNotice] = useState(false)
+  const [tab, setTab] = useState<'active' | 'archived'>('active')
+  const [page, setPage] = useState(0)
+  const isDesktop = useIsDesktop()
+
+  const { containerRef, pageSize: fitPageSize, ready: fitReady } = useFitPageSize({
+    itemHeightRem: ROW_HEIGHT_REM,
+    min: 3,
+    max: 20,
+  })
+  const pageSize = isDesktop ? fitPageSize : MOBILE_PAGE_SIZE
+  useStablePageOnResize(page, setPage, pageSize)
+
+  useEffect(() => {
+    if (!addedNotice) return
+    const timer = setTimeout(() => setAddedNotice(false), 1500)
+    return () => clearTimeout(timer)
+  }, [addedNotice])
 
   const activeHobbies = hobbies?.filter((hobby) => !hobby.archived) ?? []
   const archivedHobbies = hobbies?.filter((hobby) => hobby.archived) ?? []
+  const listForTab = tab === 'active' ? activeHobbies : archivedHobbies
+  const totalPages = Math.max(1, Math.ceil(listForTab.length / Math.max(1, pageSize)))
+  const safePage = Math.min(page, totalPages - 1)
+  const pageItems = listForTab.slice(safePage * pageSize, safePage * pageSize + pageSize)
+
+  function switchTab(next: 'active' | 'archived') {
+    setTab(next)
+    setPage(0)
+  }
 
   function handleCreate(event: FormEvent) {
     event.preventDefault()
@@ -109,63 +156,79 @@ export function HobbiesPage() {
     createHobby.mutate(
       { name: trimmed },
       {
-        onSuccess: () => setNewName(''),
+        onSuccess: () => {
+          setNewName('')
+          // 사용 중 탭의 마지막 페이지로 옮기지 않고 보던 자리 그대로 둔 채 짧은 안내만 보여준다.
+          setAddedNotice(true)
+        },
         onError: (error) => setErrorMessage(errorMessageOf(error)),
       },
     )
   }
 
-  const listSection = isLoading ? (
-    <Loading />
-  ) : (
-    <>
-      <div className="flex flex-col">
-        {activeHobbies.map((hobby) => (
-          <HobbyRow key={hobby.id} hobby={hobby} onError={setErrorMessage} />
-        ))}
-      </div>
-
-      {archivedHobbies.length > 0 ? (
-        <div className="flex flex-col gap-2">
-          <h2 className="text-card-title">보관한 분야</h2>
-          <div className="flex flex-col">
-            {archivedHobbies.map((hobby) => (
-              <HobbyRow key={hobby.id} hobby={hobby} onError={setErrorMessage} />
-            ))}
-          </div>
-        </div>
-      ) : null}
-    </>
-  )
-
-  const addForm = (
-    <form className="flex flex-col gap-3" onSubmit={handleCreate}>
-      <h2 className="text-card-title">분야 추가</h2>
-      <Field label="분야 이름" htmlFor="new-hobby-name">
-        <Input
-          id="new-hobby-name"
-          value={newName}
-          onChange={(event) => setNewName(event.target.value)}
-          placeholder="예: 드로잉"
-        />
-      </Field>
-      <Button type="submit" disabled={createHobby.isPending} className="self-start">
-        추가하기
-      </Button>
-      <p className="text-caption-min text-ink-2">
-        분야를 보관해도 쓴 기록은 남아 있어요. 언제든 다시 꺼낼 수 있어요.
-      </p>
-    </form>
-  )
-
   return (
     <SettingsPage title="활동 분야 관리">
       {errorMessage ? <Note variant="sand">{errorMessage}</Note> : null}
+      {addedNotice ? <Note variant="calm">추가했어요</Note> : null}
 
-      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[7fr_4fr] lg:items-start lg:gap-20">
-        <div className="flex flex-col gap-6">{listSection}</div>
-        {addForm}
+      <form className="flex flex-none flex-col gap-2 lg:flex-row lg:items-end lg:gap-3" onSubmit={handleCreate}>
+        <div className="flex-1">
+          <Field label="분야 이름" htmlFor="new-hobby-name">
+            <Input
+              id="new-hobby-name"
+              value={newName}
+              onChange={(event) => setNewName(event.target.value)}
+              placeholder="예: 드로잉"
+            />
+          </Field>
+        </div>
+        <Button type="submit" disabled={createHobby.isPending}>
+          추가하기
+        </Button>
+      </form>
+
+      <div role="tablist" aria-label="분야 목록" className="flex flex-none gap-1 rounded-lg border border-line-2 bg-white p-1">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'active'}
+          className={tabButtonClass(tab === 'active')}
+          onClick={() => switchTab('active')}
+        >
+          사용 중 {activeHobbies.length}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'archived'}
+          className={tabButtonClass(tab === 'archived')}
+          onClick={() => switchTab('archived')}
+        >
+          보관함 {archivedHobbies.length}
+        </button>
       </div>
+
+      {isLoading || (isDesktop && !fitReady) ? (
+        <Loading />
+      ) : (
+        <ListPane
+          listRef={containerRef}
+          className="lg:min-h-0 lg:flex-1"
+          footer={<Pagination page={safePage} totalPages={totalPages} onChange={setPage} />}
+        >
+          {pageItems.length === 0 ? (
+            <p className="py-6 text-center text-sm text-ink-2">
+              {tab === 'active' ? '아직 활동 분야가 없어요.' : '보관한 분야가 없어요.'}
+            </p>
+          ) : (
+            <div className="flex flex-col">
+              {pageItems.map((hobby) => (
+                <HobbyRow key={hobby.id} hobby={hobby} onError={setErrorMessage} />
+              ))}
+            </div>
+          )}
+        </ListPane>
+      )}
     </SettingsPage>
   )
 }

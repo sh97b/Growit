@@ -16,8 +16,8 @@ const variantClasses: Record<Variant, string> = {
 }
 
 const sizeClasses: Record<Size, string> = {
-  md: 'btn-min px-5 text-body-min',
-  sm: 'btn-min px-4 text-caption-min',
+  md: 'btn-min min-w-[4.5rem] px-5 text-body-min',
+  sm: 'btn-min min-w-[3.5rem] px-4 text-caption-min',
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
@@ -28,7 +28,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     <button
       ref={ref}
       className={[
-        'inline-flex items-center justify-center gap-2 rounded-lg border border-transparent font-medium whitespace-nowrap',
+        'inline-flex flex-none items-center justify-center gap-2 rounded-lg border border-transparent font-medium whitespace-nowrap',
         'disabled:cursor-default disabled:border-transparent disabled:bg-line disabled:text-[#5F594F]',
         variantClasses[variant],
         sizeClasses[size],

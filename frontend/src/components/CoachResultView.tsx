@@ -138,21 +138,21 @@ export function CoachActionCard({
           <button
             type="button"
             onClick={() => handleReaction('TRIED')}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]"
+            className="inline-flex min-h-11 flex-none items-center justify-center whitespace-nowrap rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]"
           >
             해봤어요
           </button>
           <button
             type="button"
             onClick={() => handleReaction('REST_TODAY')}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]"
+            className="inline-flex min-h-11 flex-none items-center justify-center whitespace-nowrap rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]"
           >
             오늘은 쉴게요
           </button>
           <button
             type="button"
             onClick={handleSimplify}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]"
+            className="inline-flex min-h-11 flex-none items-center justify-center whitespace-nowrap rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]"
           >
             너무 어려워요
           </button>

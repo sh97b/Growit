@@ -4,7 +4,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ActivityHeatmap } from '../components/ActivityHeatmap'
 import { AiLabel } from '../components/AiLabel'
 import { Band } from '../components/Card'
+import { Button } from '../components/Button'
 import { CoachActionCard } from '../components/CoachResultView'
+import { Dropdown } from '../components/Dropdown'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
 import { Split } from '../components/PageLayout'
@@ -440,6 +442,32 @@ function QuickRecordInput() {
     }
   }
 
+  const hobbyDropdown = hasMultipleHobbies ? (
+    <Dropdown
+      pill
+      aria-label="분야 선택"
+      value={String(hobbyId)}
+      options={activeHobbies!.map((hobby) => ({ value: String(hobby.id), label: hobby.name }))}
+      onChange={(value) => setSelectedHobbyId(Number(value))}
+    />
+  ) : null
+
+  const saveButton = (
+    <Button type="button" size="md" disabled={submitting} onClick={handleSave}>
+      저장
+    </Button>
+  )
+
+  const inputField = (
+    <input
+      value={content}
+      onChange={(event) => setContent(event.target.value)}
+      placeholder="오늘은 무엇을 했나요?"
+      aria-label="오늘 한 줄 기록"
+      className="h-12 w-full min-w-0 flex-1 rounded-lg border border-input bg-white px-3.5 font-serif text-body-min text-ink outline-none focus:border-base"
+    />
+  )
+
   return (
     <>
       {hobbyId == null ? (
@@ -449,40 +477,26 @@ function QuickRecordInput() {
         </Link>
       ) : (
         <div className="flex flex-col gap-2 rounded-xl bg-surface px-[1.125rem] py-3.5">
-          <label htmlFor="quick-save" className="text-sm text-ink-2">
+          <span className="text-sm text-ink-2">
             오늘 한 줄만 남겨도 충분해요{hasMultipleHobbies ? '' : ` · 분야는 ${hobbyName}예요`}
-          </label>
-          <div className="flex gap-2">
-            {hasMultipleHobbies ? (
-              <select
-                value={hobbyId}
-                onChange={(event) => setSelectedHobbyId(Number(event.target.value))}
-                aria-label="분야 선택"
-                className="h-12 max-w-[6.5rem] flex-none rounded-lg border border-input bg-white px-2 text-sm text-ink outline-none focus:border-base"
-              >
-                {activeHobbies!.map((hobby) => (
-                  <option key={hobby.id} value={hobby.id}>
-                    {hobby.name}
-                  </option>
-                ))}
-              </select>
-            ) : null}
-            <input
-              id="quick-save"
-              value={content}
-              onChange={(event) => setContent(event.target.value)}
-              placeholder="오늘은 무엇을 했나요?"
-              className="h-12 flex-1 rounded-lg border border-input bg-white px-3.5 font-serif text-body-min text-ink outline-none focus:border-base"
-            />
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={handleSave}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-base px-5 text-body-min font-medium text-white disabled:bg-line disabled:text-[#5F594F]"
-            >
-              저장
-            </button>
+          </span>
+
+          {/* R1 3번: 모바일(폭 1024 미만)은 위 줄 = 입력칸 전체 폭, 아래 줄 = 분야 알약(왼쪽)과
+              저장(오른쪽)으로 세로 쌓기 — 한 줄에 셋을 다 넣으면 폭 360px에서 저장 버튼 글자가
+              세로로 줄바꿈되던 문제라 분리했다. 데스크톱은 기존처럼 한 줄. */}
+          <div className="flex flex-col gap-2 lg:hidden">
+            {inputField}
+            <div className="flex items-center justify-between gap-2">
+              {hobbyDropdown ?? <span />}
+              {saveButton}
+            </div>
           </div>
+          <div className="hidden items-center gap-2 lg:flex">
+            {hobbyDropdown}
+            {inputField}
+            {saveButton}
+          </div>
+
           {error ? <span className="text-caption-min text-[#6B3F0F]">{error}</span> : null}
         </div>
       )}
