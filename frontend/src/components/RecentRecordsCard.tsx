@@ -28,7 +28,18 @@ export function RecentRecordsCard({ limit = 3, showAllLink = true }: { limit?: n
 
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="text-card-title">최근 기록</h2>
+      {/* O1(A): "지난 기록 모두 보기" 링크를 목록 아래가 아니라 구획 제목과 같은 줄 오른쪽 끝으로 옮긴다. */}
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-card-title">최근 기록</h2>
+        {showAllLink ? (
+          <Link
+            to="/records"
+            className="inline-flex min-h-9 flex-none items-center text-sm font-medium text-base-ink underline underline-offset-4"
+          >
+            지난 기록 모두 보기
+          </Link>
+        ) : null}
+      </div>
       <div className="flex flex-col">
         {visibleItems.map((record) => {
           const firstTag = record.analysis?.tags[0]
@@ -54,14 +65,6 @@ export function RecentRecordsCard({ limit = 3, showAllLink = true }: { limit?: n
           )
         })}
       </div>
-      {showAllLink ? (
-        <Link
-          to="/records"
-          className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink underline underline-offset-4"
-        >
-          지난 기록 모두 보기
-        </Link>
-      ) : null}
     </div>
   )
 }
