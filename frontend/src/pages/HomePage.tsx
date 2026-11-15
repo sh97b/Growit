@@ -223,9 +223,10 @@ export function HomePage() {
         </Note>
       ) : null}
 
-      {state === 'first' ? <FirstUseBoard /> : null}
-      {state === 'comeback' ? <ComebackBoard /> : null}
-      {state === 'off' ? <AiOffBoard /> : null}
+      {/* Q1 1번: "쉬었다 돌아온" 상태에서만 보이던 한 줄 기록 입력칸을 기록이 1개 이상인 모든
+          상태(기본·오늘 기록 완료·쉬었다 돌아온·AI 정리 꺼짐)에서 항상 보여준다. 기록이 0개인
+          첫 사용 상태만 기존 [첫 기록 쓰기] 버튼 그대로 둔다. */}
+      {state === 'first' ? <FirstUseBoard /> : <QuickRecordInput />}
 
       {/* 사이드에 들어가는 최근 7일·회고 카드·활동 지도·쌓인 기록·주제 칩은 모바일에서 이 순서대로 보인다
           (모바일은 넘칠 공간 자체가 없어 우선순위 숨김을 적용하지 않고 전부 보여준다). */}
@@ -287,17 +288,6 @@ function FirstUseBoard() {
       <h2 className="text-lg font-semibold">첫 기록을 남겨 볼까요?</h2>
       <Link to="/records/new" className={primaryLinkClass}>
         <PlusIcon width={18} height={18} />첫 기록 쓰기
-      </Link>
-    </Band>
-  )
-}
-
-function AiOffBoard() {
-  return (
-    <Band className="flex flex-col items-start gap-3.5">
-      <h2 className="text-lg font-semibold">오늘 한 줄 남겨 볼까요?</h2>
-      <Link to="/records/new" className={primaryLinkClass}>
-        <PlusIcon width={18} height={18} />기록하기
       </Link>
     </Band>
   )
@@ -398,12 +388,19 @@ function encouragementLine(data: CoachResult): string {
   return '오늘은 여기까지면 충분해요.'
 }
 
-function ComebackBoard() {
+/**
+ * Q1 1번: 모든 상태(기본·오늘 기록 완료·쉬었다 돌아온·AI 정리 꺼짐)에서 인사말 아래에 항상 보이는
+ * 한 줄 기록 입력칸(이전엔 "쉬었다 돌아온" 상태에만 있던 ComebackBoard를 그대로 일반화한 것).
+ * 분야 기본값은 가장 최근 기록의 분야(보관됐으면 첫 활성 분야), 분야가 둘 이상이면 입력칸 왼쪽에
+ * 작은 분야 드롭다운을 둔다. 기록이 0개인 첫 사용 상태는 이 컴포넌트 대신 FirstUseBoard를 쓴다.
+ */
+function QuickRecordInput() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { data: activeHobbies, isLoading: hobbiesLoading } = useHobbies(false)
   const recentQuery = useQuery({ queryKey: ['records', 'recent'], queryFn: () => fetchRecords({ size: 1 }) })
 
+  const [selectedHobbyId, setSelectedHobbyId] = useState<number | null>(null)
   const [content, setContent] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -414,9 +411,11 @@ function ComebackBoard() {
 
   const activeIds = new Set((activeHobbies ?? []).map((hobby) => hobby.id))
   const recentHobbyId = recentQuery.data?.items[0]?.hobbyId ?? null
-  const hobbyId =
+  const defaultHobbyId =
     recentHobbyId != null && activeIds.has(recentHobbyId) ? recentHobbyId : (activeHobbies?.[0]?.id ?? null)
+  const hobbyId = selectedHobbyId != null && activeIds.has(selectedHobbyId) ? selectedHobbyId : defaultHobbyId
   const hobbyName = activeHobbies?.find((hobby) => hobby.id === hobbyId)?.name ?? ''
+  const hasMultipleHobbies = (activeHobbies?.length ?? 0) > 1
 
   async function handleSave() {
     if (submitting || hobbyId == null) return
@@ -451,9 +450,23 @@ function ComebackBoard() {
       ) : (
         <div className="flex flex-col gap-2 rounded-xl bg-surface px-[1.125rem] py-3.5">
           <label htmlFor="quick-save" className="text-sm text-ink-2">
-            오늘 한 줄만 남겨도 충분해요 · 분야는 {hobbyName}예요
+            오늘 한 줄만 남겨도 충분해요{hasMultipleHobbies ? '' : ` · 분야는 ${hobbyName}예요`}
           </label>
           <div className="flex gap-2">
+            {hasMultipleHobbies ? (
+              <select
+                value={hobbyId}
+                onChange={(event) => setSelectedHobbyId(Number(event.target.value))}
+                aria-label="분야 선택"
+                className="h-12 max-w-[6.5rem] flex-none rounded-lg border border-input bg-white px-2 text-sm text-ink outline-none focus:border-base"
+              >
+                {activeHobbies!.map((hobby) => (
+                  <option key={hobby.id} value={hobby.id}>
+                    {hobby.name}
+                  </option>
+                ))}
+              </select>
+            ) : null}
             <input
               id="quick-save"
               value={content}

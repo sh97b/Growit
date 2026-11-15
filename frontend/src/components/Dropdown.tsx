@@ -62,7 +62,7 @@ export function Dropdown<T extends string>({ value, options, onChange, extra, ..
             moveFocus(-1)
           }
         }}
-        className="inline-flex h-10 min-h-11 items-center gap-1.5 whitespace-nowrap rounded-lg border border-line-2 bg-white px-3 text-sm font-medium text-ink lg:min-h-10"
+        className="flex h-10 w-full min-h-11 items-center justify-between gap-1.5 whitespace-nowrap rounded-lg border border-line-2 bg-white px-3 text-sm font-medium text-ink lg:w-auto lg:min-h-10 lg:justify-start"
       >
         {current?.label ?? '선택'}
         <ChevronDownIcon width={14} height={14} className="flex-none text-ink-2" />

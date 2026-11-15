@@ -1,12 +1,13 @@
 import { Link } from 'react-router-dom'
 import { WRAP } from './shared'
+import growitLogo from '../../assets/brand/growit-logo.svg'
 
 export function LandingFooter() {
   return (
     <footer className="border-t border-line py-[36px]">
       <div className={[WRAP, 'flex flex-col items-start gap-[16px] lg:flex-row lg:items-start lg:justify-between'].join(' ')}>
         <div className="flex flex-col gap-[6px]">
-          <span className="font-serif text-[20px] font-semibold text-ink">Growit</span>
+          <img src={growitLogo} alt="Growit" className="h-6 w-auto max-w-[8rem]" />
           <span className="text-[13px] text-ink-3">쌓인 기록을 읽고, 다음 작은 행동을 찾는 AI 성장 노트</span>
         </div>
         <nav className="flex flex-wrap items-center gap-[20px] text-[13px]">

@@ -59,7 +59,14 @@ export function Shadow({ children, className = '' }: { children: ReactNode; clas
 
 type BtnProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
   to?: string
-  variant?: 'primary' | 'secondary'
+  /**
+   * Q1 4번: 'onDark'/'onDarkOutline'은 어두운 구역(마무리 CTA) 전용 variant다. 이전에는 기본
+   * variant(흰 배경 등)에 className으로 bg-transparent/text-white 등을 "덮어쓰려" 했는데, Tailwind는
+   * 같은 속성(배경색 등)의 유틸리티 두 개가 같이 있을 때 className 문자열 순서가 아니라 컴파일된
+   * 스타일시트 안의 등록 순서로 우선순위가 갈려 어느 쪽이 이길지 예측할 수 없었다(그 결과 어두운
+   * 구역에서 글자색=배경색인 "흰 상자"가 됐다). 아예 겹치지 않는 전용 variant로 분리해 해결한다.
+   */
+  variant?: 'primary' | 'secondary' | 'onDark' | 'onDarkOutline'
   size?: 'md' | 'sm'
   block?: boolean
 }
@@ -73,7 +80,11 @@ export function LandingBtn({ to, variant = 'primary', size = 'md', block = false
   const variantCls =
     variant === 'primary'
       ? 'border-transparent bg-base text-white'
-      : 'border-line-2 bg-white text-ink'
+      : variant === 'secondary'
+        ? 'border-line-2 bg-white text-ink'
+        : variant === 'onDark'
+          ? 'border-transparent bg-white text-ink'
+          : 'border-white bg-transparent text-white'
   const cls = [base, sizeCls, variantCls, block ? 'w-full' : '', className].filter(Boolean).join(' ')
   if (to) {
     return (

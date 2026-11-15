@@ -8,8 +8,10 @@ type Props = { left?: ReactNode; right?: ReactNode }
  */
 export function ReviewToolbar({ left, right }: Props) {
   return (
-    <div className="flex min-h-10 flex-wrap items-center gap-2 lg:flex-nowrap">
-      {left ? <div className="flex flex-none flex-wrap items-center gap-2">{left}</div> : null}
+    // Q1 2번: 모바일은 드롭다운 두 개를 같은 폭으로 쌓고(grid 2열) 안내 글자는 그 아래 줄로 둔다
+    // (고정 높이·flex-wrap으로 인한 겹침 없음, 내용만큼 자연스럽게 늘어난다).
+    <div className="flex flex-col gap-2 lg:min-h-10 lg:flex-row lg:flex-nowrap lg:items-center">
+      {left ? <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-none lg:items-center">{left}</div> : null}
       <div className="min-w-0 flex-1 text-left text-caption-min text-ink-2">{right}</div>
     </div>
   )

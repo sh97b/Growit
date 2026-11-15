@@ -45,8 +45,11 @@ export function FilterBar({ search, hobby, range, hasActiveFilter, onReset }: Fi
   }, [draft])
 
   return (
-    <div className="flex h-10 flex-wrap items-center gap-2 lg:h-10 lg:flex-nowrap">
-      <div className="relative h-11 w-[26rem] max-w-full flex-none lg:h-10">
+    // Q1 2번: 모바일(폭 1024 미만)은 고정 높이·flex-wrap 대신 세로로 쌓는다(검색창 한 줄, 그 아래
+    // [분야][기간] 드롭다운 한 줄) — 줄바꿈이 생겨도 컨테이너 높이가 내용에 맞춰 늘어나 아래 목록을
+    // 덮지 않는다. 데스크톱은 기존처럼 한 줄(h-10, 줄바꿈 없음).
+    <div className="flex flex-col gap-2 lg:h-10 lg:flex-row lg:flex-nowrap lg:items-center">
+      <div className="relative h-11 w-full flex-none lg:h-10 lg:w-[26rem] lg:max-w-full">
         <SearchIcon width={16} height={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
         <input
           type="search"
@@ -68,47 +71,49 @@ export function FilterBar({ search, hobby, range, hasActiveFilter, onReset }: Fi
         ) : null}
       </div>
 
-      <Dropdown
-        aria-label="분야"
-        value={hobbyValue}
-        options={hobbyOptions}
-        onChange={(value) => hobby.onChange(value === 'ALL' ? null : Number(value))}
-      />
+      <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-none lg:items-center">
+        <Dropdown
+          aria-label="분야"
+          value={hobbyValue}
+          options={hobbyOptions}
+          onChange={(value) => hobby.onChange(value === 'ALL' ? null : Number(value))}
+        />
 
-      <Dropdown
-        aria-label="기간"
-        value={range.value.range}
-        options={RANGE_OPTIONS}
-        onChange={(value) => range.onChange({ ...range.value, range: value })}
-        extra={{
-          show: range.value.range === 'CUSTOM',
-          content: () => (
-            <div className="flex items-center gap-1.5 p-1">
-              <input
-                type="date"
-                value={range.value.from}
-                onChange={(event) => range.onChange({ ...range.value, from: event.target.value })}
-                aria-label="시작 날짜"
-                className="h-10 w-[8.5rem] rounded-md border border-line-2 bg-white px-2 text-sm text-ink"
-              />
-              <span className="text-ink-2">–</span>
-              <input
-                type="date"
-                value={range.value.to}
-                onChange={(event) => range.onChange({ ...range.value, to: event.target.value })}
-                aria-label="종료 날짜"
-                className="h-10 w-[8.5rem] rounded-md border border-line-2 bg-white px-2 text-sm text-ink"
-              />
-            </div>
-          ),
-        }}
-      />
+        <Dropdown
+          aria-label="기간"
+          value={range.value.range}
+          options={RANGE_OPTIONS}
+          onChange={(value) => range.onChange({ ...range.value, range: value })}
+          extra={{
+            show: range.value.range === 'CUSTOM',
+            content: () => (
+              <div className="flex flex-wrap items-center gap-1.5 p-1">
+                <input
+                  type="date"
+                  value={range.value.from}
+                  onChange={(event) => range.onChange({ ...range.value, from: event.target.value })}
+                  aria-label="시작 날짜"
+                  className="h-10 w-[8.5rem] rounded-md border border-line-2 bg-white px-2 text-sm text-ink"
+                />
+                <span className="text-ink-2">–</span>
+                <input
+                  type="date"
+                  value={range.value.to}
+                  onChange={(event) => range.onChange({ ...range.value, to: event.target.value })}
+                  aria-label="종료 날짜"
+                  className="h-10 w-[8.5rem] rounded-md border border-line-2 bg-white px-2 text-sm text-ink"
+                />
+              </div>
+            ),
+          }}
+        />
+      </div>
 
       {hasActiveFilter ? (
         <button
           type="button"
           onClick={onReset}
-          className="inline-flex h-11 flex-none items-center text-sm font-medium text-base-ink underline underline-offset-4 lg:h-10"
+          className="inline-flex h-11 w-fit flex-none items-center text-sm font-medium text-base-ink underline underline-offset-4 lg:h-10"
         >
           초기화
         </button>

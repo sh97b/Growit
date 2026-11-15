@@ -18,6 +18,7 @@ import { clearOnboardingDraft, loadOnboardingDraft, saveOnboardingDraft } from '
 import { enablePush, fetchNotificationSettings, updateNotificationSettings } from '../lib/push'
 import { updateDisplayName } from '../lib/users'
 import { useCurrentUser, useUpdateAiEnabled } from '../hooks/useCurrentUser'
+import growitLogo from '../assets/brand/growit-logo.svg'
 
 const TOTAL_STEPS = 4
 const SUGGESTED_HOBBIES = ['기타', '러닝', '코딩', '피아노', '그림', '요가', '영어 회화']
@@ -197,7 +198,7 @@ export function OnboardingPage() {
     <div className="flex min-h-dvh flex-col bg-paper">
       <header className="hidden h-[4.25rem] flex-none items-center border-b border-line bg-paper lg:flex">
         <div className="mx-auto w-full max-w-[90rem] px-10">
-          <span className="font-serif text-xl font-semibold text-ink">Growit</span>
+          <img src={growitLogo} alt="Growit" className="h-7 w-auto max-w-[9rem]" />
         </div>
       </header>
 

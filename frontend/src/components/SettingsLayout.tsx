@@ -1,6 +1,7 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { SettingsShell } from './PageLayout'
 import { Button } from './Button'
+import { ChevronLeftIcon } from './icons'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useAuth } from '../lib/auth'
 
@@ -61,7 +62,19 @@ export function SettingsLayout() {
 
   return (
     <div className="flex flex-col gap-5 lg:min-h-0 lg:flex-1">
-      <h1 className="text-page-title lg:hidden">설정</h1>
+      {/* Q1 3번: 모바일 하위 상세 화면은 큰 "설정" 제목 대신 작은 뒤로가기 링크만 두고,
+          그 아래 각 화면(SettingsPage)이 자기 제목을 한 번만 그린다. 목록 화면은 그대로 큰 제목. */}
+      {isMenuView ? (
+        <h1 className="text-page-title lg:hidden">설정</h1>
+      ) : (
+        <Link
+          to="/settings"
+          className="inline-flex min-h-9 w-fit items-center gap-1 text-caption-min text-ink-2 no-underline lg:hidden"
+        >
+          <ChevronLeftIcon width={14} height={14} />
+          설정
+        </Link>
+      )}
       <div className="lg:hidden">{isMenuView ? menu : <Outlet />}</div>
       <div className="hidden lg:block lg:min-h-0 lg:flex-1">
         <SettingsShell menu={menu} content={<Outlet />} />

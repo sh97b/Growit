@@ -19,16 +19,17 @@ export function LandingCta() {
             <div className="flex flex-col gap-[10px] lg:flex-row lg:gap-[12px]">
               <LandingBtn
                 to="/signup"
+                variant="onDark"
                 block
-                className="bg-white text-ink lg:w-auto"
+                className="hover:bg-[#F0ECE3] focus-visible:shadow-[inset_0_0_0_2px_var(--color-ink)] lg:w-auto"
               >
                 무료로 시작하기
               </LandingBtn>
               <LandingBtn
                 to="/login"
-                variant="secondary"
+                variant="onDarkOutline"
                 block
-                className="border-[#6B655A] bg-transparent text-white lg:w-auto"
+                className="hover:bg-white/10 focus-visible:shadow-[inset_0_0_0_2px_white] lg:w-auto"
               >
                 로그인
               </LandingBtn>
