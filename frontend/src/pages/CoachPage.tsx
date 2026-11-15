@@ -55,6 +55,26 @@ export function CoachPage() {
   const viewedIds = useRef(new Set<number>())
   const autoTriggeredRef = useRef(false)
   const [page, setPage] = useState(0)
+  const [periodPopoverOpen, setPeriodPopoverOpen] = useState(false)
+  const popoverRef = useRef<HTMLDivElement>(null)
+
+  // P1 3단계: 1행에는 [새 회고 받기] 버튼 하나만 두고, 기간·남은 횟수는 눌렀을 때만 열리는 작은
+  // 팝오버에 넣는다(본문의 큰 카드를 없애 머리줄 높이를 줄인다).
+  useEffect(() => {
+    if (!periodPopoverOpen) return
+    function handlePointerDown(event: PointerEvent) {
+      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) setPeriodPopoverOpen(false)
+    }
+    function handleKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') setPeriodPopoverOpen(false)
+    }
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleKey)
+    }
+  }, [periodPopoverOpen])
 
   useEffect(() => {
     setPage(0)
@@ -216,42 +236,58 @@ export function CoachPage() {
     )
   }
 
-  // 머리줄 1행 오른쪽 액션(지시문 3·4): 기간 세그먼트 + [회고 받기] 버튼, 그 아래 남은 횟수를 작은
-  // 보조 글자로 — 전에는 본문에 별도의 큰 카드였는데, 머리줄 액션으로 옮겨 높이를 줄인다.
+  // 머리줄 1행 오른쪽 액션(P1 3단계): [새 회고 받기] 버튼 하나만 두고, 누르면 아래에 기간(라디오)과
+  // 남은 횟수·[받기]가 있는 작은 팝오버가 열린다. 2행이나 본문에 큰 카드를 두지 않는다.
   const headerAction = (
-    <div className="flex flex-col items-end gap-1">
-      <div className="flex items-center gap-2">
-        <div className="inline-flex rounded-lg border border-line-2 bg-white p-[0.1875rem]" role="group" aria-label="회고 기간">
-          {PERIODS.map((item) => (
-            <button
-              key={item.value}
-              type="button"
-              aria-pressed={period === item.value}
-              onClick={() => setPeriod(item.value)}
-              className={[
-                'min-h-9 whitespace-nowrap rounded-md px-3 text-sm font-medium',
-                period === item.value ? 'bg-ink text-white' : 'bg-transparent text-ink-2',
-              ].join(' ')}
-            >
-              {item.label}
-            </button>
-          ))}
+    <div className="relative" ref={popoverRef}>
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={periodPopoverOpen}
+        onClick={() => setPeriodPopoverOpen((prev) => !prev)}
+        className={
+          shownResult
+            ? 'inline-flex min-h-10 w-fit flex-none items-center justify-center rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink disabled:text-ink-3'
+            : 'inline-flex min-h-10 w-fit flex-none items-center justify-center rounded-lg bg-base px-4 text-sm font-medium text-white disabled:bg-line disabled:text-[#5F594F]'
+        }
+      >
+        {shownResult ? '새 회고 받기' : '회고 받기'}
+      </button>
+
+      {periodPopoverOpen ? (
+        <div className="absolute right-0 top-full z-20 mt-1.5 w-[15rem] rounded-lg border border-line-2 bg-white p-3 shadow-sm">
+          <div role="radiogroup" aria-label="회고 기간" className="flex flex-col gap-0.5">
+            {PERIODS.map((item) => (
+              <label
+                key={item.value}
+                className="flex min-h-10 items-center gap-2 rounded-md px-2 text-sm text-ink has-[:checked]:bg-surface has-[:checked]:font-semibold"
+              >
+                <input
+                  type="radio"
+                  name="coach-period"
+                  checked={period === item.value}
+                  onChange={() => setPeriod(item.value)}
+                  className="h-4 w-4 accent-[var(--color-base)]"
+                />
+                {item.label}
+              </label>
+            ))}
+          </div>
+          {usageQuery.data ? (
+            <p className="mt-1 px-2 text-caption-min text-ink-2">오늘 {usageQuery.data.remaining}번 남았어요</p>
+          ) : null}
+          <button
+            type="button"
+            disabled={mutation.isPending}
+            onClick={() => {
+              mutation.mutate()
+              setPeriodPopoverOpen(false)
+            }}
+            className="btn-min mt-2 inline-flex w-full items-center justify-center rounded-lg bg-base px-4 text-sm font-medium text-white disabled:bg-line disabled:text-[#5F594F]"
+          >
+            받기
+          </button>
         </div>
-        <button
-          type="button"
-          disabled={mutation.isPending}
-          onClick={() => mutation.mutate()}
-          className={
-            shownResult
-              ? 'inline-flex min-h-10 w-fit flex-none items-center justify-center rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink disabled:text-ink-3'
-              : 'inline-flex min-h-10 w-fit flex-none items-center justify-center rounded-lg bg-base px-4 text-sm font-medium text-white disabled:bg-line disabled:text-[#5F594F]'
-          }
-        >
-          {shownResult ? '새 회고 받기' : '회고 받기'}
-        </button>
-      </div>
-      {usageQuery.data ? (
-        <p className="text-caption-min text-ink-2">오늘 {usageQuery.data.remaining}/{usageQuery.data.limit}</p>
       ) : null}
     </div>
   )

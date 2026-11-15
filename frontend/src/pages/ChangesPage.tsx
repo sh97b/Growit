@@ -9,6 +9,7 @@ import { FeedbackRow } from '../components/FeedbackRow'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
 import { ReviewHeaderRow } from '../components/ReviewHeaderRow'
+import { ReviewToolbar } from '../components/ReviewToolbar'
 import { Split } from '../components/PageLayout'
 import { RecordPairCards } from '../components/RecordPairCards'
 import { Tag } from '../components/Tag'
@@ -26,7 +27,6 @@ import {
 } from '../lib/ai'
 import { addDays, formatDurationMinutes, formatMonthDay, startOfWeekLocal, todayLocalDate } from '../lib/date'
 import { fetchRecords } from '../lib/records'
-import { pickClass } from '../lib/recordForm'
 import { fetchWeeks, type WeekSummary } from '../lib/stats'
 
 const PERIODS: { value: CompareTo; label: string }[] = [
@@ -197,35 +197,42 @@ export function ChangesPage() {
   }
 
   const hobbyOptions = activeHobbies.map((h) => ({ value: String(h.id), label: h.name }))
+  const periodOptions = PERIODS.map((p) => ({ value: p.value, label: p.label }))
 
-  const controlsRow = (
-    <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
-      <Dropdown
-        aria-label="분야"
-        value={String(effectiveHobbyId ?? activeHobbies[0]?.id ?? '')}
-        options={hobbyOptions}
-        onChange={(value) => setHobbyId(Number(value))}
-      />
+  // P1 3단계: 2행 = 왼쪽 안내 글자(결과가 있으면 기준일 안내, 없으면 비움) + 오른쪽 분야·기간
+  // 드롭다운(기록·회고 탭과 같은 위치·모양). 남은 횟수는 1행 오른쪽(머리줄 액션)으로 옮긴다.
+  const infoLine =
+    !compareQuery.isFetching && result && !result.locked && result.anchoredToLatest
+      ? `마지막 기록(${result.currentDate ? formatMonthDay(result.currentDate) : ''})을 기준으로 비교했어요`
+      : !compareQuery.isFetching && result && !result.locked && result.pastIsOldest
+        ? `${PERIODS.find((p) => p.value === compareTo)?.label ?? '이전'} 기록이 아직 없어서 가장 오래된 기록${result.pastDate ? ` (${formatMonthDay(result.pastDate)})` : ''}과 비교했어요`
+        : ''
 
-      <div className="flex flex-wrap gap-2">
-        {PERIODS.map((period) => (
-          <button
-            key={period.value}
-            type="button"
-            aria-pressed={compareTo === period.value}
-            onClick={() => setCompareTo(period.value)}
-            className={pickClass(compareTo === period.value)}
-          >
-            {period.label}
-          </button>
-        ))}
-      </div>
-
-      {usageQuery.data ? (
-        <span className="text-caption-min text-ink-2 lg:ml-auto">오늘 {usageQuery.data.remaining}회 남음</span>
-      ) : null}
-    </div>
+  const toolbarRow = (
+    <ReviewToolbar
+      left={infoLine}
+      right={
+        <>
+          <Dropdown
+            aria-label="분야"
+            value={String(effectiveHobbyId ?? activeHobbies[0]?.id ?? '')}
+            options={hobbyOptions}
+            onChange={(value) => setHobbyId(Number(value))}
+          />
+          <Dropdown
+            aria-label="비교 기간"
+            value={compareTo}
+            options={periodOptions}
+            onChange={(value) => setCompareTo(value)}
+          />
+        </>
+      }
+    />
   )
+
+  const headerAction = usageQuery.data ? (
+    <span className="text-caption-min text-ink-2">오늘 {usageQuery.data.remaining}회 남음</span>
+  ) : null
 
   // 한 줄 지표 카드: 기록한 날·쌓인 시간·자주 나온 주제를 컴팩트한 카드 하나에 모은다(지시문 3).
   const metricsCard = result?.metrics ? (() => {
@@ -314,17 +321,6 @@ export function ChangesPage() {
 
       {!compareQuery.isFetching && result && !result.locked ? (
         <div className="flex flex-col gap-5">
-          {result.anchoredToLatest ? (
-            <p className="text-sm text-ink-2">
-              마지막 기록({result.currentDate ? formatMonthDay(result.currentDate) : ''})을 기준으로 비교했어요
-            </p>
-          ) : null}
-          {result.pastIsOldest ? (
-            <p className="text-sm text-ink-2">
-              {PERIODS.find((p) => p.value === compareTo)?.label ?? '이전'} 기록이 아직 없어서 가장 오래된 기록
-              {result.pastDate ? ` (${formatMonthDay(result.pastDate)})` : ''}과 비교했어요
-            </p>
-          ) : null}
           <RecordPairCards
             left={
               result.pastRecord
@@ -569,8 +565,8 @@ export function ChangesPage() {
 
   return (
     <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
-      <ReviewHeaderRow title="나의 변화" />
-      {controlsRow}
+      <ReviewHeaderRow title="나의 변화" action={headerAction} />
+      {toolbarRow}
       <Split main={comparison} side={weeklyFlow} className="lg:min-h-0 lg:flex-1" />
     </div>
   )
