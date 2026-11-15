@@ -406,12 +406,20 @@ export function CoachPage() {
     />
   )
 
+  // P2 4번: 목록을 "받은 회고 N개" 카드로 감싸고, 그 아래 항상 "다음 회고" 카드를 둬서(진행 n/5)
+  // 회고가 1개뿐이어도 왼쪽 열이 비어 보이지 않게 한다.
+  const nextCoachRemaining = autoStatus?.newRecordsSinceLast
+  const nextCoachRequired = autoStatus?.requiredCount ?? 5
+
   const listPanel = (
-    <ListPane
-      listRef={containerRef}
-      className="lg:min-h-0 lg:flex-1"
-      footer={<Pagination page={page} totalPages={totalPages} onChange={setPage} />}
-    >
+    <div className="flex flex-col gap-3 lg:h-full lg:min-h-0">
+      <div className="flex flex-col gap-3 rounded-2xl border border-line bg-white p-5 lg:min-h-0 lg:flex-1">
+        <h2 className="flex-none text-card-title text-ink">받은 회고 {listQuery.data?.totalCount ?? 0}개</h2>
+        <ListPane
+          listRef={containerRef}
+          className="lg:min-h-0 lg:flex-1"
+          footer={<Pagination page={page} totalPages={totalPages} onChange={setPage} />}
+        >
       <div className="flex flex-col gap-4">
         {!pageSizeReady || listQuery.isLoading ? <Loading /> : null}
         {listQuery.isError ? <Note variant="sand">잠시 후 다시 시도해 주세요</Note> : null}
@@ -440,10 +448,10 @@ export function CoachPage() {
                 onClick={() => selectResult(item.id)}
                 aria-current={selectedId === item.id || (selectedId == null && shownResult?.id === item.id)}
                 className={[
-                  'flex items-center gap-3 rounded-xl border-l-4 border-y border-r px-4 py-3 text-left',
+                  'flex items-center gap-3 rounded-xl border px-4 py-3 text-left',
                   selectedId === item.id || (selectedId == null && shownResult?.id === item.id)
-                    ? 'border-y-base border-r-base border-l-base bg-[color-mix(in_srgb,var(--color-base)_9%,white)]'
-                    : 'border-y-line border-r-line border-l-transparent bg-white',
+                    ? 'border-line-2 bg-surface'
+                    : 'border-line bg-white',
                 ].join(' ')}
               >
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -461,7 +469,26 @@ export function CoachPage() {
           </div>
         ) : null}
       </div>
-    </ListPane>
+        </ListPane>
+      </div>
+
+      {nextCoachRemaining != null ? (
+        <div className="flex flex-none flex-col items-start gap-2 rounded-2xl border border-line bg-white p-5">
+          <p className="text-sm text-ink">
+            기록 {nextCoachRemaining}/{nextCoachRequired} · {nextCoachRequired}개가 쌓이면 회고가 자동으로 도착해요
+          </p>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-rest">
+            <div
+              className="h-full rounded-full bg-base"
+              style={{ width: `${Math.min(100, (nextCoachRemaining / Math.max(1, nextCoachRequired)) * 100)}%` }}
+            />
+          </div>
+          <Link to="/records/new" className="inline-flex min-h-9 items-center text-sm font-medium text-base-ink underline underline-offset-4">
+            기록하기
+          </Link>
+        </div>
+      ) : null}
+    </div>
   )
 
   // 모바일: r이 있으면 상세만, 없으면 목록만 보여준다(위아래로 쌓지 않는다).

@@ -24,6 +24,13 @@ const FULL_CELL_PX = 10
 const MAX_CLAMP_CELL_PX = 16
 /** 기록 탭 데스크톱 전용 한 줄 모드의 고정 칸 크기(지시문 명시: 14px, 간격 3px). */
 const SCROLL_CELL_PX = 14
+const MONTH_LABEL_ROW_PX = 14
+/**
+ * P2 1번: overflow-x:auto 스크롤바가 콘텐츠 박스 안쪽에서 공간을 차지해, 높이를 콘텐츠 높이와
+ * 정확히 같게 두면 맨 아랫줄(일요일)이 스크롤바에 가려 잘린다. 스크롤 영역에는 이 여유를 더해
+ * 높이를 주고, 요일 라벨 열은 그 여유 없이(콘텐츠 높이만) 위쪽부터 맞춘다.
+ */
+const SCROLLBAR_RESERVE_PX = 12
 /* 활동 지도 라벨만 디자인 규칙의 예외로 고정 12px을 쓴다(다른 글자 토큰처럼 rem으로 늘어나지 않는다). */
 const LABEL_STYLE: CSSProperties = { fontSize: '12px', lineHeight: 1, whiteSpace: 'nowrap' }
 const LABEL_COL_PX = 18
@@ -207,14 +214,23 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
     setRange(next)
   }
 
+  // P2 1번: 기록 있는 칸(button)과 빈 칸(div)이 같은 크기·모서리를 쓰도록 공용 스타일로 고정하고,
+  // 버튼은 브라우저 기본 버튼 스타일(패딩, 테두리, 폰트, appearance)을 전부 초기화한다.
   function renderCell(date: string, colIndex: number, rowIndex: number, cellPx?: number) {
     const count = countByDate.get(date) ?? 0
     const level = levelOf(date > today ? 0 : count)
     const interactive = interactiveDates.has(date)
     const background = date > today ? 'transparent' : LEVEL_BG[level]
     const sizeStyle: CSSProperties = cellPx != null ? { width: cellPx, height: cellPx } : { width: '100%', aspectRatio: '1' }
+    const baseStyle: CSSProperties = {
+      ...sizeStyle,
+      display: 'block',
+      boxSizing: 'border-box',
+      borderRadius: '2px',
+      background,
+    }
     if (!interactive) {
-      return <div key={date} aria-hidden="true" style={{ ...sizeStyle, borderRadius: '2px', background }} />
+      return <div key={date} aria-hidden="true" style={baseStyle} />
     }
     return (
       <button
@@ -241,7 +257,16 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
             moveFocus(colIndex, rowIndex, event.key)
           }
         }}
-        style={{ ...sizeStyle, borderRadius: '2px', background, border: 'none', padding: 0, cursor: 'pointer' }}
+        style={{
+          ...baseStyle,
+          appearance: 'none',
+          WebkitAppearance: 'none',
+          border: 0,
+          padding: 0,
+          margin: 0,
+          font: 'inherit',
+          cursor: 'pointer',
+        }}
       />
     )
   }
@@ -309,6 +334,7 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
 
   function renderScrollableRow() {
     const totalCellWidth = weeks * SCROLL_CELL_PX + (weeks - 1) * GAP_PX
+    const gridContentHeight = MONTH_LABEL_ROW_PX + 7 * SCROLL_CELL_PX + 6 * GAP_PX
     return (
       <div className="flex flex-col gap-1.5">
         <div className="flex justify-end gap-1">
@@ -331,10 +357,15 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
             ›
           </button>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-start gap-2">
           <div
             className="flex-none"
-            style={{ display: 'grid', rowGap: `${GAP_PX}px`, gridTemplateRows: `14px repeat(7, ${SCROLL_CELL_PX}px)` }}
+            style={{
+              height: gridContentHeight,
+              display: 'grid',
+              rowGap: `${GAP_PX}px`,
+              gridTemplateRows: `${MONTH_LABEL_ROW_PX}px repeat(7, ${SCROLL_CELL_PX}px)`,
+            }}
           >
             <div />
             {WEEKDAY_LABELS.map(({ row, label }) => (
@@ -350,15 +381,17 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
             className="scrollbar-thin-fade min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
             role="group"
             aria-label={`최근 ${weeks}주 활동 지도`}
+            style={{ height: gridContentHeight + SCROLLBAR_RESERVE_PX, boxSizing: 'border-box' }}
           >
             <div
               style={{
                 display: 'grid',
                 width: totalCellWidth,
+                height: gridContentHeight,
                 rowGap: `${GAP_PX}px`,
                 columnGap: `${GAP_PX}px`,
                 gridTemplateColumns: `repeat(${weeks}, ${SCROLL_CELL_PX}px)`,
-                gridTemplateRows: `14px repeat(7, ${SCROLL_CELL_PX}px)`,
+                gridTemplateRows: `${MONTH_LABEL_ROW_PX}px repeat(7, ${SCROLL_CELL_PX}px)`,
               }}
             >
               {monthLabels.map(({ col, label }) => (

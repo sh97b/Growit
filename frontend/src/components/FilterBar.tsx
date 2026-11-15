@@ -46,7 +46,7 @@ export function FilterBar({ search, hobby, range, hasActiveFilter, onReset }: Fi
 
   return (
     <div className="flex h-10 flex-wrap items-center gap-2 lg:h-10 lg:flex-nowrap">
-      <div className="relative h-11 min-w-[9rem] flex-1 lg:h-10">
+      <div className="relative h-11 w-[26rem] max-w-full flex-none lg:h-10">
         <SearchIcon width={16} height={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
         <input
           type="search"

@@ -210,8 +210,7 @@ export function ChangesPage() {
 
   const toolbarRow = (
     <ReviewToolbar
-      left={infoLine}
-      right={
+      left={
         <>
           <Dropdown
             aria-label="분야"
@@ -227,6 +226,7 @@ export function ChangesPage() {
           />
         </>
       }
+      right={infoLine}
     />
   )
 

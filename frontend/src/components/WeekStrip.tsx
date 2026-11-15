@@ -17,12 +17,16 @@ export function WeekStrip({ days }: { days: WeekStripDay[] }) {
               <span
                 className={[
                   'h-7 w-7 rounded-full border-2',
-                  day.hasRecord ? 'border-transparent bg-base' : 'border-line-2 bg-transparent',
-                  day.isToday && !day.hasRecord ? 'border-ink' : '',
-                  day.isToday && day.hasRecord ? 'shadow-[0_0_0_2px_white,0_0_0_4px_var(--color-ink)]' : '',
+                  day.isToday
+                    ? 'border-transparent bg-base'
+                    : day.hasRecord
+                      ? 'border-transparent bg-base'
+                      : 'border-line-2 bg-transparent',
                 ].join(' ')}
               />
-              <span className="text-caption-min text-ink-2">{day.isToday ? '오늘' : weekdayLabel(localDate)}</span>
+              <span className={['text-caption-min', day.isToday ? 'font-bold text-ink' : 'text-ink-2'].join(' ')}>
+                {day.isToday ? '오늘' : weekdayLabel(localDate)}
+              </span>
             </div>
           )
         })}
