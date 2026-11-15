@@ -32,7 +32,7 @@ export function DeleteAccountPage() {
     onSuccess: () => {
       resetSessionState(null)
       logout()
-      navigate('/login', { replace: true })
+      navigate('/', { replace: true })
     },
     onError: () => setConfirming(false),
   })

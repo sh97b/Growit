@@ -13,7 +13,7 @@ export function AccountMenu({ size = 40 }: { size?: number }) {
   function handleLogout() {
     setOpen(false)
     logout()
-    navigate('/login', { replace: true })
+    navigate('/', { replace: true })
   }
 
   return (

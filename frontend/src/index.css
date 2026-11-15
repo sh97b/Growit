@@ -136,6 +136,17 @@ select:focus-visible {
 }
 
 /*
+ * N2: 랜딩 페이지의 머리글 앵커 이동(소개·기능·이용 방법·자주 묻는 질문)에만 쓰는 부드러운 스크롤.
+ * 앱 화면은 문서 자체가 스크롤되지 않는(AppLayout이 h-dvh+overflow:hidden) 구조라 이 규칙의 영향을
+ * 받지 않는다 — 랜딩에서만 의미가 있어 전역에 둬도 안전하다.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.landing) {
+    scroll-behavior: smooth;
+  }
+}
+
+/*
  * 페이지 제목·섹션 제목·카드 제목 크기를 한 곳에서 관리한다(U1: 화면마다 26px/30px로 제각각이던 것을
  * 통일. LAYOUT-V2: 하한을 더 올리고 페이지 제목을 모바일·데스크톱 공통 28px 하한으로 맞춘다).
  * 루트 글자 크기가 화면에 맞춰 줄어들어도 디자인이 정한 하한 아래로는 내려가지 않게 max()로 고정한다.
