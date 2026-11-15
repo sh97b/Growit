@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Loading } from './Loading'
 import { addDays, formatMonthDay, startOfWeekLocal, todayLocalDate } from '../lib/date'
@@ -26,11 +26,13 @@ const MAX_CLAMP_CELL_PX = 16
 const SCROLL_CELL_PX = 14
 const MONTH_LABEL_ROW_PX = 14
 /**
- * P2 1번: overflow-x:auto 스크롤바가 콘텐츠 박스 안쪽에서 공간을 차지해, 높이를 콘텐츠 높이와
- * 정확히 같게 두면 맨 아랫줄(일요일)이 스크롤바에 가려 잘린다. 스크롤 영역에는 이 여유를 더해
- * 높이를 주고, 요일 라벨 열은 그 여유 없이(콘텐츠 높이만) 위쪽부터 맞춘다.
+ * P2 1번/S1 B단계: overflow-x:auto 스크롤바가 콘텐츠 박스 안쪽에서 공간을 차지해, 높이를 콘텐츠
+ * 높이와 정확히 같게 두면 맨 아랫줄(일요일)이 스크롤바에 가려 잘린다. 스크롤 영역에는 스크롤바
+ * 영역(14px)과 아래 여백(4px)을 더해 높이를 주고, 요일 라벨 열은 그 여유 없이(콘텐츠 높이만)
+ * 위쪽부터 맞춘다.
  */
-const SCROLLBAR_RESERVE_PX = 12
+const SCROLLBAR_AREA_PX = 14
+const BOTTOM_MARGIN_PX = 4
 /* 활동 지도 라벨만 디자인 규칙의 예외로 고정 12px을 쓴다(다른 글자 토큰처럼 rem으로 늘어나지 않는다). */
 const LABEL_STYLE: CSSProperties = { fontSize: '12px', lineHeight: 1, whiteSpace: 'nowrap' }
 const LABEL_COL_PX = 18
@@ -60,18 +62,27 @@ function monthLabel(isoDate: string): string {
   return `${Number(month)}월`
 }
 
-/** 홈·모바일 토글처럼 칸 폭이 좁은 곳에서 쓰는 라벨 중복 억제(3열 미만 간격이면 뒤 라벨 숨김). */
+/**
+ * 홈·모바일 토글처럼 칸 폭이 좁은 곳에서 쓰는 라벨 중복 억제. S1 B단계: 전에는 "다음 라벨이
+ * 직전 라벨과 3열 미만이면 다음(나중) 라벨을 건너뛴다"였는데, 1년 토글의 왼쪽 끝(불완전한 첫 달)
+ * 바로 뒤에 다음 달이 와도 둘 다 그려져("11월12월"처럼 겹침) 보였다. 이제는 모든 라벨을 먼저
+ * 모은 뒤, 인접한 두 라벨이 3열 미만이면 먼저 나온(왼쪽) 라벨을 지운다 — 나중 라벨(12월·6월 등)은
+ * 항상 남으므로 달이 사라지지 않는다.
+ */
 function computeMonthLabels(weekColumns: string[][]): { col: number; label: string }[] {
-  const labels: { col: number; label: string }[] = []
+  const raw: { col: number; label: string }[] = []
   let lastMonth = ''
-  let lastAcceptedCol = -Infinity
   weekColumns.forEach((week, colIndex) => {
     const label = monthLabel(week[0])
     if (label === lastMonth) return
     lastMonth = label
-    if (colIndex - lastAcceptedCol < 3) return
-    labels.push({ col: colIndex, label })
-    lastAcceptedCol = colIndex
+    raw.push({ col: colIndex, label })
+  })
+  const labels: { col: number; label: string }[] = []
+  raw.forEach((item, index) => {
+    const next = raw[index + 1]
+    if (next && next.col - item.col < 3) return
+    labels.push(item)
   })
   return labels
 }
@@ -149,29 +160,55 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
     setFocusedDate(latest)
   }, [interactiveDates, focusedDate])
 
-  // 1년(toggle의 full)을 고르면 카드 안에서만 가로로 밀리게 하고, 최신 주(오른쪽 끝)가 먼저 보이게 한다.
-  useEffect(() => {
-    if (!fixedCell) return
-    const el = scrollRef.current
-    if (el) el.scrollLeft = el.scrollWidth
-  }, [fixedCell])
+  // S1 B단계: 가로 스크롤이 있는 두 모드(1년 토글의 fixedCell, 기록 탭 데스크톱의 scrollableSingleRow)
+  // 모두 "처음 보일 때 + weeks·카드 폭이 바뀔 때는 오른쪽 끝(최근)으로, 단 사용자가 이미 수동으로
+  // 스크롤했다면 폭 변경 때 덮어쓰지 않는다"를 공유한다. useLayoutEffect로 페인트 전에 맞춰
+  // "가장 오래된 달이 잠깐 보였다 사라지는" 깜박임을 없앤다.
+  const hasHorizontalScroll = fixedCell || scrollableSingleRow
+  const suppressScrollTrackingRef = useRef(false)
+  const userScrolledRef = useRef(false)
+
+  function scrollToEnd(el: HTMLDivElement) {
+    suppressScrollTrackingRef.current = true
+    el.scrollLeft = el.scrollWidth
+    requestAnimationFrame(() => {
+      suppressScrollTrackingRef.current = false
+    })
+  }
 
   function updateScrollButtons() {
     const el = scrollRef.current
     if (!el) return
+    if (!suppressScrollTrackingRef.current) userScrolledRef.current = true
     setCanScrollPrev(el.scrollLeft > 1)
     setCanScrollNext(el.scrollLeft < el.scrollWidth - el.clientWidth - 1)
   }
 
-  // 한 줄 스크롤 모드는 처음에 오른쪽 끝(가장 최근)이 보이게 맞춘다.
-  useEffect(() => {
-    if (!scrollableSingleRow) return
+  // weeks·모드가 바뀌면(6개월/1년 토글 전환 포함) 새 범위로 보는 것이니 "수동 스크롤" 기억을 지우고 끝으로.
+  useLayoutEffect(() => {
+    if (!hasHorizontalScroll) return
     const el = scrollRef.current
     if (!el) return
-    el.scrollLeft = el.scrollWidth
+    userScrolledRef.current = false
+    scrollToEnd(el)
     updateScrollButtons()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scrollableSingleRow, weeks])
+  }, [hasHorizontalScroll, weeks])
+
+  // 카드 폭이 바뀌면(사이드바 리사이즈 등) 사용자가 손대지 않은 한 다시 끝으로 맞춘다.
+  useEffect(() => {
+    if (!hasHorizontalScroll) return
+    const el = scrollRef.current
+    if (!el) return
+    const observer = new ResizeObserver(() => {
+      const current = scrollRef.current
+      if (!current) return
+      if (!userScrolledRef.current) scrollToEnd(current)
+      updateScrollButtons()
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hasHorizontalScroll])
 
   function scrollByWeeks(amount: number) {
     const el = scrollRef.current
@@ -381,7 +418,7 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
             className="scrollbar-thin-fade min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
             role="group"
             aria-label={`최근 ${weeks}주 활동 지도`}
-            style={{ height: gridContentHeight + SCROLLBAR_RESERVE_PX, boxSizing: 'border-box' }}
+            style={{ height: gridContentHeight + SCROLLBAR_AREA_PX + BOTTOM_MARGIN_PX, boxSizing: 'border-box' }}
           >
             <div
               style={{

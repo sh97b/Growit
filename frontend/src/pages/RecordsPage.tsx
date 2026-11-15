@@ -133,9 +133,7 @@ export function RecordsPage() {
 
   const main = (
     <>
-      <div className="rounded-2xl bg-surface p-5 lg:hidden">
-        <ActivityHeatmap weeks={52} toggle hobbyId={filter.hobbyId} />
-      </div>
+      <MobileHeatmapCard hobbyId={filter.hobbyId} />
 
       {filterBar}
 
@@ -202,6 +200,42 @@ export function RecordsPage() {
     <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
       <ReviewHeaderRow title="지난 기록" />
       <Split main={main} side={side} className="lg:min-h-0 lg:flex-1" />
+    </div>
+  )
+}
+
+/**
+ * S1 B-4단계: 모바일 기록 탭의 활동 지도는 항상 펼쳐 두지 않는다. 기본은 접힘(높이 44px 한 줄,
+ * "올해 기록한 날 N일 · 지도 보기 ▾")이고 누르면 아래로 펼쳐진다(6개월/1년 토글은 펼친 안에서).
+ */
+function MobileHeatmapCard({ hobbyId }: { hobbyId: number | null }) {
+  const [expanded, setExpanded] = useState(false)
+  const today = todayLocalDate()
+  const from = `${today.slice(0, 4)}-01-01`
+  const query = useQuery({
+    queryKey: ['stats', 'activity-map', 'this-year-count', from, today, hobbyId ?? null],
+    queryFn: () => fetchActivityMap({ from, to: today, hobbyId: hobbyId ?? undefined }),
+  })
+  const recordedDays = query.data?.length ?? 0
+
+  return (
+    <div className="rounded-2xl bg-surface lg:hidden">
+      <button
+        type="button"
+        onClick={() => setExpanded((prev) => !prev)}
+        aria-expanded={expanded}
+        className="flex min-h-11 w-full items-center justify-between gap-2 px-4 text-body-min font-medium text-ink"
+      >
+        <span>올해 기록한 날 {recordedDays}일</span>
+        <span aria-hidden="true" className="text-caption-min text-ink-2">
+          {expanded ? '지도 접기 ▴' : '지도 보기 ▾'}
+        </span>
+      </button>
+      {expanded ? (
+        <div className="px-4 pb-4">
+          <ActivityHeatmap weeks={52} toggle hobbyId={hobbyId} />
+        </div>
+      ) : null}
     </div>
   )
 }
