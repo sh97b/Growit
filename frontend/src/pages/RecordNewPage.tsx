@@ -274,6 +274,7 @@ export function RecordNewPage() {
         onDifficultyChange={setDifficulty}
         feeling={feeling}
         onToggleFeeling={toggleFeeling}
+        submitting={submitting}
         banner={
           draftRestored ? (
             <div className="flex w-fit items-center gap-2 rounded-[0.625rem] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] px-3 py-2 text-sm text-ink">

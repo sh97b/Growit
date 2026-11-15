@@ -1,9 +1,10 @@
-import type { ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
 import { Field } from './Field'
 import { HobbyInlineCreate } from './HobbyInlineCreate'
 import { Input } from './Input'
 import { VoiceInputButton } from './VoiceInputButton'
 import { ChevronDownIcon } from './icons'
+import { useVoiceInput } from '../hooks/useVoiceInput'
 import { FEELINGS, MINUTE_PRESETS, pickClass } from '../lib/recordForm'
 import type { DateMode } from '../lib/recordForm'
 import type { Feeling } from '../lib/records'
@@ -34,6 +35,7 @@ export function RecordFormFields({
   onToggleFeeling,
   banner,
   suggestionChip,
+  submitting = false,
 }: {
   activeHobbies: Hobby[]
   hobbyId: number
@@ -58,8 +60,36 @@ export function RecordFormFields({
   onToggleFeeling: (value: Feeling) => void
   banner?: ReactNode
   suggestionChip?: ReactNode
+  /** 저장 중에는 입력(마이크 포함)을 받지 않는다(O1 F). */
+  submitting?: boolean
 }) {
   const selectedHobby = activeHobbies.find((hobby) => hobby.id === hobbyId) ?? activeHobbies[0]
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const contentRef = useRef(content)
+  contentRef.current = content
+
+  // O1(F): 확정된 말은 커서 위치(없으면 끝)에 공백과 함께 이어 붙인다. 이미 입력된 글과 사용자가
+  // 직접 고친 글은 지우지 않는다(textarea의 선택 영역만 다루고 나머지 값은 그대로 둔다).
+  function insertAtCursor(text: string) {
+    const el = textareaRef.current
+    const base = contentRef.current
+    const start = el?.selectionStart ?? base.length
+    const end = el?.selectionEnd ?? base.length
+    const before = base.slice(0, start)
+    const after = base.slice(end)
+    const needsLeadingSpace = before.length > 0 && !/\s$/.test(before)
+    const insertion = `${needsLeadingSpace ? ' ' : ''}${text}`
+    onContentChange(`${before}${insertion}${after}`)
+    if (el) {
+      const nextPos = before.length + insertion.length
+      requestAnimationFrame(() => {
+        el.setSelectionRange(nextPos, nextPos)
+        el.focus()
+      })
+    }
+  }
+
+  const voice = useVoiceInput({ onFinalResult: insertAtCursor, disabled: submitting })
 
   return (
     <>
@@ -67,15 +97,23 @@ export function RecordFormFields({
 
       <div className="relative">
         <textarea
+          ref={textareaRef}
           value={content}
           onChange={(event) => onContentChange(event.target.value)}
+          disabled={submitting}
           placeholder="오늘은 무엇을 했나요?"
           aria-label="오늘 한 일을 한 줄로 적어 보세요"
-          className="h-[9.375rem] w-full resize-none rounded-xl border border-input bg-white p-4 pb-14 font-serif text-lg leading-[1.85] text-ink outline-none focus:border-base focus:shadow-[0_0_0_1px_var(--color-base)] lg:h-[9.375rem]"
+          className="h-[9.375rem] w-full resize-none rounded-xl border border-input bg-white p-4 pb-14 font-serif text-lg leading-[1.85] text-ink outline-none focus:border-base focus:shadow-[0_0_0_1px_var(--color-base)] disabled:bg-surface lg:h-[9.375rem]"
         />
-        <VoiceInputButton
-          onTranscript={(text) => onContentChange(content.trim().length > 0 ? `${content.trim()} ${text}` : text)}
-        />
+        {voice.supported ? (
+          <VoiceInputButton
+            listening={voice.listening}
+            interimText={voice.interimText}
+            denied={voice.denied}
+            gaveUp={voice.gaveUp}
+            onToggle={() => (voice.listening ? voice.stop() : voice.start())}
+          />
+        ) : null}
       </div>
 
       {suggestionChip}

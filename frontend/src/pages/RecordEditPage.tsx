@@ -130,6 +130,7 @@ function RecordEditForm({ record, activeHobbies }: { record: RecordDetail; activ
         onDifficultyChange={setDifficulty}
         feeling={feeling}
         onToggleFeeling={toggleFeeling}
+        submitting={updateRecord.isPending}
       />
 
       {contentError ? <Note variant="sand">{contentError}</Note> : null}

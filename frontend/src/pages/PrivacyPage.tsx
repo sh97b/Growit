@@ -31,6 +31,10 @@ export function PrivacyPage() {
         <p className="text-body-min leading-[1.75] text-ink-2">
           AI 정리가 켜져 있으면 기록 내용이 서비스 기능 제공 목적으로 OpenAI API에 전송돼요.
         </p>
+        <p className="text-body-min leading-[1.75] text-ink-2">
+          음성 입력을 쓰면 말한 소리가 브라우저의 음성 인식 서비스(크롬은 구글)로 전송돼 글자로 바뀌어요. 이
+          서비스에는 Growit 서버를 거치지 않고, 쓰지 않으면 전송되지 않아요.
+        </p>
       </section>
 
       <section className="flex flex-col gap-2">
