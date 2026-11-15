@@ -160,14 +160,14 @@ export function RecordsPage() {
         ) : null}
 
         {!listQuery.isLoading && totalCount > 0 ? (
-          <div className="grid grid-cols-1 content-start gap-3">
+          <div className="grid grid-cols-1 content-start gap-2 lg:gap-3">
             {records.map((record) => {
               const firstTag = record.analysis?.tags[0]
               return (
                 <Link
                   key={record.id}
                   to={`/records/${record.id}`}
-                  className="flex flex-col gap-1.5 rounded-xl border border-line bg-white px-4 py-4 text-ink no-underline"
+                  className="flex flex-col gap-1.5 rounded-xl border border-line bg-white p-3.5 text-ink no-underline lg:px-4 lg:py-4"
                 >
                   <span className="flex items-center justify-between gap-2">
                     <span className="text-caption-min font-semibold text-ink-2">
