@@ -20,11 +20,16 @@ import {
   fetchCoachList,
   fetchCoachResult,
   fetchLatestCoach,
+  generateAutoCoach,
   markCoachViewed,
+  type CoachAutoResponse,
   type CoachPeriod,
   type CoachResult,
 } from '../lib/ai'
 import { formatMonthDay } from '../lib/date'
+
+const AUTO_CALL_STORAGE_KEY = 'growit_coach_auto_last_call'
+const AUTO_CALL_INTERVAL_MS = 10 * 60 * 1000
 
 const PERIODS: { value: CoachPeriod; label: string }[] = [
   { value: 'THIS_WEEK', label: '이번 주' },
@@ -44,7 +49,9 @@ export function CoachPage() {
   const { from: listFrom, to: listTo } = resolveDateRange(filter.range)
   const [period, setPeriod] = useState<CoachPeriod>('2W')
   const [result, setResult] = useState<CoachResult | null>(null)
+  const [autoStatus, setAutoStatus] = useState<CoachAutoResponse | null>(null)
   const viewedIds = useRef(new Set<number>())
+  const autoTriggeredRef = useRef(false)
   const [page, setPage] = useState(0)
 
   useEffect(() => {
@@ -103,6 +110,51 @@ export function CoachPage() {
   })
 
   const usageQuery = useQuery({ queryKey: ['ai', 'usage'], queryFn: fetchAiUsage })
+
+  const autoMutation = useMutation({ mutationFn: generateAutoCoach })
+
+  // O1(E): 회고 탭에 들어오면(홈과 별개로, 같은 세션 10분 안에는 다시 안 부름) 자동 생성 조건을
+  // 확인한다. 생성·재사용됐고 지금 특정 회고를 보고 있지 않으면 그 회고를 자동 선택해 보여준다.
+  useEffect(() => {
+    if (!currentUser?.aiEnabled || autoTriggeredRef.current) return
+    autoTriggeredRef.current = true
+
+    let lastCalledAt: number | null = null
+    try {
+      const raw = sessionStorage.getItem(AUTO_CALL_STORAGE_KEY)
+      lastCalledAt = raw ? Number(raw) : null
+    } catch {
+      // 세션 저장소를 못 쓰면 그냥 매번 호출한다 — 서버가 멱등이라 안전하다.
+    }
+    if (lastCalledAt != null && Date.now() - lastCalledAt < AUTO_CALL_INTERVAL_MS) return
+
+    autoMutation.mutate(undefined, {
+      onSuccess: (data) => {
+        try {
+          sessionStorage.setItem(AUTO_CALL_STORAGE_KEY, String(Date.now()))
+        } catch {
+          // 저장 실패는 무시한다(다음 접속에서 다시 시도될 뿐).
+        }
+        setAutoStatus(data)
+        if ((data.status === 'GENERATED' || data.status === 'EXISTS') && data.result) {
+          queryClient.invalidateQueries({ queryKey: ['ai', 'coach', 'list'] })
+          if (selectedId == null) {
+            setResult(data.result)
+            if (data.result.id != null) {
+              setSearchParams((prev) => {
+                const next = new URLSearchParams(prev)
+                next.set('r', String(data.result!.id))
+                return next
+              })
+            }
+          } else {
+            queryClient.invalidateQueries({ queryKey: ['ai', 'coach', 'latest'] })
+          }
+        }
+      },
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.aiEnabled])
 
   // 전에는 "7일 안에 받은 것만" 보여줬는데, 목록에는 더 오래된 회고가 있는데도 오른쪽은 "아직 받은
   // 회고가 없어요"로 나오는 모순이 생겼다(지시문 5) — latestQuery는 정말 하나도 없을 때만 null/204를
@@ -177,7 +229,11 @@ export function CoachPage() {
           type="button"
           disabled={mutation.isPending}
           onClick={() => mutation.mutate()}
-          className="inline-flex min-h-10 w-fit flex-none items-center justify-center rounded-lg bg-base px-4 text-sm font-medium text-white disabled:bg-line disabled:text-[#5F594F]"
+          className={
+            shownResult
+              ? 'inline-flex min-h-10 w-fit flex-none items-center justify-center rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink disabled:text-ink-3'
+              : 'inline-flex min-h-10 w-fit flex-none items-center justify-center rounded-lg bg-base px-4 text-sm font-medium text-white disabled:bg-line disabled:text-[#5F594F]'
+          }
         >
           {shownResult ? '새 회고 받기' : '회고 받기'}
         </button>
@@ -188,11 +244,30 @@ export function CoachPage() {
     </div>
   )
 
+  // O1(E): 자동 생성이 진행 중이고 아직 보여줄 회고가 없으면(처음 들어왔을 때) 생성 중 자리 표시를
+  // 먼저 보여준다. 이미 보여줄 회고가 있으면(최신 회고 등) 조용히 배경에서만 확인하고 방해하지 않는다.
+  const showAutoGeneratingSkeleton =
+    autoMutation.isPending && selectedId == null && !shownResult && !mutation.isPending
+
   const detail = (
     <div className="flex flex-col gap-5">
+      {shownResult?.isNew ? (
+        <div className="flex items-center justify-between gap-3 rounded-xl bg-[color-mix(in_srgb,var(--color-base)_9%,white)] px-4 py-2.5">
+          <span className="text-sm font-medium text-base-ink">새 회고가 도착했어요</span>
+        </div>
+      ) : null}
+
       {mutation.isPending ? (
         <div className="flex flex-col gap-3.5 rounded-2xl bg-surface p-7">
           <p className="text-ink">기록을 천천히 읽고 있어요</p>
+          <div className="h-3.5 w-[80%] animate-pulse rounded-full bg-rest" />
+          <div className="h-3.5 w-full animate-pulse rounded-full bg-rest" />
+        </div>
+      ) : null}
+
+      {showAutoGeneratingSkeleton ? (
+        <div className="flex flex-col gap-3.5 rounded-2xl bg-surface p-7">
+          <p className="text-ink">회고를 정리하고 있어요</p>
           <div className="h-3.5 w-[80%] animate-pulse rounded-full bg-rest" />
           <div className="h-3.5 w-full animate-pulse rounded-full bg-rest" />
         </div>
@@ -243,8 +318,32 @@ export function CoachPage() {
         <CoachResultView result={shownResult} onResultChange={(updated) => setResult(updated)} />
       ) : null}
 
-      {!shownResult && !mutation.isPending && selectedId == null && !selectedQuery.isLoading ? (
-        <Note variant="calm">아직 받은 회고가 없어요. [회고 받기]를 눌러 보세요.</Note>
+      {!shownResult &&
+      !mutation.isPending &&
+      !showAutoGeneratingSkeleton &&
+      selectedId == null &&
+      !selectedQuery.isLoading ? (
+        autoStatus?.status === 'NOT_ELIGIBLE' && !autoStatus.hasAnyCoach ? (
+          <div className="flex flex-col items-start gap-3 rounded-2xl bg-surface p-7">
+            <p className="text-ink">
+              기록 {autoStatus.newRecordsSinceLast}/{autoStatus.requiredCount} · {autoStatus.requiredCount}개가 쌓이면 회고가
+              자동으로 도착해요
+            </p>
+            <div className="h-2 w-full max-w-[16rem] overflow-hidden rounded-full bg-rest">
+              <div
+                className="h-full rounded-full bg-base"
+                style={{
+                  width: `${Math.min(100, (autoStatus.newRecordsSinceLast / Math.max(1, autoStatus.requiredCount)) * 100)}%`,
+                }}
+              />
+            </div>
+            <Link to="/records/new" className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink underline underline-offset-4">
+              기록하기
+            </Link>
+          </div>
+        ) : (
+          <Note variant="calm">아직 받은 회고가 없어요. [회고 받기]를 눌러 보세요.</Note>
+        )
       ) : null}
     </div>
   )

@@ -145,9 +145,20 @@ export function fetchLatestCoach() {
   return apiRequest<CoachResult | undefined>('/api/ai/results/latest?type=COACH')
 }
 
-/** 그 주에 처음 접속할 때 홈이 하루 1회만 호출한다(서버가 조건에 맞을 때만 생성, 멱등). */
+export type CoachAutoResponse = {
+  status: 'GENERATED' | 'EXISTS' | 'NOT_ELIGIBLE' | 'DISABLED' | 'LIMIT'
+  result: CoachResult | null
+  newRecordsSinceLast: number
+  requiredCount: number
+  hasAnyCoach: boolean
+}
+
+/**
+ * 홈·회고 탭이 각자의 빈도로 호출한다(서버가 조건에 맞을 때만 생성, 멱등 — 같은 입력이면 다시 만들지
+ * 않고 EXISTS로 그 결과를 돌려준다). 응답 모양이 조회용 CoachResult와 달라 CoachAutoResponse로 받는다.
+ */
 export function generateAutoCoach() {
-  return apiRequest<CoachResult>('/api/ai/coach/auto', { method: 'POST' })
+  return apiRequest<CoachAutoResponse>('/api/ai/coach/auto', { method: 'POST' })
 }
 
 /** 자동 회고를 처음 열어봤다고 표시한다(isNew를 끈다). */

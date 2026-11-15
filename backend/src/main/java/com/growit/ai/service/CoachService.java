@@ -3,6 +3,8 @@ package com.growit.ai.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.growit.ai.config.AiProperties;
+import com.growit.ai.dto.AiCoachAutoResponse;
 import com.growit.ai.dto.AiCoachListResponse;
 import com.growit.ai.dto.AiCoachResponse;
 import com.growit.ai.dto.CoachActionResponse;
@@ -59,7 +61,9 @@ public class CoachService {
 
 	PromptResourceLoader simplifyPromptLoader = new PromptResourceLoader(SIMPLIFY_PROMPT_RESOURCE_NAME);
 
-	private static final int AUTO_PERIOD_DAYS = 14;
+	/** O1(E): 새 기록들이 걸친 날짜 범위를 이 사이로 맞춘다. */
+	private static final int AUTO_PERIOD_MIN_DAYS = 7;
+	private static final int AUTO_PERIOD_MAX_DAYS = 30;
 
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
@@ -69,13 +73,14 @@ public class CoachService {
 	private final ObjectMapper objectMapper;
 	private final UserRepository userRepository;
 	private final NotificationSchedulerService notificationSchedulerService;
+	private final AiProperties aiProperties;
 
 	PromptResourceLoader promptLoader = new PromptResourceLoader(PROMPT_RESOURCE_NAME);
 
 	public CoachService(ActivityRecordRepository activityRecordRepository, HobbyRepository hobbyRepository,
 			AiResultRepository aiResultRepository, AiCallService aiCallService,
 			AiResponseValidator aiResponseValidator, ObjectMapper objectMapper, UserRepository userRepository,
-			NotificationSchedulerService notificationSchedulerService) {
+			NotificationSchedulerService notificationSchedulerService, AiProperties aiProperties) {
 		this.activityRecordRepository = activityRecordRepository;
 		this.hobbyRepository = hobbyRepository;
 		this.aiResultRepository = aiResultRepository;
@@ -84,6 +89,7 @@ public class CoachService {
 		this.objectMapper = objectMapper;
 		this.userRepository = userRepository;
 		this.notificationSchedulerService = notificationSchedulerService;
+		this.aiProperties = aiProperties;
 	}
 
 	@Transactional
@@ -160,32 +166,53 @@ public class CoachService {
 	}
 
 	/**
-	 * 그 주에 처음 접속할 때만(홈이 하루 한 번 호출) 최근 14일·전체 분야로 자동 생성한다. AI 꺼짐·기록 5개
-	 * 미만·이미 이번 주 COACH 결과가 있음·한도 소진은 모두 오류가 아니라 "지금은 만들 게 없다"는 뜻이라
-	 * locked 모양으로 조용히 돌려준다(홈은 이 응답 자체를 보여주지 않고, 그다음 GET .../latest로 읽는다).
+	 * O1(E): "이번 주에 COACH가 없을 때" 규칙을 대체한다 — (1) COACH 결과가 하나도 없고 전체 기록이 5개
+	 * 이상이거나 (2) 마지막 COACH(수동·자동 모두) 이후 저장된 새 기록이 5개 이상일 때만 생성한다. 기간은
+	 * 그 기록들이 걸친 날짜 범위(처음이면 전체 기록 범위)를 7~30일로 맞춘다. AI 꺼짐·한도 소진·조건 미달은
+	 * 모두 오류가 아니라 "지금은 만들 게 없다"는 뜻이라 status로만 구분해 조용히 돌려준다.
 	 */
 	@Transactional
-	public AiCoachResponse generateAuto(Long userId) {
+	public AiCoachAutoResponse generateAuto(Long userId) {
 		var user = userRepository.findById(userId).orElse(null);
-		if (user == null || !user.isAiEnabled()) {
-			return AiCoachResponse.locked(REQUIRED_RECORD_COUNT, 0);
+		if (user == null || !user.isAiEnabled() || !aiProperties.isEnabled()) {
+			return AiCoachAutoResponse.disabled(REQUIRED_RECORD_COUNT);
 		}
 
-		LocalDate today = LocalDate.now(SERVER_ZONE);
-		LocalDate weekStart = today.minusDays(today.getDayOfWeek().getValue() - 1L);
-		boolean hasResultThisWeek = aiResultRepository.existsByUserIdAndResultTypeAndCreatedAtGreaterThanEqual(userId,
-				AiResultType.COACH.name(), weekStart.atStartOfDay());
-		if (hasResultThisWeek) {
-			AiCoachResponse existing = latest(userId);
-			return existing != null ? existing : AiCoachResponse.locked(REQUIRED_RECORD_COUNT, 0);
+		List<AiResult> lastCoachResults = aiResultRepository.findByUserIdAndResultTypeOrderByCreatedAtDesc(userId,
+				AiResultType.COACH.name(), org.springframework.data.domain.PageRequest.of(0, 1));
+		AiResult lastCoach = lastCoachResults.isEmpty() ? null : lastCoachResults.get(0);
+		boolean hasAnyCoach = lastCoach != null;
+
+		LocalDate start;
+		LocalDate end;
+		if (!hasAnyCoach) {
+			long totalCount = activityRecordRepository.countByUserId(userId);
+			if (totalCount < REQUIRED_RECORD_COUNT) {
+				return AiCoachAutoResponse.notEligible((int) totalCount, REQUIRED_RECORD_COUNT, false);
+			}
+			LocalDate minDate = activityRecordRepository.findMinRecordDateByUserId(userId);
+			LocalDate maxDate = activityRecordRepository.findMaxRecordDateByUserId(userId);
+			LocalDate[] range = clampAutoPeriod(minDate, maxDate);
+			start = range[0];
+			end = range[1];
+		} else {
+			List<ActivityRecord> newRecords = activityRecordRepository
+					.findByUserIdAndCreatedAtGreaterThan(userId, lastCoach.getCreatedAt());
+			if (newRecords.size() < REQUIRED_RECORD_COUNT) {
+				return AiCoachAutoResponse.notEligible(newRecords.size(), REQUIRED_RECORD_COUNT, true);
+			}
+			LocalDate minDate = newRecords.stream().map(ActivityRecord::getRecordDate)
+					.min(Comparator.naturalOrder()).orElseThrow();
+			LocalDate maxDate = newRecords.stream().map(ActivityRecord::getRecordDate)
+					.max(Comparator.naturalOrder()).orElseThrow();
+			LocalDate[] range = clampAutoPeriod(minDate, maxDate);
+			start = range[0];
+			end = range[1];
 		}
 
-		LocalDate start = today.minusDays(AUTO_PERIOD_DAYS - 1L);
 		List<ActivityRecord> periodRecords = activityRecordRepository.findByUserIdAndRecordDateBetween(userId, start,
-				today);
-		if (periodRecords.size() < REQUIRED_RECORD_COUNT) {
-			return AiCoachResponse.locked(REQUIRED_RECORD_COUNT, periodRecords.size());
-		}
+				end);
+		int eligibleCount = periodRecords.size();
 
 		List<ActivityRecord> inputRecords = periodRecords.stream()
 				.sorted(Comparator.comparing(ActivityRecord::getRecordDate).reversed()
@@ -193,6 +220,7 @@ public class CoachService {
 				.limit(MAX_INPUT_RECORDS)
 				.toList();
 
+		LocalDate today = LocalDate.now(SERVER_ZONE);
 		LocalDate lastRecordDate = activityRecordRepository.findMaxRecordDateByUserId(userId);
 		long daysSinceLastRecord = ChronoUnit.DAYS.between(lastRecordDate, today);
 		String mode = daysSinceLastRecord >= COMEBACK_THRESHOLD_DAYS ? "COMEBACK" : "NORMAL";
@@ -200,13 +228,13 @@ public class CoachService {
 		Map<Long, ActivityRecord> inputById = new LinkedHashMap<>();
 		inputRecords.forEach(r -> inputById.put(r.getId(), r));
 
-		String cacheKey = CacheKeys.sha256(PROMPT_VERSION + "|AUTO_COACH|ALL|" + start + "|" + today + "|"
+		String cacheKey = CacheKeys.sha256(PROMPT_VERSION + "|AUTO_COACH|ALL|" + start + "|" + end + "|"
 				+ inputRecords.stream().sorted(Comparator.comparing(ActivityRecord::getId))
 						.map(r -> r.getId() + ":" + r.getUpdatedAt()).reduce("", (a, b) -> a + "," + b));
 
 		AiResult existingCache = aiResultRepository.findByUserIdAndCacheKey(userId, cacheKey).orElse(null);
 		if (existingCache != null) {
-			return toResponse(existingCache, true, userId);
+			return AiCoachAutoResponse.exists(toResponse(existingCache, true, userId), eligibleCount, hasAnyCoach);
 		}
 
 		try {
@@ -221,20 +249,37 @@ public class CoachService {
 			AiCallResult result = aiCallService.call(userId, AiResultType.AUTO_COACH, systemPrompt, payload);
 			StoredCoachResult stored = validate(result.content(), mode, inputById.keySet(), inputRecords.size());
 
-			AiResult saved = new AiResult(userId, null, AiResultType.COACH.name(), start, today, toJson(stored),
+			AiResult saved = new AiResult(userId, null, AiResultType.COACH.name(), start, end, toJson(stored),
 					toJson(inputRecords.stream().map(ActivityRecord::getId).toList()), cacheKey, PROMPT_VERSION,
 					result.model());
 			saved.markAuto();
 			aiResultRepository.save(saved);
 			notificationSchedulerService.notifyCoachArrival(userId);
 
-			return toResponse(saved, false, userId, stored, inputById);
+			return AiCoachAutoResponse.generated(toResponse(saved, false, userId, stored, inputById), eligibleCount,
+					hasAnyCoach);
 		} catch (ApiException e) {
-			// AI 꺼짐·동시 호출 제한·한도 소진·검증 실패 모두 사용자에게는 오류로 보이지 않아야 한다(홈 진입을 막지 않음).
-			return AiCoachResponse.locked(REQUIRED_RECORD_COUNT, periodRecords.size());
+			if (e.getCode() == ErrorCode.AI_LIMIT_EXCEEDED) {
+				return AiCoachAutoResponse.limit(REQUIRED_RECORD_COUNT, hasAnyCoach);
+			}
+			// 동시 호출 제한·일시적 호출 실패·검증 실패는 사용자에게 오류로 보이지 않아야 한다(홈·회고 탭
+			// 진입을 막지 않음) — 조건은 채웠지만 지금은 못 만들었다는 뜻으로 NOT_ELIGIBLE과 같은 모양을 쓴다.
+			return AiCoachAutoResponse.notEligible(eligibleCount, REQUIRED_RECORD_COUNT, hasAnyCoach);
 		} catch (java.io.IOException e) {
-			return AiCoachResponse.locked(REQUIRED_RECORD_COUNT, periodRecords.size());
+			return AiCoachAutoResponse.notEligible(eligibleCount, REQUIRED_RECORD_COUNT, hasAnyCoach);
 		}
+	}
+
+	/** 새 기록들이 걸친 날짜 범위를 7~30일로 맞춘다. 가장 최근 날짜(end)는 고정하고 부족한 만큼 start를 당긴다. */
+	private LocalDate[] clampAutoPeriod(LocalDate minDate, LocalDate maxDate) {
+		long spanDays = ChronoUnit.DAYS.between(minDate, maxDate) + 1;
+		if (spanDays < AUTO_PERIOD_MIN_DAYS) {
+			return new LocalDate[] { maxDate.minusDays(AUTO_PERIOD_MIN_DAYS - 1L), maxDate };
+		}
+		if (spanDays > AUTO_PERIOD_MAX_DAYS) {
+			return new LocalDate[] { maxDate.minusDays(AUTO_PERIOD_MAX_DAYS - 1L), maxDate };
+		}
+		return new LocalDate[] { minDate, maxDate };
 	}
 
 	private List<ComparePayloadHobby> distinctHobbies(Long userId, List<ActivityRecord> records) {

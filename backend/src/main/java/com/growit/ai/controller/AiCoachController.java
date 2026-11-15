@@ -1,5 +1,6 @@
 package com.growit.ai.controller;
 
+import com.growit.ai.dto.AiCoachAutoResponse;
 import com.growit.ai.dto.AiCoachResponse;
 import com.growit.ai.dto.CoachRequest;
 import com.growit.ai.service.CoachService;
@@ -32,12 +33,12 @@ public class AiCoachController {
 	}
 
 	/**
-	 * 그 주에 처음 접속할 때 홈이 하루 한 번 부른다(멱등). 조건이 안 맞으면 조용히 생성을 건너뛰고
-	 * locked 모양으로 응답한다 — 홈은 이 응답을 직접 보여주지 않고 GET /api/ai/results/latest로 다시 읽는다.
+	 * 회고가 하나도 없는데 기록이 5개 이상이거나, 마지막 회고 이후 새 기록이 5개 이상일 때만 생성한다(O1 E).
+	 * 멱등(같은 입력이면 다시 만들지 않고 status=EXISTS로 그 결과를 돌려줌). 홈·회고 탭이 각자의 빈도로 호출한다.
 	 */
-	@Operation(summary = "주간 자동 회고 (조건이 맞을 때만 생성, 홈 전용)")
+	@Operation(summary = "AI 회고 자동 생성 (조건이 맞을 때만 생성)")
 	@PostMapping("/coach/auto")
-	public AiCoachResponse generateAuto() {
+	public AiCoachAutoResponse generateAuto() {
 		return coachService.generateAuto(currentUserProvider.getCurrentUserId());
 	}
 }

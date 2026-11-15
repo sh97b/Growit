@@ -40,8 +40,8 @@ function displayNameOf(user: { displayName: string | null; email: string | null 
 const AUTO_COACH_DATE_KEY = 'growit_auto_coach_date'
 
 /**
- * 그 주에 처음 접속할 때 서버가 조건에 맞으면 자동 회고를 만든다. sessionStorage에 오늘 날짜를
- * 적어 두고 하루 한 번만 호출한다(서버도 같은 주에는 멱등이라 이중 안전장치).
+ * 홈에 들어올 때마다 서버에 자동 회고 조건(기록 5개 이상 쌓임, O1 E)을 확인한다. sessionStorage에
+ * 오늘 날짜를 적어 두고 하루 한 번만 호출한다(서버도 같은 입력이면 멱등이라 이중 안전장치).
  */
 function useAutoCoachOncePerDay() {
   const queryClient = useQueryClient()

@@ -2,6 +2,7 @@ package com.growit.record.repository;
 
 import com.growit.record.entity.ActivityRecord;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
@@ -16,6 +17,11 @@ public interface ActivityRecordRepository
 	Optional<ActivityRecord> findByIdAndUserId(Long id, Long userId);
 
 	List<ActivityRecord> findByUserId(Long userId);
+
+	long countByUserId(Long userId);
+
+	/** AI 회고 자동 생성 조건(마지막 COACH 생성 시각 이후에 저장된 기록) 계산에 쓴다(O1 E). */
+	List<ActivityRecord> findByUserIdAndCreatedAtGreaterThan(Long userId, LocalDateTime since);
 
 	void deleteByUserId(Long userId);
 
