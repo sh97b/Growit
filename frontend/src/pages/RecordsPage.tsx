@@ -179,7 +179,7 @@ export function RecordsPage() {
                       </span>
                     ) : null}
                   </span>
-                  <p className="truncate font-serif text-lg text-ink">{highlightMatch(record.content, filter.q)}</p>
+                  <p className="line-clamp-2 font-serif text-lg text-ink lg:line-clamp-1">{highlightMatch(record.content, filter.q)}</p>
                 </Link>
               )
             })}

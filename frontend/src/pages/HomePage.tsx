@@ -230,17 +230,35 @@ export function HomePage() {
           첫 사용 상태만 기존 [첫 기록 쓰기] 버튼 그대로 둔다. */}
       {state === 'first' ? <FirstUseBoard /> : <QuickRecordInput />}
 
-      {/* 사이드에 들어가는 최근 7일·회고 카드·활동 지도·쌓인 기록·주제 칩은 모바일에서 이 순서대로 보인다
-          (모바일은 넘칠 공간 자체가 없어 우선순위 숨김을 적용하지 않고 전부 보여준다). */}
-      <div className="flex flex-col gap-7 lg:hidden">
-        {showWeekStrip ? <RecentWeekStrip /> : null}
-        {sideItems.map((item) => (
-          <div key={item.key}>{item.node}</div>
-        ))}
-      </div>
+      {/*
+        S1 D-2단계: 모바일 순서는 인사말 → 한 줄 기록 → 최근 7일 → 최근 회고 카드 → 최근 기록
+        2개 → (스크롤 아래) 쌓인 기록 3칸·활동 지도·자주 하는 주제. "한 화면에 핵심이 보이게"가
+        목적이라 최근 7일은 상태와 무관하게(기존 showWeekStrip 게이트는 데스크톱 사이드 전용으로
+        남겨 둔다) 항상 보여준다.
+      */}
+      {state !== 'first' ? (
+        <>
+          <div className="lg:hidden">
+            <RecentWeekStrip />
+          </div>
+          <div className="lg:hidden">
+            <HomeCoachCard comeback={state === 'comeback'} autoStatus={autoStatus} />
+          </div>
+          <div className="lg:hidden">
+            <RecentRecordsCard limit={2} />
+          </div>
+          <div className="flex flex-col gap-7 lg:hidden">
+            <div className="rounded-2xl bg-surface p-5">
+              <ActivityHeatmap weeks={26} />
+            </div>
+            <StatsTiles summary={summary} />
+            <TopicChips />
+          </div>
+        </>
+      ) : null}
 
       {state !== 'first' ? (
-        <div ref={recentRef} className="lg:min-h-0 lg:flex-1 lg:overflow-hidden">
+        <div ref={recentRef} className="hidden lg:block lg:min-h-0 lg:flex-1 lg:overflow-hidden">
           <RecentRecordsCard limit={recentLimit} />
         </div>
       ) : null}

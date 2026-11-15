@@ -76,6 +76,30 @@
 }
 
 /*
+ * S1 D-1단계: 모바일 전용 글자 토큰(데스크톱 값은 그대로 둔다). 루트 글자 크기의 clamp를 따라
+ * 흔들리지 않게 고정 px로 둔다 — 페이지 제목 22px, 카드 제목 16px, 본문 15px, 보조 13px.
+ * .text-page-title 등은 이미 var(--fs-*)를 쓰므로 커스텀 속성만 이 폭에서 덮어쓰면 된다.
+ */
+@media (max-width: 1023px) {
+  :root {
+    --fs-caption: 13px;
+    --fs-body: 15px;
+    --fs-card-title: 16px;
+    --fs-page-title: 22px;
+  }
+  .app-shell-container {
+    padding-inline: 16px;
+  }
+  /* 입력칸 글자는 본문(15px)보다 큰 16px로 고정한다 — iOS Safari는 16px 미만 입력칸에 포커스가
+     가면 화면을 확대해 버린다(.text-body-min이 15px로 내려간 모바일에서만 문제가 된다). */
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+/*
  * 헤더와 본문이 같은 좌우 끝선을 쓰게 하는 공용 컨테이너(LAYOUT-V2). 헤더의 로고(왼쪽 끝)와
  * 아바타(오른쪽 끝)가 본문 카드들의 좌우 끝선과 정확히 일치해야 하므로, 폭·좌우 여백을 이 클래스
  * 하나에서만 정하고 Header.tsx·AppLayout.tsx 양쪽에서 똑같이 가져다 쓴다. 4K·울트라와이드에서는

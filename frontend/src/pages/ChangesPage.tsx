@@ -15,6 +15,7 @@ import { RecordPairCards } from '../components/RecordPairCards'
 import { Tag } from '../components/Tag'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useHobbies } from '../hooks/useHobbies'
+import { useIsDesktop } from '../hooks/useIsDesktop'
 import { ApiError } from '../lib/api'
 import {
   fetchAiUsage,
@@ -73,6 +74,9 @@ export function ChangesPage() {
   const [metric, setMetric] = useState<Metric>('days')
   const [selectedWeekStart, setSelectedWeekStart] = useState<string | null>(null)
   const [metricsOpen, setMetricsOpen] = useState(false)
+  // S1 D-4단계: 모바일에서는 "주별 흐름"이 기본 접힘이다(데스크톱 사이드는 항상 펼쳐짐).
+  const [weeklyFlowOpenMobile, setWeeklyFlowOpenMobile] = useState(false)
+  const isDesktop = useIsDesktop()
   const queryClient = useQueryClient()
 
   // 기본 분야 = 가장 최근에 기록을 쓴 분야(지시문 B.1). 사용자가 직접 고르면 그 선택을 우선한다.
@@ -450,6 +454,17 @@ export function ChangesPage() {
         </div>
       </div>
 
+      {/* S1 D-4단계: 모바일은 기본 접힘(데스크톱은 isDesktop이 true라 토글과 무관하게 항상 보임). */}
+      <button
+        type="button"
+        onClick={() => setWeeklyFlowOpenMobile((prev) => !prev)}
+        className="flex min-h-9 w-fit items-center text-sm font-medium text-base-ink lg:hidden"
+      >
+        {weeklyFlowOpenMobile ? '주별 흐름 접기 ▴' : '주별 흐름 보기 ▾'}
+      </button>
+
+      {isDesktop || weeklyFlowOpenMobile ? (
+        <>
       {weeksQuery.isLoading ? <Loading /> : null}
       {weeksQuery.isError ? (
         <Note variant="sand">
@@ -559,6 +574,8 @@ export function ChangesPage() {
             </div>
           )}
         </>
+      ) : null}
+      </>
       ) : null}
     </div>
   )
