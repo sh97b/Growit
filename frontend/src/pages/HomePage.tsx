@@ -417,6 +417,7 @@ function encouragementLine(data: CoachResult): string {
 function QuickRecordInput() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const isDesktop = useIsDesktop()
   const { data: activeHobbies, isLoading: hobbiesLoading } = useHobbies(false)
   const recentQuery = useQuery({ queryKey: ['records', 'recent'], queryFn: () => fetchRecords({ size: 1 }) })
 
@@ -476,13 +477,28 @@ function QuickRecordInput() {
     </Button>
   )
 
+  // FIX 홈 입력칸: 모바일에서 h-14(56px) 유틸리티 클래스만으로는 화면에서 약 34px로 작게
+  // 보이는 사례가 있었다(배포 지연·서비스워커 캐시로 구버전 CSS가 남았을 가능성이 유력하지만,
+  // 어느 경우든 실제로 적용되게 하려고 모바일에서만 인라인 style로 높이를 직접 못 박는다).
   const inputField = (
     <input
       value={content}
       onChange={(event) => setContent(event.target.value)}
       placeholder="오늘은 무엇을 했나요?"
       aria-label="오늘 한 줄 기록"
-      className="h-14 w-full min-w-0 flex-1 rounded-lg border border-input bg-white px-3.5 font-serif text-body-min text-ink outline-none focus:border-base lg:h-12"
+      className="w-full min-w-0 flex-1 rounded-lg border border-input bg-white font-serif text-body-min text-ink outline-none focus:border-base lg:h-12 lg:px-3.5"
+      style={
+        isDesktop
+          ? undefined
+          : {
+              height: '56px',
+              minHeight: '56px',
+              padding: '0 14px',
+              fontSize: '16px',
+              boxSizing: 'border-box',
+              width: '100%',
+            }
+      }
     />
   )
 
