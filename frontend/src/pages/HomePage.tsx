@@ -476,14 +476,17 @@ function QuickRecordInput() {
           show: true,
           content: (close) =>
             addingHobby ? (
-              <HobbyInlineCreate
-                autoFocus
-                onCreated={(hobby) => {
-                  setSelectedHobbyId(hobby.id)
-                  setAddingHobby(false)
-                  close()
-                }}
-              />
+              // 팝오버 기본 min-w(9.5rem)로는 입력칸이 거의 안 보일 만큼 눌려서 폭을 넓힌다.
+              <div className="min-w-[14rem]">
+                <HobbyInlineCreate
+                  autoFocus
+                  onCreated={(hobby) => {
+                    setSelectedHobbyId(hobby.id)
+                    setAddingHobby(false)
+                    close()
+                  }}
+                />
+              </div>
             ) : (
               <button
                 type="button"

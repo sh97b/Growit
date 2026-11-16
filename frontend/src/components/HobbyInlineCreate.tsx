@@ -47,6 +47,7 @@ export function HobbyInlineCreate({
           aria-label="새 분야 추가"
           maxLength={HOBBY_NAME_MAX_LENGTH}
           autoFocus={autoFocus}
+          className="min-w-0 flex-1"
           onKeyDown={(event) => {
             if (event.key === 'Enter') {
               event.preventDefault()
