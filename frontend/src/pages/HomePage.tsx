@@ -138,7 +138,7 @@ export function HomePage() {
         <button
           type="button"
           onClick={() => summaryQuery.refetch()}
-          className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink underline underline-offset-4"
+          className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
         >
           다시 불러오기
         </button>
@@ -346,7 +346,7 @@ function HomeCoachCard({ comeback, autoStatus }: { comeback: boolean; autoStatus
           <div className="h-2 w-full overflow-hidden rounded-full bg-rest">
             <div className="h-full rounded-full bg-base" style={{ width: `${ratio}%` }} />
           </div>
-          <Link to="/records/new" className="inline-flex min-h-9 items-center text-sm font-medium text-base-ink underline underline-offset-4">
+          <Link to="/records/new" className="inline-flex min-h-9 items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
             기록하기
           </Link>
         </div>

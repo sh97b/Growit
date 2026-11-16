@@ -37,7 +37,13 @@ export function RecordSavedPanel({
 
   // 같은 분야의 직전 기록이 있으면 AI를 기다리지 않고 바로 비교 카드를 보여준다(디자인에 없는 추가).
   // ['records', id]는 useRecord가 쓰는 키와 같아서, 나중에 그 기록 상세로 들어가면 캐시를 그대로 쓴다.
-  const previousId = record.previousRecord?.id ?? null
+  // T2 3번(c): previousRecord.id를 한 번이라도 확인하면 이 화면에 머무는 동안 고정한다(ref). 캐시가
+  // 나중에 어떤 이유로든 previousRecord를 잃어도(병합 누락 등) "첫 기록이에요"로 되돌아가지 않는다.
+  const confirmedPreviousIdRef = useRef<number | null>(null)
+  if (confirmedPreviousIdRef.current == null && record.previousRecord?.id != null) {
+    confirmedPreviousIdRef.current = record.previousRecord.id
+  }
+  const previousId = confirmedPreviousIdRef.current ?? record.previousRecord?.id ?? null
   const previousQuery = useQuery({
     queryKey: ['records', previousId],
     queryFn: () => fetchRecord(previousId!),

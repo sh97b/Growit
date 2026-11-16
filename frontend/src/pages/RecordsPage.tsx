@@ -151,7 +151,7 @@ export function RecordsPage() {
               <button
                 type="button"
                 onClick={filter.reset}
-                className="inline-flex min-h-9 items-center text-sm font-medium text-base-ink underline underline-offset-4"
+                className="inline-flex min-h-9 items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
               >
                 초기화
               </button>

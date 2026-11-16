@@ -113,7 +113,7 @@ export function FilterBar({ search, hobby, range, hasActiveFilter, onReset }: Fi
         <button
           type="button"
           onClick={onReset}
-          className="inline-flex h-11 w-fit flex-none items-center text-sm font-medium text-base-ink underline underline-offset-4 lg:h-10"
+          className="inline-flex h-11 w-fit flex-none items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] lg:h-10"
         >
           초기화
         </button>

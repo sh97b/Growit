@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { useQuery } from '@tanstack/react-query'
 import { Loading } from './Loading'
 import { addDays, formatMonthDay, startOfWeekLocal, todayLocalDate } from '../lib/date'
+import { computeAllMonthLabels, computeMonthLabels } from '../lib/activityHeatmapLabels'
 import { fetchActivityMap } from '../lib/stats'
 
 type Props = {
@@ -49,52 +50,6 @@ const LEVEL_BG: Record<0 | 1 | 2 | 3, string> = {
   1: 'color-mix(in srgb, var(--color-base) 35%, var(--color-paper))',
   2: 'color-mix(in srgb, var(--color-base) 65%, var(--color-paper))',
   3: 'var(--color-base)',
-}
-
-function monthLabel(isoDate: string): string {
-  const [, month] = isoDate.split('-')
-  return `${Number(month)}월`
-}
-
-/**
- * 홈·모바일 토글처럼 칸 폭이 좁은 곳에서 쓰는 라벨 중복 억제. S1 B단계: 전에는 "다음 라벨이
- * 직전 라벨과 3열 미만이면 다음(나중) 라벨을 건너뛴다"였는데, 1년 토글의 왼쪽 끝(불완전한 첫 달)
- * 바로 뒤에 다음 달이 와도 둘 다 그려져("11월12월"처럼 겹침) 보였다. 이제는 모든 라벨을 먼저
- * 모은 뒤, 인접한 두 라벨이 3열 미만이면 먼저 나온(왼쪽) 라벨을 지운다 — 나중 라벨(12월·6월 등)은
- * 항상 남으므로 달이 사라지지 않는다.
- */
-function computeMonthLabels(weekColumns: string[][]): { col: number; label: string }[] {
-  const raw: { col: number; label: string }[] = []
-  let lastMonth = ''
-  weekColumns.forEach((week, colIndex) => {
-    const label = monthLabel(week[0])
-    if (label === lastMonth) return
-    lastMonth = label
-    raw.push({ col: colIndex, label })
-  })
-  const labels: { col: number; label: string }[] = []
-  raw.forEach((item, index) => {
-    const next = raw[index + 1]
-    if (next && next.col - item.col < 3) return
-    labels.push(item)
-  })
-  return labels
-}
-
-/**
- * 기록 탭 데스크톱 한 줄 모드 전용: 라벨을 숨기는 규칙 없이 12개월 전부 표시한다(지시문 6).
- * 칸이 14px로 고정돼 있어 월 한 칸(약 4열 = 68px 이상)이 라벨끼리 겹칠 만큼 좁아지지 않는다.
- */
-function computeAllMonthLabels(weekColumns: string[][]): { col: number; label: string }[] {
-  const labels: { col: number; label: string }[] = []
-  let lastMonth = ''
-  weekColumns.forEach((week, colIndex) => {
-    const label = monthLabel(week[0])
-    if (label === lastMonth) return
-    lastMonth = label
-    labels.push({ col: colIndex, label })
-  })
-  return labels
 }
 
 export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: Props) {
@@ -215,8 +170,8 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
   if (mapQuery.isLoading) return <Loading />
 
   const monthLabels: { col: number; label: string }[] = scrollableSingleRow
-    ? computeAllMonthLabels(columns)
-    : computeMonthLabels(columns)
+    ? computeAllMonthLabels(from, weeks)
+    : computeMonthLabels(from, weeks)
 
   const selectedCount = selectedDate ? (countByDate.get(selectedDate) ?? 0) : null
 
@@ -317,16 +272,18 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
   function renderClampedRow() {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', rowGap: '2px' }}>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: `repeat(${columns.length}, var(--cell))`,
-            columnGap: `${GAP_PX}px`,
-            height: '14px',
-          }}
-        >
+        <div style={{ position: 'relative', height: '14px' }}>
           {monthLabels.map(({ col, label }) => (
-            <span key={col} style={{ ...LABEL_STYLE, gridColumn: col + 1, color: 'var(--color-ink-3)' }}>
+            <span
+              key={col}
+              style={{
+                ...LABEL_STYLE,
+                position: 'absolute',
+                top: 0,
+                left: `calc(${col} * (var(--cell) + ${GAP_PX}px))`,
+                color: 'var(--color-ink-3)',
+              }}
+            >
               {label}
             </span>
           ))}
@@ -382,29 +339,42 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
           aria-label={`최근 ${weeks}주 활동 지도`}
           style={{ height: gridContentHeight + SCROLLBAR_AREA_PX + BOTTOM_MARGIN_PX, boxSizing: 'border-box' }}
         >
-          <div
-            style={{
-              display: 'grid',
-              width: totalCellWidth,
-              height: gridContentHeight,
-              rowGap: `${GAP_PX}px`,
-              columnGap: `${GAP_PX}px`,
-              gridTemplateColumns: `repeat(${weeks}, ${SCROLL_CELL_PX}px)`,
-              gridTemplateRows: `${MONTH_LABEL_ROW_PX}px repeat(7, ${SCROLL_CELL_PX}px)`,
-            }}
-          >
+          <div style={{ position: 'relative', width: totalCellWidth, height: gridContentHeight }}>
             {monthLabels.map(({ col, label }) => (
-              <span key={col} style={{ ...LABEL_STYLE, gridColumn: col + 1, gridRow: 1, color: 'var(--color-ink-3)' }}>
+              <span
+                key={col}
+                style={{
+                  ...LABEL_STYLE,
+                  position: 'absolute',
+                  top: 0,
+                  left: col * (SCROLL_CELL_PX + GAP_PX),
+                  color: 'var(--color-ink-3)',
+                }}
+              >
                 {label}
               </span>
             ))}
-            {columns.map((week, colIndex) =>
-              week.map((date, rowIndex) => (
-                <div key={date} style={{ gridColumn: colIndex + 1, gridRow: rowIndex + 2 }}>
-                  {renderCell(date, colIndex, rowIndex, SCROLL_CELL_PX)}
-                </div>
-              )),
-            )}
+            <div
+              style={{
+                position: 'absolute',
+                top: MONTH_LABEL_ROW_PX,
+                left: 0,
+                display: 'grid',
+                width: totalCellWidth,
+                rowGap: `${GAP_PX}px`,
+                columnGap: `${GAP_PX}px`,
+                gridTemplateColumns: `repeat(${weeks}, ${SCROLL_CELL_PX}px)`,
+                gridTemplateRows: `repeat(7, ${SCROLL_CELL_PX}px)`,
+              }}
+            >
+              {columns.map((week, colIndex) =>
+                week.map((date, rowIndex) => (
+                  <div key={date} style={{ gridColumn: colIndex + 1, gridRow: rowIndex + 1 }}>
+                    {renderCell(date, colIndex, rowIndex, SCROLL_CELL_PX)}
+                  </div>
+                )),
+              )}
+            </div>
           </div>
         </div>
       </div>

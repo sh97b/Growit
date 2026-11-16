@@ -26,7 +26,7 @@ export function RecordSavedPage() {
         <p className="text-ink-2">
           {notFound ? '기록을 찾을 수 없어요. 지워졌거나 다른 계정의 기록이에요.' : '잠시 후 다시 시도해 주세요.'}
         </p>
-        <Link to="/records" className="text-sm font-medium text-base-ink underline underline-offset-4">
+        <Link to="/records" className="text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
           지난 기록으로 가기
         </Link>
       </div>

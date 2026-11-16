@@ -205,7 +205,7 @@ export function FeedbackRow({
                     <button
                       type="button"
                       onClick={openEdit}
-                      className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink underline underline-offset-4"
+                      className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
                     >
                       {editTriggerLabel}
                     </button>
@@ -226,7 +226,7 @@ export function FeedbackRow({
             <button
               type="button"
               onClick={openEdit}
-              className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink underline underline-offset-4"
+              className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
             >
               {editedActionLabel}
             </button>
@@ -238,7 +238,7 @@ export function FeedbackRow({
         <button
           type="button"
           onClick={negativeLink.onAction}
-          className="inline-flex min-h-11 w-fit items-center gap-1.5 self-start text-sm font-medium text-base-ink underline underline-offset-4"
+          className="inline-flex min-h-11 w-fit items-center gap-1.5 self-start text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
         >
           {negativeLink.label}
         </button>

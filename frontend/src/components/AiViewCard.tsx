@@ -49,7 +49,7 @@ export function AiViewCard({
         <button
           type="button"
           onClick={onRetry}
-          className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink underline underline-offset-4"
+          className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
         >
           다시 받기
         </button>

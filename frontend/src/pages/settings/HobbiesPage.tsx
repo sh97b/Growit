@@ -86,7 +86,7 @@ function HobbyRow({ hobby, onError }: { hobby: Hobby; onError: (message: string)
       <Button
         type="button"
         size="sm"
-        className="underline"
+        className="text-base-ink hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
         variant="ghost"
         disabled={updateHobby.isPending}
         onClick={toggleArchived}

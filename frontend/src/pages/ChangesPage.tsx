@@ -166,7 +166,7 @@ export function ChangesPage() {
         <Note variant="calm">
           <span>
             AI 정리가 꺼져 있어요. 켜면 기록을 비교해 달라진 점을 보여드려요.{' '}
-            <Link to="/settings/ai" className="font-medium text-base-ink underline underline-offset-4">
+            <Link to="/settings/ai" className="font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
               켜기
             </Link>
           </span>
@@ -292,7 +292,7 @@ export function ChangesPage() {
           <button
             type="button"
             onClick={() => compareQuery.refetch()}
-            className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink underline underline-offset-4"
+            className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
           >
             다시 시도
           </button>
@@ -303,7 +303,7 @@ export function ChangesPage() {
         <div className="flex flex-col items-start gap-3 rounded-2xl bg-surface p-7">
           <p className="text-ink">기록이 3개 쌓이면 비교가 열려요</p>
           <p className="text-sm font-medium text-ink-2">{result.currentCount ?? 0}/{result.requiredCount ?? 3}</p>
-          <Link to="/records/new" className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink underline underline-offset-4">
+          <Link to="/records/new" className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
             기록하기
           </Link>
         </div>
@@ -317,7 +317,7 @@ export function ChangesPage() {
             {result.oldestRecordDate && result.latestRecordDate ? ' · ' : ''}
             {result.latestRecordDate ? `최근 기록 ${formatMonthDay(result.latestRecordDate)}` : ''}
           </p>
-          <Link to="/records/new" className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink underline underline-offset-4">
+          <Link to="/records/new" className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
             기록하기
           </Link>
         </div>
@@ -340,6 +340,7 @@ export function ChangesPage() {
                   ? { id: result.currentRecord.id, label: `최근 · ${result.currentDate ? formatMonthDay(result.currentDate) : ''}`, content: result.currentRecord.content }
                   : null
               }
+              rightBadge="최근"
             />
           </div>
 
@@ -375,7 +376,7 @@ export function ChangesPage() {
       {selectedWeek.recordedDays > 0 ? (
         <span className="tabular-nums text-sm text-ink-2">{formatDurationMinutes(selectedWeek.totalMinutes)}</span>
       ) : null}
-      <Link to={`/weeks/${selectedWeek.weekStart}`} className="inline-flex min-h-9 w-fit items-center gap-1 text-sm font-medium text-base-ink no-underline underline underline-offset-4">
+      <Link to={`/weeks/${selectedWeek.weekStart}`} className="inline-flex min-h-9 w-fit items-center gap-1 text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
         주 상세 보기
         <ChevronRightIcon width={16} height={16} />
       </Link>

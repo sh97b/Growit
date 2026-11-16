@@ -306,7 +306,7 @@ export function OnboardingPage() {
                         <button
                           type="button"
                           onClick={() => setOpenGoalId(hobby.id)}
-                          className="inline-flex min-h-11 items-center gap-1 border-0 bg-transparent p-0 text-sm text-base-ink underline underline-offset-4"
+                          className="inline-flex min-h-11 items-center gap-1 border-0 bg-transparent text-sm text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
                         >
                           지금 적어 보기
                         </button>

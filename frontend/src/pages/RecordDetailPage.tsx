@@ -50,7 +50,7 @@ export function RecordDetailPage() {
         <p className="text-ink-2">
           {notFound ? '기록을 찾을 수 없어요. 지워졌거나 다른 계정의 기록이에요.' : '잠시 후 다시 시도해 주세요.'}
         </p>
-        <Link to="/records" className="text-sm font-medium text-base-ink underline underline-offset-4">
+        <Link to="/records" className="text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
           지난 기록으로 가기
         </Link>
       </div>
@@ -209,13 +209,13 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
             type="button"
             disabled={reanalyze.isPending}
             onClick={() => reanalyze.mutate(record.id)}
-            className="inline-flex min-h-11 w-fit items-center gap-1.5 text-sm font-medium text-base-ink underline underline-offset-4"
+            className="inline-flex min-h-11 w-fit items-center gap-1.5 text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
           >
             <RefreshIcon width={16} height={16} />
             다시 시도하기
           </button>
         ) : (
-          <Link to="/settings/ai" className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink underline underline-offset-4">
+          <Link to="/settings/ai" className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
             설정에서 AI 정리 켜기
           </Link>
         )}
@@ -233,7 +233,7 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
       <Note variant="calm">
         <span>
           AI 정리가 꺼져 있어요.{' '}
-          <Link to="/settings/ai" className="font-medium text-base-ink underline underline-offset-4">
+          <Link to="/settings/ai" className="font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
             설정에서 켤 수 있어요
           </Link>
         </span>

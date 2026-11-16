@@ -122,7 +122,7 @@ export function RecordNewPage() {
             </div>
             <Link
               to="/settings/hobbies"
-              className="text-sm font-medium text-base-ink underline underline-offset-4"
+              className="text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
             >
               활동 분야 관리로 가기
             </Link>
@@ -317,7 +317,7 @@ export function RecordNewPage() {
             <button
               type="button"
               onClick={() => setSaveError(null)}
-              className="mx-auto inline-flex min-h-11 items-center text-sm font-medium text-base-ink underline underline-offset-4"
+              className="mx-auto inline-flex min-h-11 items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
             >
               나중에 저장
             </button>

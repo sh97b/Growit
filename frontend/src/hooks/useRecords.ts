@@ -47,10 +47,22 @@ export function useDeleteRecord() {
   })
 }
 
+/**
+ * T2 3번: 재분석·피드백·태그 고치기 응답(reanalyze/submitFeedback/editTags)의 RecordResponse는
+ * 백엔드가 이웃 기록을 계산하지 않고 항상 previousRecord·nextRecord를 null로 보낸다
+ * (RecordService.toDetailResponse(record) 단일 인자 오버로드, 2·3번째 인자를 null로 고정 호출).
+ * 예전에는 이 응답으로 캐시를 통째로 덮어써서, 이전 기록이 있던 저장 직후 화면에서 "도움돼요"
+ * 같은 AI 피드백을 누르면 previousRecord가 null로 바뀌어 "첫 기록이에요"로 잘못 바뀌었다.
+ * 이제 이웃 정보만은 기존 캐시 값을 그대로 유지한다(이 세 API는 애초에 이웃을 갱신하지 않으므로).
+ */
 function useApplyAnalysisResult() {
   const queryClient = useQueryClient()
   return (record: RecordDetail) => {
-    queryClient.setQueryData(['records', record.id], record)
+    queryClient.setQueryData<RecordDetail>(['records', record.id], (old) => ({
+      ...record,
+      previousRecord: old ? old.previousRecord : record.previousRecord,
+      nextRecord: old ? old.nextRecord : record.nextRecord,
+    }))
     queryClient.invalidateQueries({ queryKey: ['records', 'list'] })
   }
 }
