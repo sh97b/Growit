@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { useQuery } from '@tanstack/react-query'
 import { Loading } from './Loading'
 import { addDays, formatMonthDay, startOfWeekLocal, todayLocalDate } from '../lib/date'
-import { computeAllMonthLabels, computeMonthLabels } from '../lib/activityHeatmapLabels'
+import { computeMonthLabels } from '../lib/activityHeatmapLabels'
 import { fetchActivityMap } from '../lib/stats'
 
 type Props = {
@@ -169,9 +169,7 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
 
   if (mapQuery.isLoading) return <Loading />
 
-  const monthLabels: { col: number; label: string }[] = scrollableSingleRow
-    ? computeAllMonthLabels(from, weeks)
-    : computeMonthLabels(from, weeks)
+  const monthLabels = computeMonthLabels(from, weeks)
 
   const selectedCount = selectedDate ? (countByDate.get(selectedDate) ?? 0) : null
 
@@ -276,6 +274,8 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
           {monthLabels.map(({ col, label }) => (
             <span
               key={col}
+              data-col={col}
+              data-month={label}
               style={{
                 ...LABEL_STYLE,
                 position: 'absolute',
@@ -343,6 +343,8 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
             {monthLabels.map(({ col, label }) => (
               <span
                 key={col}
+                data-col={col}
+                data-month={label}
                 style={{
                   ...LABEL_STYLE,
                   position: 'absolute',

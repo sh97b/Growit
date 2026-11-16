@@ -7,6 +7,7 @@ import { Band } from '../components/Card'
 import { Button } from '../components/Button'
 import { CoachActionCard } from '../components/CoachResultView'
 import { Dropdown } from '../components/Dropdown'
+import { HobbyInlineCreate } from '../components/HobbyInlineCreate'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
 import { Split } from '../components/PageLayout'
@@ -425,6 +426,7 @@ function QuickRecordInput() {
   const [content, setContent] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [addingHobby, setAddingHobby] = useState(false)
 
   if (hobbiesLoading || recentQuery.isLoading) {
     return <Loading />
@@ -435,8 +437,6 @@ function QuickRecordInput() {
   const defaultHobbyId =
     recentHobbyId != null && activeIds.has(recentHobbyId) ? recentHobbyId : (activeHobbies?.[0]?.id ?? null)
   const hobbyId = selectedHobbyId != null && activeIds.has(selectedHobbyId) ? selectedHobbyId : defaultHobbyId
-  const hobbyName = activeHobbies?.find((hobby) => hobby.id === hobbyId)?.name ?? ''
-  const hasMultipleHobbies = (activeHobbies?.length ?? 0) > 1
 
   async function handleSave() {
     if (submitting || hobbyId == null) return
@@ -461,15 +461,41 @@ function QuickRecordInput() {
     }
   }
 
-  const hobbyDropdown = hasMultipleHobbies ? (
-    <Dropdown
-      pill
-      aria-label="분야 선택"
-      value={String(hobbyId)}
-      options={activeHobbies!.map((hobby) => ({ value: String(hobby.id), label: hobby.name }))}
-      onChange={(value) => setSelectedHobbyId(Number(value))}
-    />
-  ) : null
+  // T3 2번: 분야가 1개뿐이어도 드롭다운을 항상 보여준다("분야는 ○○예요" 고정 문구는 없앤다) —
+  // 목록 끝에 "+ 새 분야 추가"를 두고, 기록 작성의 HobbyInlineCreate와 같은 API(POST /api/hobbies,
+  // useCreateHobby)를 그대로 재사용한다.
+  const hobbyDropdown =
+    hobbyId != null ? (
+      <Dropdown
+        pill
+        aria-label="분야 선택"
+        value={String(hobbyId)}
+        options={(activeHobbies ?? []).map((hobby) => ({ value: String(hobby.id), label: hobby.name }))}
+        onChange={(value) => setSelectedHobbyId(Number(value))}
+        extra={{
+          show: true,
+          content: (close) =>
+            addingHobby ? (
+              <HobbyInlineCreate
+                autoFocus
+                onCreated={(hobby) => {
+                  setSelectedHobbyId(hobby.id)
+                  setAddingHobby(false)
+                  close()
+                }}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAddingHobby(true)}
+                className="flex min-h-10 w-full items-center gap-1.5 rounded-md px-3 text-left text-sm font-medium text-base-ink"
+              >
+                <PlusIcon width={14} height={14} className="flex-none" />+ 새 분야 추가
+              </button>
+            ),
+        }}
+      />
+    ) : null
 
   const saveButton = (
     <Button type="button" size="md" disabled={submitting} onClick={handleSave}>
@@ -511,9 +537,7 @@ function QuickRecordInput() {
         </Link>
       ) : (
         <div className="flex flex-col gap-2 rounded-xl bg-surface px-3.5 py-3.5 lg:px-[1.125rem]">
-          <span className="text-sm text-ink-2">
-            오늘 한 줄만 남겨도 충분해요{hasMultipleHobbies ? '' : ` · 분야는 ${hobbyName}예요`}
-          </span>
+          <span className="text-sm text-ink-2">오늘 한 줄만 남겨도 충분해요</span>
 
           {/* R1 3번: 모바일(폭 1024 미만)은 위 줄 = 입력칸 전체 폭, 아래 줄 = 분야 알약(왼쪽)과
               저장(오른쪽)으로 세로 쌓기 — 한 줄에 셋을 다 넣으면 폭 360px에서 저장 버튼 글자가

@@ -189,7 +189,11 @@ export function HobbiesPage() {
         </Button>
       </form>
 
-      <div role="tablist" aria-label="분야 목록" className="flex flex-none gap-1 rounded-lg border border-line-2 bg-white p-1">
+      <div
+        role="tablist"
+        aria-label="분야 목록"
+        className="flex flex-none gap-1 rounded-lg border border-line-2 bg-white p-1 lg:w-fit lg:self-start"
+      >
         <button
           type="button"
           role="tab"

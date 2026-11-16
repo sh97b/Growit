@@ -31,25 +31,24 @@ function buildRawMonthLabels(firstWeekMonday: string, weeks: number): { col: num
 }
 
 /**
- * ActivityHeatmap 월 라벨 계산(순수 함수, T2 1번). firstWeekMonday는 격자 첫 열(맨 왼쪽 주)의
- * 월요일, weeks는 열 개수다. 라벨끼리 열 간격이 3 미만이면 왼쪽(먼저 나온) 라벨을 지우되 가장
- * 오른쪽 라벨은 지우지 않는다.
+ * ActivityHeatmap 월 라벨 계산(순수 함수). firstWeekMonday는 격자 첫 열(맨 왼쪽 주)의 월요일,
+ * weeks는 열 개수다. 월 라벨을 그리는 코드 경로는 이 함수 하나뿐이다(T3 1번 — 이전엔 칸이 넓어
+ * 겹칠 일이 없다고 보고 14px 고정 칸 모드에서만 이 중복 제거 없이 전부 그리는 computeAllMonthLabels를
+ * 따로 뒀었는데, 격자 첫 열이 강제로 받는 라벨과 그 바로 다음 열의 "1일이 속한 주" 라벨이 1열
+ * 차이로 붙는 경우(예: 52주 보기의 맨 왼쪽)는 칸이 넓어도 겹쳤다 — 하나로 합치고 아래 두 규칙을
+ * 항상 적용해 해결한다).
+ *
+ * 규칙: ① 라벨끼리 열 간격이 3 미만이면 왼쪽(먼저 나온) 라벨을 지우되 가장 오른쪽 라벨은 지우지
+ * 않는다. ② 그러고도 남은 라벨 중 col이 0이나 1이면 지운다(맨 왼쪽 두 열은 잘려 보이기 쉬워
+ * 라벨을 아예 두지 않는다).
  */
 export function computeMonthLabels(firstWeekMonday: string, weeks: number): { col: number; label: string }[] {
   const raw = buildRawMonthLabels(firstWeekMonday, weeks)
-  const labels: { col: number; label: string }[] = []
+  const deduped: { col: number; label: string }[] = []
   raw.forEach((item, index) => {
     const next = raw[index + 1]
     if (next && next.col - item.col < 3) return
-    labels.push(item)
+    deduped.push(item)
   })
-  return labels
-}
-
-/**
- * 기록 탭 데스크톱 한 줄 모드 전용: 칸이 14px로 고정돼 월 한 칸이 라벨끼리 겹칠 만큼 좁아지지
- * 않으므로 숨기는 규칙 없이 12개월 전부 표시한다.
- */
-export function computeAllMonthLabels(firstWeekMonday: string, weeks: number): { col: number; label: string }[] {
-  return buildRawMonthLabels(firstWeekMonday, weeks)
+  return deduped.filter((item) => item.col >= 2)
 }
