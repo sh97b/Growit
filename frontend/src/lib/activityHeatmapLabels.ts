@@ -39,8 +39,8 @@ function buildRawMonthLabels(firstWeekMonday: string, weeks: number): { col: num
  * 항상 적용해 해결한다).
  *
  * 규칙: ① 라벨끼리 열 간격이 3 미만이면 왼쪽(먼저 나온) 라벨을 지우되 가장 오른쪽 라벨은 지우지
- * 않는다. ② 그러고도 남은 라벨 중 col이 0이나 1이면 지운다(맨 왼쪽 두 열은 잘려 보이기 쉬워
- * 라벨을 아예 두지 않는다).
+ * 않는다. ② 그러고도 남은 라벨 중 col이 0이면 지운다(격자 맨 왼쪽 끝 칸은 카드 테두리에 바짝
+ * 붙어 글자가 잘려 보이기 쉽다 — col 1은 ①에서 이미 충돌이 없다고 판정된 것이라 그대로 둔다).
  */
 export function computeMonthLabels(firstWeekMonday: string, weeks: number): { col: number; label: string }[] {
   const raw = buildRawMonthLabels(firstWeekMonday, weeks)
@@ -50,5 +50,5 @@ export function computeMonthLabels(firstWeekMonday: string, weeks: number): { co
     if (next && next.col - item.col < 3) return
     deduped.push(item)
   })
-  return deduped.filter((item) => item.col >= 2)
+  return deduped.filter((item) => item.col >= 1)
 }

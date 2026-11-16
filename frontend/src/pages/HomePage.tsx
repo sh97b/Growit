@@ -490,7 +490,8 @@ function QuickRecordInput() {
                 onClick={() => setAddingHobby(true)}
                 className="flex min-h-10 w-full items-center gap-1.5 rounded-md px-3 text-left text-sm font-medium text-base-ink"
               >
-                <PlusIcon width={14} height={14} className="flex-none" />+ 새 분야 추가
+                <PlusIcon width={14} height={14} className="flex-none" />
+                새 분야 추가
               </button>
             ),
         }}

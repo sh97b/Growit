@@ -134,19 +134,22 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
   }
 
   // weeks·모드가 바뀌면(6개월/1년 토글 전환 포함) 새 범위로 보는 것이니 "수동 스크롤" 기억을 지우고 끝으로.
+  // mapQuery.isLoading도 의존성에 넣는다 — 로딩 중엔 <Loading/>만 반환돼(아래) 이 스크롤 영역
+  // DOM이 아예 없어 scrollRef.current가 null이고, 로딩이 끝나 실제로 그려진 뒤에도 hasHorizontalScroll·
+  // weeks가 그대로면 effect가 다시 안 돌아 "기본값이 맨 왼쪽에 멈춰 있고 화살표도 비활성 그대로"였다.
   useLayoutEffect(() => {
-    if (!hasHorizontalScroll) return
+    if (!hasHorizontalScroll || mapQuery.isLoading) return
     const el = scrollRef.current
     if (!el) return
     userScrolledRef.current = false
     scrollToEnd(el)
     updateScrollButtons()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasHorizontalScroll, weeks])
+  }, [hasHorizontalScroll, weeks, mapQuery.isLoading])
 
   // 카드 폭이 바뀌면(사이드바 리사이즈 등) 사용자가 손대지 않은 한 다시 끝으로 맞춘다.
   useEffect(() => {
-    if (!hasHorizontalScroll) return
+    if (!hasHorizontalScroll || mapQuery.isLoading) return
     const el = scrollRef.current
     if (!el) return
     const observer = new ResizeObserver(() => {
@@ -157,7 +160,7 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
     })
     observer.observe(el)
     return () => observer.disconnect()
-  }, [hasHorizontalScroll])
+  }, [hasHorizontalScroll, mapQuery.isLoading])
 
   function scrollByWeeks(amount: number) {
     const el = scrollRef.current
