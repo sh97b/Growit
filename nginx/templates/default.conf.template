@@ -1,7 +1,9 @@
 # 로그인 시도 제한(백엔드의 이메일·IP 집계)이 기대는 실제 클라이언트 IP를 nginx가 꼭 쥐고 있어야 해서,
 # 요청에 X-Forwarded-For가 이미 있어도(위조 가능) 덧붙이지 않고 $remote_addr로 덮어쓴다(아래 모든 location).
 # 이 nginx가 유일한 진입점(단일 인스턴스, 앞에 다른 프록시 없음)이라 안전하다.
-limit_req_zone $binary_remote_addr zone=auth_zone:10m rate=10r/m;
+# rate·burst을 넉넉히 둔 이유: 학교 와이파이처럼 한 IP 뒤에 여러 명이 몰려 가입·로그인할 때 429가 나는 것을 막기 위함.
+# 무차별 대입 방지는 이 nginx 단이 아니라 백엔드의 이메일별·IP별 로그인 시도 제한(§5 S 묶음)이 맡는다.
+limit_req_zone $binary_remote_addr zone=auth_zone:10m rate=120r/m;
 
 server {
     listen 80;
@@ -17,10 +19,17 @@ server {
     ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
 
-    # 인증 주소만 따로 더 촘촘히 막는다(가입·로그인 폭주 방지). IP당 분당 10건, 버스트 10까지 대기 없이 바로 처리하고
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    # 인증 주소만 따로 더 촘촘히 막는다(가입·로그인 폭주 방지). IP당 분당 120건, 버스트 60까지 대기 없이 바로 처리하고
     # 그 이상은 429로 거절한다(기본은 503이라 명시적으로 바꿔 둠).
     location /api/auth/ {
-        limit_req zone=auth_zone burst=10 nodelay;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        limit_req zone=auth_zone burst=60 nodelay;
         limit_req_status 429;
         proxy_pass http://backend:8080/api/auth/;
         proxy_set_header Host $host;
