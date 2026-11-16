@@ -86,7 +86,7 @@ export function LoginPage() {
 
         <div className="flex items-center justify-between">
           <span className="inline-flex min-h-11 items-center text-sm font-medium text-ink-3">비밀번호 찾기</span>
-          <LinkButton to="/signup">회원가입</LinkButton>
+          <LinkButton to="/signup" style={{ textDecoration: 'none' }}>회원가입</LinkButton>
         </div>
 
         <SocialLoginButtons />
