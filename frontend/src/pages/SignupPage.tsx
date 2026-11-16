@@ -85,29 +85,10 @@ export function SignupPage() {
         </Button>
 
         <p className="text-center text-sm text-ink-2">
-          이미 계정이 있나요? <LinkButton to="/login">로그인</LinkButton>
-        </p>
-
-        <p className="text-center text-caption-min text-ink-3">
-          가입하면 내 기록이 AI 정리를 위해 외부 AI 서비스(OpenAI)로 전송돼요. 설정에서 언제든 끌 수 있어요.{' '}
-          <a
-            href="/privacy"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline underline-offset-2"
-          >
-            자세히 보기
-          </a>
+          이미 계정이 있나요? <LinkButton to="/login" style={{ textDecoration: 'none' }}>로그인</LinkButton>
         </p>
 
         <SocialLoginButtons />
-
-        <p className="text-center text-caption-min text-ink-3">
-          소셜 로그인도 같은 방식으로 기록을 AI 정리에 보내요.{' '}
-          <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
-            자세히 보기
-          </a>
-        </p>
       </form>
     </AuthShell>
   )
