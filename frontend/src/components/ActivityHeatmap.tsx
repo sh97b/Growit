@@ -35,12 +35,6 @@ const SCROLLBAR_AREA_PX = 14
 const BOTTOM_MARGIN_PX = 4
 /* 활동 지도 라벨만 디자인 규칙의 예외로 고정 12px을 쓴다(다른 글자 토큰처럼 rem으로 늘어나지 않는다). */
 const LABEL_STYLE: CSSProperties = { fontSize: '12px', lineHeight: 1, whiteSpace: 'nowrap' }
-const LABEL_COL_PX = 18
-const WEEKDAY_LABELS: { row: number; label: string }[] = [
-  { row: 0, label: '월' },
-  { row: 2, label: '수' },
-  { row: 4, label: '금' },
-]
 
 /** 기록 수를 0·1·2·3+ 네 단계로 나눈다(디자인 §7의 활동 지도 초록 토큰 재사용). */
 function levelOf(count: number): 0 | 1 | 2 | 3 {
@@ -311,25 +305,18 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
   function makeGridVars(weeksForRow: number): CSSProperties {
     return {
       '--weeks': weeksForRow,
-      '--label-col': `${LABEL_COL_PX}px`,
       '--cell': fixedCell
         ? `${FULL_CELL_PX}px`
-        : `clamp(9px, calc((100cqw - var(--label-col)) / var(--weeks) - ${GAP_PX}px), ${MAX_CLAMP_CELL_PX}px)`,
+        : `clamp(9px, calc(100cqw / var(--weeks) - ${GAP_PX}px), ${MAX_CLAMP_CELL_PX}px)`,
     } as CSSProperties
   }
 
+  // T1-4(a): 요일 라벨(월·수·금) 열을 없애고 격자가 왼쪽 끝부터 시작하게 한다. 월 라벨 행은
+  // 격자와 같은 열 구성(repeat(columns.length, var(--cell)))을 쓰는 별도 그리드라, 바깥 2열
+  // 래퍼(라벨 열 + 1fr)를 걷어내도 월 라벨의 col 인덱스는 그대로 유효하다.
   function renderClampedRow() {
     return (
-      <div
-        style={{
-          display: 'inline-grid',
-          gridTemplateColumns: 'var(--label-col) 1fr',
-          columnGap: 0,
-          rowGap: '2px',
-          justifyItems: 'start',
-        }}
-      >
-        <div />
+      <div style={{ display: 'flex', flexDirection: 'column', rowGap: '2px' }}>
         <div
           style={{
             display: 'grid',
@@ -340,14 +327,6 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
         >
           {monthLabels.map(({ col, label }) => (
             <span key={col} style={{ ...LABEL_STYLE, gridColumn: col + 1, color: 'var(--color-ink-3)' }}>
-              {label}
-            </span>
-          ))}
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateRows: `repeat(7, var(--cell))`, rowGap: `${GAP_PX}px` }}>
-          {WEEKDAY_LABELS.map(({ row, label }) => (
-            <span key={row} style={{ ...LABEL_STYLE, gridRow: row + 1, color: 'var(--color-ink-3)', alignSelf: 'center' }}>
               {label}
             </span>
           ))}
@@ -394,56 +373,38 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
             ›
           </button>
         </div>
-        <div className="flex items-start gap-2">
+        {/* T1-4(a): 요일 라벨(월·수·금) 열을 없애고 격자가 왼쪽 끝부터 시작한다. */}
+        <div
+          ref={scrollRef}
+          onScroll={updateScrollButtons}
+          className="scrollbar-thin-fade min-w-0 overflow-x-auto overflow-y-hidden"
+          role="group"
+          aria-label={`최근 ${weeks}주 활동 지도`}
+          style={{ height: gridContentHeight + SCROLLBAR_AREA_PX + BOTTOM_MARGIN_PX, boxSizing: 'border-box' }}
+        >
           <div
-            className="flex-none"
             style={{
-              height: gridContentHeight,
               display: 'grid',
+              width: totalCellWidth,
+              height: gridContentHeight,
               rowGap: `${GAP_PX}px`,
+              columnGap: `${GAP_PX}px`,
+              gridTemplateColumns: `repeat(${weeks}, ${SCROLL_CELL_PX}px)`,
               gridTemplateRows: `${MONTH_LABEL_ROW_PX}px repeat(7, ${SCROLL_CELL_PX}px)`,
             }}
           >
-            <div />
-            {WEEKDAY_LABELS.map(({ row, label }) => (
-              <span key={row} style={{ ...LABEL_STYLE, gridRow: row + 2, color: 'var(--color-ink-3)', alignSelf: 'center' }}>
+            {monthLabels.map(({ col, label }) => (
+              <span key={col} style={{ ...LABEL_STYLE, gridColumn: col + 1, gridRow: 1, color: 'var(--color-ink-3)' }}>
                 {label}
               </span>
             ))}
-          </div>
-
-          <div
-            ref={scrollRef}
-            onScroll={updateScrollButtons}
-            className="scrollbar-thin-fade min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
-            role="group"
-            aria-label={`최근 ${weeks}주 활동 지도`}
-            style={{ height: gridContentHeight + SCROLLBAR_AREA_PX + BOTTOM_MARGIN_PX, boxSizing: 'border-box' }}
-          >
-            <div
-              style={{
-                display: 'grid',
-                width: totalCellWidth,
-                height: gridContentHeight,
-                rowGap: `${GAP_PX}px`,
-                columnGap: `${GAP_PX}px`,
-                gridTemplateColumns: `repeat(${weeks}, ${SCROLL_CELL_PX}px)`,
-                gridTemplateRows: `${MONTH_LABEL_ROW_PX}px repeat(7, ${SCROLL_CELL_PX}px)`,
-              }}
-            >
-              {monthLabels.map(({ col, label }) => (
-                <span key={col} style={{ ...LABEL_STYLE, gridColumn: col + 1, gridRow: 1, color: 'var(--color-ink-3)' }}>
-                  {label}
-                </span>
-              ))}
-              {columns.map((week, colIndex) =>
-                week.map((date, rowIndex) => (
-                  <div key={date} style={{ gridColumn: colIndex + 1, gridRow: rowIndex + 2 }}>
-                    {renderCell(date, colIndex, rowIndex, SCROLL_CELL_PX)}
-                  </div>
-                )),
-              )}
-            </div>
+            {columns.map((week, colIndex) =>
+              week.map((date, rowIndex) => (
+                <div key={date} style={{ gridColumn: colIndex + 1, gridRow: rowIndex + 2 }}>
+                  {renderCell(date, colIndex, rowIndex, SCROLL_CELL_PX)}
+                </div>
+              )),
+            )}
           </div>
         </div>
       </div>
