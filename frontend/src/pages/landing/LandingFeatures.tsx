@@ -5,7 +5,7 @@ import { CheckItem, EvChipStatic, Eyebrow, LandingCard, Lead, SECTION, SectionTi
 function FeatureRow({ eyebrow, title, lead, items, visual, reverse = false }: {
   eyebrow: string
   title: ReactNode
-  lead: string
+  lead: ReactNode
   items: string[]
   visual: ReactNode
   reverse?: boolean
@@ -159,7 +159,13 @@ export function LandingFeatures() {
               활동의 흐름을 보여 드려요
             </>
           }
-          lead="활동 지도, 주간 통계, 타임라인으로 쌓인 기록을 한눈에 봐요. 연속 일수 대신, 기간에 걸쳐 어떤 활동을 이어 왔는지를 보여 줘요."
+          lead={
+            <>
+              활동 지도, 주간 통계, 타임라인으로 쌓인 기록을 한눈에 봐요.
+              <br className="hidden lg:block" />
+              {' '}연속 일수 대신, 기간에 걸쳐 어떤 활동을 이어 왔는지를 보여 줘요.
+            </>
+          }
           items={['분야별 활동 지도(홈 26주, 지난 기록 최근 1년)', '이번 주 이어 온 활동을 AI가 한 줄로 요약', '쌓인 기록과 시간은 작고 조용하게']}
           visual={<ActivityMapVisual />}
         />
@@ -173,7 +179,13 @@ export function LandingFeatures() {
               나란히 놓고 봐요
             </>
           }
-          lead="1주 전, 2주 전, 한 달 전, 몇 개월 전의 기록을 오늘과 비교해요. AI 해석에는 항상 근거가 된 기록이 날짜 칩으로 붙어요."
+          lead={
+            <>
+              1주 전, 2주 전, 한 달 전, 몇 개월 전의 기록을 오늘과 비교해요.
+              <br className="hidden lg:block" />
+              {' '}AI 해석에는 항상 근거가 된 기록이 날짜 칩으로 붙어요.
+            </>
+          }
           items={['내가 쓴 글이 주인공이에요', '확인되는 변화만 짚고 단정하지 않아요', '칩을 누르면 그날의 기록이 열려요']}
           visual={<ChangeVisual />}
           reverse

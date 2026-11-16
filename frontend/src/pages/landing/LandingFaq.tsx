@@ -1,11 +1,18 @@
+import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { ChevronDownIcon } from '../../components/icons'
 import { Eyebrow, SECTION, SectionTitle, WRAP } from './shared'
 
-const FAQS = [
+const FAQS: { q: string; a: ReactNode }[] = [
   {
     q: '매일 써야 하나요?',
-    a: '아니요. 하루 빠져도 괜찮아요. 쉬어 간 날은 실패로 표시하지 않고, 연속 일수도 강조하지 않아요. 기록한 날이 쌓이는 흐름만 활동 지도에 보여 드려요.',
+    a: (
+      <>
+        아니요. 하루 빠져도 괜찮아요. 쉬어 간 날은 실패로 표시하지 않고, 연속 일수도 강조하지 않아요.
+        <br className="hidden lg:block" />
+        {' '}기록한 날이 쌓이는 흐름만 활동 지도에 보여 드려요.
+      </>
+    ),
   },
   {
     q: '기록은 얼마나 써야 해요?',
@@ -25,7 +32,7 @@ const FAQS = [
   },
 ]
 
-function FaqItem({ index, q, a, open, onToggle }: { index: number; q: string; a: string; open: boolean; onToggle: () => void }) {
+function FaqItem({ index, q, a, open, onToggle }: { index: number; q: string; a: ReactNode; open: boolean; onToggle: () => void }) {
   const panelId = `landing-faq-panel-${index}`
   const buttonId = `landing-faq-button-${index}`
   return (
