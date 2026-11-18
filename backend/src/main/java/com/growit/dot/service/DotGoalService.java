@@ -23,6 +23,7 @@ import com.growit.user.repository.UserRepository;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -38,6 +39,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class DotGoalService {
 
+	private static final String PHOTO_DEFAULT_TITLE = "내 사진";
+	private static final int PHOTO_TITLE_MAX_LENGTH = 20;
 	private static final ZoneId SERVER_ZONE = ZoneId.of("Asia/Seoul");
 	private static final String ACTIVE_EXISTS_MESSAGE = "이미 진행 중인 도트 그림이 있어요. 그 그림을 마치거나 멈춘 뒤 새로 시작해 주세요";
 	private static final String ACTIVE_NOT_FOUND_MESSAGE = "진행 중인 도트 그림을 찾을 수 없어요";
@@ -73,8 +76,22 @@ public class DotGoalService {
 	public DotGoalResponse start(Long userId, DotGoalStartRequest request) {
 		int goalDays = request.goalDays();
 		assertGoalDaysInRange(goalDays);
-		DotPreset preset = presetCatalog.find(request.presetKey())
-				.orElseThrow(() -> new ApiException(ErrorCode.VALIDATION_ERROR, "알 수 없는 그림이에요"));
+		boolean photo = request.mode() == DotSourceType.PHOTO;
+		DotPreset preset = null;
+		DotGrid grid;
+		String title;
+		if (photo) {
+			title = photoTitle(request.title());
+			grid = buildPhotoGrid(request, goalDays);
+		} else {
+			if (request.presetKey() == null || request.presetKey().isBlank()) {
+				throw new ApiException(ErrorCode.VALIDATION_ERROR, "그림을 골라 주세요");
+			}
+			preset = presetCatalog.find(request.presetKey())
+					.orElseThrow(() -> new ApiException(ErrorCode.VALIDATION_ERROR, "알 수 없는 그림이에요"));
+			title = preset.label();
+			grid = buildGrid(preset, goalDays);
+		}
 
 		userRepository.findByIdForUpdate(userId)
 				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "사용자를 찾을 수 없어요"));
@@ -82,9 +99,9 @@ public class DotGoalService {
 			throw new ApiException(ErrorCode.DOT_GOAL_ACTIVE, ACTIVE_EXISTS_MESSAGE);
 		}
 
-		DotGrid grid = buildGrid(preset, goalDays);
-		DotGoal goal = new DotGoal(userId, preset.label(), DotSourceType.PRESET, preset.key(), goalDays, grid.width(),
-				grid.height(), toJson(grid.cells()), toJson(grid.palette()), today());
+		DotGoal goal = new DotGoal(userId, title, photo ? DotSourceType.PHOTO : DotSourceType.PRESET,
+				photo ? null : preset.key(), goalDays, grid.width(), grid.height(), toJson(grid.cells()),
+				toJson(grid.palette()), today());
 		try {
 			goalRepository.saveAndFlush(goal);
 		} catch (DataIntegrityViolationException e) {
@@ -203,6 +220,32 @@ public class DotGoalService {
 			throw new ApiException(ErrorCode.VALIDATION_ERROR, "목표 일수는 " + DotGridValidator.MIN_GOAL_DAYS + "일부터 "
 					+ DotGridValidator.MAX_GOAL_DAYS + "일까지예요");
 		}
+	}
+
+	private static String photoTitle(String raw) {
+		String title = raw == null ? "" : raw.trim();
+		if (title.isEmpty()) {
+			return PHOTO_DEFAULT_TITLE;
+		}
+		if (title.length() > PHOTO_TITLE_MAX_LENGTH) {
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, "이름은 " + PHOTO_TITLE_MAX_LENGTH + "자 이하로 입력해 주세요");
+		}
+		return title;
+	}
+
+	/**
+	 * 사진으로 만든 격자는 브라우저가 보낸 값을 믿지 않고 기본 그림과 같은 기준(칸 수 == 목표 일수, 크기·색 상한, 좌표 범위·중복)으로
+	 * 검증한다. 채워지는 순서(아래 줄부터, 같은 줄은 왼쪽부터)는 보낸 순서와 상관없이 서버가 정해서 저장한다.
+	 */
+	private static DotGrid buildPhotoGrid(DotGoalStartRequest request, int goalDays) {
+		if (request.width() == null || request.height() == null || request.palette() == null || request.cells() == null) {
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, "사진 그림 정보가 부족해요");
+		}
+		List<DotCell> cells = request.cells().stream().map(cell -> new DotCell(cell.x(), cell.y(), cell.c()))
+				.sorted(Comparator.comparingInt(DotCell::y).reversed().thenComparingInt(DotCell::x)).toList();
+		DotGrid grid = new DotGrid(request.width(), request.height(), List.copyOf(request.palette()), cells);
+		DotGridValidator.validate(goalDays, grid);
+		return grid;
 	}
 
 	private static DotGrid buildGrid(DotPreset preset, int goalDays) {

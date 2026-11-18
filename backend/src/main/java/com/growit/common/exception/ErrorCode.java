@@ -27,7 +27,8 @@ public enum ErrorCode {
 	SOCIAL_ACCOUNT(HttpStatus.CONFLICT),
 	OAUTH_STATE_INVALID(HttpStatus.UNAUTHORIZED),
 	OAUTH_CODE_INVALID(HttpStatus.UNAUTHORIZED),
-	DOT_GOAL_ACTIVE(HttpStatus.CONFLICT);
+	DOT_GOAL_ACTIVE(HttpStatus.CONFLICT),
+	PAYLOAD_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE);
 
 	private final HttpStatus status;
 

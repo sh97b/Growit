@@ -7,11 +7,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.growit.common.exception.ApiException;
 import com.growit.common.exception.ErrorCode;
 import com.growit.dot.dto.DotCurrentResponse;
+import com.growit.dot.dto.DotCell;
 import com.growit.dot.dto.DotGoalResponse;
+import com.growit.dot.dto.DotPhotoCell;
 import com.growit.dot.dto.DotGoalStartRequest;
 import com.growit.dot.dto.DotPreviewResponse;
 import com.growit.dot.entity.DotGoal;
 import com.growit.dot.entity.DotGoalState;
+import com.growit.dot.entity.DotSourceType;
 import com.growit.dot.repository.DotGoalRepository;
 import com.growit.dot.repository.DotProgressRepository;
 import com.growit.hobby.entity.Hobby;
@@ -404,6 +407,139 @@ class DotGoalServiceTest {
 		} catch (com.fasterxml.jackson.core.JsonProcessingException e) {
 			throw new IllegalStateException(e);
 		}
+	}
+
+	private static List<DotPhotoCell> photoCells(int count) {
+		List<DotPhotoCell> cells = new java.util.ArrayList<>();
+		for (int i = 0; i < count; i++) {
+			cells.add(new DotPhotoCell(i % 4, i / 4, i % 2));
+		}
+		java.util.Collections.reverse(cells); // 일부러 거꾸로 보낸다(순서는 서버가 정한다)
+		return cells;
+	}
+
+	private DotGoalStartRequest photoRequest(String title, int days, Integer width, Integer height,
+			List<String> palette, List<DotPhotoCell> cells) {
+		return new DotGoalStartRequest(DotSourceType.PHOTO, null, title, days, width, height, palette, cells);
+	}
+
+	private DotGoalResponse startPhoto(Long owner) {
+		return service().start(owner, photoRequest(null, 14, 4, 4, List.of("#112233", "#AABBCC"), photoCells(14)));
+	}
+
+	private static void assertValidationError(Runnable call) {
+		assertThatThrownBy(call::run).isInstanceOfSatisfying(ApiException.class,
+				e -> assertThat(e.getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
+	}
+
+	@Test
+	void startPhoto_valid_savesAsPhotoWithServerOrder_andDefaultTitle() {
+		DotGoalResponse goal = startPhoto(userId);
+
+		assertThat(goal.sourceType()).isEqualTo(DotSourceType.PHOTO);
+		assertThat(goal.presetKey()).isNull();
+		assertThat(goal.title()).isEqualTo("내 사진");
+		assertThat(goal.goalDays()).isEqualTo(14);
+		assertThat(goal.cells()).hasSize(14);
+		for (int i = 1; i < goal.cells().size(); i++) {
+			DotCell before = goal.cells().get(i - 1);
+			DotCell after = goal.cells().get(i);
+			assertThat(before.y() > after.y() || (before.y() == after.y() && before.x() < after.x()))
+					.as("%d번째 칸 순서(아래 줄부터, 왼쪽부터)", i).isTrue();
+		}
+		assertThat(goal.cells().get(0)).isEqualTo(new DotCell(0, 3, 0));
+		DotGoal saved = goalRepository.findById(goal.id()).orElseThrow();
+		assertThat(saved.getSourceType()).isEqualTo(DotSourceType.PHOTO);
+		assertThat(saved.getPresetKey()).isNull();
+	}
+
+	@Test
+	void startPhoto_customTitleIsTrimmed_andTooLongTitleIsRejected() {
+		DotGoalResponse goal = service().start(userId,
+				photoRequest("  우리 고양이  ", 14, 4, 4, List.of("#112233", "#AABBCC"), photoCells(14)));
+		assertThat(goal.title()).isEqualTo("우리 고양이");
+		service().stop(userId, goal.id());
+
+		assertValidationError(() -> service().start(userId,
+				photoRequest("가".repeat(21), 14, 4, 4, List.of("#112233", "#AABBCC"), photoCells(14))));
+		assertThat(service().start(userId,
+				photoRequest("가".repeat(20), 14, 4, 4, List.of("#112233", "#AABBCC"), photoCells(14))).title())
+				.hasSize(20);
+	}
+
+	@Test
+	void startPhoto_cellCountDifferentFromGoalDays_isRejected() {
+		assertValidationError(() -> service().start(userId,
+				photoRequest(null, 14, 4, 4, List.of("#112233"), photoCells(13))));
+		assertValidationError(() -> service().start(userId,
+				photoRequest(null, 14, 4, 4, List.of("#112233"), photoCells(15))));
+		assertThat(goalRepository.findAll()).isEmpty();
+	}
+
+	@Test
+	void startPhoto_overLimits_areRejected() {
+		assertValidationError(() -> service().start(userId,
+				photoRequest(null, 14, 41, 4, List.of("#112233"), photoCells(14))));
+		assertValidationError(() -> service().start(userId,
+				photoRequest(null, 14, 4, 41, List.of("#112233"), photoCells(14))));
+		List<String> nine = java.util.stream.IntStream.range(0, 9).mapToObj(i -> "#11223" + i).toList();
+		assertValidationError(() -> service().start(userId, photoRequest(null, 14, 4, 4, nine, photoCells(14))));
+		assertValidationError(() -> service().start(userId,
+				photoRequest(null, 14, 4, 4, List.of("red"), photoCells(14))));
+		assertValidationError(() -> service().start(userId,
+				photoRequest(null, 201, 20, 20, List.of("#112233"), photoCells(14))));
+		assertThat(goalRepository.findAll()).isEmpty();
+	}
+
+	@Test
+	void startPhoto_duplicatedOrOutOfRangeCells_areRejected() {
+		List<DotPhotoCell> duplicated = new java.util.ArrayList<>(photoCells(14));
+		duplicated.set(0, duplicated.get(1));
+		assertValidationError(() -> service().start(userId,
+				photoRequest(null, 14, 4, 4, List.of("#112233", "#AABBCC"), duplicated)));
+
+		List<DotPhotoCell> outside = new java.util.ArrayList<>(photoCells(14));
+		outside.set(0, new DotPhotoCell(4, 0, 0));
+		assertValidationError(() -> service().start(userId,
+				photoRequest(null, 14, 4, 4, List.of("#112233", "#AABBCC"), outside)));
+
+		List<DotPhotoCell> badColor = new java.util.ArrayList<>(photoCells(14));
+		badColor.set(0, new DotPhotoCell(0, 0, 2));
+		assertValidationError(() -> service().start(userId,
+				photoRequest(null, 14, 4, 4, List.of("#112233", "#AABBCC"), badColor)));
+	}
+
+	@Test
+	void startPhoto_missingGridInfo_isRejected() {
+		assertValidationError(() -> service().start(userId,
+				photoRequest(null, 14, null, 4, List.of("#112233"), photoCells(14))));
+		assertValidationError(() -> service().start(userId, photoRequest(null, 14, 4, 4, null, photoCells(14))));
+		assertValidationError(() -> service().start(userId,
+				photoRequest(null, 14, 4, 4, List.of("#112233"), null)));
+	}
+
+	@Test
+	void startPhoto_whileActiveGoalExists_isConflict_andPresetRequestStillNeedsAKey() {
+		start(userId, 14);
+
+		assertThatThrownBy(() -> startPhoto(userId)).isInstanceOfSatisfying(ApiException.class,
+				e -> assertThat(e.getCode()).isEqualTo(ErrorCode.DOT_GOAL_ACTIVE));
+		assertValidationError(() -> service().start(otherUserId, new DotGoalStartRequest(null, 14)));
+	}
+
+	@Test
+	void startPhoto_completedPhotoGoalAppearsInAlbumAsPhoto() {
+		DotGoalResponse goal = startPhoto(userId);
+		for (int i = 0; i < 14; i++) {
+			service().markRecordDate(userId, TODAY.plusDays(i));
+		}
+
+		List<DotGoalResponse> album = service().album(userId);
+
+		assertThat(album).extracting(DotGoalResponse::id).containsExactly(goal.id());
+		assertThat(album.get(0).sourceType()).isEqualTo(DotSourceType.PHOTO);
+		assertThat(album.get(0).presetKey()).isNull();
+		assertThat(album.get(0).filledCount()).isEqualTo(14);
 	}
 
 	private static void assertNotFound(Runnable call) {

@@ -105,6 +105,40 @@ class DotControllerTest {
 	}
 
 	@Test
+	void start_photoBody_isParsedWithCellsAndColorIndex() throws Exception {
+		given(currentUserProvider.getCurrentUserId()).willReturn(7L);
+		org.mockito.ArgumentCaptor<com.growit.dot.dto.DotGoalStartRequest> captor = org.mockito.ArgumentCaptor
+				.forClass(com.growit.dot.dto.DotGoalStartRequest.class);
+		given(dotGoalService.start(eq(7L), captor.capture())).willReturn(goal(8, DotGoalState.ACTIVE));
+
+		mockMvc.perform(post("/api/dots/goals").contentType(MediaType.APPLICATION_JSON).content(
+				"{\"mode\":\"PHOTO\",\"title\":\"내 사진\",\"goalDays\":14,\"width\":4,\"height\":4,"
+						+ "\"palette\":[\"#112233\"],\"cells\":[{\"x\":0,\"y\":1,\"c\":0},{\"x\":2,\"y\":3,\"c\":0}]}"))
+				.andExpect(status().isCreated());
+
+		com.growit.dot.dto.DotGoalStartRequest request = captor.getValue();
+		org.assertj.core.api.Assertions.assertThat(request.mode()).isEqualTo(DotSourceType.PHOTO);
+		org.assertj.core.api.Assertions.assertThat(request.cells()).hasSize(2);
+		org.assertj.core.api.Assertions.assertThat(request.cells().get(1).x()).isEqualTo(2);
+		org.assertj.core.api.Assertions.assertThat(request.cells().get(1).y()).isEqualTo(3);
+		org.assertj.core.api.Assertions.assertThat(request.palette()).containsExactly("#112233");
+	}
+
+	@Test
+	void start_tooManyCellsOrColorsOrUnknownMode_returnsBadRequest() throws Exception {
+		String manyCells = java.util.stream.IntStream.range(0, 201).mapToObj(i -> "{\"x\":0,\"y\":0,\"c\":0}")
+				.collect(java.util.stream.Collectors.joining(","));
+		mockMvc.perform(post("/api/dots/goals").contentType(MediaType.APPLICATION_JSON).content(
+				"{\"mode\":\"PHOTO\",\"goalDays\":200,\"width\":40,\"height\":40,\"palette\":[\"#112233\"],\"cells\":["
+						+ manyCells + "]}")).andExpect(status().isBadRequest());
+		mockMvc.perform(post("/api/dots/goals").contentType(MediaType.APPLICATION_JSON).content(
+				"{\"mode\":\"PHOTO\",\"goalDays\":14,\"palette\":[\"#1\",\"#2\",\"#3\",\"#4\",\"#5\",\"#6\",\"#7\",\"#8\",\"#9\"],"
+						+ "\"cells\":[]}")).andExpect(status().isBadRequest());
+		mockMvc.perform(post("/api/dots/goals").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"mode\":\"BANANA\",\"goalDays\":14}")).andExpect(status().isBadRequest());
+	}
+
+	@Test
 	void start_missingFields_returnsBadRequest() throws Exception {
 		mockMvc.perform(post("/api/dots/goals").contentType(MediaType.APPLICATION_JSON).content("{}"))
 				.andExpect(status().isBadRequest());
