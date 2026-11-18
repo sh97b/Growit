@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { PHOTO_TITLE_MAX, RATIOS, type PhotoDraft } from '../hooks/usePhotoDraft'
+import { DotPhotoHelpButton } from './DotPhotoHelp'
 import { Field } from './Field'
 import { Input } from './Input'
 import { Note } from './Note'
@@ -54,9 +55,12 @@ export function DotPhotoMaker({ draft }: { draft: PhotoDraft }) {
 
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-line bg-white p-3">
-      <p className="text-caption-min leading-[1.6] text-ink-3">
-        사진은 이 기기에서만 도트로 바꾸고 서버에는 올리지 않아요. 칸이 적을수록 단순하고 대비가 큰 사진이 좋아요.
-      </p>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-caption-min leading-[1.6] text-ink-3">
+          사진은 이 기기에서만 도트로 바꾸고 서버에는 올리지 않아요. 칸이 적을수록 단순하고 대비가 큰 사진이 좋아요.
+        </p>
+        <DotPhotoHelpButton />
+      </div>
       <div>
         <label htmlFor="dot-photo-file" className="sr-only">
           사진 고르기

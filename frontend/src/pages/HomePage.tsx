@@ -489,6 +489,7 @@ function QuickRecordInput() {
   const { data: activeHobbies, isLoading: hobbiesLoading } = useHobbies(false)
   const recentQuery = useQuery({ queryKey: ['records', 'recent'], queryFn: () => fetchRecords({ size: 1 }) })
 
+  const [todayDate] = useState(() => new Date())
   const [selectedHobbyId, setSelectedHobbyId] = useState<number | null>(null)
   const [content, setContent] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -609,7 +610,7 @@ function QuickRecordInput() {
       ) : (
         <div className="flex flex-col gap-2 rounded-xl bg-surface px-3.5 py-3.5 lg:px-[1.125rem]">
           <div className="flex items-baseline justify-between gap-3">
-            <span className="hidden text-sm text-ink-2 lg:inline">{formatMonthDayWeekday(new Date())}</span>
+            <span className="hidden text-sm text-ink-2 lg:inline">{formatMonthDayWeekday(todayDate)}</span>
             <span className="text-sm text-ink-2">오늘 한 줄만 남겨도 충분해요</span>
           </div>
 

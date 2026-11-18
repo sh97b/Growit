@@ -8,6 +8,7 @@ import {
   type PhotoGrid,
   type SourceImage,
 } from '../src/lib/photoDots.ts'
+import { goodExamplePhoto, hardExamplePhoto } from '../src/lib/photoExamples.ts'
 
 function gradientImage(width: number, height: number): SourceImage {
   const data = new Uint8ClampedArray(width * height * 4)
@@ -196,6 +197,13 @@ for (const goalDays of [14, 30, 100, 200]) {
   checked += 1
 }
 assert.equal(photoToDotGrid(flat, cropRectFor(40, 40, 1, 1, 0, 0), 30, { removeBackground: true }).palette.length, 1, '단색 사진은 색 하나')
+
+// 3-2) 도움말 예시 사진도 앱의 변환 함수로 정확히 100칸이 나와야 한다
+for (const [name, photo] of [['좋은 예시', goodExamplePhoto()], ['어려운 예시', hardExamplePhoto()]] as [string, SourceImage][]) {
+  const grid = photoToDotGrid(photo, cropRectFor(photo.width, photo.height, 1, 1, 0, 0), 100, { removeBackground: true })
+  assertValidGrid(grid, 100, `도움말 ${name}`)
+  checked += 1
+}
 
 // 4) 색 수는 칸 수로 자동 결정
 assert.deepEqual([14, 30, 31, 100, 101, 200].map(colorCountFor), [5, 5, 6, 6, 8, 8])
