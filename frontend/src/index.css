@@ -170,6 +170,29 @@ select:focus-visible {
   }
 }
 
+/* 도트 그림에서 지난번에 본 뒤 새로 칠해진 칸이 한 번 살짝 반짝인다. 움직임을 줄이는 설정이면 끈다. */
+@keyframes growit-dot-sparkle {
+  0%,
+  100% {
+    filter: none;
+    transform: scale(1);
+  }
+  50% {
+    filter: brightness(1.18);
+    transform: scale(1.14);
+  }
+}
+
+.dot-sparkle {
+  animation: growit-dot-sparkle 1.4s ease-in-out 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot-sparkle {
+    animation: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.01ms !important;

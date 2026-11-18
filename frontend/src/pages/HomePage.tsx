@@ -1,13 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ActivityHeatmap } from '../components/ActivityHeatmap'
 import { AiLabel } from '../components/AiLabel'
 import { Band } from '../components/Card'
 import { Button } from '../components/Button'
 import { CoachActionCard } from '../components/CoachResultView'
 import { Dropdown } from '../components/Dropdown'
 import { HobbyInlineCreate } from '../components/HobbyInlineCreate'
+import { HomeActivityCard } from '../components/HomeActivityCard'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
 import { Split } from '../components/PageLayout'
@@ -16,6 +16,7 @@ import { RecentWeekStrip } from '../components/RecentWeekStrip'
 import { TopicChips } from '../components/TopicChips'
 import { ChevronRightIcon, PlusIcon } from '../components/icons'
 import { useCurrentUser } from '../hooks/useCurrentUser'
+import { useDotsCurrent } from '../hooks/useDots'
 import { useFitPageSize } from '../hooks/useFitPageSize'
 import { useHobbies } from '../hooks/useHobbies'
 import { useIsDesktop } from '../hooks/useIsDesktop'
@@ -94,6 +95,8 @@ export function HomePage() {
   const [droppedMessages] = useState(() => takeDroppedOfflineMessages())
   const isDesktop = useIsDesktop()
   const autoStatus = useAutoCoachOncePerDay()
+  // 도트 보기를 열지 않아도 홈이 열릴 때 한 번 불러, 서버가 칠하기에 실패했던 날을 채워 두게 한다. 실패해도 홈에는 아무것도 보이지 않는다.
+  useDotsCurrent()
 
   // P1 5단계: 본문의 최근 기록은 열에 남은 높이에 정확히 들어가는 개수(0~3개)만 보여준다
   // (useFitPageSize를 그대로 재사용 — 목록 페이지네이션과 같은 "남은 높이 ÷ 한 줄 높이" 계산).
@@ -188,11 +191,7 @@ export function HomePage() {
           { key: 'coach', node: <HomeCoachCard comeback={state === 'comeback'} autoStatus={autoStatus} /> },
           {
             key: 'heatmap',
-            node: (
-              <div className="rounded-2xl bg-surface p-5">
-                <ActivityHeatmap weeks={26} />
-              </div>
-            ),
+            node: <HomeActivityCard />,
           },
           { key: 'stats', node: <StatsTiles summary={summary} /> },
           { key: 'topics', node: <TopicChips /> },
@@ -249,9 +248,7 @@ export function HomePage() {
             <RecentRecordsCard limit={2} />
           </div>
           <div className="flex flex-col gap-7 lg:hidden">
-            <div className="rounded-2xl bg-surface p-5">
-              <ActivityHeatmap weeks={26} />
-            </div>
+            <HomeActivityCard />
             <StatsTiles summary={summary} />
             <TopicChips />
           </div>
