@@ -110,7 +110,7 @@ export function HomePage() {
   const [activityView] = useActivityView()
   const dotsQuery = useDotsCurrent()
   const dotShown = dotsQuery.data?.goal ?? dotsQuery.data?.justCompleted ?? null
-  const dotNeedPicture = activityView === 'dot' && dotShown ? dotShown.height * 6 + 2 * (dotShown.height - 1) : 0
+  const dotNeedPicture = activityView === 'dot' && dotShown ? dotShown.height * 8 : 0
   const leftOverhead = activityView === 'grass' ? GRASS_CARD_PX : dotShown ? DOT_CARD_OVERHEAD_PX : DOT_EMPTY_CARD_PX
   const {
     containerRef: leftFitRef,

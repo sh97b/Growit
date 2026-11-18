@@ -3,7 +3,8 @@
  * 같은 입력이면 항상 같은 결과가 나오도록 무작위를 쓰지 않고, 동점은 늘 y, x 순으로 가른다.
  *
  * 흐름: 가장자리 색을 배경으로 보고 피사체를 가른다 → 피사체 칸 수가 N에 가장 가까운 격자 크기를 찾는다 →
- * 경계 칸을 더하거나 빼서 정확히 N칸 → 피사체 색만으로 칸 색을 정하고 K색으로 줄인다 → 경계 칸은 한 단계 어둡게.
+ * 가장자리 칸을 더하거나 빼서 정확히 N칸(피사체 안쪽 칸은 빼지 않음) → 피사체 색만으로 칸 색을 정하고 K색으로 줄인다 →
+ * 칸이 충분하면(N≥100, 경계 칸 30% 이하) 경계 칸을 한 단계 어둡게.
  * 배경을 못 가르면(피사체 5% 미만·85% 초과) 경계가 뚜렷한 칸을 남기고, 그것도 어려우면 모서리부터 덜어 낸다.
  */
 
@@ -30,9 +31,9 @@ export type PhotoOptions = {
 
 /** 칸 수에 따라 색 수를 자동으로 정한다(적은 칸에는 적은 색이 더 또렷하다). */
 export function colorCountFor(goalDays: number): number {
-  if (goalDays <= 30) return 4
-  if (goalDays <= 100) return 5
-  return 6
+  if (goalDays <= 30) return 5
+  if (goalDays <= 100) return 6
+  return 8
 }
 
 type Rgb = [number, number, number]
@@ -221,51 +222,78 @@ function edgeStrength(raster: Raster): number[] {
 
 type GridStats = { width: number; height: number; ratio: number[]; edge: number[]; ranges: [number, number, number, number][] }
 
-/** 격자 칸마다 분석 픽셀 영역을 정하고, 그 안의 피사체 비율(mask가 있을 때)과 평균 경계 세기를 구한다. */
-function gridStats(raster: Raster, mask: boolean[] | null, edge: number[], width: number, height: number): GridStats {
+/** 피사체 마스크와 경계 세기의 누적합(적분 이미지). 격자 크기를 바꿔 가며 칸마다 합을 O(1)로 구하려고 쓴다. */
+type Sat = { w: number; mask: Int32Array; edge: Float64Array }
+
+function buildSat(raster: Raster, mask: boolean[] | null, edge: number[]): Sat {
+  const stride = raster.w + 1
+  const maskSat = new Int32Array(stride * (raster.h + 1))
+  const edgeSat = new Float64Array(stride * (raster.h + 1))
+  for (let j = 0; j < raster.h; j += 1) {
+    for (let i = 0; i < raster.w; i += 1) {
+      const index = (j + 1) * stride + (i + 1)
+      const source = j * raster.w + i
+      maskSat[index] = (mask && mask[source] ? 1 : 0) + maskSat[index - 1] + maskSat[index - stride] - maskSat[index - stride - 1]
+      edgeSat[index] = edge[source] + edgeSat[index - 1] + edgeSat[index - stride] - edgeSat[index - stride - 1]
+    }
+  }
+  return { w: raster.w, mask: maskSat, edge: edgeSat }
+}
+
+function cellRange(raster: Raster, width: number, height: number, x: number, y: number): [number, number, number, number] {
+  const i0 = Math.min(raster.w - 1, Math.floor((x * raster.w) / width))
+  const i1 = Math.min(raster.w, Math.max(i0 + 1, Math.ceil(((x + 1) * raster.w) / width)))
+  const j0 = Math.min(raster.h - 1, Math.floor((y * raster.h) / height))
+  const j1 = Math.min(raster.h, Math.max(j0 + 1, Math.ceil(((y + 1) * raster.h) / height)))
+  return [i0, i1, j0, j1]
+}
+
+const sumOf = <T extends Int32Array | Float64Array>(table: T, stride: number, i0: number, i1: number, j0: number, j1: number) =>
+  table[j1 * stride + i1] - table[j0 * stride + i1] - table[j1 * stride + i0] + table[j0 * stride + i0]
+
+/** 격자 칸마다 분석 픽셀 영역을 정하고, 그 안의 피사체 비율과 평균 경계 세기를 구한다. */
+function statsFromSat(raster: Raster, sat: Sat, width: number, height: number): GridStats {
+  const stride = sat.w + 1
   const ratio: number[] = []
-  const edgeMean: number[] = []
+  const edge: number[] = []
   const ranges: [number, number, number, number][] = []
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
-      const i0 = Math.min(raster.w - 1, Math.floor((x * raster.w) / width))
-      const i1 = Math.min(raster.w, Math.max(i0 + 1, Math.ceil(((x + 1) * raster.w) / width)))
-      const j0 = Math.min(raster.h - 1, Math.floor((y * raster.h) / height))
-      const j1 = Math.min(raster.h, Math.max(j0 + 1, Math.ceil(((y + 1) * raster.h) / height)))
-      let subject = 0
-      let edgeSum = 0
-      let count = 0
-      for (let j = j0; j < j1; j += 1) {
-        for (let i = i0; i < i1; i += 1) {
-          const index = j * raster.w + i
-          if (mask && mask[index]) subject += 1
-          edgeSum += edge[index]
-          count += 1
-        }
-      }
-      ratio.push(mask ? subject / count : 0)
-      edgeMean.push(edgeSum / count)
-      ranges.push([i0, i1, j0, j1])
+      const range = cellRange(raster, width, height, x, y)
+      const area = (range[1] - range[0]) * (range[3] - range[2])
+      ratio.push(sumOf(sat.mask, stride, range[0], range[1], range[2], range[3]) / area)
+      edge.push(sumOf(sat.edge, stride, range[0], range[1], range[2], range[3]) / area)
+      ranges.push(range)
     }
   }
-  return { width, height, ratio, edge: edgeMean, ranges }
+  return { width, height, ratio, edge, ranges }
 }
 
-/** 긴 변에 놓을 칸 수(scale)와 자른 비율로 격자 크기를 정한다. */
-function gridSizeForScale(scale: number, aspect: number): { width: number; height: number } {
-  if (aspect >= 1) return { width: scale, height: Math.max(1, Math.min(MAX_GRID_SIZE, Math.round(scale / aspect))) }
-  return { width: Math.max(1, Math.min(MAX_GRID_SIZE, Math.round(scale * aspect))), height: scale }
-}
+const gridStats = (raster: Raster, mask: boolean[] | null, edge: number[], width: number, height: number) =>
+  statsFromSat(raster, buildSat(raster, mask, edge), width, height)
 
-const countSubject = (stats: GridStats) => stats.ratio.filter((value) => value >= 0.5).length
+/** 피사체로 보는 칸(피사체 비율 절반 이상)의 수. 격자 크기를 탐색할 때 쓰는 가벼운 계산이다. */
+function subjectCellCount(raster: Raster, sat: Sat, width: number, height: number): number {
+  const stride = sat.w + 1
+  let count = 0
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const range = cellRange(raster, width, height, x, y)
+      const area = (range[1] - range[0]) * (range[3] - range[2])
+      if (sumOf(sat.mask, stride, range[0], range[1], range[2], range[3]) / area >= 0.5) count += 1
+    }
+  }
+  return count
+}
 
 function neighbors4(x: number, y: number): [number, number][] {
   return [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]]
 }
 
 /**
- * 피사체 칸 수가 N에 가장 가까운 격자 크기를 찾고(이분 탐색), 모자라면 경계 중요도가 높은 칸을 더하고 남으면 낮은 칸을
- * 빼서 정확히 N칸으로 맞춘다. 반환값은 고른 칸(y*width+x 표시)과 그 격자.
+ * 격자 크기(W,H ≤ 40, 자른 비율과 ±25% 안)를 모두 살펴 피사체 칸 수가 N에 가장 가까운 것을 고른다(W×H는 N 이상).
+ * 그다음 모자라면 배경과 맞닿은 칸 중 피사체 비율이 높은 칸을 더하고, 남으면 가장자리 칸 중 비율이 낮은 칸을 뺀다.
+ * 피사체 안쪽 칸(8방향 이웃이 모두 피사체)은 절대 빼지 않아서 그림 속이 비지 않는다.
  */
 function selectSubjectCells(
   raster: Raster,
@@ -274,62 +302,63 @@ function selectSubjectCells(
   goalDays: number,
   aspect: number,
 ): { stats: GridStats; selected: boolean[] } {
-  const statsFor = (scale: number) => {
-    const size = gridSizeForScale(scale, aspect)
-    return gridStats(raster, mask, edge, size.width, size.height)
+  const sat = buildSat(raster, mask, edge)
+  const tolerance = Math.log(1.25)
+  let best: { width: number; height: number; diff: number; error: number } | null = null
+  for (let width = 1; width <= MAX_GRID_SIZE; width += 1) {
+    for (let height = 1; height <= MAX_GRID_SIZE; height += 1) {
+      if (width * height < goalDays) continue
+      const error = Math.abs(Math.log(width / height / aspect))
+      if (error > tolerance) continue
+      const diff = Math.abs(subjectCellCount(raster, sat, width, height) - goalDays)
+      const better =
+        best === null ||
+        diff < best.diff ||
+        (diff === best.diff && (error < best.error - 1e-12 || (Math.abs(error - best.error) <= 1e-12 && width * height < best.width * best.height)))
+      if (better) best = { width, height, diff, error }
+    }
   }
-  let low = 1
-  let high = MAX_GRID_SIZE
-  while (low < high) {
-    const mid = Math.floor((low + high) / 2)
-    if (countSubject(statsFor(mid)) >= goalDays) high = mid
-    else low = mid + 1
-  }
-  let scale = low
-  if (low > 1 && Math.abs(countSubject(statsFor(low - 1)) - goalDays) < Math.abs(countSubject(statsFor(low)) - goalDays)) {
-    scale = low - 1
-  }
-  while (scale < MAX_GRID_SIZE) {
-    const size = gridSizeForScale(scale, aspect)
-    if (size.width * size.height >= goalDays) break
-    scale += 1
-  }
-  const stats = statsFor(scale)
+  const size = best ?? chooseGridSize(goalDays, aspect)
+  const stats = statsFromSat(raster, sat, size.width, size.height)
   const { width, height } = stats
-  const maxEdge = Math.max(...stats.edge, 1e-9)
-  const importance = stats.ratio.map((ratio, index) => ratio + (0.5 * stats.edge[index]) / maxEdge)
   const selected = stats.ratio.map((ratio) => ratio >= 0.5)
   let count = selected.filter(Boolean).length
   const isSelected = (x: number, y: number) => x >= 0 && y >= 0 && x < width && y < height && selected[y * width + x]
+  const touchesSubject = (x: number, y: number) =>
+    [-1, 0, 1].some((dy) => [-1, 0, 1].some((dx) => (dx !== 0 || dy !== 0) && isSelected(x + dx, y + dy)))
+  const isInterior = (x: number, y: number) =>
+    [-1, 0, 1].every((dy) => [-1, 0, 1].every((dx) => (dx === 0 && dy === 0) || isSelected(x + dx, y + dy)))
 
   while (count < goalDays) {
-    let best = -1
-    let bestAdjacent = false
+    let pick = -1
+    let pickAdjacent = false
     for (let y = 0; y < height; y += 1) {
       for (let x = 0; x < width; x += 1) {
         const index = y * width + x
         if (selected[index]) continue
-        const adjacent = [-1, 0, 1].some((dy) => [-1, 0, 1].some((dx) => (dx !== 0 || dy !== 0) && isSelected(x + dx, y + dy)))
-        if (best === -1 || (adjacent && !bestAdjacent) || (adjacent === bestAdjacent && importance[index] > importance[best] + 1e-12)) {
-          best = index
-          bestAdjacent = adjacent
+        const adjacent = touchesSubject(x, y)
+        if (pick === -1 || (adjacent && !pickAdjacent) || (adjacent === pickAdjacent && stats.ratio[index] > stats.ratio[pick] + 1e-12)) {
+          pick = index
+          pickAdjacent = adjacent
         }
       }
     }
-    selected[best] = true
+    selected[pick] = true
     count += 1
   }
   while (count > goalDays) {
-    let best = -1
+    let pick = -1
+    let pickAny = -1
     for (let y = 0; y < height; y += 1) {
       for (let x = 0; x < width; x += 1) {
         const index = y * width + x
         if (!selected[index]) continue
-        if (!neighbors4(x, y).some(([nx, ny]) => !isSelected(nx, ny))) continue
-        if (best === -1 || importance[index] < importance[best] - 1e-12) best = index
+        if (pickAny === -1 || stats.ratio[index] < stats.ratio[pickAny] - 1e-12) pickAny = index
+        if (isInterior(x, y)) continue
+        if (pick === -1 || stats.ratio[index] < stats.ratio[pick] - 1e-12) pick = index
       }
     }
-    selected[best] = false
+    selected[pick === -1 ? pickAny : pick] = false
     count -= 1
   }
   return { stats, selected }
@@ -503,5 +532,9 @@ export function photoToDotGrid(image: SourceImage, crop: CropRect, goalDays: num
       picked.push({ x, y, color, outline: neighbors4(x, y).some(([nx, ny]) => !isSelected(nx, ny)) })
     }
   }
+  // 윤곽(경계 칸을 한 단계 어둡게)은 칸이 충분히 많고 경계 칸이 전체의 30% 이하일 때만 쓴다.
+  // 칸이 적으면 대부분이 경계라서 그림 전체가 윤곽 색 하나로 덮이기 때문이다.
+  const outlineCount = picked.filter((cell) => cell.outline).length
+  if (goalDays < 100 || outlineCount > 0.3 * picked.length) for (const cell of picked) cell.outline = false
   return finish(width, height, picked, goalDays)
 }

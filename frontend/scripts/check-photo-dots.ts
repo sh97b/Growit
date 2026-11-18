@@ -24,12 +24,12 @@ function gradientImage(width: number, height: number): SourceImage {
 }
 
 /** 단색 배경 위에 색이 변하는 타원 피사체. insideAt은 한 점이 피사체 안인지 알려 준다. */
-function subjectImage(width: number, height: number, background: [number, number, number]) {
+function subjectImage(width: number, height: number, background: [number, number, number], rxFraction = 0.3, ryFraction = 0.36) {
   const data = new Uint8ClampedArray(width * height * 4)
   const cx = width / 2
   const cy = height / 2
-  const rx = width * 0.3
-  const ry = height * 0.36
+  const rx = width * rxFraction
+  const ry = height * ryFraction
   const insideAt = (x: number, y: number) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
@@ -117,6 +117,43 @@ for (const background of [[240, 240, 240], [20, 30, 60]] as [number, number, num
   }
 }
 
+// 2-2) 내부가 꽉 찬 큰 타원 피사체: 정확히 N칸, 피사체 안쪽(자기와 8방향 이웃 모두 피사체 안)인데 비어 있는 칸 0개, 색 3가지 이상
+for (const [label, aspect] of [['1:1', 1], ['4:3', 4 / 3]] as [string, number][]) {
+  const { image: photo, insideAt } = subjectImage(400, 400, [245, 245, 245], 0.42, 0.42)
+  for (const goalDays of [60, 100, 200]) {
+    const crop = cropRectFor(photo.width, photo.height, aspect, 1, 0, 0)
+    const grid = photoToDotGrid(photo, crop, goalDays, { removeBackground: true })
+    const name = `큰 타원 / ${label} / ${goalDays}칸`
+    assertValidGrid(grid, goalDays, name)
+    const kept = new Set(grid.cells.map((cell) => `${cell.x},${cell.y}`))
+    const cellInside = (x: number, y: number) => {
+      const px0 = crop.x + (x * crop.w) / grid.width
+      const py0 = crop.y + (y * crop.h) / grid.height
+      const cw = crop.w / grid.width
+      const ch = crop.h / grid.height
+      const points: [number, number][] = [[0.5, 0.5], [0.15, 0.15], [0.85, 0.15], [0.15, 0.85], [0.85, 0.85]]
+      return points.every(([u, v]) => insideAt(px0 + u * cw, py0 + v * ch))
+    }
+    let interior = 0
+    let missing = 0
+    for (let y = 1; y < grid.height - 1; y += 1) {
+      for (let x = 1; x < grid.width - 1; x += 1) {
+        let all = true
+        for (let dy = -1; dy <= 1; dy += 1) for (let dx = -1; dx <= 1; dx += 1) all = all && cellInside(x + dx, y + dy)
+        if (all) {
+          interior += 1
+          if (!kept.has(`${x},${y}`)) missing += 1
+        }
+      }
+    }
+    assert.ok(interior > 0, `${name}: 정답 안쪽 칸이 있어야 함`)
+    assert.equal(missing, 0, `${name}: 피사체 안쪽인데 빈 칸 ${missing}개`)
+    assert.ok(new Set(grid.cells.map((cell) => grid.palette[cell.c])).size >= 3, `${name}: 서로 다른 색 3개 이상`)
+    assert.deepEqual(photoToDotGrid(photo, crop, goalDays, { removeBackground: true }), grid, `${name}: 결정적`)
+    checked += 1
+  }
+}
+
 // 3) 배경 분리가 안 되는 사진: 한 가지 색, 거의 전체가 피사체, 아주 작은 사진, 확대·이동 — 모두 정확히 N칸
 const flat: SourceImage = { width: 40, height: 40, data: new Uint8ClampedArray(40 * 40 * 4).fill(200) }
 const allDark: SourceImage = (() => {
@@ -161,6 +198,6 @@ for (const goalDays of [14, 30, 100, 200]) {
 assert.equal(photoToDotGrid(flat, cropRectFor(40, 40, 1, 1, 0, 0), 30, { removeBackground: true }).palette.length, 1, '단색 사진은 색 하나')
 
 // 4) 색 수는 칸 수로 자동 결정
-assert.deepEqual([14, 30, 31, 100, 101, 200].map(colorCountFor), [4, 4, 5, 5, 6, 6])
+assert.deepEqual([14, 30, 31, 100, 101, 200].map(colorCountFor), [5, 5, 6, 6, 8, 8])
 
 console.log(`사진 → 도트 변환 확인 통과 (${checked}가지 조합)`)

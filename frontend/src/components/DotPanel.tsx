@@ -13,11 +13,10 @@ import { Note } from './Note'
 const STOP_TITLE_ID = 'dot-stop-title'
 
 /** 남는 높이가 정해져 있을 때(웹 홈 사이드) 칸이 6px 미만이 되면 그림은 그리지 않고 아래 요약 문구만 보여 준다. */
-const MIN_CELL_PX = 6
+const MIN_PITCH_PX = 8 // 칸 6px + 간격 2px
 function pictureFits(goal: DotGoal, maxPictureHeight: number | undefined): boolean {
   if (maxPictureHeight == null) return true
-  const gap = 2
-  return Math.floor((maxPictureHeight - gap * (goal.height - 1)) / goal.height) >= MIN_CELL_PX
+  return Math.floor(maxPictureHeight / goal.height) >= MIN_PITCH_PX
 }
 
 /** 카드 아래의 작은 링크. 완성한 그림이 모여 있는 도감으로 간다. */

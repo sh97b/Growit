@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import type { DotCell } from '../lib/dots'
 
-const MIN_CELL_PX = 6
-const MAX_CELL_PX = 22
-const FALLBACK_CELL_PX = 8
+/** 칸 하나가 차지하는 폭(칸 + 사이 간격)의 위쪽 한도와, 아직 컨테이너 폭을 못 쟀을 때의 임시 값. */
+const MAX_PITCH_PX = 26
+const FALLBACK_PITCH_PX = 10
+const gapFor = (pitch: number) => (pitch >= 14 ? 3 : pitch >= 8 ? 2 : 1)
 
 function useElementWidth() {
   const ref = useRef<HTMLDivElement>(null)
@@ -51,21 +52,21 @@ export function DotPicture({
   const { ref, width } = useElementWidth()
   const sparkleStart = sparkleFrom ?? filledCount
 
-  let gap: number
-  let cell: number
+  // 칸 하나의 폭(pitch) = min(가로 ÷ W, 세로 ÷ H)를 내림한 값이라, W×H 어떤 비율이어도 가로·세로 둘 다 컨테이너 안에 들어온다.
+  let pitch: number
   if (box != null) {
-    const longSide = Math.max(cols, rows)
-    gap = box / longSide < 7 ? 1 : 2
-    cell = Math.max(2, Math.floor((box - gap * (longSide - 1)) / longSide))
+    pitch = Math.floor(box / Math.max(cols, rows))
   } else {
-    gap = width > 0 && width / cols < 14 ? 2 : 3
-    const byWidth = width > 0 ? Math.floor((width - gap * (cols - 1)) / cols) : FALLBACK_CELL_PX
-    const byHeight = Math.floor((maxHeight - gap * (rows - 1)) / rows)
-    cell = Math.max(MIN_CELL_PX, Math.min(byWidth, byHeight, MAX_CELL_PX))
+    const byWidth = width > 0 ? Math.floor(width / cols) : FALLBACK_PITCH_PX
+    const byHeight = Math.floor(maxHeight / rows)
+    pitch = Math.min(byWidth, byHeight, MAX_PITCH_PX)
   }
+  pitch = Math.max(2, pitch)
+  const gap = gapFor(pitch)
+  const cell = Math.max(1, pitch - gap)
 
   return (
-    <div ref={ref} className="flex w-full justify-center">
+    <div ref={ref} className="flex w-full justify-center overflow-hidden">
       <div
         role="img"
         aria-label={ariaLabel}
