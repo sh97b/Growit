@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useActivityView } from '../hooks/useActivityView'
 import type { ActivityView } from '../lib/dots'
 import { ActivityHeatmap } from './ActivityHeatmap'
@@ -8,8 +9,11 @@ const OPTIONS: { value: ActivityView; label: string }[] = [
   { value: 'dot', label: '도트' },
 ]
 
-/** 홈의 활동 지도 카드. [잔디 | 도트] 보기를 고르고, 선택은 이 기기에 기억한다. 잔디 보기는 기존 활동 지도 그대로다. */
-export function HomeActivityCard() {
+/**
+ * 활동 지도 카드. [잔디 | 도트] 보기를 고르고, 선택은 이 기기에 기억한다(홈과 기록 탭이 같은 선택을 쓴다).
+ * 잔디 보기는 기존 활동 지도 그대로이고, 기록 탭처럼 다른 지도·요약을 쓰려면 grass로 바꿔 끼운다.
+ */
+export function HomeActivityCard({ grass }: { grass?: ReactNode }) {
   const [view, setView] = useActivityView()
 
   return (
@@ -32,7 +36,7 @@ export function HomeActivityCard() {
           ))}
         </div>
       </div>
-      {view === 'dot' ? <DotPanel /> : <ActivityHeatmap weeks={26} />}
+      {view === 'dot' ? <DotPanel /> : (grass ?? <ActivityHeatmap weeks={26} />)}
     </div>
   )
 }

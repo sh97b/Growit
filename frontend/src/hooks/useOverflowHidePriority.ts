@@ -35,8 +35,15 @@ export function useOverflowHidePriority(itemCount: number): {
       setVisibleCount((prev) => (prev === shown ? prev : shown))
     }
 
+    // 열 크기만이 아니라 각 블록의 크기도 지켜본다. 도트 카드처럼 데이터가 늦게 와서 블록 높이가 나중에
+    // 바뀌는 경우에도 다시 재서, 열 밖으로 잘리지 않고 아래 블록부터 숨겨지게 한다(measure가 끝난 상태는
+    // 직전과 같아서 서로를 계속 다시 부르지 않는다).
     const observer = new ResizeObserver(measure)
     observer.observe(container)
+    for (let i = 0; i < itemCount; i += 1) {
+      const node = itemRefs.current[i]
+      if (node) observer.observe(node)
+    }
     measure()
 
     return () => observer.disconnect()

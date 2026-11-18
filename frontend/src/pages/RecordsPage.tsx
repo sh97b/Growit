@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { ActivityHeatmap } from '../components/ActivityHeatmap'
+import { DotCompletionHost } from '../components/DotCompletionHost'
+import { HomeActivityCard } from '../components/HomeActivityCard'
 import { FilterBar } from '../components/FilterBar'
 import { ListPane } from '../components/ListPane'
 import { Loading } from '../components/Loading'
@@ -12,6 +14,7 @@ import { PlusIcon } from '../components/icons'
 import { useFilterBarQuery, resolveDateRange } from '../hooks/useFilterBarQuery'
 import { useFitPageSize, useStablePageOnResize } from '../hooks/useFitPageSize'
 import { useHobbies } from '../hooks/useHobbies'
+import { useActivityView } from '../hooks/useActivityView'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import { addDays, formatMonthDay, todayLocalDate } from '../lib/date'
 import { fetchRecords } from '../lib/records'
@@ -42,6 +45,7 @@ function highlightMatch(text: string, query: string): React.ReactNode {
 export function RecordsPage() {
   const [page, setPage] = useState(0)
   const isDesktop = useIsDesktop()
+  const [activityView] = useActivityView()
   const filter = useFilterBarQuery()
   const { from, to } = resolveDateRange(filter.range)
 
@@ -189,10 +193,19 @@ export function RecordsPage() {
     </>
   )
 
+  // 도트 보기는 데스크톱(폭 1024 이상)에서만 쓴다. 모바일은 숨겨 둔 채로도 도트 데이터를 부르지 않게 데스크톱일 때만 그린다.
   const side = (
-    <div className="hidden rounded-2xl bg-surface p-5 lg:block">
-      <ActivityHeatmap weeks={52} hobbyId={filter.hobbyId} />
-      <YearSummary hobbyId={filter.hobbyId} />
+    <div className="hidden lg:block">
+      {isDesktop ? (
+        <HomeActivityCard
+          grass={
+            <>
+              <ActivityHeatmap weeks={52} hobbyId={filter.hobbyId} />
+              <YearSummary hobbyId={filter.hobbyId} />
+            </>
+          }
+        />
+      ) : null}
     </div>
   )
 
@@ -200,6 +213,7 @@ export function RecordsPage() {
     <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
       <ReviewHeaderRow title="지난 기록" />
       <Split main={main} side={side} className="lg:min-h-0 lg:flex-1" />
+      {isDesktop && activityView === 'dot' ? <DotCompletionHost /> : null}
     </div>
   )
 }
