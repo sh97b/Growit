@@ -15,8 +15,11 @@ CREATE TABLE dot_goals (
     completion_seen  BOOLEAN      NOT NULL DEFAULT FALSE,
     created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    -- ACTIVE일 때만 user_id를 갖는 계산 칸. 유니크 인덱스(NULL은 여러 개 허용)로 사용자당 ACTIVE 1개를 DB가 보장한다.
+    active_user_id   BIGINT       GENERATED ALWAYS AS (CASE WHEN state = 'ACTIVE' THEN user_id END) STORED,
     CONSTRAINT fk_dot_goals_user FOREIGN KEY (user_id) REFERENCES users (id),
     CONSTRAINT ck_dot_goals_goal_days CHECK (goal_days BETWEEN 14 AND 200),
+    CONSTRAINT uk_dot_goals_active_user_id UNIQUE (active_user_id),
     INDEX idx_dot_goals_user_id_state (user_id, state)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
