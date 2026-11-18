@@ -18,10 +18,11 @@ import { ChevronRightIcon, PlusIcon } from '../components/icons'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { DotCompletionHost } from '../components/DotCompletionHost'
 import { useDotsCurrent } from '../hooks/useDots'
-import { useFitPageSize } from '../hooks/useFitPageSize'
 import { useHobbies } from '../hooks/useHobbies'
+import { useActivityView } from '../hooks/useActivityView'
 import { useIsDesktop, useMediaQuery } from '../hooks/useIsDesktop'
 import { useOverflowHidePriority } from '../hooks/useOverflowHidePriority'
+import { useShrinkToFit } from '../hooks/useShrinkToFit'
 import { fetchLatestCoach, generateAutoCoach, type CoachAutoResponse, type CoachResult } from '../lib/ai'
 import { reactionLine } from '../lib/coachReaction'
 import { ApiError } from '../lib/api'
@@ -38,7 +39,6 @@ import { createRecord, fetchRecords } from '../lib/records'
 import { fetchActivityMap, fetchSummary, type StatsSummary } from '../lib/stats'
 
 /** 홈 최근 기록 한 줄의 추정 높이(테두리+패딩+두 줄, rem). 남은 열 높이에 맞춰 0~3개만 보여준다. */
-const RECENT_ROW_HEIGHT_REM = 5.75
 
 const primaryLinkClass =
   'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-base px-5 text-body-min font-medium text-white no-underline lg:w-fit'
@@ -91,26 +91,33 @@ function useAutoCoachOncePerDay(): CoachAutoResponse | null {
 
 /** 도트 카드에서 그림을 뺀 나머지(여백·토글·문구·도감 링크)의 대략적인 높이(px). 남는 높이에서 빼서 그림 높이를 정한다. */
 const DOT_CARD_OVERHEAD_PX = 240
+/** 잔디 보기 카드와 목표 없는 도트 카드의 대략적인 높이(px). 왼쪽 열이 넘치는지 가늠할 때 쓴다. */
+const GRASS_CARD_PX = 280
+const DOT_EMPTY_CARD_PX = 200
+/** 웹 홈 왼쪽 열은 폭이 넓어서 도트 그림 높이 한도를 사이드(220px)보다 크게 쓴다. */
+const LEFT_PICTURE_CAP_PX = 360
 
 export function HomePage() {
   const { data: currentUser, isLoading: userLoading } = useCurrentUser()
   const summaryQuery = useQuery({ queryKey: ['stats', 'summary'], queryFn: fetchSummary })
   const [today] = useState(() => new Date())
   const [droppedMessages] = useState(() => takeDroppedOfflineMessages())
-  const isDesktop = useIsDesktop()
   const autoStatus = useAutoCoachOncePerDay()
   // 도트 보기를 열지 않아도 홈이 열릴 때 한 번 불러, 서버가 칠하기에 실패했던 날을 채워 두게 한다. 실패해도 홈에는 아무것도 보이지 않는다.
-  useDotsCurrent()
 
-  // P1 5단계: 본문의 최근 기록은 열에 남은 높이에 정확히 들어가는 개수(0~3개)만 보여준다
-  // (useFitPageSize를 그대로 재사용 — 목록 페이지네이션과 같은 "남은 높이 ÷ 한 줄 높이" 계산).
-  const { containerRef: recentRef, pageSize: recentFit, ready: recentReady } = useFitPageSize({
-    itemHeightRem: RECENT_ROW_HEIGHT_REM,
-    columns: 1,
-    min: 0,
-    max: 3,
-  })
-  const recentLimit = isDesktop ? (recentReady ? recentFit : 3) : 3
+  // W4: 웹(폭 1024 이상)에서는 활동 지도 카드가 왼쪽 열의 "최근 기록" 아래에 있다. 왼쪽이 넘치면 최근 기록을
+  // 3→2→1→0개로 먼저 줄이고, 활동 지도 카드는 마지막까지 남긴다(그림은 남는 높이에 맞추고, 칸이 6px 미만이면 요약만).
+  const [activityView] = useActivityView()
+  const dotsQuery = useDotsCurrent()
+  const dotShown = dotsQuery.data?.goal ?? dotsQuery.data?.justCompleted ?? null
+  const dotNeedPicture = activityView === 'dot' && dotShown ? dotShown.height * 6 + 2 * (dotShown.height - 1) : 0
+  const leftOverhead = activityView === 'grass' ? GRASS_CARD_PX : dotShown ? DOT_CARD_OVERHEAD_PX : DOT_EMPTY_CARD_PX
+  const {
+    containerRef: leftFitRef,
+    shrinkRef: recentRef,
+    count: recentCount,
+    pictureMax: leftPictureMax,
+  } = useShrinkToFit({ max: 3, overhead: leftOverhead, needPicture: dotNeedPicture, pictureCap: LEFT_PICTURE_CAP_PX })
 
   // 아래 세 훅은 summary가 아직 로딩 중이어도(이 아래 early return보다 먼저) 매 렌더마다 똑같이
   // 호출돼야 한다(Hooks 규칙) — summary 로딩 전에는 잠정적으로 안전한 기본값으로 계산해 두고,
@@ -132,8 +139,8 @@ export function HomePage() {
     enabled: statePreview === 'comeback',
   })
 
-  const sideItemCount = statePreview == null || statePreview === 'first' ? 0 : 4
-  const { containerRef: sideFitRef, itemRefs: sideItemRefs, containerHeight: sideHeight } = useOverflowHidePriority(sideItemCount)
+  const sideItemCount = statePreview == null || statePreview === 'first' ? 0 : 3
+  const { containerRef: sideFitRef, itemRefs: sideItemRefs } = useOverflowHidePriority(sideItemCount)
   // 낮은 화면(1366×768, 1280×720 같은)에서는 통계 3칸을 한 줄로 줄인다. 모바일(폭 1024 미만)은 이 값을 쓰지 않는다.
   const lowScreen = useMediaQuery('(max-height: 760px)')
 
@@ -190,21 +197,12 @@ export function HomePage() {
   // 주제)로 두고, 열이 실제로 넘칠 때만 아래 블록부터 숨긴다(useOverflowHidePriority). 최근 7일
   // 줄은 이 우선순위 목록에 없던 기존 블록이라(지시문 목록에 없음) 숨김 대상에서 빼고 그대로 맨
   // 위에 둔다 — 작아서 공간을 거의 안 차지하고, done/off 상태에서만 보이던 기존 규칙도 유지한다.
-  // 배열 순서가 숨김 우선순위다(앞이 높음, 넘치면 맨 뒤부터 숨김): 활동 지도 → 최근 회고 → 통계 → 자주 하는 주제.
-  // 화면에 보이는 순서는 order로 따로 정해서 예전처럼 회고, 활동 지도, 통계, 주제 순으로 둔다.
+  // 배열 순서가 숨김 우선순위다(앞이 높음, 넘치면 맨 뒤부터 숨김): 최근 회고 → 통계 → 자주 하는 주제.
+  // (활동 지도 카드는 W4부터 왼쪽 열로 옮겼다.)
   const sideItems: { key: string; order: number; node: ReactNode }[] =
     state === 'first'
       ? []
       : [
-          {
-            key: 'heatmap',
-            order: 1,
-            node: (
-              <HomeActivityCard
-                maxPictureHeight={sideHeight > 0 ? Math.max(0, Math.min(220, sideHeight - DOT_CARD_OVERHEAD_PX)) : undefined}
-              />
-            ),
-          },
           { key: 'coach', order: 0, node: <HomeCoachCard comeback={state === 'comeback'} autoStatus={autoStatus} /> },
           { key: 'stats', order: 2, node: <StatsTiles summary={summary} compact={lowScreen} /> },
           { key: 'topics', order: 3, node: <TopicChips /> },
@@ -230,7 +228,8 @@ export function HomePage() {
   )
 
   const main = (
-    <>
+    // 웹에서는 페이지 스크롤이 없다. 이 열의 안쪽 블록이 넘치면 아래의 숨김·줄이기 규칙이 처리하고, 열 자체는 스크롤하지 않는다.
+    <div className="flex flex-col gap-5 lg:h-full lg:min-h-0 lg:overflow-hidden">
       {greeting}
 
       {droppedMessages.length > 0 ? (
@@ -270,11 +269,16 @@ export function HomePage() {
       ) : null}
 
       {state !== 'first' ? (
-        <div ref={recentRef} className="hidden lg:block lg:min-h-0 lg:flex-1 lg:overflow-hidden">
-          <RecentRecordsCard limit={recentLimit} />
+        <div ref={leftFitRef} className="hidden lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-7 lg:overflow-hidden">
+          <div ref={recentRef} className={recentCount > 0 ? 'flex-none' : 'hidden'}>
+            {recentCount > 0 ? <RecentRecordsCard limit={recentCount} /> : null}
+          </div>
+          <div className="flex-none">
+            <HomeActivityCard maxPictureHeight={leftPictureMax} />
+          </div>
         </div>
       ) : null}
-    </>
+    </div>
   )
 
   return (
