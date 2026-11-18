@@ -13,7 +13,7 @@ import { TopicChips } from '../components/TopicChips'
 import { CheckCircleIcon, PencilIcon, RefreshIcon, SparkleIcon } from '../components/icons'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useHobbies } from '../hooks/useHobbies'
-import { fetchLatestCoach, submitCoachReaction } from '../lib/ai'
+import { useLatestNextAction } from '../hooks/useLatestNextAction'
 import { ApiError } from '../lib/api'
 import { formatMonthDay, todayLocalDate, yesterdayLocalDate } from '../lib/date'
 import { queueOfflineRecord, type OfflineQueueItem } from '../lib/offlineQueue'
@@ -25,7 +25,7 @@ import {
   saveRecordDraft,
   type RecordDraft,
 } from '../lib/recordDraft'
-import { createRecord, fetchRecords, type Feeling } from '../lib/records'
+import { createRecord, fetchRecords, markNextActionTried, type Feeling } from '../lib/records'
 
 const DEFAULT_ERROR_MESSAGE = '저장하지 못했어요. 쓴 글은 이 기기에 남아 있어요.'
 const DRAFT_SAVE_DELAY_MS = 500
@@ -37,7 +37,7 @@ export function RecordNewPage() {
   const { data: currentUser, isLoading: userLoading } = useCurrentUser()
   const { data: hobbies, isLoading: hobbiesLoading } = useHobbies(false)
   const recentQuery = useQuery({ queryKey: ['records', 'recent'], queryFn: () => fetchRecords({ size: 1 }) })
-  const latestCoachQuery = useQuery({ queryKey: ['ai', 'coach', 'latest'], queryFn: fetchLatestCoach })
+  const latestNextActionQuery = useLatestNextAction()
 
   const activeHobbies = hobbies ?? []
 
@@ -53,6 +53,7 @@ export function RecordNewPage() {
   const [customFeelingId, setCustomFeelingId] = useState<number | null>(null)
   const [draftRestored, setDraftRestored] = useState(false)
   const [suggestionOn, setSuggestionOn] = useState(true)
+  const [suggestionDismissed, setSuggestionDismissed] = useState(false)
 
   const [submitting, setSubmitting] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -136,10 +137,10 @@ export function RecordNewPage() {
   const selectedHobby = activeHobbies.find((hobby) => hobby.id === hobbyId) ?? activeHobbies[0]
   const today = todayLocalDate()
   const recordDate = dateMode === 'today' ? today : dateMode === 'yesterday' ? yesterdayLocalDate() : customDate
+  // 지난 제안: 가장 최근 기록의 다음에 해 볼 일 중 아직 반응이 없는 것. 닫으면 이 화면에서는 다시 안 보인다.
+  const latestNextAction = latestNextActionQuery.data
   const suggestion =
-    latestCoachQuery.data?.cardState === 'ACTIVE' && latestCoachQuery.data.nextAction
-      ? latestCoachQuery.data.nextAction
-      : null
+    !suggestionDismissed && latestNextAction && latestNextAction.state == null ? latestNextAction : null
 
   async function handleSave() {
     if (submitting || !selectedHobby) return
@@ -161,9 +162,9 @@ export function RecordNewPage() {
         customFeelingId: customFeelingId ?? undefined,
       })
       if (currentUser) clearRecordDraft(currentUser.id)
-      if (suggestion && suggestionOn && latestCoachQuery.data?.id != null) {
-        submitCoachReaction(latestCoachQuery.data.id, 'TRIED')
-          .then((updated) => queryClient.setQueryData(['ai', 'coach', 'latest'], updated))
+      if (suggestion && suggestionOn) {
+        markNextActionTried(suggestion.recordId)
+          .then((updated) => queryClient.setQueryData(['records', 'next-action', 'latest'], updated))
           .catch(() => {
             // 반응 저장이 실패해도 기록 저장 자체는 이미 성공했으니 조용히 넘어간다.
           })
@@ -300,7 +301,7 @@ export function RecordNewPage() {
               <button
                 type="button"
                 aria-pressed={suggestionOn}
-                aria-label={`지난 제안: ${suggestion.title}`}
+                aria-label={`지난 제안: ${suggestion.text}`}
                 onClick={() => setSuggestionOn((prev) => !prev)}
                 className={[
                   'inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-4 text-sm font-medium',
@@ -310,7 +311,15 @@ export function RecordNewPage() {
                 ].join(' ')}
               >
                 <SparkleIcon width={14} height={14} />
-                {suggestion.title}
+                {suggestion.text}
+              </button>
+              <button
+                type="button"
+                aria-label="지난 제안 닫기"
+                onClick={() => setSuggestionDismissed(true)}
+                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-3"
+              >
+                <span aria-hidden="true">×</span>
               </button>
             </div>
           ) : null

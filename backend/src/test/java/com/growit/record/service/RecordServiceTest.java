@@ -602,4 +602,77 @@ class RecordServiceTest {
 		assertThat(activityRecordRepository.findById(created.id()).orElseThrow().getAiStatus())
 				.isEqualTo(AiStatus.FAILED);
 	}
+
+	private Long doneRecordWithNextAction(Long userId, Long hobbyId, LocalDate date, String analysisJson) {
+		com.growit.record.entity.ActivityRecord record = new com.growit.record.entity.ActivityRecord(userId, hobbyId,
+				date, "기록", 20, null, Feeling.PROUD, false);
+		record.markAnalysisDone(analysisJson);
+		return activityRecordRepository.save(record).getId();
+	}
+
+	private static final String NO_ACTION = "{\"title\":\"t\",\"tags\":[],\"relatedRecordIds\":[],\"change\":null}";
+	private static final String WITH_ACTION = "{\"title\":\"t\",\"tags\":[],\"relatedRecordIds\":[],\"change\":null,"
+			+ "\"nextAction\":{\"text\":\"한 곡만 쳐 봐요\",\"minutes\":5,\"state\":null}}";
+
+	@Test
+	void latestNextAction_returnsNewestRecordsAction_orNull() {
+		RecordService service = recordServiceWithAiEnabled();
+		Long hobbyId = createHobby(1L, "기타");
+		assertThat(service.latestNextAction(1L)).isNull();
+
+		doneRecordWithNextAction(1L, hobbyId, LocalDate.of(2026, 10, 1), WITH_ACTION.replace("한 곡만", "옛날"));
+		Long newest = doneRecordWithNextAction(1L, hobbyId, LocalDate.of(2026, 10, 5), WITH_ACTION);
+
+		var latest = service.latestNextAction(1L);
+		assertThat(latest.recordId()).isEqualTo(newest);
+		assertThat(latest.text()).isEqualTo("한 곡만 쳐 봐요");
+		assertThat(latest.minutes()).isEqualTo(5);
+		assertThat(latest.state()).isNull();
+	}
+
+	@Test
+	void latestNextAction_newestRecordWithoutAction_returnsNull() {
+		RecordService service = recordServiceWithAiEnabled();
+		Long hobbyId = createHobby(1L, "기타");
+		doneRecordWithNextAction(1L, hobbyId, LocalDate.of(2026, 10, 1), WITH_ACTION);
+		doneRecordWithNextAction(1L, hobbyId, LocalDate.of(2026, 10, 5), NO_ACTION);
+
+		assertThat(service.latestNextAction(1L)).isNull();
+	}
+
+	@Test
+	void reactToNextAction_marksTriedAndKeepsText() {
+		RecordService service = recordServiceWithAiEnabled();
+		Long hobbyId = createHobby(1L, "기타");
+		Long id = doneRecordWithNextAction(1L, hobbyId, LocalDate.of(2026, 10, 5), WITH_ACTION);
+
+		var response = service.reactToNextAction(1L, id, "TRIED");
+
+		assertThat(response.state()).isEqualTo("TRIED");
+		assertThat(service.latestNextAction(1L).state()).isEqualTo("TRIED");
+		assertThat(service.latestNextAction(1L).text()).isEqualTo("한 곡만 쳐 봐요");
+	}
+
+	@Test
+	void reactToNextAction_otherUsersRecord_isNotFound() {
+		RecordService service = recordServiceWithAiEnabled();
+		Long hobbyId = createHobby(2L, "기타");
+		Long id = doneRecordWithNextAction(2L, hobbyId, LocalDate.of(2026, 10, 5), WITH_ACTION);
+
+		assertThatThrownBy(() -> service.reactToNextAction(1L, id, "TRIED")).isInstanceOf(ApiException.class);
+		assertThat(service.latestNextAction(1L)).isNull();
+		assertThat(service.latestNextAction(2L).state()).isNull();
+	}
+
+	@Test
+	void reactToNextAction_noActionOrBadValue_isRejected() {
+		RecordService service = recordServiceWithAiEnabled();
+		Long hobbyId = createHobby(1L, "기타");
+		Long noAction = doneRecordWithNextAction(1L, hobbyId, LocalDate.of(2026, 10, 5), NO_ACTION);
+		Long withAction = doneRecordWithNextAction(1L, hobbyId, LocalDate.of(2026, 10, 6), WITH_ACTION);
+
+		assertThatThrownBy(() -> service.reactToNextAction(1L, noAction, "TRIED")).isInstanceOf(ApiException.class);
+		assertThatThrownBy(() -> service.reactToNextAction(1L, withAction, "TOO_HARD"))
+				.isInstanceOf(ApiException.class);
+	}
 }

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Button } from './Button'
 import { AiLabel } from './AiLabel'
 import { ChangeFeedbackRow } from './ChangeFeedbackRow'
+import { NextActionCard } from './NextActionCard'
 import { Split } from './PageLayout'
 import { RecentWeekStrip } from './RecentWeekStrip'
 import { RecordPairCards } from './RecordPairCards'
@@ -92,6 +93,10 @@ export function RecordSavedPanel({
 
   const change = record.aiStatus === 'DONE' ? (record.analysis?.change ?? null) : null
 
+  // 오프라인 저장 화면이 아니라 서버에 저장된 기록의 화면이라, AI가 만든 제안이 있을 때만 보인다(없으면 카드 없음).
+  const nextAction = record.aiStatus === 'DONE' ? (record.analysis?.nextAction ?? null) : null
+  const nextActionBlock = nextAction ? <NextActionCard action={nextAction} /> : null
+
   // 비교 카드가 이미 같은 근거 기록을 보여주므로, 여기서는 AI 문장과 피드백만 두고 근거 칩은 만들지 않는다.
   const changeSentenceBlock = (
     <div className={['grid-collapse', change ? '' : 'is-collapsed'].join(' ')}>
@@ -128,6 +133,8 @@ export function RecordSavedPanel({
         {header}
 
         {changeSentenceBlock}
+
+        {nextActionBlock}
 
         {!previousQuery.isLoading || change ? (
           <RecordPairCards
@@ -178,6 +185,8 @@ export function RecordSavedPanel({
           다음 기록에서 이어서 볼게요.
         </p>
       </div>
+
+      {nextActionBlock}
 
       {actionButtons}
 

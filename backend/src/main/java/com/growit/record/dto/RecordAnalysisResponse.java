@@ -8,5 +8,6 @@ public record RecordAnalysisResponse(
 		List<RecordRelatedRecord> relatedRecords,
 		RecordAnalysisChange change,
 		String tagsFeedback,
-		String changeFeedback) {
+		String changeFeedback,
+		RecordNextAction nextAction) {
 }

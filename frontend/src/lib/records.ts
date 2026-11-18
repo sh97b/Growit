@@ -16,7 +16,14 @@ export type RecordAnalysis = {
   change: { text: string; evidence: RecordRelated } | null
   tagsFeedback: TagsFeedback
   changeFeedback: ChangeFeedback | null
+  /** 예전 결과에는 없다. 없으면 화면에 내지 않는다. */
+  nextAction?: NextAction | null
 }
+
+/** 기록 직후의 "다음에 해 볼 일". state가 null이면 아직 반응이 없는 제안이다. */
+export type NextAction = { text: string; minutes: number; state: 'TRIED' | null }
+
+export type LatestNextAction = NextAction & { recordId: number; recordDate: string }
 
 export type RecordAnalysisSummary = { title: string | null; tags: string[] }
 
@@ -109,6 +116,18 @@ export function updateRecord(id: number, payload: RecordUpdatePayload) {
   return apiRequest<RecordDetail>(`/api/records/${id}`, {
     method: 'PATCH',
     body: payload,
+  })
+}
+
+/** 가장 최근 기록의 다음에 해 볼 일. 없으면(204) undefined. */
+export function fetchLatestNextAction() {
+  return apiRequest<LatestNextAction | undefined>('/api/records/next-action/latest')
+}
+
+export function markNextActionTried(recordId: number) {
+  return apiRequest<LatestNextAction>(`/api/records/${recordId}/next-action/state`, {
+    method: 'PUT',
+    body: { value: 'TRIED' },
   })
 }
 

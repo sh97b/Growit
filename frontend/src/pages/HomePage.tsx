@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AiLabel } from '../components/AiLabel'
 import { Band } from '../components/Card'
 import { Button } from '../components/Button'
-import { CoachActionCard } from '../components/CoachResultView'
+import { useLatestNextAction } from '../hooks/useLatestNextAction'
 import { Dropdown } from '../components/Dropdown'
 import { HobbyInlineCreate } from '../components/HobbyInlineCreate'
 import { HomeActivityCard } from '../components/HomeActivityCard'
@@ -23,8 +23,7 @@ import { useActivityView } from '../hooks/useActivityView'
 import { useIsDesktop, useMediaQuery } from '../hooks/useIsDesktop'
 import { useOverflowHidePriority } from '../hooks/useOverflowHidePriority'
 import { useShrinkToFit } from '../hooks/useShrinkToFit'
-import { fetchLatestCoach, generateAutoCoach, type CoachAutoResponse, type CoachResult } from '../lib/ai'
-import { reactionLine } from '../lib/coachReaction'
+import { fetchLatestCoach, generateAutoCoach, type CoachAutoResponse } from '../lib/ai'
 import { ApiError } from '../lib/api'
 import {
   daysBetween,
@@ -203,7 +202,7 @@ export function HomePage() {
     state === 'first'
       ? []
       : [
-          { key: 'coach', order: 0, node: <HomeCoachCard comeback={state === 'comeback'} autoStatus={autoStatus} /> },
+          { key: 'coach', order: 0, node: <HomeCoachCard autoStatus={autoStatus} /> },
           { key: 'stats', order: 2, node: <StatsTiles summary={summary} compact={lowScreen} /> },
           { key: 'topics', order: 3, node: <TopicChips /> },
         ]
@@ -255,7 +254,7 @@ export function HomePage() {
             <RecentWeekStrip />
           </div>
           <div className="lg:hidden">
-            <HomeCoachCard comeback={state === 'comeback'} autoStatus={autoStatus} />
+            <HomeCoachCard autoStatus={autoStatus} />
           </div>
           <div className="lg:hidden">
             <RecentRecordsCard limit={2} />
@@ -358,19 +357,19 @@ function FirstUseBoard() {
  * 회고 자체는 여전히 유효한 정보라 숨길 이유가 없다는 게 이번 지시의 핵심 — 서버 `latest()`는
  * 이미 EXPIRED여도 result를 그대로 돌려주고 있어 이 부분은 프론트 로직만 바꾸면 됐다).
  */
-function HomeCoachCard({ comeback, autoStatus }: { comeback: boolean; autoStatus: CoachAutoResponse | null }) {
-  const queryClient = useQueryClient()
+function HomeCoachCard({ autoStatus }: { autoStatus: CoachAutoResponse | null }) {
   const { data, isLoading } = useQuery({ queryKey: ['ai', 'coach', 'latest'], queryFn: fetchLatestCoach })
+  const nextActionQuery = useLatestNextAction()
 
-  if (isLoading) {
+  if (isLoading || nextActionQuery.isLoading) {
     return <Loading />
   }
 
-  const action = data ? (comeback ? data.comebackAction : data.nextAction) : null
+  const nextAction = nextActionQuery.data ?? null
 
   // 회고가 아예 없으면: 오늘 접속 때 자동 생성 조건을 이미 확인했다면(autoStatus) 정확한 진행
   // 수치를, 아니면(같은 날 두 번째 접속 등으로 건너뛴 경우) 일반 안내만 보여준다.
-  if (!data || !action) {
+  if (!data) {
     if (autoStatus && autoStatus.status === 'NOT_ELIGIBLE' && !autoStatus.hasAnyCoach) {
       const ratio = Math.min(100, (autoStatus.newRecordsSinceLast / Math.max(1, autoStatus.requiredCount)) * 100)
       return (
@@ -397,26 +396,20 @@ function HomeCoachCard({ comeback, autoStatus }: { comeback: boolean; autoStatus
     )
   }
 
-  const expired = data.cardState === 'EXPIRED'
-
   const newBanner = data.isNew ? (
     <div className="flex items-center gap-1.5">
       <AiLabel>새로 도착</AiLabel>
     </div>
   ) : null
 
-  // CELEBRATE·RESTING은 행동 카드 대신 짧은 응원 문구만 보여준다(기존 동작 유지).
-  const body =
-    !expired && (data.cardState === 'CELEBRATE' || data.cardState === 'RESTING') ? (
-      <p className="text-body-min text-ink-2">{encouragementLine(data)}</p>
-    ) : (
-      <CoachActionCard
-        result={data}
-        comeback={comeback}
-        hideReactions={expired}
-        onResultChange={(updated) => queryClient.setQueryData(['ai', 'coach', 'latest'], updated)}
-      />
-    )
+  // 다음 행동은 이제 기록 직후에 만들어지는 "다음에 해 볼 일"이 맡는다. 없으면 이 블록은 숨긴다.
+  const body = nextAction ? (
+    <div className="flex flex-col gap-1 rounded-xl bg-white/60 p-3">
+      <span className="text-caption-min font-medium text-ink-2">다음에 해 볼 일</span>
+      <p className="text-body-min text-ink">{nextAction.text}</p>
+      <span className="text-caption-min text-ink-2">약 {nextAction.minutes}분</span>
+    </div>
+  ) : null
 
   return (
     <div className="flex flex-col gap-2.5 rounded-2xl bg-surface p-5">
@@ -437,12 +430,6 @@ function HomeCoachCard({ comeback, autoStatus }: { comeback: boolean; autoStatus
       </Link>
     </div>
   )
-}
-
-function encouragementLine(data: CoachResult): string {
-  if (data.cardState === 'CELEBRATE') return reactionLine('TRIED', data.id ?? 0)
-  if (data.reaction === 'REST_TODAY') return reactionLine('REST_TODAY', data.id ?? 0)
-  return '오늘은 여기까지면 충분해요.'
 }
 
 /**

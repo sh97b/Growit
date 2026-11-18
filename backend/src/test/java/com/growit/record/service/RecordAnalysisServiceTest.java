@@ -247,7 +247,7 @@ class RecordAnalysisServiceTest {
 		service(enabledProperties()).analyze(current.getId(), 1L);
 
 		ActivityRecord result = activityRecordRepository.findById(current.getId()).orElseThrow();
-		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":2").contains("\"model\":\"model\"");
+		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":3").contains("\"model\":\"model\"");
 	}
 
 	@Test
@@ -270,5 +270,106 @@ class RecordAnalysisServiceTest {
 
 		ActivityRecord result = activityRecordRepository.findById(current.getId()).orElseThrow();
 		assertThat(result.getAiStatus()).isEqualTo(AiStatus.FAILED);
+	}
+
+	private static final String BASE = "{\"title\":\"연습\",\"tags\":[],\"relatedRecordIds\":[],\"change\":null,";
+
+	private ActivityRecord analyzeWithNextAction(String nextActionJson) {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "연습");
+		stubAiResponse(BASE + "\"nextAction\":" + nextActionJson + "}");
+		service(enabledProperties()).analyze(current.getId(), 1L);
+		return activityRecordRepository.findById(current.getId()).orElseThrow();
+	}
+
+	@Test
+	void analyze_nextAction_savedWithoutState() {
+		ActivityRecord result = analyzeWithNextAction("{\"text\":\"박자를 세며 한 곡만 쳐 봐요\",\"minutes\":7}");
+
+		assertThat(result.getAiStatus()).isEqualTo(AiStatus.DONE);
+		assertThat(result.getAiAnalysis()).contains("박자를 세며 한 곡만 쳐 봐요").contains("\"minutes\":7")
+				.contains("\"state\":null");
+	}
+
+	@Test
+	void analyze_nextActionNull_keepsRestOfResult() {
+		ActivityRecord result = analyzeWithNextAction("null");
+
+		assertThat(result.getAiStatus()).isEqualTo(AiStatus.DONE);
+		assertThat(result.getAiAnalysis()).contains("\"nextAction\":null").contains("\"title\":\"연습\"");
+	}
+
+	@Test
+	void analyze_urgentOrForbiddenWordsInNextAction_dropsNextActionOnly() {
+		for (String text : new String[] {"꼭 한 곡 쳐 봐요", "반드시 쳐 봐요", "지금 해야 해요", "빨리 쳐 봐요", "실력이 늘었는지 봐요"}) {
+			ActivityRecord result = analyzeWithNextAction("{\"text\":\"" + text + "\",\"minutes\":5}");
+
+			assertThat(result.getAiStatus()).as(text).isEqualTo(AiStatus.DONE);
+			assertThat(result.getAiAnalysis()).as(text).contains("\"nextAction\":null").contains("\"title\":\"연습\"");
+		}
+	}
+
+	@Test
+	void analyze_nextActionMinutesOutOfRangeOrTooLong_dropsNextActionOnly() {
+		String longText = "가".repeat(51);
+		for (String json : new String[] {"{\"text\":\"쳐 봐요\",\"minutes\":4}", "{\"text\":\"쳐 봐요\",\"minutes\":11}",
+				"{\"text\":\"쳐 봐요\",\"minutes\":\"7\"}", "{\"text\":\"쳐 봐요\",\"minutes\":7.5}",
+				"{\"text\":\"" + longText + "\",\"minutes\":7}", "{\"text\":\" \",\"minutes\":7}"}) {
+			ActivityRecord result = analyzeWithNextAction(json);
+
+			assertThat(result.getAiStatus()).as(json).isEqualTo(AiStatus.DONE);
+			assertThat(result.getAiAnalysis()).as(json).contains("\"nextAction\":null");
+		}
+	}
+
+	private String capturedUserPrompt() {
+		org.mockito.ArgumentCaptor<String> captor = org.mockito.ArgumentCaptor.forClass(String.class);
+		org.mockito.Mockito.verify(aiChatClient).complete(anyString(), captor.capture());
+		return captor.getValue();
+	}
+
+	@Test
+	void analyze_firstRecord_sendsFirstRecordContextWithoutElapsedDays() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "첫 연습");
+		stubAiResponse(BASE + "\"nextAction\":null}");
+
+		service(enabledProperties()).analyze(current.getId(), 1L);
+
+		assertThat(capturedUserPrompt()).contains("\"isFirstRecord\":true").contains("\"daysSincePreviousRecord\":null");
+	}
+
+	@Test
+	void analyze_afterLongBreak_sendsElapsedDaysAcrossHobbies() {
+		Long hobbyA = createHobby(1L);
+		Long hobbyB = createHobby(1L);
+		createPendingRecord(1L, hobbyA, LocalDate.of(2026, 10, 1), "이전 연습");
+		ActivityRecord current = createPendingRecord(1L, hobbyB, LocalDate.of(2026, 10, 10), "다른 분야 연습");
+		stubAiResponse(BASE + "\"nextAction\":null}");
+
+		service(enabledProperties()).analyze(current.getId(), 1L);
+
+		assertThat(capturedUserPrompt()).contains("\"isFirstRecord\":false").contains("\"daysSincePreviousRecord\":9");
+	}
+
+	@Test
+	void analyze_elapsedDays_ignoresOtherUsersRecords() {
+		Long hobbyId = createHobby(1L);
+		Long otherHobby = createHobby(2L);
+		createPendingRecord(2L, otherHobby, LocalDate.of(2026, 10, 9), "남의 기록");
+		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "내 첫 기록");
+		stubAiResponse(BASE + "\"nextAction\":null}");
+
+		service(enabledProperties()).analyze(current.getId(), 1L);
+
+		assertThat(capturedUserPrompt()).contains("\"isFirstRecord\":true");
+	}
+
+	@Test
+	void readJson_oldResultWithoutNextAction_deserializesWithNull() {
+		StoredAnalysis stored = service(enabledProperties()).readJson("{\"title\":\"예전\",\"tags\":[],"
+				+ "\"relatedRecordIds\":[],\"change\":null,\"promptVersion\":2,\"model\":\"m\"}");
+
+		assertThat(stored.nextAction()).isNull();
 	}
 }

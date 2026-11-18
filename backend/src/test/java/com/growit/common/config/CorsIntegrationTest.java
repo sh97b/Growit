@@ -106,6 +106,8 @@ public class CorsIntegrationTest {
 				Arguments.of("/api/records/1/analysis", "POST"),
 				Arguments.of("/api/records/1/analysis/feedback", "PUT"),
 				Arguments.of("/api/records/1/analysis/tags", "PATCH"),
+				Arguments.of("/api/records/next-action/latest", "GET"),
+				Arguments.of("/api/records/1/next-action/state", "PUT"),
 				Arguments.of("/api/health", "GET"),
 				Arguments.of("/api/users/me", "GET"),
 				Arguments.of("/api/users/me", "PATCH"),

@@ -15,20 +15,26 @@ record StoredAnalysis(
 		String tagsFeedback,
 		String changeFeedback,
 		Integer promptVersion,
-		String model) {
+		String model,
+		StoredNextAction nextAction) {
 
 	StoredAnalysis withTagsFeedback(String feedback) {
 		return new StoredAnalysis(title, tags, relatedRecordIds, change, feedback, changeFeedback, promptVersion,
-				model);
+				model, nextAction);
 	}
 
 	StoredAnalysis withChangeFeedback(String feedback) {
 		return new StoredAnalysis(title, tags, relatedRecordIds, change, tagsFeedback, feedback, promptVersion,
-				model);
+				model, nextAction);
 	}
 
 	StoredAnalysis withEditedTags(List<String> newTags) {
 		return new StoredAnalysis(title, newTags, relatedRecordIds, change, "EDITED", changeFeedback, promptVersion,
-				model);
+				model, nextAction);
+	}
+
+	StoredAnalysis withNextActionState(String state) {
+		return new StoredAnalysis(title, tags, relatedRecordIds, change, tagsFeedback, changeFeedback, promptVersion,
+				model, nextAction == null ? null : nextAction.withState(state));
 	}
 }

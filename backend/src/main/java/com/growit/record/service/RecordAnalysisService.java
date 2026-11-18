@@ -38,12 +38,17 @@ public class RecordAnalysisService {
 	private static final int TAGS_MAX_COUNT = 3;
 	private static final int RELATED_MAX_COUNT = 2;
 	private static final int CHANGE_TEXT_MAX = 60;
+	private static final int NEXT_ACTION_TEXT_MAX = 50;
+	private static final int NEXT_ACTION_MIN_MINUTES = 5;
+	private static final int NEXT_ACTION_MAX_MINUTES = 10;
 	/** 접근 제한자를 package-private으로 완화함(E1 AI 품질 평가 하네스가 같은 패키지의 테스트에서 재사용). */
 	static final List<String> FORBIDDEN_WORDS =
 			List.of("실력", "늘었", "향상", "잘했", "훌륭", "대단", "점수", "순위");
+	/** 다음 행동에는 재촉하는 말도 막는다(기록 해석의 금지어에 더해). */
+	static final List<String> URGENCY_WORDS = List.of("꼭", "반드시", "해야", "빨리");
 	private static final String PROMPT_RESOURCE_NAME = "record-analysis-system.txt";
 	/** prompts/record-analysis-system.txt의 내용을 바꿀 때마다 올린다. 저장된 결과가 어떤 지시문으로 만들어졌는지 추적하기 위해서다. */
-	static final int PROMPT_VERSION = 2;
+	static final int PROMPT_VERSION = 3;
 
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
@@ -133,8 +138,14 @@ public class RecordAnalysisService {
 						truncate(h.getContent(), HISTORY_CONTENT_MAX),
 						truncate(h.getDifficulty(), HISTORY_DIFFICULTY_MAX)))
 				.toList();
+		List<ActivityRecord> previousOfUser = activityRecordRepository.findPreviousOfUser(userId,
+				record.getRecordDate(), record.getId(), PageRequest.of(0, 1));
+		AnalysisContext context = previousOfUser.isEmpty()
+				? new AnalysisContext(true, null)
+				: new AnalysisContext(false, (int) java.time.temporal.ChronoUnit.DAYS
+						.between(previousOfUser.get(0).getRecordDate(), record.getRecordDate()));
 		AnalysisPayload payload = new AnalysisPayload(
-				new AnalysisHobbyInput(hobby.getName(), hobby.getGoal()), recordInput, historyItems);
+				new AnalysisHobbyInput(hobby.getName(), hobby.getGoal()), recordInput, historyItems, context);
 
 		Set<Long> allowedIds = history.stream().map(ActivityRecord::getId)
 				.collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
@@ -169,7 +180,11 @@ public class RecordAnalysisService {
 		List<Long> relatedRecordIds = sanitizeRelatedIds(node.path("relatedRecordIds"), allowedHistoryIds);
 		StoredChange change = sanitizeChange(node.path("change"), allowedHistoryIds);
 
-		return new StoredAnalysis(title, tags, relatedRecordIds, change, null, null, PROMPT_VERSION, model);
+		// nextAction이 이상해도 나머지 결과는 살린다(전체 실패 금지).
+		StoredNextAction nextAction = sanitizeNextAction(node.path("nextAction"));
+
+		return new StoredAnalysis(title, tags, relatedRecordIds, change, null, null, PROMPT_VERSION, model,
+				nextAction);
 	}
 
 	private String sanitizeTitle(JsonNode titleNode) {
@@ -245,6 +260,25 @@ public class RecordAnalysisService {
 			return null;
 		}
 		return new StoredChange(text, evidenceId);
+	}
+
+	private StoredNextAction sanitizeNextAction(JsonNode actionNode) {
+		if (!actionNode.isObject()) {
+			return null;
+		}
+		JsonNode textNode = actionNode.path("text");
+		JsonNode minutesNode = actionNode.path("minutes");
+		if (!textNode.isTextual() || !minutesNode.isIntegralNumber() || !minutesNode.canConvertToInt()) {
+			return null;
+		}
+		String text = textNode.asText().trim();
+		int minutes = minutesNode.asInt();
+		if (text.isEmpty() || text.length() > NEXT_ACTION_TEXT_MAX || containsForbiddenWord(text)
+				|| URGENCY_WORDS.stream().anyMatch(text::contains)
+				|| minutes < NEXT_ACTION_MIN_MINUTES || minutes > NEXT_ACTION_MAX_MINUTES) {
+			return null;
+		}
+		return new StoredNextAction(text, minutes, null);
 	}
 
 	private boolean containsForbiddenWord(String text) {

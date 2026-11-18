@@ -4,8 +4,10 @@ import com.growit.auth.security.CurrentUserProvider;
 import com.growit.common.exception.ErrorResponse;
 import com.growit.record.dto.AnalysisFeedbackRequest;
 import com.growit.record.dto.AnalysisTagsEditRequest;
+import com.growit.record.dto.NextActionStateRequest;
 import com.growit.record.dto.RecordCreateRequest;
 import com.growit.record.dto.RecordListResponse;
+import com.growit.record.dto.RecordNextActionResponse;
 import com.growit.record.dto.RecordResponse;
 import com.growit.record.dto.RecordUpdateRequest;
 import com.growit.record.service.RecordService;
@@ -101,6 +103,22 @@ public class RecordController {
 	public ResponseEntity<RecordResponse> reanalyze(@PathVariable Long id) {
 		RecordResponse response = recordService.reanalyze(currentUserProvider.getCurrentUserId(), id);
 		return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+	}
+
+	@Operation(summary = "가장 최근 기록의 '다음에 해 볼 일' (없으면 204)")
+	@GetMapping("/next-action/latest")
+	public ResponseEntity<RecordNextActionResponse> latestNextAction() {
+		RecordNextActionResponse response = recordService.latestNextAction(currentUserProvider.getCurrentUserId());
+		return response == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(response);
+	}
+
+	@Operation(summary = "'다음에 해 볼 일'에 반응 남기기 (TRIED, 내 기록만)")
+	@ApiResponse(responseCode = "404", description = "내 기록이 아니거나 제안이 없음",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@PutMapping("/{id}/next-action/state")
+	public RecordNextActionResponse reactToNextAction(@PathVariable Long id,
+			@RequestBody NextActionStateRequest request) {
+		return recordService.reactToNextAction(currentUserProvider.getCurrentUserId(), id, request.value());
 	}
 
 	/** 분석이 DONE 상태가 아니면 ANALYSIS_NOT_READY(409). */

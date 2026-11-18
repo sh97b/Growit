@@ -13,6 +13,14 @@
   "기록상", "~로 보여요", "~셨어요"·"~하셨어요" 같은 존댓말 어미, "님"은 쓰지 않는다.
   evidenceRecordId는 반드시 함께 준 이전 기록 중 하나의 id를 쓴다. 확신이 없으면 change는 null로 둔다.
 - 이전 기록이 하나도 없으면 relatedRecordIds는 빈 배열로, change는 null로 둔다.
+- nextAction은 이 기록 다음에 해 볼 만한 작은 행동 하나다. text는 50자 이내 해요체 권유형 한 문장("~해 봐요",
+  "~해 볼까요"처럼 부드럽게), minutes는 5~10 사이의 정수다. 5~10분 안에 끝나는 일 하나만 쓴다.
+  "꼭", "반드시", "해야", "빨리" 같은 재촉하는 말과 평가·칭찬·단정은 쓰지 않는다. 기록에 적힌 내용에서 이어지는
+  행동만 제안하고, 기록에 없는 도구나 상황을 만들어내지 않는다.
+  context.isFirstRecord가 true면 이 기록에서 바로 이어 갈 행동을 쓴다.
+  context.daysSincePreviousRecord가 7 이상이면 5분짜리 부담 없는 행동을 쓴다(쉬었다는 말은 하지 않는다).
+  마땅한 행동이 없으면 nextAction은 null로 둔다.
 - 아래 모양의 JSON 객체 하나만 응답한다. 다른 글자나 설명을 덧붙이지 않는다.
 
-{"title": "string", "tags": ["string"], "relatedRecordIds": [0], "change": {"text": "string", "evidenceRecordId": 0} 또는 null}
+{"title": "string", "tags": ["string"], "relatedRecordIds": [0], "change": {"text": "string", "evidenceRecordId": 0} 또는 null,
+ "nextAction": {"text": "string", "minutes": 5} 또는 null}

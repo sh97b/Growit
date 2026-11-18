@@ -10,6 +10,8 @@ import com.growit.record.dto.AnalysisFeedbackRequest;
 import com.growit.record.dto.AnalysisTagsEditRequest;
 import com.growit.record.dto.RecordAnalysisChange;
 import com.growit.record.dto.RecordAnalysisResponse;
+import com.growit.record.dto.RecordNextAction;
+import com.growit.record.dto.RecordNextActionResponse;
 import com.growit.record.dto.RecordAnalysisSummary;
 import com.growit.record.dto.RecordCreateRequest;
 import com.growit.record.dto.RecordListResponse;
@@ -278,6 +280,42 @@ public class RecordService {
 		return normalized;
 	}
 
+	/** 가장 최근 기록의 "다음에 해 볼 일". 분석이 끝나지 않았거나 제안이 없으면 null. */
+	@Transactional(readOnly = true)
+	public RecordNextActionResponse latestNextAction(Long userId) {
+		ActivityRecord record = activityRecordRepository.findFirstByUserIdOrderByRecordDateDescIdDesc(userId)
+				.orElse(null);
+		return record == null ? null : toNextActionResponse(record);
+	}
+
+	/** 지금은 TRIED만 있다. 남의 기록이거나 제안이 없으면 404로 존재를 숨긴다. */
+	@Transactional
+	public RecordNextActionResponse reactToNextAction(Long userId, Long id, String value) {
+		if (!"TRIED".equals(value)) {
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, "value는 TRIED만 쓸 수 있어요");
+		}
+		ActivityRecord record = findOwned(userId, id);
+		RecordNextActionResponse current = toNextActionResponse(record);
+		if (current == null) {
+			throw new ApiException(ErrorCode.NOT_FOUND, "다음에 해 볼 일을 찾을 수 없어요");
+		}
+		StoredAnalysis stored = recordAnalysisService.readJson(record.getAiAnalysis());
+		record.markAnalysisDone(recordAnalysisService.toJson(stored.withNextActionState(value)));
+		return toNextActionResponse(record);
+	}
+
+	private RecordNextActionResponse toNextActionResponse(ActivityRecord record) {
+		if (record.getAiStatus() != AiStatus.DONE || record.getAiAnalysis() == null) {
+			return null;
+		}
+		StoredNextAction action = recordAnalysisService.readJson(record.getAiAnalysis()).nextAction();
+		if (action == null) {
+			return null;
+		}
+		return new RecordNextActionResponse(record.getId(), record.getRecordDate(), action.text(), action.minutes(),
+				action.state());
+	}
+
 	private void assertAnalysisReady(ActivityRecord record) {
 		if (record.getAiStatus() != AiStatus.DONE) {
 			throw new ApiException(ErrorCode.ANALYSIS_NOT_READY, "아직 분석이 끝나지 않았어요");
@@ -480,8 +518,12 @@ public class RecordService {
 			}
 		}
 
+		RecordNextAction nextAction = stored.nextAction() == null ? null
+				: new RecordNextAction(stored.nextAction().text(), stored.nextAction().minutes(),
+						stored.nextAction().state());
+
 		return new RecordAnalysisResponse(stored.title(), stored.tags(), related, change,
-				stored.tagsFeedback(), stored.changeFeedback());
+				stored.tagsFeedback(), stored.changeFeedback(), nextAction);
 	}
 
 	private RecordSummaryResponse toSummaryResponse(ActivityRecord record) {

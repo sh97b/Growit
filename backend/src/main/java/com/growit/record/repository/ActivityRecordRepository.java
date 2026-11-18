@@ -36,6 +36,15 @@ public interface ActivityRecordRepository
 	List<ActivityRecord> findPrevious(@Param("userId") Long userId, @Param("hobbyId") Long hobbyId,
 			@Param("recordDate") LocalDate recordDate, @Param("id") Long id, Pageable pageable);
 
+	/** 분야와 상관없이 사용자의 바로 앞 기록(경과 일수 계산용). */
+	@Query("select r from ActivityRecord r where r.userId = :userId "
+			+ "and (r.recordDate < :recordDate or (r.recordDate = :recordDate and r.id < :id)) "
+			+ "order by r.recordDate desc, r.id desc")
+	List<ActivityRecord> findPreviousOfUser(@Param("userId") Long userId, @Param("recordDate") LocalDate recordDate,
+			@Param("id") Long id, Pageable pageable);
+
+	Optional<ActivityRecord> findFirstByUserIdOrderByRecordDateDescIdDesc(Long userId);
+
 	/** {@link #findPrevious}와 같은 기준으로 반대 방향을 찾는다. */
 	@Query("select r from ActivityRecord r where r.userId = :userId and r.hobbyId = :hobbyId "
 			+ "and (r.recordDate > :recordDate or (r.recordDate = :recordDate and r.id > :id)) "
