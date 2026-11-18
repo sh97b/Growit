@@ -20,7 +20,7 @@ import { DotCompletionHost } from '../components/DotCompletionHost'
 import { useDotsCurrent } from '../hooks/useDots'
 import { useFitPageSize } from '../hooks/useFitPageSize'
 import { useHobbies } from '../hooks/useHobbies'
-import { useIsDesktop } from '../hooks/useIsDesktop'
+import { useIsDesktop, useMediaQuery } from '../hooks/useIsDesktop'
 import { useOverflowHidePriority } from '../hooks/useOverflowHidePriority'
 import { fetchLatestCoach, generateAutoCoach, type CoachAutoResponse, type CoachResult } from '../lib/ai'
 import { reactionLine } from '../lib/coachReaction'
@@ -89,6 +89,9 @@ function useAutoCoachOncePerDay(): CoachAutoResponse | null {
   return autoStatus
 }
 
+/** 도트 카드에서 그림을 뺀 나머지(여백·토글·문구·도감 링크)의 대략적인 높이(px). 남는 높이에서 빼서 그림 높이를 정한다. */
+const DOT_CARD_OVERHEAD_PX = 240
+
 export function HomePage() {
   const { data: currentUser, isLoading: userLoading } = useCurrentUser()
   const summaryQuery = useQuery({ queryKey: ['stats', 'summary'], queryFn: fetchSummary })
@@ -130,7 +133,9 @@ export function HomePage() {
   })
 
   const sideItemCount = statePreview == null || statePreview === 'first' ? 0 : 4
-  const { containerRef: sideFitRef, itemRefs: sideItemRefs } = useOverflowHidePriority(sideItemCount)
+  const { containerRef: sideFitRef, itemRefs: sideItemRefs, containerHeight: sideHeight } = useOverflowHidePriority(sideItemCount)
+  // 낮은 화면(1366×768, 1280×720 같은)에서는 통계 3칸을 한 줄로 줄인다. 모바일(폭 1024 미만)은 이 값을 쓰지 않는다.
+  const lowScreen = useMediaQuery('(max-height: 760px)')
 
   if (userLoading || summaryQuery.isLoading) {
     return <Loading />
@@ -185,17 +190,24 @@ export function HomePage() {
   // 주제)로 두고, 열이 실제로 넘칠 때만 아래 블록부터 숨긴다(useOverflowHidePriority). 최근 7일
   // 줄은 이 우선순위 목록에 없던 기존 블록이라(지시문 목록에 없음) 숨김 대상에서 빼고 그대로 맨
   // 위에 둔다 — 작아서 공간을 거의 안 차지하고, done/off 상태에서만 보이던 기존 규칙도 유지한다.
-  const sideItems: { key: string; node: ReactNode }[] =
+  // 배열 순서가 숨김 우선순위다(앞이 높음, 넘치면 맨 뒤부터 숨김): 활동 지도 → 최근 회고 → 통계 → 자주 하는 주제.
+  // 화면에 보이는 순서는 order로 따로 정해서 예전처럼 회고, 활동 지도, 통계, 주제 순으로 둔다.
+  const sideItems: { key: string; order: number; node: ReactNode }[] =
     state === 'first'
       ? []
       : [
-          { key: 'coach', node: <HomeCoachCard comeback={state === 'comeback'} autoStatus={autoStatus} /> },
           {
             key: 'heatmap',
-            node: <HomeActivityCard />,
+            order: 1,
+            node: (
+              <HomeActivityCard
+                maxPictureHeight={sideHeight > 0 ? Math.max(0, Math.min(220, sideHeight - DOT_CARD_OVERHEAD_PX)) : undefined}
+              />
+            ),
           },
-          { key: 'stats', node: <StatsTiles summary={summary} /> },
-          { key: 'topics', node: <TopicChips /> },
+          { key: 'coach', order: 0, node: <HomeCoachCard comeback={state === 'comeback'} autoStatus={autoStatus} /> },
+          { key: 'stats', order: 2, node: <StatsTiles summary={summary} compact={lowScreen} /> },
+          { key: 'topics', order: 3, node: <TopicChips /> },
         ]
 
   const sideDesktop = (
@@ -205,6 +217,7 @@ export function HomePage() {
         {sideItems.map((item, index) => (
           <div
             key={item.key}
+            style={{ order: item.order }}
             ref={(el) => {
               sideItemRefs.current[index] = el
             }}
@@ -277,10 +290,30 @@ export function HomePage() {
 }
 
 /** 디자인에 없는 추가(U3): 연속 일수 같은 쉬면 줄어드는 지표 대신 쌓이기만 하는 지표 3개. */
-function StatsTiles({ summary }: { summary: StatsSummary }) {
+function StatsTiles({ summary, compact = false }: { summary: StatsSummary; compact?: boolean }) {
   const daysSinceStart = summary.firstRecordedDate
     ? daysBetween(summary.firstRecordedDate, summary.today) + 1
     : null
+
+  if (compact) {
+    // 낮은 화면용 한 줄 카드: 값은 같고 높이와 글자만 줄인다
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 rounded-xl bg-surface px-3 py-2 text-caption-min text-ink-2">
+        <span>
+          기록한 날 <span className="font-serif text-ink">{summary.recordedDays}일</span>
+        </span>
+        <span>
+          쌓인 시간{' '}
+          <span className="font-serif text-ink">
+            {summary.totalMinutes === 0 ? '기록 안 함' : formatDurationMinutes(summary.totalMinutes)}
+          </span>
+        </span>
+        <span>
+          시작한 지 <span className="font-serif text-ink">{daysSinceStart != null ? `${daysSinceStart}일` : '-'}</span>
+        </span>
+      </div>
+    )
+  }
 
   return (
     <div className="grid grid-cols-3 gap-3">

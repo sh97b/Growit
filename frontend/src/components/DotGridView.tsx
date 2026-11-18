@@ -3,7 +3,7 @@ import { type DotGoal, readSeenFilledCount, writeSeenFilledCount } from '../lib/
 import { DotPicture } from './DotPicture'
 
 /** 진행 중이거나 완성한 도트 그림. 이 기기에서 지난번에 본 뒤 새로 칠해진 칸은 한 번 살짝 반짝인다. */
-export function DotGridView({ goal }: { goal: DotGoal }) {
+export function DotGridView({ goal, maxHeight }: { goal: DotGoal; maxHeight?: number }) {
   // 처음 보여 줄 때의 기준만 필요해서 마운트 때 한 번 읽는다(그림이 바뀌면 호출하는 쪽이 key로 새로 만든다).
   const [seenCount] = useState(() => readSeenFilledCount(goal.id))
   const sparkleFrom = seenCount != null && goal.filledCount > seenCount ? seenCount : goal.filledCount
@@ -20,6 +20,7 @@ export function DotGridView({ goal }: { goal: DotGoal }) {
       cells={goal.cells}
       filledCount={goal.filledCount}
       sparkleFrom={sparkleFrom}
+      maxHeight={maxHeight}
       ariaLabel={`도트 그림 ${goal.goalDays}칸 중 ${goal.filledCount}칸 완성`}
     />
   )

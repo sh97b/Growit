@@ -11,9 +11,10 @@ const OPTIONS: { value: ActivityView; label: string }[] = [
 
 /**
  * 활동 지도 카드. [잔디 | 도트] 보기를 고르고, 선택은 이 기기에 기억한다(홈과 기록 탭이 같은 선택을 쓴다).
+ * maxPictureHeight는 웹 홈 사이드처럼 남는 높이가 정해진 자리에서 도트 그림을 줄일 때 쓴다.
  * 잔디 보기는 기존 활동 지도 그대로이고, 기록 탭처럼 다른 지도·요약을 쓰려면 grass로 바꿔 끼운다.
  */
-export function HomeActivityCard({ grass }: { grass?: ReactNode }) {
+export function HomeActivityCard({ grass, maxPictureHeight }: { grass?: ReactNode; maxPictureHeight?: number }) {
   const [view, setView] = useActivityView()
 
   return (
@@ -36,7 +37,7 @@ export function HomeActivityCard({ grass }: { grass?: ReactNode }) {
           ))}
         </div>
       </div>
-      {view === 'dot' ? <DotPanel /> : (grass ?? <ActivityHeatmap weeks={26} />)}
+      {view === 'dot' ? <DotPanel maxPictureHeight={maxPictureHeight} /> : (grass ?? <ActivityHeatmap weeks={26} />)}
     </div>
   )
 }

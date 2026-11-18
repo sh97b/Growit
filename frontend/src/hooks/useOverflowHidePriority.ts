@@ -10,10 +10,13 @@ export function useOverflowHidePriority(itemCount: number): {
   containerRef: React.RefObject<HTMLDivElement | null>
   itemRefs: React.RefObject<(HTMLDivElement | null)[]>
   visibleCount: number
+  /** 열의 실제 높이(px). 도트 그림처럼 남는 높이에 맞춰 줄여야 하는 블록이 쓴다. 아직 못 쟀으면 0. */
+  containerHeight: number
 } {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const itemRefs = useRef<(HTMLDivElement | null)[]>([])
   const [visibleCount, setVisibleCount] = useState(itemCount)
+  const [containerHeight, setContainerHeight] = useState(0)
 
   useLayoutEffect(() => {
     const container = containerRef.current
@@ -33,6 +36,7 @@ export function useOverflowHidePriority(itemCount: number): {
         if (node) node.style.display = 'none'
       }
       setVisibleCount((prev) => (prev === shown ? prev : shown))
+      setContainerHeight((prev) => (prev === el.clientHeight ? prev : el.clientHeight))
     }
 
     // 열 크기만이 아니라 각 블록의 크기도 지켜본다. 도트 카드처럼 데이터가 늦게 와서 블록 높이가 나중에
@@ -49,5 +53,5 @@ export function useOverflowHidePriority(itemCount: number): {
     return () => observer.disconnect()
   }, [itemCount])
 
-  return { containerRef, itemRefs, visibleCount }
+  return { containerRef, itemRefs, visibleCount, containerHeight }
 }

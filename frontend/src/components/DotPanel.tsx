@@ -12,6 +12,14 @@ import { Note } from './Note'
 
 const STOP_TITLE_ID = 'dot-stop-title'
 
+/** 남는 높이가 정해져 있을 때(웹 홈 사이드) 칸이 6px 미만이 되면 그림은 그리지 않고 아래 요약 문구만 보여 준다. */
+const MIN_CELL_PX = 6
+function pictureFits(goal: DotGoal, maxPictureHeight: number | undefined): boolean {
+  if (maxPictureHeight == null) return true
+  const gap = 2
+  return Math.floor((maxPictureHeight - gap * (goal.height - 1)) / goal.height) >= MIN_CELL_PX
+}
+
 /** 카드 아래의 작은 링크. 완성한 그림이 모여 있는 도감으로 간다. */
 function CollectionLink() {
   return (
@@ -128,18 +136,18 @@ function StopMenu({ goal }: { goal: DotGoal }) {
  * 홈 활동 지도 카드의 "도트" 보기. 시작 흐름은 화면 상태(없음·진행 중·완성)와 상관없이 여기서 열어 둔다 —
  * 다른 기기에서 먼저 시작해 화면 상태가 바뀌어도(409 안내를 보여 주는 동안) 모달이 사라지지 않게 하려는 것이다.
  */
-export function DotPanel() {
+export function DotPanel({ maxPictureHeight }: { maxPictureHeight?: number }) {
   const [starting, setStarting] = useState(false)
   return (
     <>
-      <DotPanelBody onStart={() => setStarting(true)} />
+      <DotPanelBody onStart={() => setStarting(true)} maxPictureHeight={maxPictureHeight} />
       {starting ? <DotStartFlow onClose={() => setStarting(false)} /> : null}
     </>
   )
 }
 
 /** 진행 중인 그림, 방금 완성한 그림, 아직 없는 상태를 차분하게 보여 준다. */
-function DotPanelBody({ onStart }: { onStart: () => void }) {
+function DotPanelBody({ onStart, maxPictureHeight }: { onStart: () => void; maxPictureHeight?: number }) {
   const query = useDotsCurrent()
   const albumQuery = useDotAlbum()
   const hasAlbum = (albumQuery.data ?? []).length > 0
@@ -171,7 +179,7 @@ function DotPanelBody({ onStart }: { onStart: () => void }) {
     const remaining = shown.goalDays - shown.filledCount
     return (
       <div className="flex flex-col gap-3">
-        <DotGridView key={shown.id} goal={shown} />
+        {pictureFits(shown, maxPictureHeight) ? <DotGridView key={shown.id} goal={shown} maxHeight={maxPictureHeight} /> : null}
         <div className="relative flex flex-col gap-0.5 text-center">
           {goal ? (
             <div className="absolute right-0 top-0 -mt-1">
