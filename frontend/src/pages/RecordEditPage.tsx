@@ -7,6 +7,7 @@ import { PageHeader, Split } from '../components/PageLayout'
 import { RecentRecordsCard } from '../components/RecentRecordsCard'
 import { RecordFormFields } from '../components/RecordFormFields'
 import { TopicChips } from '../components/TopicChips'
+import { useCustomFeelings } from '../hooks/useCustomFeelings'
 import { useHobbies, type Hobby } from '../hooks/useHobbies'
 import { useRecord, useUpdateRecord } from '../hooks/useRecords'
 import { ApiError } from '../lib/api'
@@ -46,6 +47,13 @@ function RecordEditForm({ record, activeHobbies }: { record: RecordDetail; activ
   const [minutes, setMinutes] = useState<number | null>(record.minutes)
   const [difficulty, setDifficulty] = useState(record.difficulty ?? '')
   const [feeling, setFeeling] = useState<Feeling | null>(record.feeling)
+  // 직접 추가한 감정: 기록에는 이름이 복사돼 있어서, 지금 목록에 같은 이름이 있으면 그 칩을 선택한 것으로 보여 준다.
+  // undefined는 아직 건드리지 않았다는 뜻이라 저장할 때 바꾸지 않는다.
+  const customFeelingsQuery = useCustomFeelings()
+  const initialCustomFeelingId =
+    record.feelingLabel != null ? (customFeelingsQuery.data?.find((item) => item.label === record.feelingLabel)?.id ?? null) : null
+  const [customChoice, setCustomChoice] = useState<number | null | undefined>(undefined)
+  const customFeelingId = customChoice === undefined ? initialCustomFeelingId : customChoice
   const [contentError, setContentError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
 
@@ -65,6 +73,7 @@ function RecordEditForm({ record, activeHobbies }: { record: RecordDetail; activ
   const trimmedDifficulty = difficulty.trim() || null
   if (trimmedDifficulty !== (record.difficulty ?? null)) changes.difficulty = trimmedDifficulty
   if (feeling !== record.feeling) changes.feeling = feeling
+  if (customChoice !== undefined && customChoice !== initialCustomFeelingId) changes.customFeelingId = customChoice
   const hasChanges = Object.keys(changes).length > 0
 
   async function handleSave() {
@@ -96,7 +105,13 @@ function RecordEditForm({ record, activeHobbies }: { record: RecordDetail; activ
     setMinutes(Math.max(0, Math.min(1440, Math.round(parsed))))
   }
 
+  function selectCustomFeeling(id: number | null) {
+    setCustomChoice(id)
+    if (id != null) setFeeling(null)
+  }
+
   function toggleFeeling(value: Feeling) {
+    if (customFeelingId != null) setCustomChoice(null)
     setFeeling((prev) => (prev === value ? null : value))
   }
 
@@ -130,6 +145,8 @@ function RecordEditForm({ record, activeHobbies }: { record: RecordDetail; activ
         onDifficultyChange={setDifficulty}
         feeling={feeling}
         onToggleFeeling={toggleFeeling}
+        customFeelingId={customFeelingId}
+        onSelectCustomFeeling={selectCustomFeeling}
         submitting={updateRecord.isPending}
       />
 

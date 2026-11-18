@@ -8,6 +8,7 @@ import { useVoiceInput } from '../hooks/useVoiceInput'
 import { FEELINGS, MINUTE_PRESETS, pickClass } from '../lib/recordForm'
 import type { DateMode } from '../lib/recordForm'
 import type { Feeling } from '../lib/records'
+import { CustomFeelingChips } from './CustomFeelingChips'
 
 type Hobby = { id: number; name: string }
 
@@ -33,6 +34,8 @@ export function RecordFormFields({
   onDifficultyChange,
   feeling,
   onToggleFeeling,
+  customFeelingId,
+  onSelectCustomFeeling,
   banner,
   suggestionChip,
   submitting = false,
@@ -58,6 +61,8 @@ export function RecordFormFields({
   onDifficultyChange: (value: string) => void
   feeling: Feeling | null
   onToggleFeeling: (value: Feeling) => void
+  customFeelingId: number | null
+  onSelectCustomFeeling: (id: number | null) => void
   banner?: ReactNode
   suggestionChip?: ReactNode
   /** 저장 중에는 입력(마이크 포함)을 받지 않는다(O1 F). */
@@ -244,6 +249,7 @@ export function RecordFormFields({
                   {label}
                 </button>
               ))}
+              <CustomFeelingChips selectedId={customFeelingId} onSelect={onSelectCustomFeeling} />
             </div>
           </div>
         </div>

@@ -30,6 +30,9 @@ export type RecordDetail = {
   minutes: number | null
   difficulty: string | null
   feeling: Feeling | null
+  /** 직접 추가한 감정을 쓴 기록만 값이 있다(감정 목록에서 지워도 남는다). */
+  feelingLabel?: string | null
+  feelingDirection?: 'GOOD' | 'NEUTRAL' | 'HARD' | null
   isMilestone: boolean
   aiStatus: AiStatus
   analysis: RecordAnalysis | null
@@ -45,6 +48,9 @@ export type RecordSummary = {
   minutes: number | null
   difficulty: string | null
   feeling: Feeling | null
+  /** 직접 추가한 감정을 쓴 기록만 값이 있다(감정 목록에서 지워도 남는다). */
+  feelingLabel?: string | null
+  feelingDirection?: 'GOOD' | 'NEUTRAL' | 'HARD' | null
   isMilestone: boolean
   aiStatus: AiStatus
   analysis: RecordAnalysisSummary | null
@@ -77,6 +83,8 @@ export type RecordCreatePayload = {
   minutes?: number
   difficulty?: string
   feeling?: Feeling
+  /** 직접 추가한 감정의 id(feeling과 함께 보내지 않는다). */
+  customFeelingId?: number
 }
 
 export function createRecord(payload: RecordCreatePayload) {
@@ -93,6 +101,8 @@ export type RecordUpdatePayload = {
   minutes?: number | null
   difficulty?: string | null
   feeling?: Feeling | null
+  /** 안 보내면 유지, null이면 비움, 값이 있으면 그 감정으로 바꾼다. */
+  customFeelingId?: number | null
 }
 
 export function updateRecord(id: number, payload: RecordUpdatePayload) {

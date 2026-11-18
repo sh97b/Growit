@@ -58,7 +58,7 @@ export function RecordDetailPage() {
   }
 
   const hobbyName = hobbies?.find((hobby) => hobby.id === record.hobbyId)?.name ?? ''
-  const feelingLabel = FEELINGS.find((item) => item.value === record.feeling)?.label
+  const feelingLabel = FEELINGS.find((item) => item.value === record.feeling)?.label ?? record.feelingLabel ?? undefined
 
   async function handleDelete() {
     await deleteRecord.mutateAsync(recordId)

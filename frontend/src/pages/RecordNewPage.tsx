@@ -50,6 +50,7 @@ export function RecordNewPage() {
   const [minutes, setMinutes] = useState<number | null>(null)
   const [difficulty, setDifficulty] = useState('')
   const [feeling, setFeeling] = useState<Feeling | null>(null)
+  const [customFeelingId, setCustomFeelingId] = useState<number | null>(null)
   const [draftRestored, setDraftRestored] = useState(false)
   const [suggestionOn, setSuggestionOn] = useState(true)
 
@@ -157,6 +158,7 @@ export function RecordNewPage() {
         minutes: minutes ?? undefined,
         difficulty: difficulty.trim() || undefined,
         feeling: feeling ?? undefined,
+        customFeelingId: customFeelingId ?? undefined,
       })
       if (currentUser) clearRecordDraft(currentUser.id)
       if (suggestion && suggestionOn && latestCoachQuery.data?.id != null) {
@@ -181,6 +183,7 @@ export function RecordNewPage() {
             minutes: minutes ?? undefined,
             difficulty: difficulty.trim() || undefined,
             feeling: feeling ?? undefined,
+            customFeelingId: customFeelingId ?? undefined,
           },
           selectedHobby.name,
         )
@@ -208,7 +211,13 @@ export function RecordNewPage() {
     setMinutes(Math.max(0, Math.min(1440, Math.round(parsed))))
   }
 
+  function selectCustomFeeling(id: number | null) {
+    setCustomFeelingId(id)
+    if (id != null) setFeeling(null)
+  }
+
   function toggleFeeling(value: Feeling) {
+    setCustomFeelingId(null)
     setFeeling((prev) => (prev === value ? null : value))
   }
 
@@ -274,6 +283,8 @@ export function RecordNewPage() {
         onDifficultyChange={setDifficulty}
         feeling={feeling}
         onToggleFeeling={toggleFeeling}
+        customFeelingId={customFeelingId}
+        onSelectCustomFeeling={selectCustomFeeling}
         submitting={submitting}
         banner={
           draftRestored ? (
