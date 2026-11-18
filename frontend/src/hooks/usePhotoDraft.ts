@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import {
   cropRectFor,
-  DEFAULT_COLORS,
   photoToDotGrid,
   type PhotoGrid,
   type SourceImage,
@@ -56,7 +55,7 @@ export function usePhotoDraft(goalDays: number | null) {
   const [zoom, setZoom] = useState(1)
   const [offsetX, setOffsetX] = useState(0)
   const [offsetY, setOffsetY] = useState(0)
-  const [colorCount, setColorCount] = useState(DEFAULT_COLORS)
+  const [removeBackground, setRemoveBackground] = useState(true)
   const [title, setTitle] = useState('')
 
   const aspect = RATIOS[ratioIndex].aspect
@@ -65,8 +64,8 @@ export function usePhotoDraft(goalDays: number | null) {
     [working, aspect, zoom, offsetX, offsetY],
   )
   const grid: PhotoGrid | null = useMemo(
-    () => (working && crop && goalDays != null ? photoToDotGrid(working.image, crop, goalDays, colorCount) : null),
-    [working, crop, goalDays, colorCount],
+    () => (working && crop && goalDays != null ? photoToDotGrid(working.image, crop, goalDays, { removeBackground }) : null),
+    [working, crop, goalDays, removeBackground],
   )
 
   async function loadFile(file: File | undefined) {
@@ -98,7 +97,7 @@ export function usePhotoDraft(goalDays: number | null) {
   return {
     working, crop, grid, error, loading, aspect,
     ratioIndex, setRatioIndex, zoom, setZoom, offsetX, setOffsetX, offsetY, setOffsetY,
-    colorCount, setColorCount, title, setTitle, loadFile,
+    removeBackground, setRemoveBackground, title, setTitle, loadFile,
     clear: () => setWorking(null),
   }
 }

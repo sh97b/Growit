@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react'
 import { PHOTO_TITLE_MAX, RATIOS, type PhotoDraft } from '../hooks/usePhotoDraft'
-import { MAX_COLORS, MIN_COLORS } from '../lib/photoDots'
 import { Field } from './Field'
 import { Input } from './Input'
 import { Note } from './Note'
+import { Switch } from './Switch'
 
 /** 자른 사진을 보여 주는 작은 화면의 가로 크기(px). */
 const PREVIEW_WIDTH_PX = 144
@@ -110,15 +110,13 @@ export function DotPhotoMaker({ draft }: { draft: PhotoDraft }) {
             <Slider label="좌우 위치" value={draft.offsetX} min={-1} max={1} step={0.02} onChange={draft.setOffsetX} />
             <Slider label="위아래 위치" value={draft.offsetY} min={-1} max={1} step={0.02} onChange={draft.setOffsetY} />
           </div>
-          <Slider
-            label="색 수"
-            value={draft.colorCount}
-            min={MIN_COLORS}
-            max={MAX_COLORS}
-            step={1}
-            valueText={`${draft.colorCount}색`}
-            onChange={draft.setColorCount}
-          />
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex flex-col">
+              <span className="text-body-min text-ink">배경 빼기</span>
+              <span className="text-caption-min text-ink-3">켜면 배경은 빼고 모양만 그려요</span>
+            </span>
+            <Switch checked={draft.removeBackground} onChange={() => draft.setRemoveBackground(!draft.removeBackground)} label="배경 빼기" />
+          </div>
           <Field label="그림 이름" htmlFor="dot-photo-title" hint={`비워 두면 "내 사진"으로 저장돼요 (${PHOTO_TITLE_MAX}자까지)`}>
             <Input
               id="dot-photo-title"
