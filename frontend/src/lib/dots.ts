@@ -30,6 +30,45 @@ export function fetchDotsCurrent() {
   return apiRequest<DotCurrent>('/api/dots/current')
 }
 
+export type DotPresetInfo = {
+  key: string
+  label: string
+  width: number
+  height: number
+  palette: string[]
+  pixels: string[]
+}
+
+/** 시작하면 서버가 저장할 그림과 완전히 같은 칸 목록. 쓰기 없는 미리보기다. */
+export type DotPreview = {
+  key: string
+  label: string
+  goalDays: number
+  width: number
+  height: number
+  palette: string[]
+  cells: DotCell[]
+}
+
+export const MIN_GOAL_DAYS = 14
+export const MAX_GOAL_DAYS = 200
+
+export function fetchDotPresets() {
+  return apiRequest<DotPresetInfo[]>('/api/dots/presets')
+}
+
+export function fetchDotPreview(key: string, goalDays: number) {
+  return apiRequest<DotPreview>(`/api/dots/presets/${encodeURIComponent(key)}/preview?goalDays=${goalDays}`)
+}
+
+export function startDotGoal(presetKey: string, goalDays: number) {
+  return apiRequest<DotGoal>('/api/dots/goals', { method: 'POST', body: { presetKey, goalDays } })
+}
+
+export function stopDotGoal(goalId: number) {
+  return apiRequest<void>(`/api/dots/goals/${goalId}/stop`, { method: 'POST' })
+}
+
 export type ActivityView = 'grass' | 'dot'
 
 const VIEW_KEY = 'growit_home_activity_view'

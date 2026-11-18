@@ -90,6 +90,16 @@ export function DotsIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function MoreIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <circle cx="5" cy="12" r="1.5" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+      <circle cx="19" cy="12" r="1.5" fill="currentColor" />
+    </Icon>
+  )
+}
+
 export function ChevronDownIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>
