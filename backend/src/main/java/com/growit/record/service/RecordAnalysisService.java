@@ -125,7 +125,8 @@ public class RecordAnalysisService {
 				record.getRecordDate().toString(),
 				record.getContent(),
 				record.getDifficulty(),
-				record.getFeeling() == null ? null : record.getFeeling().name(),
+				// 직접 추가한 감정의 이름은 길이가 8자로 제한된 "자료"로만 넘긴다(지시로 읽히지 않게 프롬프트의 사용자 글 규칙을 따른다)
+				record.getFeeling() != null ? record.getFeeling().name() : record.getFeelingLabel(),
 				record.getMinutes());
 		List<AnalysisHistoryItem> historyItems = history.stream()
 				.map(h -> new AnalysisHistoryItem(h.getId(), h.getRecordDate().toString(),

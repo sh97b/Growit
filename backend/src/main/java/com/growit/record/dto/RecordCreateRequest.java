@@ -14,5 +14,12 @@ public record RecordCreateRequest(
 		@Schema(example = "20") @Min(value = 0, message = "연습 시간은 0 이상이어야 해요") Integer minutes,
 		@Schema(example = "코드 전환이 느렸다") String difficulty,
 		@Schema(example = "PROUD", description = "PROUD(뿌듯함), STUCK(답답함), RELIEVED(개운함), NEUTRAL(잘 모르겠음)") Feeling feeling,
-		@Schema(example = "false") Boolean isMilestone) {
+		@Schema(example = "false") Boolean isMilestone,
+		@Schema(example = "3", description = "직접 추가한 감정의 id. feeling과 함께 보낼 수 없다") Long customFeelingId) {
+
+	/** 기본 감정만 쓰는 요청. */
+	public RecordCreateRequest(Long hobbyId, LocalDate recordDate, String content, Integer minutes, String difficulty,
+			Feeling feeling, Boolean isMilestone) {
+		this(hobbyId, recordDate, content, minutes, difficulty, feeling, isMilestone, null);
+	}
 }

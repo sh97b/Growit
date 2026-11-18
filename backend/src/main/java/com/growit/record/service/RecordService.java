@@ -20,6 +20,7 @@ import com.growit.record.dto.RecordSummaryResponse;
 import com.growit.record.dto.RecordUpdateRequest;
 import com.growit.record.entity.ActivityRecord;
 import com.growit.record.entity.AiStatus;
+import com.growit.record.entity.CustomFeeling;
 import com.growit.record.event.RecordSavedEvent;
 import com.growit.record.repository.ActivityRecordRepository;
 import com.growit.user.entity.User;
@@ -66,10 +67,12 @@ public class RecordService {
 	private final ApplicationEventPublisher eventPublisher;
 	private final RecordAnalysisService recordAnalysisService;
 	private final DotGoalService dotGoalService;
+	private final CustomFeelingService customFeelingService;
 
 	public RecordService(ActivityRecordRepository activityRecordRepository, HobbyRepository hobbyRepository,
 			UserRepository userRepository, AiProperties aiProperties, ApplicationEventPublisher eventPublisher,
-			RecordAnalysisService recordAnalysisService, DotGoalService dotGoalService) {
+			RecordAnalysisService recordAnalysisService, DotGoalService dotGoalService,
+			CustomFeelingService customFeelingService) {
 		this.activityRecordRepository = activityRecordRepository;
 		this.hobbyRepository = hobbyRepository;
 		this.userRepository = userRepository;
@@ -77,6 +80,7 @@ public class RecordService {
 		this.eventPublisher = eventPublisher;
 		this.recordAnalysisService = recordAnalysisService;
 		this.dotGoalService = dotGoalService;
+		this.customFeelingService = customFeelingService;
 	}
 
 	@Transactional
@@ -110,6 +114,11 @@ public class RecordService {
 		Hobby hobby = findOwnedHobby(userId, request.hobbyId());
 		assertNotArchived(hobby);
 		assertNotFuture(request.recordDate());
+		if (request.feeling() != null && request.customFeelingId() != null) {
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, "감정은 하나만 고를 수 있어요");
+		}
+		CustomFeeling customFeeling = request.customFeelingId() == null ? null
+				: customFeelingService.findOwned(userId, request.customFeelingId());
 
 		ActivityRecord record = new ActivityRecord(
 				userId,
@@ -120,6 +129,9 @@ public class RecordService {
 				request.difficulty(),
 				request.feeling(),
 				request.isMilestone() != null && request.isMilestone());
+		if (customFeeling != null) {
+			record.setCustomFeeling(customFeeling.getLabel(), customFeeling.getDirection());
+		}
 		triggerAnalysis(record, userId);
 		activityRecordRepository.save(record);
 		publishIfPending(record, userId);
@@ -136,7 +148,8 @@ public class RecordService {
 		ActivityRecord record = findOwned(userId, id);
 		LocalDate previousDate = record.getRecordDate();
 		boolean analysisRelevantChange = request.hobbyId() != null || request.recordDate() != null
-				|| isPresent(request.content()) || isPresent(request.difficulty()) || isPresent(request.feeling());
+				|| isPresent(request.content()) || isPresent(request.difficulty()) || isPresent(request.feeling())
+				|| (request.customFeelingId() != null && request.customFeelingId().isPresent());
 
 		if (request.hobbyId() != null) {
 			Hobby hobby = findOwnedHobby(userId, request.hobbyId());
@@ -166,6 +179,18 @@ public class RecordService {
 		}
 		if (isPresent(request.feeling())) {
 			record.setFeeling(request.feeling().get());
+			if (request.feeling().get() == null) {
+				record.clearCustomFeeling();
+			}
+		}
+		if (request.customFeelingId() != null && request.customFeelingId().isPresent()) {
+			Long customFeelingId = request.customFeelingId().get();
+			if (customFeelingId == null) {
+				record.clearCustomFeeling();
+			} else {
+				CustomFeeling customFeeling = customFeelingService.findOwned(userId, customFeelingId);
+				record.setCustomFeeling(customFeeling.getLabel(), customFeeling.getDirection());
+			}
 		}
 		if (request.isMilestone() != null) {
 			record.setMilestone(request.isMilestone());
@@ -432,7 +457,9 @@ public class RecordService {
 				record.getAiStatus(),
 				analysis,
 				previous,
-				next);
+				next,
+				record.getFeelingLabel(),
+				record.getFeelingDirection());
 	}
 
 	/** 근거·이어서 볼 기록 목록이 필요해 N+1 조회가 생기므로, 목록 응답에는 쓰지 않는다. */
@@ -473,6 +500,8 @@ public class RecordService {
 				record.getFeeling(),
 				record.isMilestone(),
 				record.getAiStatus(),
-				analysis);
+				analysis,
+				record.getFeelingLabel(),
+				record.getFeelingDirection());
 	}
 }

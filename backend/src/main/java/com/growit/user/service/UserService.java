@@ -12,6 +12,7 @@ import com.growit.common.exception.ErrorCode;
 import com.growit.dot.repository.DotGoalRepository;
 import com.growit.dot.repository.DotProgressRepository;
 import com.growit.hobby.repository.HobbyRepository;
+import com.growit.record.repository.CustomFeelingRepository;
 import com.growit.notification.repository.NotificationSettingsRepository;
 import com.growit.notification.repository.PushSubscriptionRepository;
 import com.growit.record.repository.ActivityRecordRepository;
@@ -51,6 +52,7 @@ public class UserService {
 	private final SocialAccountRepository socialAccountRepository;
 	private final DotProgressRepository dotProgressRepository;
 	private final DotGoalRepository dotGoalRepository;
+	private final CustomFeelingRepository customFeelingRepository;
 
 	public UserService(UserRepository userRepository, CurrentUserProvider currentUserProvider,
 			PasswordEncoder passwordEncoder, PasswordPolicy passwordPolicy, LoginAttemptLimiter loginAttemptLimiter,
@@ -58,7 +60,8 @@ public class UserService {
 			ActivityRecordRepository activityRecordRepository, HobbyRepository hobbyRepository,
 			NotificationSettingsRepository notificationSettingsRepository,
 			PushSubscriptionRepository pushSubscriptionRepository, SocialAccountRepository socialAccountRepository,
-			DotProgressRepository dotProgressRepository, DotGoalRepository dotGoalRepository) {
+			DotProgressRepository dotProgressRepository, DotGoalRepository dotGoalRepository,
+			CustomFeelingRepository customFeelingRepository) {
 		this.userRepository = userRepository;
 		this.currentUserProvider = currentUserProvider;
 		this.passwordEncoder = passwordEncoder;
@@ -74,6 +77,7 @@ public class UserService {
 		this.socialAccountRepository = socialAccountRepository;
 		this.dotProgressRepository = dotProgressRepository;
 		this.dotGoalRepository = dotGoalRepository;
+		this.customFeelingRepository = customFeelingRepository;
 	}
 
 	public MeResponse me() {
@@ -152,6 +156,7 @@ public class UserService {
 		dotProgressRepository.deleteByUserId(userId);
 		dotGoalRepository.deleteByUserId(userId);
 		activityRecordRepository.deleteByUserId(userId);
+		customFeelingRepository.deleteByUserId(userId);
 		hobbyRepository.deleteByUserId(userId);
 		socialAccountRepository.deleteByUserId(userId);
 		userRepository.delete(user);

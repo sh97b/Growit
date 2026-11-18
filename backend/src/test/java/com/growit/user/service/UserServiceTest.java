@@ -19,6 +19,7 @@ import com.growit.dot.entity.DotSourceType;
 import com.growit.dot.repository.DotGoalRepository;
 import com.growit.dot.repository.DotProgressRepository;
 import com.growit.hobby.entity.Hobby;
+import com.growit.record.repository.CustomFeelingRepository;
 import com.growit.hobby.repository.HobbyRepository;
 import com.growit.notification.repository.NotificationSettingsRepository;
 import com.growit.notification.repository.PushSubscriptionRepository;
@@ -79,6 +80,9 @@ class UserServiceTest {
 	private DotProgressRepository dotProgressRepository;
 
 	@Autowired
+	private CustomFeelingRepository customFeelingRepository;
+
+	@Autowired
 	private EntityManager entityManager;
 
 	private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
@@ -105,7 +109,8 @@ class UserServiceTest {
 		return new UserService(userRepository, currentUserProvider, passwordEncoder, passwordPolicy,
 				new LoginAttemptLimiter(Clock.systemUTC()), jwtTokenProvider, aiResultRepository, aiLogRepository,
 				activityRecordRepository, hobbyRepository, notificationSettingsRepository, pushSubscriptionRepository,
-				socialAccountRepository, dotProgressRepository, dotGoalRepository);
+				socialAccountRepository, dotProgressRepository, dotGoalRepository,
+				customFeelingRepository);
 	}
 
 	@Test

@@ -45,6 +45,14 @@ public class ActivityRecord {
 	@Column(length = 20)
 	private Feeling feeling;
 
+	/** 직접 추가한 감정을 쓴 기록만 값이 있다(기본 감정이면 NULL). 감정 목록에서 지워도 남는다. */
+	@Column(name = "feeling_label", length = 8)
+	private String feelingLabel;
+
+	/** GOOD·NEUTRAL·HARD 중 하나(직접 추가한 감정일 때만). */
+	@Column(name = "feeling_direction", length = 10)
+	private String feelingDirection;
+
 	@Column(name = "is_milestone", nullable = false, columnDefinition = "BOOLEAN")
 	private boolean isMilestone;
 
@@ -138,6 +146,29 @@ public class ActivityRecord {
 
 	public void setFeeling(Feeling feeling) {
 		this.feeling = feeling;
+		if (feeling != null) {
+			clearCustomFeeling();
+		}
+	}
+
+	/** 직접 추가한 감정은 기본 감정(feeling)을 비우고 라벨·방향을 이 기록에 복사해 둔다. */
+	public void setCustomFeeling(String label, FeelingDirection direction) {
+		this.feeling = null;
+		this.feelingLabel = label;
+		this.feelingDirection = direction == null ? null : direction.name();
+	}
+
+	public void clearCustomFeeling() {
+		this.feelingLabel = null;
+		this.feelingDirection = null;
+	}
+
+	public String getFeelingLabel() {
+		return feelingLabel;
+	}
+
+	public String getFeelingDirection() {
+		return feelingDirection;
 	}
 
 	public boolean isMilestone() {

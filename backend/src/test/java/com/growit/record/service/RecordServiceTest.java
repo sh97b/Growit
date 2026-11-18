@@ -30,6 +30,7 @@ import com.growit.record.entity.Feeling;
 import com.growit.record.entity.TagsFeedbackChoice;
 import com.growit.record.event.RecordSavedEvent;
 import com.growit.record.repository.ActivityRecordRepository;
+import com.growit.record.repository.CustomFeelingRepository;
 import com.growit.user.entity.User;
 import com.growit.user.repository.UserRepository;
 import java.time.LocalDate;
@@ -57,6 +58,9 @@ class RecordServiceTest {
 	private AiLogRepository aiLogRepository;
 
 	@Autowired
+	private CustomFeelingRepository customFeelingRepository;
+
+	@Autowired
 	private PlatformTransactionManager transactionManager;
 
 	private ApplicationEventPublisher eventPublisher = Mockito.mock(ApplicationEventPublisher.class);
@@ -64,7 +68,8 @@ class RecordServiceTest {
 	/** AI를 끈 기본 설정(AiProperties())을 쓰면 사용자 조회 없이 바로 SKIPPED로 처리된다. */
 	private RecordService recordService() {
 		return new RecordService(activityRecordRepository, hobbyRepository, userRepository, new AiProperties(),
-				eventPublisher, Mockito.mock(RecordAnalysisService.class), Mockito.mock(DotGoalService.class));
+				eventPublisher, Mockito.mock(RecordAnalysisService.class), Mockito.mock(DotGoalService.class),
+				new CustomFeelingService(customFeelingRepository));
 	}
 
 	/** 실제 RecordAnalysisService를 연결해 피드백·태그 수정의 JSON 변환 로직까지 검증한다(AI 호출은 일어나지 않음). */
@@ -80,7 +85,8 @@ class RecordServiceTest {
 				callService, new AiResponseValidator(new ObjectMapper()), aiLogRepository, new ObjectMapper(),
 				transactionManager);
 		return new RecordService(activityRecordRepository, hobbyRepository, userRepository, properties,
-				eventPublisher, analysisService, Mockito.mock(DotGoalService.class));
+				eventPublisher, analysisService, Mockito.mock(DotGoalService.class),
+				new CustomFeelingService(customFeelingRepository));
 	}
 
 	private Long createUser() {
