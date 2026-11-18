@@ -9,6 +9,8 @@ import com.growit.ai.dto.AiCoachListResponse;
 import com.growit.ai.dto.AiCoachResponse;
 import com.growit.ai.dto.CoachActionResponse;
 import com.growit.ai.dto.CoachEvidence;
+import com.growit.ai.dto.CoachFeelingCount;
+import com.growit.ai.dto.CoachStatsResponse;
 import com.growit.ai.dto.CoachRequest;
 import com.growit.ai.dto.CoachTextItemResponse;
 import com.growit.ai.entity.AiResult;
@@ -45,13 +47,22 @@ public class CoachService {
 	private static final int COMEBACK_THRESHOLD_DAYS = 7;
 	private static final int PERIOD_SUMMARY_MAX = 200;
 	private static final int TEXT_ITEM_MAX = 200;
+	private static final int FLOW_MAX_COUNT = 5;
+	private static final int FLOW_TEXT_MAX = 100;
+	private static final int RESOLVED_MAX_COUNT = 2;
+	private static final int QUESTION_MAX_COUNT = 2;
+	private static final int QUESTION_TEXT_MAX = 100;
+	private static final int DIRECTION_MAX_COUNT = 3;
+	private static final int DIRECTION_TEXT_MAX = 80;
 	private static final int ACTION_TITLE_MAX = 40;
 	private static final int ACTION_REASON_MAX = 200;
 	private static final String PROMPT_RESOURCE_NAME = "ai-coach-system.txt";
 	/** prompts/ai-coach-system.txt를 바꿀 때마다 올린다. */
-	static final int PROMPT_VERSION = 2;
+	static final int PROMPT_VERSION = 3;
 	private static final List<String> FORBIDDEN_WORDS =
 			List.of("실력", "늘었", "향상", "잘했", "훌륭", "대단", "점수", "순위", "반드시", "오늘 안에");
+	/** 질문·방향 후보에는 재촉하는 말도 막는다(다음 행동은 기록 직후의 "다음에 해 볼 일"이 맡는다). */
+	private static final List<String> URGENCY_WORDS = List.of("꼭", "해야", "빨리");
 	private static final String SIMPLIFY_PROMPT_RESOURCE_NAME = "ai-simplify-system.txt";
 	/** prompts/ai-simplify-system.txt를 바꿀 때마다 올린다. */
 	static final int SIMPLIFY_PROMPT_VERSION = 1;
@@ -155,7 +166,7 @@ public class CoachService {
 		CoachPayload payload = new CoachPayload(mode, hobbies, (int) daysSinceLastRecord, payloadRecords);
 
 		AiCallResult result = aiCallService.call(userId, AiResultType.COACH, systemPrompt, payload);
-		StoredCoachResult stored = validate(result.content(), mode, inputById.keySet(), inputRecords.size());
+		StoredCoachResult stored = validate(result.content(), mode, inputById.keySet(), inputRecords);
 
 		AiResult saved = new AiResult(userId, hobby == null ? null : hobby.getId(), AiResultType.COACH.name(), start,
 				today, toJson(stored), toJson(inputRecords.stream().map(ActivityRecord::getId).toList()), cacheKey,
@@ -247,7 +258,7 @@ public class CoachService {
 			CoachPayload payload = new CoachPayload(mode, hobbies, (int) daysSinceLastRecord, payloadRecords);
 
 			AiCallResult result = aiCallService.call(userId, AiResultType.AUTO_COACH, systemPrompt, payload);
-			StoredCoachResult stored = validate(result.content(), mode, inputById.keySet(), inputRecords.size());
+			StoredCoachResult stored = validate(result.content(), mode, inputById.keySet(), inputRecords);
 
 			AiResult saved = new AiResult(userId, null, AiResultType.COACH.name(), start, end, toJson(stored),
 					toJson(inputRecords.stream().map(ActivityRecord::getId).toList()), cacheKey, PROMPT_VERSION,
@@ -302,9 +313,11 @@ public class CoachService {
 		};
 	}
 
-	private StoredCoachResult validate(String rawJson, String mode, Set<Long> allowedIds, int recordsRead) {
+	private StoredCoachResult validate(String rawJson, String mode, Set<Long> allowedIds,
+			List<ActivityRecord> inputRecords) {
 		JsonNode node = aiResponseValidator.parse(rawJson);
-		aiResponseValidator.requireFields(node, "periodSummary", "changes", "repeatedDifficulties", "action");
+		aiResponseValidator.requireFields(node, "periodSummary", "changes", "repeatedDifficulties", "flow",
+				"questions", "directions");
 
 		JsonNode summaryNode = node.path("periodSummary");
 		if (!summaryNode.isTextual()) {
@@ -316,18 +329,57 @@ public class CoachService {
 			throw new ApiException(ErrorCode.AI_FAILED, "지금은 AI를 쓸 수 없어요. 기록은 안전하게 저장돼 있어요.");
 		}
 
-		List<StoredCoachTextItem> changes = sanitizeTextItems(node.path("changes"), allowedIds);
-		List<StoredCoachTextItem> repeatedDifficulties = sanitizeTextItems(node.path("repeatedDifficulties"), allowedIds);
-		StoredCoachAction action = sanitizeAction(node.path("action"), mode, allowedIds);
+		// 다음 행동은 이 결과에 담지 않는다. 근거 id가 없거나 금지·재촉 표현이 든 항목은 그 항목만 버린다.
+		List<StoredCoachTextItem> flow = sanitizeSectionItems(node.path("flow"), allowedIds, FLOW_MAX_COUNT,
+				FLOW_TEXT_MAX);
+		List<StoredCoachTextItem> changes = sanitizeSectionItems(node.path("changes"), allowedIds, 2, TEXT_ITEM_MAX);
+		List<StoredCoachTextItem> repeatedDifficulties = sanitizeSectionItems(node.path("repeatedDifficulties"),
+				allowedIds, 2, TEXT_ITEM_MAX);
+		List<StoredCoachTextItem> resolvedDifficulties = sanitizeSectionItems(node.path("resolvedDifficulties"),
+				allowedIds, RESOLVED_MAX_COUNT, TEXT_ITEM_MAX);
+		List<StoredCoachTextItem> questions = sanitizeSectionItems(node.path("questions"), allowedIds,
+				QUESTION_MAX_COUNT, QUESTION_TEXT_MAX);
+		List<StoredCoachTextItem> directions = sanitizeSectionItems(node.path("directions"), allowedIds,
+				DIRECTION_MAX_COUNT, DIRECTION_TEXT_MAX);
 
-		StoredCoachAction nextAction = mode.equals("NORMAL") ? action : null;
-		StoredCoachAction comebackAction = mode.equals("COMEBACK") ? action : null;
-
-		return new StoredCoachResult(mode, periodSummary, changes, repeatedDifficulties, nextAction, comebackAction,
-				recordsRead);
+		return new StoredCoachResult(mode, periodSummary, changes, repeatedDifficulties, null, null,
+				inputRecords.size(), null, flow, resolvedDifficulties, questions, directions,
+				computeStats(inputRecords));
 	}
 
-	private List<StoredCoachTextItem> sanitizeTextItems(JsonNode arrayNode, Set<Long> allowedIds) {
+	/** 기록한 날·시간·느낌 분포는 AI가 아니라 서버가 센다. */
+	private StoredCoachStats computeStats(List<ActivityRecord> records) {
+		int recordedDays = (int) records.stream().map(ActivityRecord::getRecordDate).distinct().count();
+		int totalMinutes = records.stream().mapToInt(r -> r.getMinutes() == null ? 0 : r.getMinutes()).sum();
+		Map<String, Integer> counts = new LinkedHashMap<>();
+		for (ActivityRecord record : records) {
+			String label = feelingLabelOf(record);
+			if (label != null) {
+				counts.merge(label, 1, Integer::sum);
+			}
+		}
+		List<StoredCoachStats.StoredFeelingCount> feelings = counts.entrySet().stream()
+				.sorted(Map.Entry.<String, Integer>comparingByValue().reversed()
+						.thenComparing(Map.Entry.comparingByKey()))
+				.map(e -> new StoredCoachStats.StoredFeelingCount(e.getKey(), e.getValue()))
+				.toList();
+		return new StoredCoachStats(records.size(), recordedDays, totalMinutes, feelings);
+	}
+
+	private String feelingLabelOf(ActivityRecord record) {
+		if (record.getFeeling() == null) {
+			return record.getFeelingLabel();
+		}
+		return switch (record.getFeeling()) {
+			case PROUD -> "뿌듯함";
+			case STUCK -> "답답함";
+			case RELIEVED -> "개운함";
+			case NEUTRAL -> "잘 모르겠음";
+		};
+	}
+
+	private List<StoredCoachTextItem> sanitizeSectionItems(JsonNode arrayNode, Set<Long> allowedIds, int maxCount,
+			int maxLength) {
 		List<StoredCoachTextItem> result = new ArrayList<>();
 		if (!arrayNode.isArray()) {
 			return result;
@@ -338,7 +390,8 @@ public class CoachService {
 				continue;
 			}
 			String text = textNode.asText().trim();
-			if (text.isEmpty() || text.length() > TEXT_ITEM_MAX || containsForbiddenWord(text)) {
+			if (text.isEmpty() || text.length() > maxLength || containsForbiddenWord(text)
+					|| URGENCY_WORDS.stream().anyMatch(text::contains)) {
 				continue;
 			}
 			List<Long> ids = sanitizeIds(itemNode.path("recordIds"), allowedIds);
@@ -346,30 +399,11 @@ public class CoachService {
 				continue;
 			}
 			result.add(new StoredCoachTextItem(text, ids));
+			if (result.size() == maxCount) {
+				break;
+			}
 		}
 		return result;
-	}
-
-	private StoredCoachAction sanitizeAction(JsonNode actionNode, String mode, Set<Long> allowedIds) {
-		if (actionNode.isMissingNode() || !actionNode.isObject()) {
-			return null;
-		}
-		JsonNode titleNode = actionNode.path("title");
-		JsonNode reasonNode = actionNode.path("reason");
-		if (!titleNode.isTextual()) {
-			return null;
-		}
-		String title = titleNode.asText().trim();
-		String reason = reasonNode.isTextual() ? reasonNode.asText().trim() : "";
-		if (title.isEmpty() || title.length() > ACTION_TITLE_MAX || containsForbiddenWord(title)
-				|| reason.length() > ACTION_REASON_MAX || containsForbiddenWord(reason)) {
-			return null;
-		}
-		int minutesRaw = actionNode.path("minutes").asInt(0);
-		int[] range = mode.equals("COMEBACK") ? new int[] {1, 5} : new int[] {5, 10};
-		int minutes = Math.min(Math.max(minutesRaw, range[0]), range[1]);
-		List<Long> ids = sanitizeIds(actionNode.path("recordIds"), allowedIds);
-		return new StoredCoachAction(title, minutes, reason, ids);
 	}
 
 	private List<Long> sanitizeIds(JsonNode idsNode, Set<Long> allowedIds) {
@@ -494,6 +528,12 @@ public class CoachService {
 		haystack.add(stored.periodSummary());
 		stored.changes().forEach(item -> haystack.add(item.text()));
 		stored.repeatedDifficulties().forEach(item -> haystack.add(item.text()));
+		for (List<StoredCoachTextItem> section : java.util.Arrays.asList(stored.flow(), stored.resolvedDifficulties(),
+				stored.questions(), stored.directions())) {
+			if (section != null) {
+				section.forEach(item -> haystack.add(item.text()));
+			}
+		}
 		addActionText(haystack, stored.nextAction());
 		addActionText(haystack, stored.comebackAction());
 		addActionText(haystack, stored.simplifiedAction());
@@ -652,7 +692,27 @@ public class CoachService {
 				result.getFeedback(),
 				result.getReaction(),
 				computeCardState(result, stored.simplifiedAction() != null),
-				result.isAuto() && result.getViewedAt() == null);
+				result.isAuto() && result.getViewedAt() == null,
+				stored.isReflection() ? 2 : null,
+				toTextItems(stored.flow(), userId, preloaded),
+				toTextItems(stored.resolvedDifficulties(), userId, preloaded),
+				toTextItems(stored.questions(), userId, preloaded),
+				toTextItems(stored.directions(), userId, preloaded),
+				toStatsResponse(stored.stats()));
+	}
+
+	private List<CoachTextItemResponse> toTextItems(List<StoredCoachTextItem> items, Long userId,
+			Map<Long, ActivityRecord> preloaded) {
+		return items == null ? null
+				: items.stream().map(item -> toTextItemResponse(item, userId, preloaded)).toList();
+	}
+
+	private CoachStatsResponse toStatsResponse(StoredCoachStats stats) {
+		if (stats == null) {
+			return null;
+		}
+		return new CoachStatsResponse(stats.recordCount(), stats.recordedDays(), stats.totalMinutes(),
+				stats.feelings().stream().map(f -> new CoachFeelingCount(f.label(), f.count())).toList());
 	}
 
 	/**

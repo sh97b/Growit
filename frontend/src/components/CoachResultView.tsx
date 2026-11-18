@@ -11,6 +11,7 @@ import {
   submitCoachReaction,
   type CoachEvidenceItem,
   type CoachResult,
+  type CoachStats,
   type CoachTextItem,
 } from '../lib/ai'
 import { reactionLine } from '../lib/coachReaction'
@@ -46,7 +47,19 @@ export const RESULT_CARD_CLASS = 'rounded-2xl border border-line bg-white p-5'
  * 항상 펼쳐 둔다(펼침 상태와 무관하게 lg: 접두사로 항상 보여주는 블록을 따로 둬 데스크톱 동작을
  * 전혀 바꾸지 않는다).
  */
-function TextItemBlock({ title, items }: { title: string; items: CoachTextItem[] }) {
+function TextItemBlock({
+  title,
+  items,
+  note,
+  showDate = false,
+}: {
+  title: string
+  items: CoachTextItem[]
+  /** 제목 아래의 짧은 안내 한 줄. */
+  note?: string
+  /** 흐름처럼 각 문장 앞에 근거 기록의 날짜를 붙인다. */
+  showDate?: boolean
+}) {
   const [open, setOpen] = useState(false)
   const contentId = useId()
   if (items.length === 0) return null
@@ -54,7 +67,12 @@ function TextItemBlock({ title, items }: { title: string; items: CoachTextItem[]
     <>
       {items.map((item, index) => (
         <div key={index} className="flex flex-col gap-2">
-          <p className="text-body-min leading-[1.7] text-ink">{item.text}</p>
+          <p className="text-body-min leading-[1.7] text-ink">
+            {showDate && item.evidence[0] ? (
+              <span className="mr-2 font-semibold text-base-ink">{formatMonthDay(item.evidence[0].recordDate)}</span>
+            ) : null}
+            {item.text}
+          </p>
           <EvidenceRow evidence={item.evidence} />
         </div>
       ))}
@@ -76,6 +94,7 @@ function TextItemBlock({ title, items }: { title: string; items: CoachTextItem[]
       </button>
       <h2 className="hidden text-section-title lg:block">{title}</h2>
       <div id={contentId} className={open ? 'flex flex-col gap-3' : 'hidden lg:flex lg:flex-col lg:gap-3'}>
+        {note ? <p className="text-caption-min text-ink-2">{note}</p> : null}
         {content}
       </div>
     </div>
@@ -188,6 +207,46 @@ export function CoachActionCard({
   )
 }
 
+function formatMinutes(total: number): string {
+  const hours = Math.floor(total / 60)
+  const minutes = total % 60
+  if (hours === 0) return `${minutes}분`
+  return minutes === 0 ? `${hours}시간` : `${hours}시간 ${minutes}분`
+}
+
+/** 기록한 날·쌓인 시간·느낌 분포. 서버가 센 값을 그대로 보여 준다(순위나 비교 없이 담백하게). */
+function StatsLine({ stats }: { stats: CoachStats }) {
+  const parts = [`기록한 날 ${stats.recordedDays}일`]
+  if (stats.totalMinutes > 0) parts.push(`쌓인 시간 ${formatMinutes(stats.totalMinutes)}`)
+  if (stats.feelings.length > 0) {
+    parts.push(`느낌 ${stats.feelings.map((item) => `${item.label} ${item.count}`).join(' · ')}`)
+  }
+  return <p className={`text-body-min leading-[1.7] text-ink-2 ${RESULT_CARD_CLASS}`}>{parts.join(' · ')}</p>
+}
+
+/** 새 구성: ① 기간 돌아보기 ② 스스로 생각해 볼 질문 ③ 앞으로의 방향 후보. 다음 행동은 기록 직후의 카드가 맡는다. */
+function ReflectionBody({ result }: { result: CoachResult }) {
+  return (
+    <>
+      {result.stats ? <StatsLine stats={result.stats} /> : null}
+      <TextItemBlock title="이 기간에 한 일" items={result.flow ?? []} showDate />
+      <TextItemBlock title="새로 해 본 것" items={result.changes} />
+      <TextItemBlock title="반복된 어려움" items={result.repeatedDifficulties} />
+      <TextItemBlock title="풀린 것" items={result.resolvedDifficulties ?? []} />
+      <TextItemBlock
+        title="스스로 생각해 볼 질문"
+        items={result.questions ?? []}
+        note="정답은 없어요. 떠오르는 대로 생각해 보세요."
+      />
+      <TextItemBlock
+        title="앞으로의 방향 후보"
+        items={result.directions ?? []}
+        note="고르는 건 내 몫이에요. 마음이 가는 쪽만 보면 돼요."
+      />
+    </>
+  )
+}
+
 export function CoachResultView({
   result,
   onResultChange,
@@ -219,6 +278,39 @@ export function CoachResultView({
           feedbackPendingRef.current = false
         },
       },
+    )
+  }
+
+  if (result.schemaVersion === 2) {
+    return (
+      <div className="flex flex-col gap-4 lg:max-w-[48rem]">
+        <div className="flex flex-wrap items-center gap-2 text-caption-min text-ink-2">
+          {result.startDate && result.endDate ? (
+            <span>
+              {formatMonthDay(result.startDate)} – {formatMonthDay(result.endDate)} · 전체 분야
+              {result.recordsRead != null ? ` · 기록 ${result.recordsRead}개 읽음` : ''}
+            </span>
+          ) : null}
+          {result.isNew ? (
+            <span className="inline-flex h-5 items-center rounded-md bg-[color-mix(in_srgb,var(--color-base)_16%,white)] px-1.5 text-[0.6875rem] font-medium text-base-ink">
+              새로 도착
+            </span>
+          ) : null}
+        </div>
+
+        <p className={`text-section-title leading-[1.7] text-ink ${RESULT_CARD_CLASS}`}>{result.periodSummary}</p>
+
+        <ReflectionBody result={result} />
+
+        <FeedbackRow
+          question="이 회고가 도움됐나요?"
+          status={result.feedback === 'HELPFUL' ? 'positive' : result.feedback === 'NOT_HELPFUL' ? 'negative' : null}
+          pending={feedbackMutation.isPending}
+          onPositive={() => handleFeedback('HELPFUL')}
+          onNegative={() => handleFeedback('NOT_HELPFUL')}
+          errorMessage={feedbackError}
+        />
+      </div>
     )
   }
 

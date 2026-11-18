@@ -125,47 +125,13 @@ class CoachServiceTest {
 	}
 
 	@Test
-	void coach_normalMode_producesNextActionWithinRange() {
-		Long hobbyId = createHobby(1L);
-		createRecords(1L, hobbyId, 5, LocalDate.now().minusDays(4));
-
-		stubAiResponse("{\"periodSummary\":\"기록상 꾸준히 이어갔어요\",\"changes\":[],\"repeatedDifficulties\":[],"
-				+ "\"action\":{\"title\":\"코드 전환 3번 해보기\",\"minutes\":5,\"reason\":\"짧게 이어가기 좋아요\",\"recordIds\":[]}}");
-
-		AiCoachResponse response = service(enabledProperties()).coach(1L, new CoachRequest(hobbyId, "1M"));
-
-		assertThat(response.locked()).isFalse();
-		assertThat(response.mode()).isEqualTo("NORMAL");
-		assertThat(response.nextAction()).isNotNull();
-		assertThat(response.nextAction().minutes()).isBetween(5, 10);
-		assertThat(response.comebackAction()).isNull();
-		assertThat(response.recordsRead()).isEqualTo(5);
-	}
-
-	@Test
-	void coach_lastRecordSevenDaysAgo_comebackModeClampsMinutesToComebackRange() {
-		Long hobbyId = createHobby(1L);
-		createRecords(1L, hobbyId, 5, LocalDate.now().minusDays(20));
-
-		stubAiResponse("{\"periodSummary\":\"기록상 잠시 쉬었어요\",\"changes\":[],\"repeatedDifficulties\":[],"
-				+ "\"action\":{\"title\":\"한 줄만 적어보기\",\"minutes\":20,\"reason\":\"가볍게 시작하기 좋아요\",\"recordIds\":[]}}");
-
-		AiCoachResponse response = service(enabledProperties()).coach(1L, new CoachRequest(hobbyId, "1M"));
-
-		assertThat(response.mode()).isEqualTo("COMEBACK");
-		assertThat(response.comebackAction()).isNotNull();
-		assertThat(response.comebackAction().minutes()).isBetween(1, 5);
-		assertThat(response.nextAction()).isNull();
-	}
-
-	@Test
 	void coach_recordIdNotInInput_dropsThatTextItem() {
 		Long hobbyId = createHobby(1L);
 		createRecords(1L, hobbyId, 5, LocalDate.now().minusDays(4));
 
 		stubAiResponse("{\"periodSummary\":\"기록상 꾸준했어요\","
 				+ "\"changes\":[{\"text\":\"근거 없는 변화\",\"recordIds\":[99999]}],"
-				+ "\"repeatedDifficulties\":[],\"action\":{\"title\":\"행동\",\"minutes\":5,\"reason\":\"이유\",\"recordIds\":[]}}");
+				+ "\"repeatedDifficulties\":[],\"flow\":[],\"questions\":[],\"directions\":[]}");
 
 		AiCoachResponse response = service(enabledProperties()).coach(1L, new CoachRequest(hobbyId, "1M"));
 
@@ -177,7 +143,7 @@ class CoachServiceTest {
 		Long hobbyId = createHobby(1L);
 		createRecords(1L, hobbyId, 5, LocalDate.now().minusDays(4));
 		stubAiResponse("{\"periodSummary\":\"실력이 늘었어요\",\"changes\":[],\"repeatedDifficulties\":[],"
-				+ "\"action\":{\"title\":\"행동\",\"minutes\":5,\"reason\":\"이유\",\"recordIds\":[]}}");
+				+ "\"flow\":[],\"questions\":[],\"directions\":[]}");
 
 		assertThatThrownBy(() -> service(enabledProperties()).coach(1L, new CoachRequest(hobbyId, "1M")))
 				.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.AI_FAILED));
@@ -189,7 +155,7 @@ class CoachServiceTest {
 		Long hobbyId = createHobby(1L);
 		createRecords(1L, hobbyId, 5, LocalDate.now().minusDays(4));
 		stubAiResponse("{\"periodSummary\":\"기록상 꾸준했어요\",\"changes\":[],\"repeatedDifficulties\":[],"
-				+ "\"action\":{\"title\":\"행동\",\"minutes\":5,\"reason\":\"이유\",\"recordIds\":[]}}");
+				+ "\"flow\":[],\"questions\":[],\"directions\":[]}");
 
 		CoachService service = service(enabledProperties());
 		CoachRequest request = new CoachRequest(hobbyId, "1M");
@@ -210,7 +176,7 @@ class CoachServiceTest {
 		createRecords(1L, hobbyB, 2, LocalDate.now().minusDays(1));
 
 		stubAiResponse("{\"periodSummary\":\"기록상 두 분야 모두 이어갔어요\",\"changes\":[],\"repeatedDifficulties\":[],"
-				+ "\"action\":{\"title\":\"행동\",\"minutes\":5,\"reason\":\"이유\",\"recordIds\":[]}}");
+				+ "\"flow\":[],\"questions\":[],\"directions\":[]}");
 
 		AiCoachResponse response = service(enabledProperties()).coach(1L, new CoachRequest(null, "1M"));
 
@@ -563,8 +529,7 @@ class CoachServiceTest {
 	}
 
 	private static final String SAMPLE_COACH_JSON = "{\"periodSummary\":\"기록상 꾸준히 이어갔어요\",\"changes\":[],"
-			+ "\"repeatedDifficulties\":[],\"action\":{\"title\":\"코드 전환 3번 해보기\",\"minutes\":5,"
-			+ "\"reason\":\"짧게 이어가기 좋아요\",\"recordIds\":[]}}";
+			+ "\"repeatedDifficulties\":[],\"flow\":[],\"questions\":[],\"directions\":[]}";
 
 	@Test
 	void generateAuto_aiDisabledForUser_returnsDisabledWithoutCallingProvider() {
@@ -707,7 +672,7 @@ class CoachServiceTest {
 		Long hobbyId = createHobby(userId);
 		createRecords(userId, hobbyId, 5, LocalDate.now().minusDays(4));
 		stubAiResponse("{\"periodSummary\":\"기록상 꾸준히 이어갔어요\",\"changes\":[],\"repeatedDifficulties\":[],"
-				+ "\"action\":{\"title\":\"코드 전환 3번 해보기\",\"minutes\":5,\"reason\":\"짧게 이어가기 좋아요\",\"recordIds\":[]}}");
+				+ "\"flow\":[],\"questions\":[],\"directions\":[]}");
 		CoachService service = service(enabledProperties());
 		AiCoachResponse created = service.generateAuto(userId).result();
 		assertThat(created.isNew()).isTrue();
@@ -715,5 +680,160 @@ class CoachServiceTest {
 		AiCoachResponse viewed = service.markViewed(userId, created.id());
 
 		assertThat(viewed.isNew()).isFalse();
+	}
+
+	private List<Long> createRecordIds(Long userId, Long hobbyId, int count, LocalDate start) {
+		List<Long> ids = new java.util.ArrayList<>();
+		for (int i = 0; i < count; i++) {
+			ids.add(createRecord(userId, hobbyId, start.plusDays(i), "연습 " + i).getId());
+		}
+		return ids;
+	}
+
+	private String reflectionJson(List<Long> ids) {
+		long a = ids.get(0);
+		long b = ids.get(1);
+		return ("{\"periodSummary\":\"기록상 꾸준히 이어갔어요\","
+				+ "\"flow\":[{\"text\":\"처음엔 코드 전환이 느렸어요\",\"recordIds\":[%d]},"
+				+ "{\"text\":\"뒤로 갈수록 이어서 쳤어요\",\"recordIds\":[%d]}],"
+				+ "\"changes\":[{\"text\":\"새 곡을 쳐 봤어요\",\"recordIds\":[%d]}],"
+				+ "\"repeatedDifficulties\":[{\"text\":\"코드 전환이 자주 걸렸어요\",\"recordIds\":[%d,%d]}],"
+				+ "\"resolvedDifficulties\":[{\"text\":\"박자는 뒤에 따로 적지 않았어요\",\"recordIds\":[%d]}],"
+				+ "\"questions\":[{\"text\":\"코드 전환이 걸릴 땐 어떤 느낌이었나요?\",\"recordIds\":[%d]},"
+				+ "{\"text\":\"요즘 가장 손이 가는 곡은 무엇인가요?\",\"recordIds\":[%d]}],"
+				+ "\"directions\":[{\"text\":\"어려웠던 부분을 천천히 다시 보는 쪽\",\"recordIds\":[%d]},"
+				+ "{\"text\":\"새 곡을 조금씩 넓히는 쪽\",\"recordIds\":[%d]}]}")
+				.formatted(a, b, b, a, b, b, a, b, a, b);
+	}
+
+	@Test
+	void coach_newLayout_hasSectionsStatsAndNoAction() {
+		Long hobbyId = createHobby(1L);
+		List<Long> ids = createRecordIds(1L, hobbyId, 5, LocalDate.now().minusDays(4));
+		stubAiResponse(reflectionJson(ids));
+
+		AiCoachResponse response = service(enabledProperties()).coach(1L, new CoachRequest(hobbyId, "1M"));
+
+		assertThat(response.schemaVersion()).isEqualTo(2);
+		assertThat(response.mode()).isEqualTo("NORMAL");
+		assertThat(response.nextAction()).isNull();
+		assertThat(response.comebackAction()).isNull();
+		assertThat(response.flow()).hasSize(2);
+		assertThat(response.flow().get(0).evidence()).hasSize(1);
+		assertThat(response.questions()).hasSize(2);
+		assertThat(response.directions()).hasSize(2);
+		assertThat(response.resolvedDifficulties()).hasSize(1);
+		// 숫자는 AI가 아니라 서버가 센다: 5개 기록, 5일, 20분씩 100분, 느낌은 모두 뿌듯함
+		assertThat(response.stats().recordCount()).isEqualTo(5);
+		assertThat(response.stats().recordedDays()).isEqualTo(5);
+		assertThat(response.stats().totalMinutes()).isEqualTo(100);
+		assertThat(response.stats().feelings()).hasSize(1);
+		assertThat(response.stats().feelings().get(0).label()).isEqualTo("뿌듯함");
+		assertThat(response.stats().feelings().get(0).count()).isEqualTo(5);
+	}
+
+	@Test
+	void coach_newLayout_dropsItemsWithoutValidEvidenceOrWithForbiddenOrUrgentWords() {
+		Long hobbyId = createHobby(1L);
+		List<Long> ids = createRecordIds(1L, hobbyId, 5, LocalDate.now().minusDays(4));
+		long a = ids.get(0);
+		stubAiResponse(("{\"periodSummary\":\"기록상 꾸준했어요\","
+				+ "\"flow\":[{\"text\":\"근거 없는 흐름\",\"recordIds\":[99999]},"
+				+ "{\"text\":\"실력이 늘었어요\",\"recordIds\":[%d]},{\"text\":\"괜찮은 흐름\",\"recordIds\":[%d]}],"
+				+ "\"changes\":[],\"repeatedDifficulties\":[],"
+				+ "\"questions\":[{\"text\":\"꼭 답해 보세요\",\"recordIds\":[%d]},"
+				+ "{\"text\":\"빨리 정해야 하나요?\",\"recordIds\":[%d]},{\"text\":\"무엇이 가장 즐거웠나요?\",\"recordIds\":[%d]}],"
+				+ "\"directions\":[{\"text\":\"반드시 이쪽\",\"recordIds\":[%d]}]}").formatted(a, a, a, a, a, a));
+
+		AiCoachResponse response = service(enabledProperties()).coach(1L, new CoachRequest(hobbyId, "1M"));
+
+		assertThat(response.flow()).extracting(item -> item.text()).containsExactly("괜찮은 흐름");
+		assertThat(response.questions()).extracting(item -> item.text()).containsExactly("무엇이 가장 즐거웠나요?");
+		assertThat(response.directions()).isEmpty();
+	}
+
+	@Test
+	void coach_newLayout_capsSectionSizes() {
+		Long hobbyId = createHobby(1L);
+		List<Long> ids = createRecordIds(1L, hobbyId, 5, LocalDate.now().minusDays(4));
+		long a = ids.get(0);
+		String item = "{\"text\":\"문장 %s\",\"recordIds\":[" + a + "]}";
+		StringBuilder many = new StringBuilder();
+		for (int i = 0; i < 8; i++) {
+			many.append(i == 0 ? "" : ",").append(item.formatted(i));
+		}
+		stubAiResponse("{\"periodSummary\":\"기록상 꾸준했어요\",\"flow\":[" + many + "],\"changes\":[],"
+				+ "\"repeatedDifficulties\":[],\"questions\":[" + many + "],\"directions\":[" + many + "]}");
+
+		AiCoachResponse response = service(enabledProperties()).coach(1L, new CoachRequest(hobbyId, "1M"));
+
+		assertThat(response.flow()).hasSize(5);
+		assertThat(response.questions()).hasSize(2);
+		assertThat(response.directions()).hasSize(3);
+	}
+
+	@Test
+	void coach_comebackMode_keepsModeWithoutAction() {
+		Long hobbyId = createHobby(1L);
+		List<Long> ids = createRecordIds(1L, hobbyId, 5, LocalDate.now().minusDays(20));
+		stubAiResponse(reflectionJson(ids));
+
+		AiCoachResponse response = service(enabledProperties()).coach(1L, new CoachRequest(hobbyId, "1M"));
+
+		assertThat(response.mode()).isEqualTo("COMEBACK");
+		assertThat(response.comebackAction()).isNull();
+		assertThat(response.nextAction()).isNull();
+		assertThat(response.flow()).isNotEmpty();
+	}
+
+	@Test
+	void coach_newLayout_otherUsersRecordIdsAreDropped() {
+		Long hobbyId = createHobby(1L);
+		createRecordIds(1L, hobbyId, 5, LocalDate.now().minusDays(4));
+		Long otherHobby = createHobby(2L);
+		long othersId = createRecord(2L, otherHobby, LocalDate.now(), "남의 기록").getId();
+		stubAiResponse(("{\"periodSummary\":\"기록상 꾸준했어요\",\"flow\":[{\"text\":\"남의 기록 흐름\",\"recordIds\":[%d]}],"
+				+ "\"changes\":[],\"repeatedDifficulties\":[],\"questions\":[],\"directions\":[]}").formatted(othersId));
+
+		AiCoachResponse response = service(enabledProperties()).coach(1L, new CoachRequest(hobbyId, "1M"));
+
+		assertThat(response.flow()).isEmpty();
+	}
+
+	@Test
+	void coach_missingNewSections_throwsAiFailed() {
+		Long hobbyId = createHobby(1L);
+		createRecords(1L, hobbyId, 5, LocalDate.now().minusDays(4));
+		stubAiResponse("{\"periodSummary\":\"기록상 꾸준했어요\",\"changes\":[],\"repeatedDifficulties\":[],"
+				+ "\"action\":{\"title\":\"행동\",\"minutes\":5,\"reason\":\"이유\",\"recordIds\":[]}}");
+
+		assertThatThrownBy(() -> service(enabledProperties()).coach(1L, new CoachRequest(hobbyId, "1M")))
+				.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.AI_FAILED));
+		assertThat(aiResultRepository.findAll()).isEmpty();
+	}
+
+	@Test
+	void legacyResult_stillReadsWithoutNewSections() {
+		Long hobbyId = createHobby(1L);
+		AiResult saved = saveCoachResultWithNextAction(1L, hobbyId, List.of());
+
+		AiCoachResponse response = service(enabledProperties()).getById(1L, saved.getId());
+
+		assertThat(response.schemaVersion()).isNull();
+		assertThat(response.flow()).isNull();
+		assertThat(response.stats()).isNull();
+		assertThat(response.nextAction()).isNotNull();
+	}
+
+	@Test
+	void search_byQuery_matchesNewSectionText() {
+		Long hobbyId = createHobby(1L);
+		List<Long> ids = createRecordIds(1L, hobbyId, 5, LocalDate.now().minusDays(4));
+		stubAiResponse(reflectionJson(ids));
+		CoachService service = service(enabledProperties());
+		service.coach(1L, new CoachRequest(hobbyId, "1M"));
+
+		assertThat(service.search(1L, null, "손이 가는 곡", null, null, 0, 20).items()).hasSize(1);
+		assertThat(service.search(2L, null, "손이 가는 곡", null, null, 0, 20).items()).isEmpty();
 	}
 }

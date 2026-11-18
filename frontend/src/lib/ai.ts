@@ -66,6 +66,14 @@ export type CoachTextItem = { text: string; evidence: CoachEvidenceItem[] }
 
 export type CoachAction = { title: string; minutes: number; reason: string; evidence: CoachEvidenceItem[] }
 
+/** 서버가 기록에서 직접 센 숫자(AI가 만든 값이 아니다). */
+export type CoachStats = {
+  recordCount: number
+  recordedDays: number
+  totalMinutes: number
+  feelings: { label: string; count: number }[]
+}
+
 export type CoachResult = {
   locked: boolean
   requiredCount: number | null
@@ -86,6 +94,13 @@ export type CoachResult = {
   reaction: 'TRIED' | 'REST_TODAY' | 'TOO_HARD' | null
   cardState: 'ACTIVE' | 'CELEBRATE' | 'RESTING' | 'EXPIRED' | null
   isNew: boolean
+  /** 2면 새 구성(돌아보기·질문·방향 후보), 없으면 예전 모양(다음 작은 행동 포함)이다. */
+  schemaVersion?: number | null
+  flow?: CoachTextItem[] | null
+  resolvedDifficulties?: CoachTextItem[] | null
+  questions?: CoachTextItem[] | null
+  directions?: CoachTextItem[] | null
+  stats?: CoachStats | null
 }
 
 export function fetchCoach(payload: { hobbyId?: number; period: CoachPeriod }) {
