@@ -114,6 +114,7 @@ public class CorsIntegrationTest {
 				Arguments.of("/api/auth/signup", "POST"),
 				Arguments.of("/api/auth/login", "POST"),
 				Arguments.of("/api/dots/presets", "GET"),
+				Arguments.of("/api/dots/presets/dumbbell/preview", "GET"),
 				Arguments.of("/api/dots/current", "GET"),
 				Arguments.of("/api/dots/goals", "POST"),
 				Arguments.of("/api/dots/goals", "GET"),

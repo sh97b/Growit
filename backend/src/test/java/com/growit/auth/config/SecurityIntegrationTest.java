@@ -108,6 +108,13 @@ class SecurityIntegrationTest {
 	}
 
 	@Test
+	void dotPreview_withoutToken_returnsTokenInvalid() throws Exception {
+		mockMvc.perform(get("/api/dots/presets/dumbbell/preview").param("goalDays", "30"))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code", is("TOKEN_INVALID")));
+	}
+
+	@Test
 	void hobbies_withTamperedToken_returnsTokenInvalid() throws Exception {
 		String token = signupAndLogin("tamper_user");
 

@@ -12,6 +12,7 @@ import com.growit.dot.dto.DotGoalStartRequest;
 import com.growit.dot.dto.DotGrid;
 import com.growit.dot.dto.DotPreset;
 import com.growit.dot.dto.DotPresetResponse;
+import com.growit.dot.dto.DotPreviewResponse;
 import com.growit.dot.entity.DotGoal;
 import com.growit.dot.entity.DotGoalState;
 import com.growit.dot.entity.DotProgress;
@@ -71,10 +72,7 @@ public class DotGoalService {
 	@Transactional
 	public DotGoalResponse start(Long userId, DotGoalStartRequest request) {
 		int goalDays = request.goalDays();
-		if (goalDays < DotGridValidator.MIN_GOAL_DAYS || goalDays > DotGridValidator.MAX_GOAL_DAYS) {
-			throw new ApiException(ErrorCode.VALIDATION_ERROR, "목표 일수는 " + DotGridValidator.MIN_GOAL_DAYS + "일부터 "
-					+ DotGridValidator.MAX_GOAL_DAYS + "일까지예요");
-		}
+		assertGoalDaysInRange(goalDays);
 		DotPreset preset = presetCatalog.find(request.presetKey())
 				.orElseThrow(() -> new ApiException(ErrorCode.VALIDATION_ERROR, "알 수 없는 그림이에요"));
 
@@ -84,8 +82,7 @@ public class DotGoalService {
 			throw new ApiException(ErrorCode.DOT_GOAL_ACTIVE, ACTIVE_EXISTS_MESSAGE);
 		}
 
-		DotGrid grid = DotGridBuilder.build(preset, goalDays);
-		DotGridValidator.validate(goalDays, grid);
+		DotGrid grid = buildGrid(preset, goalDays);
 		DotGoal goal = new DotGoal(userId, preset.label(), DotSourceType.PRESET, preset.key(), goalDays, grid.width(),
 				grid.height(), toJson(grid.cells()), toJson(grid.palette()), today());
 		try {
@@ -95,6 +92,22 @@ public class DotGoalService {
 		}
 		restoreMissing(goal);
 		return toResponse(goal);
+	}
+
+	/**
+	 * 시작할 때 저장될 그림을 미리 보여 준다. 시작({@link #start})과 같은 {@link #buildGrid}를 쓰므로 같은 그림과 목표 일수면
+	 * 저장되는 칸과 완전히 같다. 읽기 전용이고 아무것도 저장하지 않는다.
+	 */
+	public DotPreviewResponse preview(String presetKey, Integer goalDays) {
+		DotPreset preset = presetCatalog.find(presetKey)
+				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "알 수 없는 그림이에요"));
+		if (goalDays == null) {
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, "목표 일수를 입력해 주세요");
+		}
+		assertGoalDaysInRange(goalDays);
+		DotGrid grid = buildGrid(preset, goalDays);
+		return new DotPreviewResponse(preset.key(), preset.label(), goalDays, grid.width(), grid.height(),
+				grid.palette(), grid.cells());
 	}
 
 	/**
@@ -183,6 +196,19 @@ public class DotGoalService {
 		if (filled >= goal.getGoalDays()) {
 			goal.complete(today());
 		}
+	}
+
+	private static void assertGoalDaysInRange(int goalDays) {
+		if (goalDays < DotGridValidator.MIN_GOAL_DAYS || goalDays > DotGridValidator.MAX_GOAL_DAYS) {
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, "목표 일수는 " + DotGridValidator.MIN_GOAL_DAYS + "일부터 "
+					+ DotGridValidator.MAX_GOAL_DAYS + "일까지예요");
+		}
+	}
+
+	private static DotGrid buildGrid(DotPreset preset, int goalDays) {
+		DotGrid grid = DotGridBuilder.build(preset, goalDays);
+		DotGridValidator.validate(goalDays, grid);
+		return grid;
 	}
 
 	/** id만 읽고 잠가서 가져온다. 잠금을 얻은 뒤의 최신 상태가 ACTIVE일 때만 돌려준다. */

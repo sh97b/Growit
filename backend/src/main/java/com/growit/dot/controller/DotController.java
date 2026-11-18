@@ -6,6 +6,7 @@ import com.growit.dot.dto.DotCurrentResponse;
 import com.growit.dot.dto.DotGoalResponse;
 import com.growit.dot.dto.DotGoalStartRequest;
 import com.growit.dot.dto.DotPresetResponse;
+import com.growit.dot.dto.DotPreviewResponse;
 import com.growit.dot.service.DotGoalService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "도트 그림", description = "기록한 날마다 한 칸씩 칠하는 도트 그림 목표")
@@ -40,6 +42,17 @@ public class DotController {
 	@GetMapping("/presets")
 	public List<DotPresetResponse> presets() {
 		return dotGoalService.presets();
+	}
+
+	/** 모르는 그림이면 NOT_FOUND(404), 목표 일수가 없거나 14~200이 아니면 VALIDATION_ERROR(400). */
+	@Operation(summary = "시작하면 저장될 그림 미리보기 (읽기 전용, 저장 안 함)")
+	@ApiResponse(responseCode = "400", description = "목표 일수 오류",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "404", description = "알 수 없는 그림",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@GetMapping("/presets/{key}/preview")
+	public DotPreviewResponse preview(@PathVariable String key, @RequestParam(required = false) Integer goalDays) {
+		return dotGoalService.preview(key, goalDays);
 	}
 
 	@Operation(summary = "진행 중인 그림과 연출을 아직 안 본 완성 그림 (빠진 날은 이때 채워 넣음)")

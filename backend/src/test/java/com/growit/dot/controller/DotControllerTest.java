@@ -60,6 +60,32 @@ class DotControllerTest {
 	}
 
 	@Test
+	void preview_returnsGridWithoutNeedingUserId() throws Exception {
+		given(dotGoalService.preview("dumbbell", 30)).willReturn(new com.growit.dot.dto.DotPreviewResponse("dumbbell",
+				"덤벨", 30, 9, 7, List.of("#112233"), List.of(new DotCell(0, 0, 0))));
+
+		mockMvc.perform(get("/api/dots/presets/dumbbell/preview").param("goalDays", "30")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.key", is("dumbbell"))).andExpect(jsonPath("$.goalDays", is(30)))
+				.andExpect(jsonPath("$.cells", hasSize(1)));
+	}
+
+	@Test
+	void preview_unknownKey_is404_andBadGoalDays_is400() throws Exception {
+		given(dotGoalService.preview("nope", 30)).willThrow(new ApiException(ErrorCode.NOT_FOUND, "알 수 없는 그림이에요"));
+		given(dotGoalService.preview("dumbbell", 13))
+				.willThrow(new ApiException(ErrorCode.VALIDATION_ERROR, "목표 일수는 14일부터 200일까지예요"));
+		given(dotGoalService.preview("dumbbell", null))
+				.willThrow(new ApiException(ErrorCode.VALIDATION_ERROR, "목표 일수를 입력해 주세요"));
+
+		mockMvc.perform(get("/api/dots/presets/nope/preview").param("goalDays", "30")).andExpect(status().isNotFound());
+		mockMvc.perform(get("/api/dots/presets/dumbbell/preview").param("goalDays", "13"))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code", is("VALIDATION_ERROR")));
+		mockMvc.perform(get("/api/dots/presets/dumbbell/preview")).andExpect(status().isBadRequest());
+		mockMvc.perform(get("/api/dots/presets/dumbbell/preview").param("goalDays", "abc"))
+				.andExpect(status().isBadRequest());
+	}
+
+	@Test
 	void current_passesCurrentUserId() throws Exception {
 		given(currentUserProvider.getCurrentUserId()).willReturn(7L);
 		given(dotGoalService.current(7L)).willReturn(new DotCurrentResponse(goal(1, DotGoalState.ACTIVE), null));

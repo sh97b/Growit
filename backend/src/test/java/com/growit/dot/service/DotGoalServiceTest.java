@@ -9,6 +9,7 @@ import com.growit.common.exception.ErrorCode;
 import com.growit.dot.dto.DotCurrentResponse;
 import com.growit.dot.dto.DotGoalResponse;
 import com.growit.dot.dto.DotGoalStartRequest;
+import com.growit.dot.dto.DotPreviewResponse;
 import com.growit.dot.entity.DotGoal;
 import com.growit.dot.entity.DotGoalState;
 import com.growit.dot.repository.DotGoalRepository;
@@ -24,6 +25,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -347,6 +349,61 @@ class DotGoalServiceTest {
 
 		assertThat(goalRepository.findById(goal.id()).orElseThrow().getCompletedOn())
 				.isEqualTo(LocalDate.of(2026, 11, 18));
+	}
+
+	@Test
+	void preview_equalsTheGridThatStartSaves_forEveryPresetAndSeveralGoalDays() {
+		for (String key : List.of("sprout-pot", "guitar", "dumbbell", "book", "laptop")) {
+			for (int days : new int[] { 14, 30, 50, 100, 150, 200 }) {
+				DotPreviewResponse preview = service().preview(key, days);
+
+				DotGoalResponse started = service().start(userId, new DotGoalStartRequest(key, days));
+
+				assertThat(preview.cells()).as("%s %d칸 칸 목록", key, days).isEqualTo(started.cells());
+				assertThat(preview.palette()).isEqualTo(started.palette());
+				assertThat(preview.width()).isEqualTo(started.width());
+				assertThat(preview.height()).isEqualTo(started.height());
+				assertThat(preview.cells()).hasSize(days);
+				assertThat(preview.key()).isEqualTo(key);
+				assertThat(preview.goalDays()).isEqualTo(days);
+				DotGoal saved = goalRepository.findById(started.id()).orElseThrow();
+				assertThat(saved.getGridJson()).isEqualTo(toJson(preview.cells()));
+				service().stop(userId, started.id());
+			}
+		}
+	}
+
+	@Test
+	void preview_writesNothing() {
+		service().preview("dumbbell", 30);
+		service().preview("book", 200);
+
+		assertThat(goalRepository.count()).isZero();
+		assertThat(progressRepository.count()).isZero();
+	}
+
+	@Test
+	void preview_goalDaysOutOfRangeOrMissing_is400() {
+		for (Integer days : new Integer[] { 13, 201, 0, -5, null }) {
+			assertThatThrownBy(() -> service().preview("dumbbell", days)).isInstanceOfSatisfying(ApiException.class,
+					e -> assertThat(e.getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
+		}
+		service().preview("dumbbell", 14);
+		service().preview("dumbbell", 200);
+	}
+
+	@Test
+	void preview_unknownKey_is404_evenWithBadGoalDays() {
+		assertNotFound(() -> service().preview("nope", 30));
+		assertNotFound(() -> service().preview("nope", 5));
+	}
+
+	private static String toJson(Object value) {
+		try {
+			return new ObjectMapper().writeValueAsString(value);
+		} catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+			throw new IllegalStateException(e);
+		}
 	}
 
 	private static void assertNotFound(Runnable call) {
