@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useDotPresets, useDotPreviews, useStartDot } from '../hooks/useDots'
+import { PHOTO_TITLE_MAX, usePhotoDraft } from '../hooks/usePhotoDraft'
 import { ApiError } from '../lib/api'
-import { MAX_GOAL_DAYS, MIN_GOAL_DAYS, type DotPreview } from '../lib/dots'
+import { MAX_GOAL_DAYS, MIN_GOAL_DAYS, type DotPreview, type DotStartBody } from '../lib/dots'
 import { fetchSummary } from '../lib/stats'
 import { Button } from './Button'
 import { Dialog } from './Dialog'
+import { DotPhotoMaker } from './DotPhotoMaker'
 import { DotPicture } from './DotPicture'
 import { Field } from './Field'
 import { XIcon } from './icons'
@@ -18,6 +20,7 @@ const SHORT_GOAL_MAX_DAYS = 30
 const RECOMMENDED_FOR_SHORT_GOALS = ['dumbbell', 'sprout-pot']
 const STEP_TITLES = ['도트 그림으로 기록을 쌓아 볼까요?', '며칠 기록하면 완성할까요?', '어떤 그림으로 채울까요?', '이대로 시작할까요?']
 const TITLE_ID = 'dot-start-title'
+const PHOTO_KEY = '__photo__'
 const LARGE_PREVIEW_HEIGHT_PX = 210
 const THUMB_BOX_PX = 84
 
@@ -95,6 +98,7 @@ export function DotStartFlow({ onClose }: { onClose: () => void }) {
   const goalDays = parsed.value
   const presetsQuery = useDotPresets(true)
   const start = useStartDot()
+  const photoDraft = usePhotoDraft(goalDays)
   const summaryQuery = useQuery({ queryKey: ['stats', 'summary'], queryFn: fetchSummary })
 
   const orderedPresets = useMemo(() => {
@@ -120,6 +124,23 @@ export function DotStartFlow({ onClose }: { onClose: () => void }) {
   const selectedKey = pickedKey ?? orderedPresets[0]?.key ?? null
   const selectedPreset = orderedPresets.find((preset) => preset.key === selectedKey)
   const selectedQuery = selectedKey ? previewOf(selectedKey) : undefined
+  const photoSelected = selectedKey === PHOTO_KEY
+  const photoTitle = photoDraft.title.trim() || '내 사진'
+  // 사진으로 만든 그림도 기본 그림 미리보기와 같은 모양으로 큰 미리보기에 보여 주려고 같은 형태로 맞춘다
+  const photoPreview: DotPreview | undefined =
+    photoDraft.grid && goalDays != null
+      ? {
+          key: PHOTO_KEY,
+          label: photoTitle,
+          goalDays,
+          width: photoDraft.grid.width,
+          height: photoDraft.grid.height,
+          palette: photoDraft.grid.palette,
+          cells: photoDraft.grid.cells.map((cell) => ({ x: cell.x, y: cell.y, color: cell.c })),
+        }
+      : undefined
+  const shownPreview = photoSelected ? photoPreview : selectedQuery?.data
+  const shownFailed = photoSelected ? false : (selectedQuery?.isError ?? false)
   const showRecommended = goalDays != null && goalDays <= SHORT_GOAL_MAX_DAYS
 
   useEffect(() => {
@@ -129,8 +150,21 @@ export function DotStartFlow({ onClose }: { onClose: () => void }) {
   const handleStart = () => {
     if (startingRef.current || start.isPending || goalDays == null || !selectedKey) return
     startingRef.current = true
+    if (photoSelected && !photoDraft.grid) return
+    const body: DotStartBody =
+      photoSelected && photoDraft.grid
+        ? {
+            mode: 'PHOTO',
+            title: photoTitle.slice(0, PHOTO_TITLE_MAX),
+            goalDays,
+            width: photoDraft.grid.width,
+            height: photoDraft.grid.height,
+            palette: photoDraft.grid.palette,
+            cells: photoDraft.grid.cells,
+          }
+        : { presetKey: selectedKey, goalDays }
     start.mutate(
-      { presetKey: selectedKey, goalDays },
+      body,
       {
         onSuccess: () => onClose(),
         onSettled: () => {
@@ -231,10 +265,12 @@ export function DotStartFlow({ onClose }: { onClose: () => void }) {
             >
               {presetsQuery.isError ? (
                 <p className="text-caption-min text-ink-3">그림 목록을 불러오지 못했어요. 잠시 후 다시 열어 주세요.</p>
+              ) : photoSelected && !photoDraft.working ? (
+                <p className="px-4 text-center text-caption-min text-ink-3">사진을 고르면 여기에 도트 그림으로 보여요</p>
               ) : (
                 <PreviewPicture
-                  preview={selectedQuery?.data}
-                  failed={selectedQuery?.isError ?? false}
+                  preview={shownPreview}
+                  failed={shownFailed}
                   maxHeight={LARGE_PREVIEW_HEIGHT_PX - 20}
                 />
               )}
@@ -273,24 +309,35 @@ export function DotStartFlow({ onClose }: { onClose: () => void }) {
                   )
                 })}
               </div>
+              <label className="relative mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-line-2 bg-white p-3 has-[:checked]:border-2 has-[:checked]:border-base has-[:checked]:p-[calc(0.75rem-1px)] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-base">
+                <input
+                  type="radio"
+                  name="dot-preset"
+                  value={PHOTO_KEY}
+                  checked={photoSelected}
+                  onChange={() => setPickedKey(PHOTO_KEY)}
+                  className="sr-only"
+                />
+                <span className="flex flex-col">
+                  <span className="text-body-min font-medium text-ink">내 사진으로 만들기</span>
+                  <span className="text-caption-min text-ink-3">사진은 이 기기에서만 도트로 바꿔요</span>
+                </span>
+              </label>
             </fieldset>
+            {photoSelected ? <DotPhotoMaker draft={photoDraft} /> : null}
           </div>
         ) : null}
 
         {step === 4 ? (
           <div className="flex flex-col gap-3">
             <p className="text-body-min font-medium text-ink">
-              {selectedPreset?.label} · {goalDays}칸 · 오늘부터
+              {photoSelected ? photoTitle : selectedPreset?.label} · {goalDays}칸 · 오늘부터
             </p>
             <div
               className="flex items-center justify-center rounded-xl bg-surface"
               style={{ height: LARGE_PREVIEW_HEIGHT_PX }}
             >
-              <PreviewPicture
-                preview={selectedQuery?.data}
-                failed={selectedQuery?.isError ?? false}
-                maxHeight={LARGE_PREVIEW_HEIGHT_PX - 20}
-              />
+              <PreviewPicture preview={shownPreview} failed={shownFailed} maxHeight={LARGE_PREVIEW_HEIGHT_PX - 20} />
             </div>
             <div className="flex flex-col gap-1.5">
               <p className="text-caption-min leading-[1.6] text-ink-2">
@@ -320,7 +367,7 @@ export function DotStartFlow({ onClose }: { onClose: () => void }) {
           <Button
             type="button"
             onClick={() => setStep((current) => current + 1)}
-            disabled={(step === 2 && goalDays == null) || (step === 3 && !selectedKey)}
+            disabled={(step === 2 && goalDays == null) || (step === 3 && (!selectedKey || (photoSelected && !photoDraft.grid)))}
             className="flex-1! lg:flex-none!"
           >
             다음

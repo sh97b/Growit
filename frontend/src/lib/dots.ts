@@ -61,8 +61,21 @@ export function fetchDotPreview(key: string, goalDays: number) {
   return apiRequest<DotPreview>(`/api/dots/presets/${encodeURIComponent(key)}/preview?goalDays=${goalDays}`)
 }
 
-export function startDotGoal(presetKey: string, goalDays: number) {
-  return apiRequest<DotGoal>('/api/dots/goals', { method: 'POST', body: { presetKey, goalDays } })
+/** 기본 그림으로 시작하거나(presetKey), 사진에서 만든 격자(mode PHOTO)로 시작한다. 사진 이미지는 보내지 않는다. */
+export type DotStartBody =
+  | { presetKey: string; goalDays: number }
+  | {
+      mode: 'PHOTO'
+      title: string
+      goalDays: number
+      width: number
+      height: number
+      palette: string[]
+      cells: { x: number; y: number; c: number }[]
+    }
+
+export function startDotGoal(body: DotStartBody) {
+  return apiRequest<DotGoal>('/api/dots/goals', { method: 'POST', body })
 }
 
 export function stopDotGoal(goalId: number) {

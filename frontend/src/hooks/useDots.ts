@@ -7,6 +7,7 @@ import {
   fetchDotPreview,
   fetchDotsCurrent,
   markDotCompletionSeen,
+  type DotStartBody,
   startDotGoal,
   stopDotGoal,
 } from '../lib/dots'
@@ -53,7 +54,7 @@ export function useDotPreviews(keys: string[], goalDays: number | null, enabled:
 export function useStartDot() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ presetKey, goalDays }: { presetKey: string; goalDays: number }) => startDotGoal(presetKey, goalDays),
+    mutationFn: (body: DotStartBody) => startDotGoal(body),
     // 연결이 없을 때 요청을 멈춰 두고 "시작하는 중"으로 남지 않게 바로 실패시켜 안내하고, 자동 재시도는 하지 않는다
     // (응답만 놓친 경우 다시 보내면 이미 시작됐다는 409가 나서 오히려 헷갈린다).
     networkMode: 'always',
