@@ -14,6 +14,7 @@ import com.growit.ai.service.AiResponseValidator;
 import com.growit.ai.service.AiUsageService;
 import com.growit.common.exception.ApiException;
 import com.growit.common.exception.ErrorCode;
+import com.growit.dot.service.DotGoalService;
 import com.growit.hobby.entity.Hobby;
 import com.growit.hobby.repository.HobbyRepository;
 import com.growit.record.dto.AnalysisFeedbackRequest;
@@ -63,7 +64,7 @@ class RecordServiceTest {
 	/** AI를 끈 기본 설정(AiProperties())을 쓰면 사용자 조회 없이 바로 SKIPPED로 처리된다. */
 	private RecordService recordService() {
 		return new RecordService(activityRecordRepository, hobbyRepository, userRepository, new AiProperties(),
-				eventPublisher, Mockito.mock(RecordAnalysisService.class));
+				eventPublisher, Mockito.mock(RecordAnalysisService.class), Mockito.mock(DotGoalService.class));
 	}
 
 	/** 실제 RecordAnalysisService를 연결해 피드백·태그 수정의 JSON 변환 로직까지 검증한다(AI 호출은 일어나지 않음). */
@@ -79,7 +80,7 @@ class RecordServiceTest {
 				callService, new AiResponseValidator(new ObjectMapper()), aiLogRepository, new ObjectMapper(),
 				transactionManager);
 		return new RecordService(activityRecordRepository, hobbyRepository, userRepository, properties,
-				eventPublisher, analysisService);
+				eventPublisher, analysisService, Mockito.mock(DotGoalService.class));
 	}
 
 	private Long createUser() {

@@ -8,8 +8,10 @@ import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.stereotype.Component;
 
 /** 기본 그림 5개를 classpath의 dot-presets/*.json에서 읽는다. 목록 순서가 화면에 보이는 순서다. */
+@Component
 public class DotPresetCatalog {
 
 	static final List<String> KEYS = List.of("sprout-pot", "guitar", "dumbbell", "book", "laptop");

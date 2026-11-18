@@ -13,6 +13,11 @@ import com.growit.auth.security.LoginAttemptLimiter;
 import com.growit.auth.security.PasswordPolicy;
 import com.growit.common.exception.ApiException;
 import com.growit.common.exception.ErrorCode;
+import com.growit.dot.entity.DotGoal;
+import com.growit.dot.entity.DotProgress;
+import com.growit.dot.entity.DotSourceType;
+import com.growit.dot.repository.DotGoalRepository;
+import com.growit.dot.repository.DotProgressRepository;
 import com.growit.hobby.entity.Hobby;
 import com.growit.hobby.repository.HobbyRepository;
 import com.growit.notification.repository.NotificationSettingsRepository;
@@ -27,6 +32,7 @@ import com.growit.user.dto.MeResponse;
 import com.growit.user.dto.UpdateMeRequest;
 import com.growit.user.entity.User;
 import com.growit.user.repository.UserRepository;
+import jakarta.persistence.EntityManager;
 import java.time.Clock;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
@@ -66,6 +72,15 @@ class UserServiceTest {
 	@Autowired
 	private SocialAccountRepository socialAccountRepository;
 
+	@Autowired
+	private DotGoalRepository dotGoalRepository;
+
+	@Autowired
+	private DotProgressRepository dotProgressRepository;
+
+	@Autowired
+	private EntityManager entityManager;
+
 	private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 	private final PasswordPolicy passwordPolicy = new PasswordPolicy();
 	private final JwtTokenProvider jwtTokenProvider = new JwtTokenProvider(TEST_SECRET, 7);
@@ -90,7 +105,7 @@ class UserServiceTest {
 		return new UserService(userRepository, currentUserProvider, passwordEncoder, passwordPolicy,
 				new LoginAttemptLimiter(Clock.systemUTC()), jwtTokenProvider, aiResultRepository, aiLogRepository,
 				activityRecordRepository, hobbyRepository, notificationSettingsRepository, pushSubscriptionRepository,
-				socialAccountRepository);
+				socialAccountRepository, dotProgressRepository, dotGoalRepository);
 	}
 
 	@Test
@@ -259,6 +274,33 @@ class UserServiceTest {
 				.isInstanceOfSatisfying(ApiException.class,
 						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.PASSWORD_MISMATCH));
 		assertThat(userRepository.findById(userId)).isPresent();
+	}
+
+	@Test
+	void deleteAccount_removesDotGoalsAndProgressInForeignKeyOrder_andKeepsOthers() {
+		Long userId = createUserWithPassword("growit_user", CURRENT_PASSWORD);
+		Long otherId = userRepository
+				.save(new User("someone_else@example.com", passwordEncoder.encode(CURRENT_PASSWORD), "other_user"))
+				.getId();
+		Long myGoalId = newDotGoal(userId);
+		Long otherGoalId = newDotGoal(otherId);
+		dotProgressRepository.save(new DotProgress(myGoalId, LocalDate.of(2026, 11, 18)));
+		dotProgressRepository.save(new DotProgress(otherGoalId, LocalDate.of(2026, 11, 18)));
+
+		userService(userId).deleteAccount(new DeleteAccountRequest(CURRENT_PASSWORD, null));
+		entityManager.flush();
+		entityManager.clear();
+
+		assertThat(userRepository.findById(userId)).isEmpty();
+		assertThat(dotGoalRepository.findById(myGoalId)).isEmpty();
+		assertThat(dotProgressRepository.countByGoalId(myGoalId)).isZero();
+		assertThat(dotGoalRepository.findById(otherGoalId)).isPresent();
+		assertThat(dotProgressRepository.countByGoalId(otherGoalId)).isEqualTo(1);
+	}
+
+	private Long newDotGoal(Long userId) {
+		return dotGoalRepository.save(new DotGoal(userId, "덤벨", DotSourceType.PRESET, "dumbbell", 14, 5, 5, "[]", "[]",
+				LocalDate.of(2026, 11, 18))).getId();
 	}
 
 	@Test

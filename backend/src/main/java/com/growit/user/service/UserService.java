@@ -9,6 +9,8 @@ import com.growit.auth.security.LoginAttemptLimiter;
 import com.growit.auth.security.PasswordPolicy;
 import com.growit.common.exception.ApiException;
 import com.growit.common.exception.ErrorCode;
+import com.growit.dot.repository.DotGoalRepository;
+import com.growit.dot.repository.DotProgressRepository;
 import com.growit.hobby.repository.HobbyRepository;
 import com.growit.notification.repository.NotificationSettingsRepository;
 import com.growit.notification.repository.PushSubscriptionRepository;
@@ -47,13 +49,16 @@ public class UserService {
 	private final NotificationSettingsRepository notificationSettingsRepository;
 	private final PushSubscriptionRepository pushSubscriptionRepository;
 	private final SocialAccountRepository socialAccountRepository;
+	private final DotProgressRepository dotProgressRepository;
+	private final DotGoalRepository dotGoalRepository;
 
 	public UserService(UserRepository userRepository, CurrentUserProvider currentUserProvider,
 			PasswordEncoder passwordEncoder, PasswordPolicy passwordPolicy, LoginAttemptLimiter loginAttemptLimiter,
 			JwtTokenProvider jwtTokenProvider, AiResultRepository aiResultRepository, AiLogRepository aiLogRepository,
 			ActivityRecordRepository activityRecordRepository, HobbyRepository hobbyRepository,
 			NotificationSettingsRepository notificationSettingsRepository,
-			PushSubscriptionRepository pushSubscriptionRepository, SocialAccountRepository socialAccountRepository) {
+			PushSubscriptionRepository pushSubscriptionRepository, SocialAccountRepository socialAccountRepository,
+			DotProgressRepository dotProgressRepository, DotGoalRepository dotGoalRepository) {
 		this.userRepository = userRepository;
 		this.currentUserProvider = currentUserProvider;
 		this.passwordEncoder = passwordEncoder;
@@ -67,6 +72,8 @@ public class UserService {
 		this.notificationSettingsRepository = notificationSettingsRepository;
 		this.pushSubscriptionRepository = pushSubscriptionRepository;
 		this.socialAccountRepository = socialAccountRepository;
+		this.dotProgressRepository = dotProgressRepository;
+		this.dotGoalRepository = dotGoalRepository;
 	}
 
 	public MeResponse me() {
@@ -142,6 +149,8 @@ public class UserService {
 		notificationSettingsRepository.deleteByUserId(userId);
 		aiResultRepository.deleteByUserId(userId);
 		aiLogRepository.deleteByUserId(userId);
+		dotProgressRepository.deleteByUserId(userId);
+		dotGoalRepository.deleteByUserId(userId);
 		activityRecordRepository.deleteByUserId(userId);
 		hobbyRepository.deleteByUserId(userId);
 		socialAccountRepository.deleteByUserId(userId);

@@ -3,6 +3,7 @@ package com.growit.record.service;
 import com.growit.ai.config.AiProperties;
 import com.growit.common.exception.ApiException;
 import com.growit.common.exception.ErrorCode;
+import com.growit.dot.service.DotGoalService;
 import com.growit.hobby.entity.Hobby;
 import com.growit.hobby.repository.HobbyRepository;
 import com.growit.record.dto.AnalysisFeedbackRequest;
@@ -32,6 +33,8 @@ import java.util.List;
 import java.util.Objects;
 import jakarta.persistence.criteria.Predicate;
 import org.openapitools.jackson.nullable.JsonNullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -40,10 +43,14 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 @Transactional(readOnly = true)
 public class RecordService {
+
+	private static final Logger log = LoggerFactory.getLogger(RecordService.class);
 
 	private static final int DEFAULT_PAGE_SIZE = 20;
 	private static final int MAX_PAGE_SIZE = 100;
@@ -58,16 +65,18 @@ public class RecordService {
 	private final AiProperties aiProperties;
 	private final ApplicationEventPublisher eventPublisher;
 	private final RecordAnalysisService recordAnalysisService;
+	private final DotGoalService dotGoalService;
 
 	public RecordService(ActivityRecordRepository activityRecordRepository, HobbyRepository hobbyRepository,
 			UserRepository userRepository, AiProperties aiProperties, ApplicationEventPublisher eventPublisher,
-			RecordAnalysisService recordAnalysisService) {
+			RecordAnalysisService recordAnalysisService, DotGoalService dotGoalService) {
 		this.activityRecordRepository = activityRecordRepository;
 		this.hobbyRepository = hobbyRepository;
 		this.userRepository = userRepository;
 		this.aiProperties = aiProperties;
 		this.eventPublisher = eventPublisher;
 		this.recordAnalysisService = recordAnalysisService;
+		this.dotGoalService = dotGoalService;
 	}
 
 	@Transactional
@@ -114,6 +123,7 @@ public class RecordService {
 		triggerAnalysis(record, userId);
 		activityRecordRepository.save(record);
 		publishIfPending(record, userId);
+		paintDot(userId, request.recordDate());
 		return toDetailResponse(record);
 	}
 
@@ -124,6 +134,7 @@ public class RecordService {
 	@Transactional
 	public RecordResponse update(Long userId, Long id, RecordUpdateRequest request) {
 		ActivityRecord record = findOwned(userId, id);
+		LocalDate previousDate = record.getRecordDate();
 		boolean analysisRelevantChange = request.hobbyId() != null || request.recordDate() != null
 				|| isPresent(request.content()) || isPresent(request.difficulty()) || isPresent(request.feeling());
 
@@ -163,6 +174,9 @@ public class RecordService {
 		if (analysisRelevantChange) {
 			triggerAnalysis(record, userId);
 			publishIfPending(record, userId);
+		}
+		if (request.recordDate() != null && !request.recordDate().equals(previousDate)) {
+			paintDot(userId, request.recordDate());
 		}
 
 		return toDetailResponse(record);
@@ -265,6 +279,30 @@ public class RecordService {
 		User user = userRepository.findById(userId)
 				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "사용자를 찾을 수 없어요"));
 		return user.isAiEnabled();
+	}
+
+	/**
+	 * 도트 그림 칠하기는 기록이 실제로 커밋된 뒤, 별도 트랜잭션으로 돌린다. 실패해도 기록 저장은 그대로 두고 로그만 남기며,
+	 * 빠진 날은 {@code GET /api/dots/current}가 다음에 채운다. 삭제는 이미 칠한 칸을 건드리지 않아 따로 처리하지 않는다.
+	 */
+	private void paintDot(Long userId, LocalDate recordDate) {
+		Runnable paint = () -> {
+			try {
+				dotGoalService.markRecordDate(userId, recordDate);
+			} catch (RuntimeException e) {
+				log.warn("도트 칠하기에 실패했어요. 다음에 도트 현황을 열 때 채워져요. userId={}", userId, e);
+			}
+		};
+		if (TransactionSynchronizationManager.isSynchronizationActive()) {
+			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+				@Override
+				public void afterCommit() {
+					paint.run();
+				}
+			});
+		} else {
+			paint.run();
+		}
 	}
 
 	private void publishIfPending(ActivityRecord record, Long userId) {
