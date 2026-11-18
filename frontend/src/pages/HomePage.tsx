@@ -19,9 +19,10 @@ import { useCurrentUser } from '../hooks/useCurrentUser'
 import { DotCompletionHost } from '../components/DotCompletionHost'
 import { useDotsCurrent } from '../hooks/useDots'
 import { useHobbies } from '../hooks/useHobbies'
+import { useActivityView } from '../hooks/useActivityView'
 import { useIsDesktop, useMediaQuery } from '../hooks/useIsDesktop'
 import { useOverflowHidePriority } from '../hooks/useOverflowHidePriority'
-import { useStagedFit } from '../hooks/useStagedFit'
+import { useShrinkToFit } from '../hooks/useShrinkToFit'
 import { fetchLatestCoach, generateAutoCoach, type CoachAutoResponse, type CoachResult } from '../lib/ai'
 import { reactionLine } from '../lib/coachReaction'
 import { ApiError } from '../lib/api'
@@ -88,6 +89,11 @@ function useAutoCoachOncePerDay(): CoachAutoResponse | null {
   return autoStatus
 }
 
+/** 도트 카드에서 그림을 뺀 나머지(여백·토글·문구·도감 링크)의 대략적인 높이(px). 남는 높이에서 빼서 그림 높이를 정한다. */
+const DOT_CARD_OVERHEAD_PX = 240
+/** 잔디 보기 카드와 목표 없는 도트 카드의 대략적인 높이(px). 왼쪽 열이 넘치는지 가늠할 때 쓴다. */
+const GRASS_CARD_PX = 280
+const DOT_EMPTY_CARD_PX = 200
 /** 웹 홈 왼쪽 열은 폭이 넓어서 도트 그림 높이 한도를 사이드(220px)보다 크게 쓴다. */
 const LEFT_PICTURE_CAP_PX = 360
 
@@ -101,18 +107,17 @@ export function HomePage() {
 
   // W4: 웹(폭 1024 이상)에서는 활동 지도 카드가 왼쪽 열의 "최근 기록" 아래에 있다. 왼쪽이 넘치면 최근 기록을
   // 3→2→1→0개로 먼저 줄이고, 활동 지도 카드는 마지막까지 남긴다(그림은 남는 높이에 맞추고, 칸이 6px 미만이면 요약만).
-  // 높이는 추정값이 아니라 실제로 잰 값으로 맞춘다(useStagedFit).
-  useDotsCurrent()
+  const [activityView] = useActivityView()
+  const dotsQuery = useDotsCurrent()
+  const dotShown = dotsQuery.data?.goal ?? dotsQuery.data?.justCompleted ?? null
+  const dotNeedPicture = activityView === 'dot' && dotShown ? dotShown.height * 8 : 0
+  const leftOverhead = activityView === 'grass' ? GRASS_CARD_PX : dotShown ? DOT_CARD_OVERHEAD_PX : DOT_EMPTY_CARD_PX
   const {
-    columnRef,
-    fitRef: leftFitRef,
-    recentRef,
-    activityRef,
-    recentCount,
-    activityCompact,
-    greetingCompact,
+    containerRef: leftFitRef,
+    shrinkRef: recentRef,
+    count: recentCount,
     pictureMax: leftPictureMax,
-  } = useStagedFit({ recentMax: 3, pictureCap: LEFT_PICTURE_CAP_PX })
+  } = useShrinkToFit({ max: 3, overhead: leftOverhead, needPicture: dotNeedPicture, pictureCap: LEFT_PICTURE_CAP_PX })
 
   // 아래 세 훅은 summary가 아직 로딩 중이어도(이 아래 early return보다 먼저) 매 렌더마다 똑같이
   // 호출돼야 한다(Hooks 규칙) — summary 로딩 전에는 잠정적으로 안전한 기본값으로 계산해 두고,
@@ -174,7 +179,7 @@ export function HomePage() {
       <h1 className="font-serif text-[22px] font-semibold lg:text-[2rem]">
         {state === 'comeback' ? `다시 오셨네요, ${name}님` : state === 'first' ? `${name}님, 환영합니다` : `안녕하세요, ${name}님`}
       </h1>
-      {greetingCompact ? null : <span className="text-sm text-ink-2">{formatMonthDayWeekday(today)}</span>}
+      <span className="text-sm text-ink-2">{formatMonthDayWeekday(today)}</span>
       {state === 'first' ? (
         <p className="text-body-min text-ink-2">오늘 있었던 일을 한 줄만 적어도 첫 기록이 돼요.</p>
       ) : null}
@@ -224,10 +229,7 @@ export function HomePage() {
 
   const main = (
     // 웹에서는 페이지 스크롤이 없다. 이 열의 안쪽 블록이 넘치면 아래의 숨김·줄이기 규칙이 처리하고, 열 자체는 스크롤하지 않는다.
-    <div
-      ref={columnRef}
-      className={['flex flex-col gap-5 lg:h-full lg:min-h-0 lg:overflow-hidden', greetingCompact ? 'lg:gap-3' : ''].filter(Boolean).join(' ')}
-    >
+    <div className="flex flex-col gap-5 lg:h-full lg:min-h-0 lg:overflow-hidden">
       {greeting}
 
       {droppedMessages.length > 0 ? (
@@ -271,8 +273,8 @@ export function HomePage() {
           <div ref={recentRef} className={recentCount > 0 ? 'flex-none' : 'hidden'}>
             {recentCount > 0 ? <RecentRecordsCard limit={recentCount} /> : null}
           </div>
-          <div ref={activityRef} className="flex-none">
-            <HomeActivityCard maxPictureHeight={leftPictureMax} compact={activityCompact} />
+          <div className="flex-none">
+            <HomeActivityCard maxPictureHeight={leftPictureMax} />
           </div>
         </div>
       ) : null}
