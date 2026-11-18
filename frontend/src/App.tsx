@@ -8,6 +8,7 @@ import { SettingsLayout } from './components/SettingsLayout'
 import { AuthCallbackPage } from './pages/AuthCallbackPage'
 import { ChangesPage } from './pages/ChangesPage'
 import { CoachPage } from './pages/CoachPage'
+import { DotCollectionPage } from './pages/DotCollectionPage'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
 import { OnboardingPage } from './pages/OnboardingPage'
@@ -77,6 +78,7 @@ function App() {
         <Route path="/coach/history/:id" element={<CoachHistoryDetailRedirect />} />
         <Route path="/changes/metrics" element={<Navigate to="/changes" replace />} />
         <Route path="/weeks/:weekStart" element={<WeekDetailPage />} />
+        <Route path="/dots/collection" element={<DotCollectionPage />} />
         <Route path="/records/new" element={<RecordNewPage />} />
         <Route path="/records/:id/saved" element={<RecordSavedPage />} />
         <Route path="/records/:id" element={<RecordDetailPage />} />

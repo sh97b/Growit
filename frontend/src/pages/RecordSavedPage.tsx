@@ -1,5 +1,6 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { DotCompletionHost } from '../components/DotCompletionHost'
 import { RecordSavedPanel } from '../components/RecordSavedPanel'
 import { Loading } from '../components/Loading'
 import { useHobbies } from '../hooks/useHobbies'
@@ -37,13 +38,17 @@ export function RecordSavedPage() {
   const isFirstRecord = (totalQuery.data?.totalCount ?? 0) === 1
 
   return (
-    <RecordSavedPanel
-      record={record}
-      hobbyName={hobbyName}
-      isFirstRecord={isFirstRecord}
-      onHome={() => navigate('/')}
-      onViewDetail={() => navigate(`/records/${record.id}`)}
-      onEdit={() => navigate(`/records/${record.id}/edit`)}
-    />
+    <>
+      <RecordSavedPanel
+        record={record}
+        hobbyName={hobbyName}
+        isFirstRecord={isFirstRecord}
+        onHome={() => navigate('/')}
+        onViewDetail={() => navigate(`/records/${record.id}`)}
+        onEdit={() => navigate(`/records/${record.id}/edit`)}
+      />
+      {/* 이 기록으로 도트 그림의 마지막 칸이 채워졌다면 저장 직후 여기서 바로 완성 연출이 뜬다. */}
+      <DotCompletionHost />
+    </>
   )
 }

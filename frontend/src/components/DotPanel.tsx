@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { useDotsCurrent, useStopDot } from '../hooks/useDots'
+import { Link } from 'react-router-dom'
+import { useDotAlbum, useDotsCurrent, useStopDot } from '../hooks/useDots'
 import type { DotGoal } from '../lib/dots'
 import { Button } from './Button'
 import { Dialog } from './Dialog'
@@ -10,6 +11,18 @@ import { Loading } from './Loading'
 import { Note } from './Note'
 
 const STOP_TITLE_ID = 'dot-stop-title'
+
+/** 카드 아래의 작은 링크. 완성한 그림이 모여 있는 도감으로 간다. */
+function CollectionLink() {
+  return (
+    <Link
+      to="/dots/collection"
+      className="inline-flex min-h-11 items-center self-center rounded-full px-2 text-caption-min font-medium text-base-ink no-underline hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+    >
+      도감 보기
+    </Link>
+  )
+}
 
 /** 작은 메뉴에서 "그만두기"를 고르면 한 번 더 물어본다. 그만둔 그림은 보관만 되고 화면에서는 사라진다. */
 function StopMenu({ goal }: { goal: DotGoal }) {
@@ -54,6 +67,12 @@ function StopMenu({ goal }: { goal: DotGoal }) {
       </button>
       {menuOpen ? (
         <div className="absolute right-0 top-full z-10 mt-1 min-w-[9rem] rounded-xl border border-line-2 bg-white p-1 shadow-md">
+          <Link
+            to="/dots/collection"
+            className="tap-min flex w-full items-center rounded-lg px-3 text-left text-body-min text-ink no-underline hover:bg-surface"
+          >
+            도감 보기
+          </Link>
           <button
             type="button"
             onClick={() => {
@@ -122,6 +141,8 @@ export function DotPanel() {
 /** 진행 중인 그림, 방금 완성한 그림, 아직 없는 상태를 차분하게 보여 준다. */
 function DotPanelBody({ onStart }: { onStart: () => void }) {
   const query = useDotsCurrent()
+  const albumQuery = useDotAlbum()
+  const hasAlbum = (albumQuery.data ?? []).length > 0
 
   if (query.isLoading) {
     return <Loading />
@@ -167,6 +188,7 @@ function DotPanelBody({ onStart }: { onStart: () => void }) {
             </p>
           ) : null}
         </div>
+        <CollectionLink />
       </div>
     )
   }
@@ -177,9 +199,12 @@ function DotPanelBody({ onStart }: { onStart: () => void }) {
         <p className="text-body-min font-medium text-ink">도트 그림으로 기록을 쌓아 볼까요?</p>
         <p className="text-caption-min text-ink-3">기록한 날마다 그림이 한 칸씩 채워져요. 쉬는 날은 그대로 두면 돼요.</p>
       </div>
-      <Button type="button" onClick={onStart}>
-        시작하기
-      </Button>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <Button type="button" onClick={onStart}>
+          시작하기
+        </Button>
+        {hasAlbum ? <CollectionLink /> : null}
+      </div>
     </div>
   )
 }

@@ -1,5 +1,15 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
-import { fetchDotPresets, fetchDotPreview, fetchDotsCurrent, startDotGoal, stopDotGoal } from '../lib/dots'
+import {
+  type DotGoal,
+  fetchDotAlbum,
+  fetchDotGoal,
+  fetchDotPresets,
+  fetchDotPreview,
+  fetchDotsCurrent,
+  markDotCompletionSeen,
+  startDotGoal,
+  stopDotGoal,
+} from '../lib/dots'
 
 /**
  * 쿼리 키를 ['stats', ...]로 시작하게 둬서, 기록을 저장한 뒤 이미 하는 ['stats'] 무효화에 같이 다시 불러진다.
@@ -49,6 +59,39 @@ export function useStartDot() {
     networkMode: 'always',
     retry: false,
     // 이미 진행 중인 그림이 있어 409가 나도(다른 기기에서 시작한 경우) 화면이 실제 상태를 보게 다시 불러온다.
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['stats', 'dots'] }),
+  })
+}
+
+/** 도감. 키가 ['stats', ...]로 시작해서 기록을 저장해 그림이 완성될 때 같이 다시 불러진다. */
+export function useDotAlbum() {
+  return useQuery({
+    queryKey: ['stats', 'dots', 'album'],
+    queryFn: fetchDotAlbum,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    retry: false,
+  })
+}
+
+/** 도감 항목을 눌렀을 때 큰 그림. 목록에서 이미 받은 값을 먼저 보여 주고 서버 값으로 확인한다. */
+export function useDotGoalDetail(goalId: number, initial: DotGoal) {
+  return useQuery({
+    queryKey: ['stats', 'dots', 'goal', goalId],
+    queryFn: () => fetchDotGoal(goalId),
+    placeholderData: initial,
+    staleTime: 30_000,
+    retry: false,
+  })
+}
+
+/** 닫는 요청이 실패해도 화면은 닫히므로(호출하는 쪽이 먼저 닫는다) 재시도와 오프라인 대기는 하지 않는다. */
+export function useDotCompletionSeen() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (goalId: number) => markDotCompletionSeen(goalId),
+    networkMode: 'always',
+    retry: false,
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['stats', 'dots'] }),
   })
 }

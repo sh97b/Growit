@@ -20,6 +20,11 @@ export function formatMonthDay(isoDate: string): string {
   return `${Number(month)}월 ${Number(day)}일`
 }
 
+export function formatYearMonthDay(isoDate: string): string {
+  const [year, month, day] = isoDate.split('-')
+  return `${year}년 ${Number(month)}월 ${Number(day)}일`
+}
+
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
 export function weekdayLabel(date: Date): string {

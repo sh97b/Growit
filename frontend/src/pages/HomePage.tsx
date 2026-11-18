@@ -16,6 +16,7 @@ import { RecentWeekStrip } from '../components/RecentWeekStrip'
 import { TopicChips } from '../components/TopicChips'
 import { ChevronRightIcon, PlusIcon } from '../components/icons'
 import { useCurrentUser } from '../hooks/useCurrentUser'
+import { DotCompletionHost } from '../components/DotCompletionHost'
 import { useDotsCurrent } from '../hooks/useDots'
 import { useFitPageSize } from '../hooks/useFitPageSize'
 import { useHobbies } from '../hooks/useHobbies'
@@ -270,6 +271,7 @@ export function HomePage() {
         side={<div className="hidden lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:gap-7">{sideDesktop}</div>}
         className="lg:min-h-0 lg:flex-1"
       />
+      <DotCompletionHost />
     </div>
   )
 }

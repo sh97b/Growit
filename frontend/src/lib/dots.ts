@@ -69,6 +69,19 @@ export function stopDotGoal(goalId: number) {
   return apiRequest<void>(`/api/dots/goals/${goalId}/stop`, { method: 'POST' })
 }
 
+/** 도감: 완성한 그림만, 최근 완성한 것이 먼저 온다. */
+export function fetchDotAlbum() {
+  return apiRequest<DotGoal[]>('/api/dots/goals')
+}
+
+export function fetchDotGoal(goalId: number) {
+  return apiRequest<DotGoal>(`/api/dots/goals/${goalId}`)
+}
+
+export function markDotCompletionSeen(goalId: number) {
+  return apiRequest<void>(`/api/dots/goals/${goalId}/completion-seen`, { method: 'POST' })
+}
+
 export type ActivityView = 'grass' | 'dot'
 
 const VIEW_KEY = 'growit_home_activity_view'
