@@ -115,7 +115,7 @@ public class RecordService {
 		assertNotArchived(hobby);
 		assertNotFuture(request.recordDate());
 		if (request.feeling() != null && request.customFeelingId() != null) {
-			throw new ApiException(ErrorCode.VALIDATION_ERROR, "감정은 하나만 고를 수 있어요");
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, "느낌은 하나만 고를 수 있어요");
 		}
 		CustomFeeling customFeeling = request.customFeelingId() == null ? null
 				: customFeelingService.findOwned(userId, request.customFeelingId());
