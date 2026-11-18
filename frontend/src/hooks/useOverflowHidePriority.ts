@@ -6,7 +6,11 @@ import { useLayoutEffect, useRef, useState } from 'react'
  * 하나씩 실제로 숨기고(display:none) 다시 재는 식으로, 열 안에 다 들어갈 때까지 반복한다. 열이
  * 넓어지면(리사이즈) 매번 전부 보여준 뒤 다시 측정해 필요한 만큼만 숨겨 자동으로 복원된다.
  */
-export function useOverflowHidePriority(itemCount: number): {
+export function useOverflowHidePriority(
+  itemCount: number,
+  /** 아무리 좁아도 앞에서부터 이 개수만큼은 숨기지 않는다(첫 블록까지 사라져 열이 텅 비는 것을 막는다). */
+  minVisible = 0,
+): {
   containerRef: React.RefObject<HTMLDivElement | null>
   itemRefs: React.RefObject<(HTMLDivElement | null)[]>
   visibleCount: number
@@ -30,7 +34,13 @@ export function useOverflowHidePriority(itemCount: number): {
         if (node) node.style.display = ''
       }
       let shown = itemCount
-      while (shown > 0 && el.scrollHeight > el.clientHeight + 1) {
+      // 열이 아직 배치되지 않아 높이가 0이면(첫 그리기 직후 등) 넘치는지 판단할 수 없으니 전부 보여 둔다.
+      // 높이가 정해지면 ResizeObserver가 다시 잰다.
+      if (el.clientHeight === 0) {
+        setVisibleCount((prev) => (prev === shown ? prev : shown))
+        return
+      }
+      while (shown > minVisible && el.scrollHeight > el.clientHeight + 1) {
         shown -= 1
         const node = itemRefs.current[shown]
         if (node) node.style.display = 'none'
@@ -51,7 +61,7 @@ export function useOverflowHidePriority(itemCount: number): {
     measure()
 
     return () => observer.disconnect()
-  }, [itemCount])
+  }, [itemCount, minVisible])
 
   return { containerRef, itemRefs, visibleCount, containerHeight }
 }

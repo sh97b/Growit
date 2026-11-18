@@ -140,7 +140,7 @@ export function HomePage() {
   })
 
   const sideItemCount = statePreview == null || statePreview === 'first' ? 0 : 3
-  const { containerRef: sideFitRef, itemRefs: sideItemRefs } = useOverflowHidePriority(sideItemCount)
+  const { containerRef: sideFitRef, itemRefs: sideItemRefs } = useOverflowHidePriority(sideItemCount, 1)
   // 낮은 화면(1366×768, 1280×720 같은)에서는 통계 3칸을 한 줄로 줄인다. 모바일(폭 1024 미만)은 이 값을 쓰지 않는다.
   const lowScreen = useMediaQuery('(max-height: 760px)')
 
@@ -286,7 +286,7 @@ export function HomePage() {
       <Split
         main={main}
         side={<div className="hidden lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:gap-7">{sideDesktop}</div>}
-        className="lg:min-h-0 lg:flex-1"
+        className="lg:min-h-0 lg:flex-1 lg:grid-rows-[minmax(0,1fr)]"
       />
       <DotCompletionHost />
     </div>
