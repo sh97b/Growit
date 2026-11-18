@@ -11,6 +11,8 @@ type Props = {
   hobbyId?: number | null
   /** 지난 기록의 1년 지도·모바일처럼 [6개월|1년] 토글을 둘지 여부. */
   toggle?: boolean
+  /** 높이가 모자랄 때의 압축 모드: 월 라벨·범례·선택한 날 문구를 숨기고 칸을 작게 그린다(고정 칸 크기 모드와는 함께 쓰지 않는다). */
+  compact?: boolean
 }
 
 /*
@@ -26,6 +28,7 @@ const MAX_CLAMP_CELL_PX = 16
 /** 기록 탭 데스크톱 전용 한 줄 모드의 고정 칸 크기(지시문 명시: 14px, 간격 3px). */
 const SCROLL_CELL_PX = 14
 const MONTH_LABEL_ROW_PX = 14
+const COMPACT_CELL_PX = 9
 /**
  * P2 1번/S1 B단계: overflow-x:auto 스크롤바가 콘텐츠 박스 안쪽에서 공간을 차지해, 높이를 콘텐츠
  * 높이와 정확히 같게 두면 맨 아랫줄(일요일)이 스크롤바에 가려 잘린다. 스크롤 영역에는 스크롤바
@@ -52,7 +55,7 @@ const LEVEL_BG: Record<0 | 1 | 2 | 3, string> = {
   3: 'var(--color-base)',
 }
 
-export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: Props) {
+export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false, compact = false }: Props) {
   const today = todayLocalDate()
   const currentWeekStart = startOfWeekLocal(new Date())
   const [range, setRange] = useState<'half' | 'full'>('half')
@@ -263,7 +266,9 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
       '--weeks': weeksForRow,
       '--cell': fixedCell
         ? `${FULL_CELL_PX}px`
-        : `clamp(9px, calc(100cqw / var(--weeks) - ${GAP_PX}px), ${MAX_CLAMP_CELL_PX}px)`,
+        : compact
+          ? `${COMPACT_CELL_PX}px`
+          : `clamp(9px, calc(100cqw / var(--weeks) - ${GAP_PX}px), ${MAX_CLAMP_CELL_PX}px)`,
     } as CSSProperties
   }
 
@@ -273,6 +278,7 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
   function renderClampedRow() {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', rowGap: '2px' }}>
+        {compact ? null : (
         <div style={{ position: 'relative', height: '14px' }}>
           {monthLabels.map(({ col, label }) => (
             <span
@@ -291,6 +297,7 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
             </span>
           ))}
         </div>
+        )}
 
         <div
           style={{
@@ -430,6 +437,7 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
         </div>
       )}
 
+      {compact ? null : (
       <div className="flex items-center justify-between gap-3">
         <p className="min-h-5 text-caption-min text-ink-2" aria-live="polite">
           {selectedDate ? `${formatMonthDay(selectedDate)} · 기록 ${selectedCount}개` : ' '}
@@ -443,6 +451,7 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
           <span>많음</span>
         </div>
       </div>
+      )}
     </div>
   )
 }
