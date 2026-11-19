@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Dropdown } from './Dropdown'
 import { SearchIcon, XIcon } from './icons'
 
@@ -21,13 +21,15 @@ type FilterBarProps = {
   range: { value: DateRangeValue; onChange: (value: DateRangeValue) => void }
   hasActiveFilter: boolean
   onReset: () => void
+  /** 필터 줄 끝(웹)·아래 전체 폭(모바일)에 두는 주 액션(예: 회고의 [새 회고 받기]). */
+  trailing?: ReactNode
 }
 
 /**
  * 돌아보기 기록·회고 탭이 공유하는 필터 줄(O1 C.2): [검색창] [분야 드롭다운] [기간 드롭다운].
  * 직접 선택을 고르면 드롭다운 패널 안에 날짜 입력 팝오버가 열려 줄 높이를 늘리지 않는다.
  */
-export function FilterBar({ search, hobby, range, hasActiveFilter, onReset }: FilterBarProps) {
+export function FilterBar({ search, hobby, range, hasActiveFilter, onReset, trailing }: FilterBarProps) {
   const hobbyOptions = [{ value: 'ALL', label: '전체' }, ...hobby.options.map((h) => ({ value: String(h.id), label: h.name }))]
   const hobbyValue = hobby.value == null ? 'ALL' : String(hobby.value)
 
@@ -118,6 +120,8 @@ export function FilterBar({ search, hobby, range, hasActiveFilter, onReset }: Fi
           초기화
         </button>
       ) : null}
+
+      {trailing ? <div className="w-full lg:ml-auto lg:w-auto">{trailing}</div> : null}
     </div>
   )
 }

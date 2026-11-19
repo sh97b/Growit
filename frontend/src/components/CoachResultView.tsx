@@ -207,37 +207,120 @@ export function CoachActionCard({
   )
 }
 
+type NumberedCard = { text: string; steps?: string[]; evidence: CoachEvidenceItem[] }
+
+/** 번호 원형 배지가 붙은 카드 목록(질문·방향 후보 공용). 카드마다 연한 배경과 여백으로 구분한다. */
+function NumberedSection({ title, note, cards }: { title: string; note?: string; cards: NumberedCard[] }) {
+  return (
+    <div className={`flex flex-col gap-3 ${RESULT_CARD_CLASS}`}>
+      <h2 className="text-section-title">{title}</h2>
+      {note ? <p className="text-caption-min text-ink-2">{note}</p> : null}
+      <ol className="m-0 flex list-none flex-col gap-4 p-0">
+        {cards.map((card, index) => (
+          <li
+            key={index}
+            className="flex gap-3 rounded-xl bg-[color-mix(in_srgb,var(--color-base)_7%,white)] p-4"
+          >
+            <span
+              aria-hidden="true"
+              className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-full bg-base text-sm font-semibold text-white"
+            >
+              {index + 1}
+            </span>
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <p className="text-body-min font-semibold leading-[1.7] text-ink">{card.text}</p>
+              {card.steps && card.steps.length > 0 ? (
+                <>
+                  <p className="text-caption-min font-medium text-ink-2">이렇게 시작해 볼 수 있어요</p>
+                  <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-caption-min leading-[1.6] text-ink-2">
+                    {card.steps.map((step, stepIndex) => (
+                      <li key={stepIndex}>{step}</li>
+                    ))}
+                  </ul>
+                </>
+              ) : null}
+              <EvidenceRow evidence={card.evidence} />
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
+}
+
 /** 방향 후보 + 시작 제안. 후보가 하나도 없으면 섹션을 비우지 않고 안내 한 줄을 보여 준다. */
 function DirectionsBlock({ result }: { result: CoachResult }) {
   const plans = result.directionPlans ?? []
   const sentences = result.directions ?? []
   const title = '앞으로의 방향 후보'
+  const note = '고르는 건 내 몫이에요. 마음이 가는 쪽만 보면 돼요.'
   if (plans.length === 0 && sentences.length > 0) {
-    return <TextItemBlock title={title} items={sentences} note="고르는 건 내 몫이에요. 마음이 가는 쪽만 보면 돼요." />
+    return (
+      <NumberedSection
+        title={title}
+        note={note}
+        cards={sentences.map((item) => ({ text: item.text, evidence: item.evidence }))}
+      />
+    )
+  }
+  if (plans.length === 0) {
+    return (
+      <div className={`flex flex-col gap-3 ${RESULT_CARD_CLASS}`}>
+        <h2 className="text-section-title">{title}</h2>
+        <p className="text-body-min leading-[1.7] text-ink-2">기록이 조금 더 쌓이면 방향을 제안해 드릴게요.</p>
+      </div>
+    )
   }
   return (
-    <div className={`flex flex-col gap-3 ${RESULT_CARD_CLASS}`}>
-      <h2 className="text-section-title">{title}</h2>
-      {plans.length === 0 ? (
-        <p className="text-body-min leading-[1.7] text-ink-2">기록이 조금 더 쌓이면 방향을 제안해 드릴게요.</p>
-      ) : (
+    <NumberedSection
+      title={title}
+      note={note}
+      cards={plans.map((plan) => ({ text: plan.direction, steps: plan.steps, evidence: plan.evidence }))}
+    />
+  )
+}
+
+/** 기간 요약 문장(크고 굵은 세리프)과, 그 근거가 된 기록을 접었다 펼 수 있는 줄. */
+function SummaryBlock({ result }: { result: CoachResult }) {
+  const [open, setOpen] = useState(false)
+  const listId = useId()
+  const sections = [result.flow, result.changes, result.repeatedDifficulties, result.resolvedDifficulties]
+  const byId = new Map<number, CoachEvidenceItem>()
+  for (const section of sections) {
+    for (const item of section ?? []) {
+      for (const evidence of item.evidence) byId.set(evidence.recordId, evidence)
+    }
+  }
+  const records = [...byId.values()].sort((a, b) => a.recordDate.localeCompare(b.recordDate))
+  return (
+    <div className={`flex flex-col gap-2 ${RESULT_CARD_CLASS}`}>
+      <p className="font-serif text-[1.125rem] font-bold leading-[1.6] text-ink lg:text-[1.25rem]">
+        {result.periodSummary}
+      </p>
+      {records.length > 0 ? (
         <>
-          <p className="text-caption-min text-ink-2">고르는 건 내 몫이에요. 마음이 가는 쪽만 보면 돼요.</p>
-          {plans.map((plan, index) => (
-            <div key={index} className="flex flex-col gap-2">
-              <p className="text-body-min font-medium leading-[1.7] text-ink">{plan.direction}</p>
-              <ol className="m-0 flex list-none flex-col gap-1 p-0">
-                {plan.steps.map((step, stepIndex) => (
-                  <li key={stepIndex} className="text-body-min leading-[1.6] text-ink-2">
-                    {step}
-                  </li>
-                ))}
-              </ol>
-              <EvidenceRow evidence={plan.evidence} />
-            </div>
-          ))}
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls={listId}
+            onClick={() => setOpen((prev) => !prev)}
+            className="inline-flex min-h-11 w-fit items-center gap-1.5 bg-transparent p-0 text-caption-min font-medium text-ink-2"
+          >
+            근거 기록 {records.length}개
+            <span aria-hidden="true">{open ? '▴' : '▾'}</span>
+          </button>
+          <ul id={listId} hidden={!open} className="m-0 flex list-none flex-col gap-1 p-0">
+            {records.map((record) => (
+              <li key={record.recordId} className="text-[0.8125rem] leading-[1.5] text-ink-3">
+                <Link to={`/records/${record.recordId}`} className="text-ink-3 no-underline">
+                  <span className="font-medium">{formatMonthDay(record.recordDate)}</span>{' '}
+                  <span className="line-clamp-1">{record.content}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </>
-      )}
+      ) : null}
     </div>
   )
 }
@@ -268,11 +351,13 @@ function ReflectionBody({ result }: { result: CoachResult }) {
       <TextItemBlock title="새로 해 본 것" items={result.changes} />
       <TextItemBlock title="반복된 어려움" items={result.repeatedDifficulties} />
       <TextItemBlock title="풀린 것" items={result.resolvedDifficulties ?? []} />
-      <TextItemBlock
-        title="스스로 생각해 볼 질문"
-        items={result.questions ?? []}
-        note="정답은 없어요. 떠오르는 대로 생각해 보세요."
-      />
+      {(result.questions ?? []).length > 0 ? (
+        <NumberedSection
+          title="스스로 생각해 볼 질문"
+          note="정답은 없어요. 떠오르는 대로 생각해 보세요."
+          cards={(result.questions ?? []).map((item) => ({ text: item.text, evidence: item.evidence }))}
+        />
+      ) : null}
       <DirectionsBlock result={result} />
     </>
   )
@@ -329,7 +414,7 @@ export function CoachResultView({
           ) : null}
         </div>
 
-        <p className={`text-section-title leading-[1.7] text-ink ${RESULT_CARD_CLASS}`}>{result.periodSummary}</p>
+        <SummaryBlock result={result} />
 
         <ReflectionBody result={result} />
 

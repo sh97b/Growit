@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { AiProgressCard, Spinner } from '../components/AiProgress'
 import { ChevronRightIcon } from '../components/icons'
 import { CoachResultView } from '../components/CoachResultView'
 import { FilterBar } from '../components/FilterBar'
@@ -12,6 +13,7 @@ import { ReviewHeaderRow } from '../components/ReviewHeaderRow'
 import { SplitWide } from '../components/PageLayout'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useFilterBarQuery, resolveDateRange } from '../hooks/useFilterBarQuery'
+import type { DateRangeValue } from '../components/FilterBar'
 import { useFitPageSize, useStablePageOnResize } from '../hooks/useFitPageSize'
 import { useHobbies } from '../hooks/useHobbies'
 import { useIsDesktop } from '../hooks/useIsDesktop'
@@ -41,6 +43,18 @@ const PERIODS: { value: CoachPeriod; label: string }[] = [
 
 const LIST_ROW_HEIGHT_REM = 5.5
 
+/**
+ * 회고를 만드는 기간은 필터의 [기간] 선택에서 정한다(별도 기간 팝오버 없음). 서버가 받는 기간은
+ * 이번 주·최근 2주·한 달 세 가지라서 고른 범위의 길이에 가장 가까운 것으로 옮긴다.
+ */
+function periodFromRange(range: DateRangeValue): CoachPeriod {
+  if (range.range !== 'CUSTOM' || !range.from || !range.to) return '1M'
+  const days = Math.round((Date.parse(range.to) - Date.parse(range.from)) / 86_400_000) + 1
+  if (days <= 7) return 'THIS_WEEK'
+  if (days <= 14) return '2W'
+  return '1M'
+}
+
 export function CoachPage() {
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -49,32 +63,14 @@ export function CoachPage() {
   const { data: activeHobbies, isLoading: hobbiesLoading } = useHobbies(false)
   const filter = useFilterBarQuery()
   const { from: listFrom, to: listTo } = resolveDateRange(filter.range)
-  const [period, setPeriod] = useState<CoachPeriod>('2W')
+  const period = periodFromRange(filter.range)
   const [result, setResult] = useState<CoachResult | null>(null)
   const [autoStatus, setAutoStatus] = useState<CoachAutoResponse | null>(null)
   const viewedIds = useRef(new Set<number>())
   const autoTriggeredRef = useRef(false)
   const [page, setPage] = useState(0)
-  const [periodPopoverOpen, setPeriodPopoverOpen] = useState(false)
-  const popoverRef = useRef<HTMLDivElement>(null)
-
-  // P1 3단계: 1행에는 [새 회고 받기] 버튼 하나만 두고, 기간·남은 횟수는 눌렀을 때만 열리는 작은
-  // 팝오버에 넣는다(본문의 큰 카드를 없애 머리줄 높이를 줄인다).
-  useEffect(() => {
-    if (!periodPopoverOpen) return
-    function handlePointerDown(event: PointerEvent) {
-      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) setPeriodPopoverOpen(false)
-    }
-    function handleKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') setPeriodPopoverOpen(false)
-    }
-    document.addEventListener('pointerdown', handlePointerDown)
-    document.addEventListener('keydown', handleKey)
-    return () => {
-      document.removeEventListener('pointerdown', handlePointerDown)
-      document.removeEventListener('keydown', handleKey)
-    }
-  }, [periodPopoverOpen])
+  const justGeneratedIdRef = useRef<number | null>(null)
+  const resultRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setPage(0)
@@ -131,6 +127,7 @@ export function CoachPage() {
     mutationFn: () => fetchCoach({ hobbyId: filter.hobbyId ?? undefined, period }),
     onSuccess: (data) => {
       setResult(data)
+      justGeneratedIdRef.current = data.id
       if (data.id != null) {
         setSearchParams((prev) => {
           const next = new URLSearchParams(prev)
@@ -194,6 +191,15 @@ export function CoachPage() {
   // 주므로(CoachService.latest), 나이 제한 없이 그대로 쓰면 된다.
   const shownResult = result ?? (selectedId != null ? selectedQuery.data ?? null : latestQuery.data ?? null)
 
+  // 방금 만든 회고가 화면에 나오면 그쪽으로 스크롤하고 포커스를 옮긴다(움직임 줄이기 설정이면 부드럽게 하지 않는다).
+  useEffect(() => {
+    if (shownResult?.id == null || justGeneratedIdRef.current !== shownResult.id) return
+    justGeneratedIdRef.current = null
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    resultRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+    resultRef.current?.focus({ preventScroll: true })
+  }, [shownResult?.id])
+
   // 자동 회고를 열면 한 번만 viewed 처리한다(이 화면에 머무는 동안 중복 호출 방지).
   useEffect(() => {
     if (!shownResult?.isNew || shownResult.id == null || viewedIds.current.has(shownResult.id)) return
@@ -237,58 +243,30 @@ export function CoachPage() {
     )
   }
 
-  // 머리줄 1행 오른쪽 액션(P1 3단계): [새 회고 받기] 버튼 하나만 두고, 누르면 아래에 기간(라디오)과
-  // 남은 횟수·[받기]가 있는 작은 팝오버가 열린다. 2행이나 본문에 큰 카드를 두지 않는다.
-  const headerAction = (
-    <div className="relative" ref={popoverRef}>
+  // [새 회고 받기]: 필터의 분야·기간 바로 옆(모바일은 바로 아래 전체 폭)에 두고, 누르면 그 분야·기간으로 바로 만든다.
+  const generateButton = (
+    <div className="flex flex-col gap-1.5">
       <button
         type="button"
-        aria-haspopup="dialog"
-        aria-expanded={periodPopoverOpen}
-        onClick={() => setPeriodPopoverOpen((prev) => !prev)}
-        className={
-          shownResult
-            ? 'inline-flex min-h-10 w-fit flex-none items-center justify-center rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink disabled:text-ink-3'
-            : 'inline-flex min-h-10 w-fit flex-none items-center justify-center rounded-lg bg-base px-4 text-sm font-medium text-white disabled:bg-line disabled:text-[#5F594F]'
-        }
+        disabled={mutation.isPending}
+        onClick={() => mutation.mutate()}
+        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-base px-5 text-body-min font-medium text-white disabled:bg-line disabled:text-[#5F594F] lg:h-10 lg:min-h-10 lg:w-auto"
       >
-        {shownResult ? '새 회고 받기' : '회고 받기'}
+        {mutation.isPending ? (
+          <>
+            <Spinner />
+            회고를 만들고 있어요
+          </>
+        ) : shownResult ? (
+          '새 회고 받기'
+        ) : (
+          '회고 받기'
+        )}
       </button>
-
-      {periodPopoverOpen ? (
-        <div className="absolute right-0 top-full z-20 mt-1.5 w-[15rem] rounded-lg border border-line-2 bg-white p-3 shadow-sm">
-          <div role="radiogroup" aria-label="회고 기간" className="flex flex-col gap-0.5">
-            {PERIODS.map((item) => (
-              <label
-                key={item.value}
-                className="flex min-h-10 items-center gap-2 rounded-md px-2 text-sm text-ink has-[:checked]:bg-surface has-[:checked]:font-semibold"
-              >
-                <input
-                  type="radio"
-                  name="coach-period"
-                  checked={period === item.value}
-                  onChange={() => setPeriod(item.value)}
-                  className="h-4 w-4 accent-[var(--color-base)]"
-                />
-                {item.label}
-              </label>
-            ))}
-          </div>
-          {usageQuery.data ? (
-            <p className="mt-1 px-2 text-caption-min text-ink-2">오늘 {usageQuery.data.remaining}번 남았어요</p>
-          ) : null}
-          <button
-            type="button"
-            disabled={mutation.isPending}
-            onClick={() => {
-              mutation.mutate()
-              setPeriodPopoverOpen(false)
-            }}
-            className="btn-min mt-2 inline-flex w-full items-center justify-center rounded-lg bg-base px-4 text-sm font-medium text-white disabled:bg-line disabled:text-[#5F594F]"
-          >
-            받기
-          </button>
-        </div>
+      {usageQuery.data ? (
+        <p className="text-center text-caption-min text-ink-2 lg:hidden">
+          {PERIODS.find((item) => item.value === period)?.label} 기록으로 만들어요 · 오늘 {usageQuery.data.remaining}번 남았어요
+        </p>
       ) : null}
     </div>
   )
@@ -303,34 +281,11 @@ export function CoachPage() {
   const detail = (
     <div className="flex flex-col gap-5">
 
-      {mutation.isPending ? (
-        <div className="flex flex-col gap-3.5 rounded-2xl bg-surface p-7">
-          <p className="text-ink">기록을 천천히 읽고 있어요</p>
-          <div className="h-3.5 w-[80%] animate-pulse rounded-full bg-rest" />
-          <div className="h-3.5 w-full animate-pulse rounded-full bg-rest" />
-        </div>
-      ) : null}
-
       {showAutoGeneratingSkeleton ? (
         <div className="flex flex-col gap-3.5 rounded-2xl bg-surface p-7">
           <p className="text-ink">회고를 정리하고 있어요</p>
           <div className="h-3.5 w-[80%] animate-pulse rounded-full bg-rest" />
           <div className="h-3.5 w-full animate-pulse rounded-full bg-rest" />
-        </div>
-      ) : null}
-
-      {mutation.isError ? (
-        <div className="flex flex-col gap-3">
-          <Note variant="sand">
-            {mutation.error instanceof ApiError ? mutation.error.message : '잠시 후 다시 시도해 주세요'}
-          </Note>
-          <button
-            type="button"
-            onClick={() => mutation.mutate()}
-            className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
-          >
-            다시 받기
-          </button>
         </div>
       ) : null}
 
@@ -361,7 +316,9 @@ export function CoachPage() {
       ) : null}
 
       {shownResult && !shownResult.locked ? (
-        <CoachResultView result={shownResult} onResultChange={(updated) => setResult(updated)} />
+        <div ref={resultRef} tabIndex={-1} className="outline-none">
+          <CoachResultView result={shownResult} onResultChange={(updated) => setResult(updated)} />
+        </div>
       ) : null}
 
       {!shownResult &&
@@ -404,6 +361,7 @@ export function CoachPage() {
       range={{ value: filter.range, onChange: filter.setRange }}
       hasActiveFilter={filter.hasActiveFilter}
       onReset={filter.reset}
+      trailing={generateButton}
     />
   )
 
@@ -422,6 +380,23 @@ export function CoachPage() {
           footer={<Pagination page={page} totalPages={totalPages} onChange={setPage} />}
         >
       <div className="flex flex-col gap-4">
+        {mutation.isPending ? (
+          <AiProgressCard message="AI가 회고를 만들고 있어요. 잠시만 기다려 주세요" lines={3} />
+        ) : null}
+        {mutation.isError ? (
+          <div className="flex flex-col gap-3">
+            <Note variant="sand">
+              {mutation.error instanceof ApiError ? mutation.error.message : '지금은 회고를 만들지 못했어요. 기록은 그대로 있어요.'}
+            </Note>
+            <button
+              type="button"
+              onClick={() => mutation.mutate()}
+              className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+            >
+              다시 시도
+            </button>
+          </div>
+        ) : null}
         {listQuery.isLoading ? <Loading /> : null}
         {listQuery.isError ? <Note variant="sand">잠시 후 다시 시도해 주세요</Note> : null}
 
@@ -517,7 +492,7 @@ export function CoachPage() {
           </>
         ) : (
           <>
-            <ReviewHeaderRow title="AI 회고" action={headerAction} />
+            <ReviewHeaderRow title="AI 회고" />
             {filterBar}
             {listPanel}
           </>
@@ -528,7 +503,7 @@ export function CoachPage() {
 
   return (
     <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
-      <ReviewHeaderRow title="AI 회고" action={headerAction} />
+      <ReviewHeaderRow title="AI 회고" />
       {filterBar}
       <SplitWide main={listPanel} side={detail} className="lg:min-h-0 lg:flex-1" />
     </div>
