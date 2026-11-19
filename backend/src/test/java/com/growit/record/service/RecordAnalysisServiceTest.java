@@ -546,4 +546,35 @@ class RecordAnalysisServiceTest {
 
 		assertThat(stored.nextAction()).isNull();
 	}
+
+	/** 영어 문장·따옴표·물음표·알파벳이 든 기록에서도 nextAction이 버려지지 않는다(낱말 비교는 대소문자를 가리지 않는다). */
+	@Test
+	void analyze_englishContentWithQuotesAndQuestionMarks_keepsNextActionEvenInStrictMode() {
+		Long hobbyId = hobbyRepository.save(new Hobby(1L, "영어 회화", "여행 영어 말하기")).getId();
+		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 10),
+				"여행 영어 문장 읽기: \"Where is the Station?\" / It's \"too far\", right?");
+		stubAiResponse(BASE + "\"nextAction\":" + actionJson("station 문장을 천천히 소리 내어 두 번 읽어 봐요", "6",
+				"Where is the Station 문장을 읽었다고 적었어요", String.valueOf(current.getId())) + "}");
+		RecordAnalysisService service = service(enabledProperties());
+		service.strictSpecificity = true;
+
+		service.analyze(current.getId(), 1L);
+
+		ActivityRecord result = activityRecordRepository.findById(current.getId()).orElseThrow();
+		assertThat(result.getAiStatus()).isEqualTo(AiStatus.DONE);
+		assertThat(result.getAiAnalysis()).doesNotContain("\"nextAction\":null").contains("station 문장을");
+	}
+
+	@Test
+	void analyze_englishTextWithQuotesInNextAction_isParsedAndKept() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "연습");
+		stubAiResponse(BASE + "\"nextAction\":{\"text\":\"\\\"Where is the station?\\\" 문장을 코드 전환처럼 천천히 읽어 봐요\","
+				+ "\"minutes\":5,\"reason\":\"코드 전환이 느렸다고 적었어요\",\"evidenceRecordId\":" + current.getId() + "}}");
+
+		service(enabledProperties()).analyze(current.getId(), 1L);
+
+		ActivityRecord result = activityRecordRepository.findById(current.getId()).orElseThrow();
+		assertThat(result.getAiAnalysis()).doesNotContain("\"nextAction\":null");
+	}
 }

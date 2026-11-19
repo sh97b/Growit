@@ -283,16 +283,29 @@ public class RecordService {
 	/** 가장 최근 기록의 "다음에 해 볼 일". 분석이 끝나지 않았거나 제안이 없으면 null. */
 	@Transactional(readOnly = true)
 	public RecordNextActionResponse latestNextAction(Long userId) {
-		ActivityRecord record = activityRecordRepository.findFirstByUserIdOrderByRecordDateDescIdDesc(userId)
-				.orElse(null);
+		return latestNextAction(userId, null);
+	}
+
+	/** hobbyId가 있으면 그 분야의 가장 최근 기록만 본다. 남의 분야거나 없는 분야는 404로 존재를 숨긴다. */
+	@Transactional(readOnly = true)
+	public RecordNextActionResponse latestNextAction(Long userId, Long hobbyId) {
+		ActivityRecord record;
+		if (hobbyId == null) {
+			record = activityRecordRepository.findFirstByUserIdOrderByRecordDateDescIdDesc(userId).orElse(null);
+		} else {
+			hobbyRepository.findByIdAndUserId(hobbyId, userId)
+					.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "활동 분야를 찾을 수 없어요"));
+			record = activityRecordRepository
+					.findFirstByUserIdAndHobbyIdOrderByRecordDateDescIdDesc(userId, hobbyId).orElse(null);
+		}
 		return record == null ? null : toNextActionResponse(record);
 	}
 
-	/** 지금은 TRIED만 있다. 남의 기록이거나 제안이 없으면 404로 존재를 숨긴다. */
+	/** value는 TRIED(해 봤어요)·HOLD(보류할래요), null이면 상태를 해제한다(아직 안 했어요). 남의 기록이거나 제안이 없으면 404. */
 	@Transactional
 	public RecordNextActionResponse reactToNextAction(Long userId, Long id, String value) {
-		if (!"TRIED".equals(value)) {
-			throw new ApiException(ErrorCode.VALIDATION_ERROR, "value는 TRIED만 쓸 수 있어요");
+		if (value != null && !"TRIED".equals(value) && !"HOLD".equals(value)) {
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, "value는 TRIED, HOLD 또는 null이어야 해요");
 		}
 		ActivityRecord record = findOwned(userId, id);
 		RecordNextActionResponse current = toNextActionResponse(record);

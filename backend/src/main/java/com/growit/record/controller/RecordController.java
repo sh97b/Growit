@@ -105,14 +105,15 @@ public class RecordController {
 		return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
 	}
 
-	@Operation(summary = "가장 최근 기록의 '다음에 해 볼 일' (없으면 204)")
+	@Operation(summary = "가장 최근 기록의 '다음에 해 볼 일' (없으면 204, hobbyId로 분야 한정, 남의 분야는 404)")
 	@GetMapping("/next-action/latest")
-	public ResponseEntity<RecordNextActionResponse> latestNextAction() {
-		RecordNextActionResponse response = recordService.latestNextAction(currentUserProvider.getCurrentUserId());
+	public ResponseEntity<RecordNextActionResponse> latestNextAction(@RequestParam(required = false) Long hobbyId) {
+		RecordNextActionResponse response = recordService.latestNextAction(currentUserProvider.getCurrentUserId(),
+				hobbyId);
 		return response == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(response);
 	}
 
-	@Operation(summary = "'다음에 해 볼 일'에 반응 남기기 (TRIED, 내 기록만)")
+	@Operation(summary = "'다음에 해 볼 일' 상태 바꾸기 (TRIED·HOLD, null이면 해제, 내 기록만)")
 	@ApiResponse(responseCode = "404", description = "내 기록이 아니거나 제안이 없음",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@PutMapping("/{id}/next-action/state")

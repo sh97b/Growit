@@ -1,5 +1,6 @@
 package com.growit.common.text;
 
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -17,11 +18,14 @@ public final class InputWords {
 
 	/** 조사 한 글자를 뗀 꼴도 같이 비교한다("코드를"이 입력에 있으면 "코드는"도 맞는 것으로 본다). */
 	public static boolean mentions(String text, String corpus) {
-		for (String token : corpus.split("[^가-힣A-Za-z0-9]+")) {
+		String lowerText = text.toLowerCase(Locale.ROOT);
+		for (String rawToken : corpus.split("[^가-힣A-Za-z0-9]+")) {
+			String token = rawToken.toLowerCase(Locale.ROOT);
 			if (token.length() < 2 || COMMON_WORDS.contains(token)) {
 				continue;
 			}
-			if (text.contains(token) || (token.length() >= 3 && text.contains(token.substring(0, token.length() - 1)))) {
+			if (lowerText.contains(token)
+					|| (token.length() >= 3 && lowerText.contains(token.substring(0, token.length() - 1)))) {
 				return true;
 			}
 		}

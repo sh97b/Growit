@@ -717,4 +717,81 @@ class RecordServiceTest {
 
 		assertThat(service.latestNextAction(1L).evidence()).isNull();
 	}
+
+	@Test
+	void reactToNextAction_holdThenClear_changesStateAndKeepsText() {
+		RecordService service = recordServiceWithAiEnabled();
+		Long hobbyId = createHobby(1L, "기타");
+		Long id = doneRecordWithNextAction(1L, hobbyId, LocalDate.of(2026, 10, 5), WITH_ACTION);
+
+		assertThat(service.reactToNextAction(1L, id, "HOLD").state()).isEqualTo("HOLD");
+		assertThat(service.latestNextAction(1L).state()).isEqualTo("HOLD");
+		assertThat(service.reactToNextAction(1L, id, "TRIED").state()).isEqualTo("TRIED");
+
+		var cleared = service.reactToNextAction(1L, id, null);
+		assertThat(cleared.state()).isNull();
+		assertThat(cleared.text()).isEqualTo("한 곡만 쳐 봐요");
+	}
+
+	@Test
+	void reactToNextAction_badValue_isValidationError() {
+		RecordService service = recordServiceWithAiEnabled();
+		Long hobbyId = createHobby(1L, "기타");
+		Long id = doneRecordWithNextAction(1L, hobbyId, LocalDate.of(2026, 10, 5), WITH_ACTION);
+
+		assertThatThrownBy(() -> service.reactToNextAction(1L, id, "tried")).isInstanceOfSatisfying(ApiException.class,
+				e -> assertThat(e.getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
+		assertThatThrownBy(() -> service.reactToNextAction(1L, id, "")).isInstanceOfSatisfying(ApiException.class,
+				e -> assertThat(e.getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
+	}
+
+	@Test
+	void reactToNextAction_otherUsersRecord_holdIsNotFound() {
+		RecordService service = recordServiceWithAiEnabled();
+		Long hobbyId = createHobby(2L, "기타");
+		Long id = doneRecordWithNextAction(2L, hobbyId, LocalDate.of(2026, 10, 5), WITH_ACTION);
+
+		assertThatThrownBy(() -> service.reactToNextAction(1L, id, "HOLD")).isInstanceOfSatisfying(ApiException.class,
+				e -> assertThat(e.getCode()).isEqualTo(ErrorCode.NOT_FOUND));
+		assertThat(service.latestNextAction(2L).state()).isNull();
+	}
+
+	@Test
+	void latestNextAction_withHobby_looksOnlyAtThatHobbysNewestRecord() {
+		RecordService service = recordServiceWithAiEnabled();
+		Long guitar = createHobby(1L, "기타");
+		Long piano = createHobby(1L, "피아노");
+		Long guitarRecord = doneRecordWithNextAction(1L, guitar, LocalDate.of(2026, 10, 1),
+				WITH_ACTION.replace("한 곡만", "기타 한 곡만"));
+		Long pianoRecord = doneRecordWithNextAction(1L, piano, LocalDate.of(2026, 10, 5),
+				WITH_ACTION.replace("한 곡만", "피아노 한 곡만"));
+
+		assertThat(service.latestNextAction(1L).recordId()).isEqualTo(pianoRecord);
+		assertThat(service.latestNextAction(1L, null).recordId()).isEqualTo(pianoRecord);
+		assertThat(service.latestNextAction(1L, guitar).recordId()).isEqualTo(guitarRecord);
+		assertThat(service.latestNextAction(1L, guitar).text()).contains("기타");
+	}
+
+	@Test
+	void latestNextAction_hobbyWithoutRecordsOrAction_returnsNull() {
+		RecordService service = recordServiceWithAiEnabled();
+		Long guitar = createHobby(1L, "기타");
+		Long piano = createHobby(1L, "피아노");
+		doneRecordWithNextAction(1L, piano, LocalDate.of(2026, 10, 5), NO_ACTION);
+
+		assertThat(service.latestNextAction(1L, guitar)).isNull();
+		assertThat(service.latestNextAction(1L, piano)).isNull();
+	}
+
+	@Test
+	void latestNextAction_otherUsersHobby_isNotFound() {
+		RecordService service = recordServiceWithAiEnabled();
+		Long othersHobby = createHobby(2L, "기타");
+		doneRecordWithNextAction(2L, othersHobby, LocalDate.of(2026, 10, 5), WITH_ACTION);
+
+		assertThatThrownBy(() -> service.latestNextAction(1L, othersHobby)).isInstanceOfSatisfying(ApiException.class,
+				e -> assertThat(e.getCode()).isEqualTo(ErrorCode.NOT_FOUND));
+		assertThatThrownBy(() -> service.latestNextAction(1L, 99999L)).isInstanceOfSatisfying(ApiException.class,
+				e -> assertThat(e.getCode()).isEqualTo(ErrorCode.NOT_FOUND));
+	}
 }
