@@ -30,3 +30,25 @@ export function NextActionCard({ action }: { action: NextAction }) {
     </div>
   )
 }
+
+/**
+ * 홈 회고 카드 안의 블록. N 이전의 "다음 작은 행동" 카드(CoachActionCard)와 같은 모양을 그대로 쓰고
+ * 문구와 데이터만 바꿨다: 연한 배경의 둥근 카드, 상단 칩, 큰 세리프 제목, "N분 · 이유" 줄, 근거 칩.
+ */
+export function HomeNextActionBlock({ action }: { action: NextAction }) {
+  const detail = action.reason ? `${action.minutes}분 · ${action.reason}` : `${action.minutes}분`
+  return (
+    <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-5">
+      <AiLabel>다음에 해 볼 일</AiLabel>
+      <p className="text-section-title">{action.text}</p>
+      <span className="text-caption-min text-ink-2">{detail}</span>
+      {action.evidence ? (
+        <EvidenceRow
+          evidence={[
+            { recordId: action.evidence.id, recordDate: action.evidence.recordDate, content: action.evidence.content },
+          ]}
+        />
+      ) : null}
+    </div>
+  )
+}
