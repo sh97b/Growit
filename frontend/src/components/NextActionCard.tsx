@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { AiLabel } from './AiLabel'
 import { EvidenceRow } from './CoachResultView'
 import type { NextAction } from '../lib/records'
@@ -22,11 +23,12 @@ export function NextActionDetails({ action }: { action: NextAction }) {
 }
 
 /** 저장 직후 화면의 "다음에 해 볼 일". 버튼 없이 문장·이유·근거 칩만 담백하게 보여 준다(AI 글이라 산세리프). */
-export function NextActionCard({ action }: { action: NextAction }) {
+export function NextActionCard({ action, footer }: { action: NextAction; footer?: ReactNode }) {
   return (
     <div className="flex flex-col gap-2 rounded-2xl bg-surface p-5">
       <AiLabel>다음에 해 볼 일</AiLabel>
       <NextActionDetails action={action} />
+      {footer ? <div className="mt-1 border-t border-line pt-3">{footer}</div> : null}
     </div>
   )
 }

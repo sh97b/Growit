@@ -33,9 +33,8 @@ export function NextActionStatus({ record, action }: { record: RecordDetail; act
     },
   })
 
-  return (
-    <div className="flex flex-col gap-3">
-      <NextActionCard action={action} />
+  const buttons = (
+    <div className="flex flex-col gap-2">
       <div role="radiogroup" aria-label="다음에 해 볼 일 상태" className="flex flex-wrap gap-2">
         {OPTIONS.map((option) => {
           const selected = (action.state ?? null) === option.value
@@ -47,9 +46,9 @@ export function NextActionStatus({ record, action }: { record: RecordDetail; act
               aria-checked={selected}
               onClick={() => (selected ? undefined : mutation.mutate(option.value))}
               className={[
-                'inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium whitespace-nowrap',
+                'inline-flex min-h-11 flex-1 basis-[7rem] items-center justify-center rounded-lg border px-3 text-sm font-medium whitespace-nowrap lg:flex-none lg:basis-auto lg:px-4',
                 selected
-                  ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)] text-ink'
+                  ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_14%,white)] font-semibold text-ink'
                   : 'border-line-2 bg-white text-ink',
               ].join(' ')}
             >
@@ -65,4 +64,6 @@ export function NextActionStatus({ record, action }: { record: RecordDetail; act
       ) : null}
     </div>
   )
+
+  return <NextActionCard action={action} footer={buttons} />
 }

@@ -333,8 +333,8 @@ export function RecordNewPage() {
       {saveError ? (
         <div className="flex flex-col gap-3">
           <Note variant="sand">{saveError}</Note>
-          <div className="flex flex-col items-start gap-1">
-            <Button type="button" block disabled={submitting} onClick={handleSave} className="lg:w-auto lg:self-start">
+          <div className="flex flex-col items-start gap-1 lg:items-end">
+            <Button type="button" block disabled={submitting} onClick={handleSave} className="lg:w-auto lg:self-end">
               <RefreshIcon width={16} height={16} />
               다시 저장
             </Button>
@@ -348,7 +348,7 @@ export function RecordNewPage() {
           </div>
         </div>
       ) : (
-        <Button type="button" block disabled={submitting} onClick={handleSave} className="lg:w-auto lg:self-start">
+        <Button type="button" block disabled={submitting} onClick={handleSave} className="lg:w-auto lg:self-end">
           {moreOpen ? '저장하기' : '한 줄만 저장하기'}
         </Button>
       )}

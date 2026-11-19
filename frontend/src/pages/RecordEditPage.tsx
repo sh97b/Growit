@@ -153,7 +153,7 @@ function RecordEditForm({ record, activeHobbies }: { record: RecordDetail; activ
       {contentError ? <Note variant="sand">{contentError}</Note> : null}
       {saveError ? <Note variant="sand">{saveError}</Note> : null}
 
-      <div className="flex gap-3">
+      <div className="flex gap-3 lg:flex-row-reverse">
         <Button
           type="button"
           disabled={!hasChanges || updateRecord.isPending}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react'
 import { ChevronLeftIcon, ChevronRightIcon } from './icons'
 import { pickClass } from '../lib/recordForm'
 
@@ -12,7 +12,7 @@ function prefersReducedMotion(): boolean {
 
 /**
  * 분야를 시간 선택처럼 가로 칩 한 줄로 고른다. 칩이 폭을 넘으면 웹에서는 양 끝에 반투명 화살표가 나타나
- * (올리거나 누르면 한 번에 약 70%씩 부드럽게 이동, 끝에 닿으면 숨김), 모바일은 손가락으로 밀어 넘긴다.
+ * (올리거나 누르면 한 번에 약 70%씩 부드럽게 이동, 끝에 닿으면 숨김). 모바일도 같은 화살표(터치 영역 36px)를 쓰고 손가락으로 밀어 넘길 수도 있다.
  * 선택된 칩이 보이도록 자동으로 맞춘다.
  */
 export function HobbyChipRow({
@@ -67,7 +67,9 @@ export function HobbyChipRow({
     el.scrollBy({ left: direction * el.clientWidth * SCROLL_RATIO, behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
   }
 
-  function handleHover(direction: 1 | -1) {
+  function handleHover(direction: 1 | -1, event: PointerEvent<HTMLElement>) {
+    // 터치 탭은 클릭으로 처리한다(올림 이벤트로 두 번 움직이지 않게 마우스일 때만).
+    if (event.pointerType !== 'mouse') return
     const now = Date.now()
     if (now - lastHoverScrollRef.current < 600) return
     lastHoverScrollRef.current = now
@@ -75,7 +77,7 @@ export function HobbyChipRow({
   }
 
   const arrowClass =
-    'absolute top-1/2 z-10 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 text-ink shadow-sm backdrop-blur-sm lg:inline-flex'
+    'absolute top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 text-ink shadow-sm backdrop-blur-sm'
 
   return (
     <div className="relative">
@@ -108,11 +110,17 @@ export function HobbyChipRow({
         </button>
       </div>
       {canLeft ? (
+        <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 z-[5] w-10 bg-gradient-to-r from-paper to-transparent" />
+      ) : null}
+      {canRight ? (
+        <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 z-[5] w-10 bg-gradient-to-l from-paper to-transparent" />
+      ) : null}
+      {canLeft ? (
         <button
           type="button"
           aria-label="이전 분야 보기"
           onClick={() => scrollByPage(-1)}
-          onMouseEnter={() => handleHover(-1)}
+          onPointerEnter={(event) => handleHover(-1, event)}
           className={`${arrowClass} left-0`}
         >
           <ChevronLeftIcon width={18} height={18} />
@@ -123,7 +131,7 @@ export function HobbyChipRow({
           type="button"
           aria-label="다음 분야 보기"
           onClick={() => scrollByPage(1)}
-          onMouseEnter={() => handleHover(1)}
+          onPointerEnter={(event) => handleHover(1, event)}
           className={`${arrowClass} right-0`}
         >
           <ChevronRightIcon width={18} height={18} />
