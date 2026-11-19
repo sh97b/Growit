@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AiLabel } from '../components/AiLabel'
+import { AiProgressCard } from '../components/AiProgress'
 import { Button } from '../components/Button'
 import { ChangeFeedbackRow } from '../components/ChangeFeedbackRow'
 import { EvidenceChip } from '../components/EvidenceChip'
 import { FeedbackRow } from '../components/FeedbackRow'
 import { Loading } from '../components/Loading'
+import { NextActionStatus } from '../components/NextActionStatus'
 import { Note } from '../components/Note'
 import { Split } from '../components/PageLayout'
 import { Tag } from '../components/Tag'
@@ -192,12 +194,7 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
   const [tagsFeedbackError, setTagsFeedbackError] = useState<string | null>(null)
 
   if (record.aiStatus === 'PENDING') {
-    return (
-      <div className="flex flex-col gap-2.5">
-        <AiLabel>정리하는 중이에요</AiLabel>
-        <div className="h-3.5 w-[70%] animate-pulse rounded-full bg-rest" />
-      </div>
-    )
+    return <AiProgressCard message="AI가 기록을 살펴보고 있어요" lines={3} />
   }
 
   if (record.aiStatus === 'FAILED') {
@@ -320,6 +317,7 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
     <div className="flex flex-col gap-3">
       {analysis.title ? <h2 className="text-card-title">{analysis.title}</h2> : null}
       <ChangeBlock record={record} analysis={analysis} />
+      {analysis.nextAction ? <NextActionStatus record={record} action={analysis.nextAction} /> : null}
 
       <AiLabel>AI 정리</AiLabel>
 

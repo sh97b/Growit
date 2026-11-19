@@ -37,11 +37,13 @@ export function RecordNewPage() {
   const { data: currentUser, isLoading: userLoading } = useCurrentUser()
   const { data: hobbies, isLoading: hobbiesLoading } = useHobbies(false)
   const recentQuery = useQuery({ queryKey: ['records', 'recent'], queryFn: () => fetchRecords({ size: 1 }) })
-  const latestNextActionQuery = useLatestNextAction()
 
   const activeHobbies = hobbies ?? []
-
   const [hobbyId, setHobbyId] = useState<number | null>(null)
+  // 지난 제안 칩은 지금 고른 분야의 가장 최근 제안만 보여 준다(분야를 바꾸면 그 분야 것으로 바뀐다).
+  const effectiveHobbyId = (activeHobbies.find((hobby) => hobby.id === hobbyId) ?? activeHobbies[0])?.id ?? null
+  const latestNextActionQuery = useLatestNextAction(effectiveHobbyId, { enabled: effectiveHobbyId != null })
+
   const [hobbyPickerOpen, setHobbyPickerOpen] = useState(false)
   const [content, setContent] = useState('')
   const [moreOpen, setMoreOpen] = useState(false)
@@ -53,7 +55,7 @@ export function RecordNewPage() {
   const [customFeelingId, setCustomFeelingId] = useState<number | null>(null)
   const [draftRestored, setDraftRestored] = useState(false)
   const [suggestionOn, setSuggestionOn] = useState(true)
-  const [suggestionDismissed, setSuggestionDismissed] = useState(false)
+  const [dismissedSuggestionId, setDismissedSuggestionId] = useState<number | null>(null)
 
   const [submitting, setSubmitting] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -140,7 +142,9 @@ export function RecordNewPage() {
   // 지난 제안: 가장 최근 기록의 다음에 해 볼 일 중 아직 반응이 없는 것. 닫으면 이 화면에서는 다시 안 보인다.
   const latestNextAction = latestNextActionQuery.data
   const suggestion =
-    !suggestionDismissed && latestNextAction && latestNextAction.state == null ? latestNextAction : null
+    latestNextAction && latestNextAction.state == null && latestNextAction.recordId !== dismissedSuggestionId
+      ? latestNextAction
+      : null
 
   async function handleSave() {
     if (submitting || !selectedHobby) return
@@ -164,7 +168,7 @@ export function RecordNewPage() {
       if (currentUser) clearRecordDraft(currentUser.id)
       if (suggestion && suggestionOn) {
         markNextActionTried(suggestion.recordId)
-          .then((updated) => queryClient.setQueryData(['records', 'next-action', 'latest'], updated))
+          .then(() => queryClient.invalidateQueries({ queryKey: ['records', 'next-action'] }))
           .catch(() => {
             // 반응 저장이 실패해도 기록 저장 자체는 이미 성공했으니 조용히 넘어간다.
           })
@@ -316,7 +320,7 @@ export function RecordNewPage() {
               <button
                 type="button"
                 aria-label="지난 제안 닫기"
-                onClick={() => setSuggestionDismissed(true)}
+                onClick={() => setDismissedSuggestionId(suggestion.recordId)}
                 className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-3"
               >
                 <span aria-hidden="true">×</span>

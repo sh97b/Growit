@@ -1,5 +1,6 @@
 import { useRef, type ReactNode } from 'react'
 import { Field } from './Field'
+import { HobbyChipRow } from './HobbyChipRow'
 import { HobbyInlineCreate } from './HobbyInlineCreate'
 import { Input } from './Input'
 import { VoiceInputButton } from './VoiceInputButton'
@@ -123,38 +124,15 @@ export function RecordFormFields({
 
       {suggestionChip}
 
-      <div className="relative flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          aria-pressed="true"
-          aria-expanded={hobbyPickerOpen}
-          aria-label={`분야 변경: ${selectedHobby.name}`}
-          onClick={onToggleHobbyPicker}
-          className={pickClass(true)}
-        >
-          {selectedHobby.name}
-          <ChevronDownIcon width={16} height={16} className={hobbyPickerOpen ? 'rotate-180' : ''} />
-        </button>
-        {hobbyPickerOpen
-          ? activeHobbies
-              .filter((hobby) => hobby.id !== selectedHobby.id)
-              .map((hobby) => (
-                <button
-                  key={hobby.id}
-                  type="button"
-                  aria-pressed={false}
-                  onClick={() => onHobbyChange(hobby.id)}
-                  className={pickClass(false)}
-                >
-                  {hobby.name}
-                </button>
-              ))
-          : null}
-      </div>
+      <HobbyChipRow
+        hobbies={activeHobbies}
+        selectedId={selectedHobby.id}
+        onSelect={onHobbyChange}
+        addOpen={hobbyPickerOpen}
+        onToggleAdd={onToggleHobbyPicker}
+      />
 
-      {hobbyPickerOpen ? (
-        <HobbyInlineCreate onCreated={(hobby) => onHobbyChange(hobby.id)} />
-      ) : null}
+      {hobbyPickerOpen ? <HobbyInlineCreate onCreated={(hobby) => onHobbyChange(hobby.id)} /> : null}
 
       <button
         type="button"

@@ -21,10 +21,13 @@ export type RecordAnalysis = {
 }
 
 /** 기록 직후의 "다음에 해 볼 일". state가 null이면 아직 반응이 없는 제안이다. */
+export type NextActionState = 'TRIED' | 'HOLD' | null
+
 export type NextAction = {
   text: string
   minutes: number
-  state: 'TRIED' | null
+  /** 해 봤어요(TRIED)·보류할래요(HOLD). 없으면(null) 아직 안 한 상태다. */
+  state: NextActionState
   /** 왜 이 제안인지 한 줄. 예전 결과에는 없다. */
   reason?: string | null
   /** 근거 기록(저장된 기록에서 채운 값). 예전 결과에는 없다. */
@@ -128,15 +131,21 @@ export function updateRecord(id: number, payload: RecordUpdatePayload) {
 }
 
 /** 가장 최근 기록의 다음에 해 볼 일. 없으면(204) undefined. */
-export function fetchLatestNextAction() {
-  return apiRequest<LatestNextAction | undefined>('/api/records/next-action/latest')
+export function fetchLatestNextAction(hobbyId?: number | null) {
+  const query = hobbyId != null ? `?hobbyId=${hobbyId}` : ''
+  return apiRequest<LatestNextAction | undefined>(`/api/records/next-action/latest${query}`)
+}
+
+/** value가 null이면 상태를 해제한다(아직 안 했어요). */
+export function setNextActionState(recordId: number, value: NextActionState) {
+  return apiRequest<LatestNextAction>(`/api/records/${recordId}/next-action/state`, {
+    method: 'PUT',
+    body: { value },
+  })
 }
 
 export function markNextActionTried(recordId: number) {
-  return apiRequest<LatestNextAction>(`/api/records/${recordId}/next-action/state`, {
-    method: 'PUT',
-    body: { value: 'TRIED' },
-  })
+  return setNextActionState(recordId, 'TRIED')
 }
 
 export function deleteRecord(id: number) {

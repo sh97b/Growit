@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from './Button'
 import { AiLabel } from './AiLabel'
+import { AiProgressCard } from './AiProgress'
 import { ChangeFeedbackRow } from './ChangeFeedbackRow'
 import { NextActionCard } from './NextActionCard'
 import { Split } from './PageLayout'
@@ -94,14 +95,23 @@ export function RecordSavedPanel({
   const change = record.aiStatus === 'DONE' ? (record.analysis?.change ?? null) : null
 
   // 오프라인 저장 화면이 아니라 서버에 저장된 기록의 화면이라, AI가 만든 제안이 있을 때만 보인다(없으면 카드 없음).
-  const nextAction = record.aiStatus === 'DONE' ? (record.analysis?.nextAction ?? null) : null
+  const savedNextAction = record.aiStatus === 'DONE' ? (record.analysis?.nextAction ?? null) : null
+  // 이미 해 봤거나 보류한 제안은 다시 내밀지 않는다(상태가 비어 있을 때만 보인다).
+  const nextAction = savedNextAction && savedNextAction.state == null ? savedNextAction : null
   const nextActionBlock = nextAction ? <NextActionCard action={nextAction} /> : null
+  // AI가 정리하는 동안(시간 초과 전까지)은 "달라진 점"·"다음에 해 볼 일" 자리에 눈에 띄는 진행 카드를 보여 준다.
+  // 실패·꺼짐·시간 초과는 지금처럼 조용히 사라진다.
+  const aiWorking = record.aiStatus === 'PENDING' && !timedOut
+  const progressBlock = aiWorking ? <AiProgressCard message="AI가 기록을 살펴보고 있어요" lines={3} /> : null
   const nextActionInMain = nextActionBlock ? <div className="lg:hidden">{nextActionBlock}</div> : null
   // 웹: 오른쪽 열이 최근 7일만 있어 비어 보여서 카드를 여기로 옮긴다. 간격은 왼쪽 열(gap-5)과 같게 둔다.
   const side = (
     <div className="hidden lg:flex lg:flex-col lg:gap-5">
       <RecentWeekStrip />
       {nextActionBlock}
+      {aiWorking ? (
+        <div aria-hidden="true" className="h-32 animate-pulse rounded-2xl bg-surface motion-reduce:animate-none" />
+      ) : null}
     </div>
   )
 
@@ -142,7 +152,9 @@ export function RecordSavedPanel({
 
         {changeSentenceBlock}
 
-        {nextActionInMain}
+        {progressBlock}
+
+      {nextActionInMain}
 
         {!previousQuery.isLoading || change ? (
           <RecordPairCards
@@ -155,7 +167,7 @@ export function RecordSavedPanel({
           />
         ) : null}
 
-        {record.aiStatus === 'PENDING' && !timedOut ? <p className="text-sm text-ink-2">한 줄 정리 중</p> : null}
+        {progressBlock}
 
         {actionButtons}
 
