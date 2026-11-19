@@ -42,7 +42,7 @@ public class RecordAnalysisService {
 	private static final int TAGS_MAX_COUNT = 3;
 	private static final int RELATED_MAX_COUNT = 2;
 	private static final int CHANGE_TEXT_MAX = 100;
-	private static final int NEXT_ACTION_TEXT_MAX = 50;
+	private static final int NEXT_ACTION_TEXT_MAX = 80;
 	private static final int NEXT_ACTION_MIN_MINUTES = 5;
 	private static final int NEXT_ACTION_MAX_MINUTES = 10;
 	/**
@@ -65,7 +65,7 @@ public class RecordAnalysisService {
 	private static final int NEXT_ACTION_REASON_MAX = 40;
 	private static final String PROMPT_RESOURCE_NAME = "record-analysis-system.txt";
 	/** prompts/record-analysis-system.txt의 내용을 바꿀 때마다 올린다. 저장된 결과가 어떤 지시문으로 만들어졌는지 추적하기 위해서다. */
-	static final int PROMPT_VERSION = 6;
+	static final int PROMPT_VERSION = 7;
 
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
@@ -326,9 +326,11 @@ public class RecordAnalysisService {
 		if (minutes < NEXT_ACTION_MIN_MINUTES || minutes > NEXT_ACTION_MAX_MINUTES) {
 			return dropped(recordId, "RANGE", actionNode);
 		}
-		if (text.isEmpty() || text.length() > NEXT_ACTION_TEXT_MAX || reason.isEmpty()
-				|| reason.length() > NEXT_ACTION_REASON_MAX) {
-			return dropped(recordId, "LENGTH", actionNode);
+		if (text.isEmpty() || text.length() > NEXT_ACTION_TEXT_MAX) {
+			return dropped(recordId, "LENGTH", actionNode, "text=" + text.length() + "/" + NEXT_ACTION_TEXT_MAX);
+		}
+		if (reason.isEmpty() || reason.length() > NEXT_ACTION_REASON_MAX) {
+			return dropped(recordId, "LENGTH", actionNode, "reason=" + reason.length() + "/" + NEXT_ACTION_REASON_MAX);
 		}
 		if (isForbiddenWording(text) || isForbiddenWording(reason)) {
 			return dropped(recordId, "FORBIDDEN", actionNode);
@@ -365,7 +367,13 @@ public class RecordAnalysisService {
 	}
 
 	private StoredNextAction dropped(Long recordId, String reason, JsonNode actionNode) {
-		log.warn("NEXT_ACTION_DROPPED recordId={} reason={} raw={}", recordId, reason, rawOf(actionNode));
+		return dropped(recordId, reason, actionNode, "-");
+	}
+
+	/** detail은 어느 필드가 몇 자였는지 같은 보충(없으면 "-"). */
+	private StoredNextAction dropped(Long recordId, String reason, JsonNode actionNode, String detail) {
+		log.warn("NEXT_ACTION_DROPPED recordId={} reason={} detail={} raw={}", recordId, reason, detail,
+				rawOf(actionNode));
 		return null;
 	}
 

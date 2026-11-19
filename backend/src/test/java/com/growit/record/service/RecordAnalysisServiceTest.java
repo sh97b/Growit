@@ -247,7 +247,7 @@ class RecordAnalysisServiceTest {
 		service(enabledProperties()).analyze(current.getId(), 1L);
 
 		ActivityRecord result = activityRecordRepository.findById(current.getId()).orElseThrow();
-		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":6").contains("\"model\":\"model\"");
+		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":7").contains("\"model\":\"model\"");
 	}
 
 	@Test
@@ -329,7 +329,7 @@ class RecordAnalysisServiceTest {
 
 	@Test
 	void analyze_nextActionMinutesOutOfRangeOrTooLong_dropsNextActionOnly() {
-		String longText = "코드 전환" + "가".repeat(50);
+		String longText = "코드 전환" + "가".repeat(80);
 		for (String json : new String[] {actionJson("코드 전환을 쳐 봐요", "4", "코드 전환이 느렸어요", "%ID%"),
 				actionJson("코드 전환을 쳐 봐요", "11", "코드 전환이 느렸어요", "%ID%"),
 				actionJson("코드 전환을 쳐 봐요", "\"7\"", "코드 전환이 느렸어요", "%ID%"),
@@ -647,7 +647,7 @@ class RecordAnalysisServiceTest {
 	@Test
 	void change_promptVersionIsSixAndOldResultsStillRead() {
 		ActivityRecord result = analyzeWithChange("전환을 이어 쳤어요. 이어 간 게 멋져요", true);
-		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":6");
+		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":7");
 
 		StoredAnalysis old = service(enabledProperties()).readJson("{\"title\":\"예전\",\"tags\":[],"
 				+ "\"relatedRecordIds\":[],\"change\":{\"text\":\"지난번엔 끊겼는데 오늘은 이어 쳤어요\",\"evidenceRecordId\":1},"
@@ -667,5 +667,39 @@ class RecordAnalysisServiceTest {
 		service(enabledProperties()).analyze(record.getId(), 1L);
 
 		assertThat(capturedUserPrompt()).contains("\"feelingDirection\":\"HARD\"");
+	}
+
+	@Test
+	void nextActionText_longEnglishQuoteAroundSixtyChars_isNowAccepted() {
+		String text = "\\\"Excuse me, where is the nearest subway station?\\\" 문장을 코드 전환처럼 천천히 읽어 봐요";
+		assertThat(text.length()).isBetween(55, 80);
+
+		ActivityRecord result = analyzeWithNextAction(actionJson(text, "6", "코드 전환이 느렸다고 적었어요", "%ID%"));
+
+		assertThat(result.getAiAnalysis()).doesNotContain("\"nextAction\":null");
+	}
+
+	@Test
+	void nextActionText_overEightyChars_isDroppedAsLengthWithFieldAndLengthInLog() {
+		java.util.List<String> logs = captureLogs();
+		String text = "코드 전환" + "가".repeat(76);
+
+		ActivityRecord result = analyzeWithNextAction(actionJson(text, "6", "코드 전환이 느렸어요", "%ID%"));
+
+		assertThat(result.getAiAnalysis()).contains("\"nextAction\":null");
+		assertThat(logs).anyMatch(line -> line.contains("reason=LENGTH") && line.contains("detail=text=81/80"));
+	}
+
+	@Test
+	void nextActionText_exactlyEightyChars_isAccepted_andLongReasonLogsReasonField() {
+		java.util.List<String> logs = captureLogs();
+		String eighty = "코드 전환" + "가".repeat(75);
+		assertThat(eighty.length()).isEqualTo(80);
+
+		assertThat(analyzeWithNextAction(actionJson(eighty, "6", "코드 전환이 느렸어요", "%ID%")).getAiAnalysis())
+				.doesNotContain("\"nextAction\":null");
+		analyzeWithNextAction(actionJson("코드 전환을 쳐 봐요", "6", "코드 전환이 느렸어요" + "요".repeat(40), "%ID%"));
+
+		assertThat(logs).anyMatch(line -> line.contains("reason=LENGTH") && line.contains("detail=reason="));
 	}
 }
