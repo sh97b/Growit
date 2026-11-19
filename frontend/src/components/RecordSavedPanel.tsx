@@ -96,6 +96,14 @@ export function RecordSavedPanel({
   // 오프라인 저장 화면이 아니라 서버에 저장된 기록의 화면이라, AI가 만든 제안이 있을 때만 보인다(없으면 카드 없음).
   const nextAction = record.aiStatus === 'DONE' ? (record.analysis?.nextAction ?? null) : null
   const nextActionBlock = nextAction ? <NextActionCard action={nextAction} /> : null
+  const nextActionInMain = nextActionBlock ? <div className="lg:hidden">{nextActionBlock}</div> : null
+  // 웹: 오른쪽 열이 최근 7일만 있어 비어 보여서 카드를 여기로 옮긴다. 간격은 왼쪽 열(gap-5)과 같게 둔다.
+  const side = (
+    <div className="hidden lg:flex lg:flex-col lg:gap-5">
+      <RecentWeekStrip />
+      {nextActionBlock}
+    </div>
+  )
 
   // 비교 카드가 이미 같은 근거 기록을 보여주므로, 여기서는 AI 문장과 피드백만 두고 근거 칩은 만들지 않는다.
   const changeSentenceBlock = (
@@ -134,7 +142,7 @@ export function RecordSavedPanel({
 
         {changeSentenceBlock}
 
-        {nextActionBlock}
+        {nextActionInMain}
 
         {!previousQuery.isLoading || change ? (
           <RecordPairCards
@@ -162,7 +170,7 @@ export function RecordSavedPanel({
       <div className="flex flex-col gap-6 lg:min-h-0 lg:flex-1">
         <Split
           main={main}
-          side={<div className="hidden lg:block"><RecentWeekStrip /></div>}
+          side={side}
           className="lg:min-h-0 lg:flex-1"
         />
       </div>
@@ -186,7 +194,7 @@ export function RecordSavedPanel({
         </p>
       </div>
 
-      {nextActionBlock}
+      {nextActionInMain}
 
       {actionButtons}
 
@@ -201,7 +209,7 @@ export function RecordSavedPanel({
     <div className="flex flex-col gap-6 lg:min-h-0 lg:flex-1">
       <Split
         main={main}
-        side={<div className="hidden lg:block"><RecentWeekStrip /></div>}
+        side={side}
         className="lg:min-h-0 lg:flex-1"
       />
     </div>
