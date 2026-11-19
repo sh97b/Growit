@@ -47,7 +47,7 @@ function RecordEditForm({ record, activeHobbies }: { record: RecordDetail; activ
   const [minutes, setMinutes] = useState<number | null>(record.minutes)
   const [difficulty, setDifficulty] = useState(record.difficulty ?? '')
   const [feeling, setFeeling] = useState<Feeling | null>(record.feeling)
-  // 직접 추가한 느낌: 기록에는 이름이 복사돼 있어서, 지금 목록에 같은 이름이 있으면 그 칩을 선택한 것으로 보여 준다.
+  // 직접 추가한 감정: 기록에는 이름이 복사돼 있어서, 지금 목록에 같은 이름이 있으면 그 칩을 선택한 것으로 보여 준다.
   // undefined는 아직 건드리지 않았다는 뜻이라 저장할 때 바꾸지 않는다.
   const customFeelingsQuery = useCustomFeelings()
   const initialCustomFeelingId =

@@ -41,21 +41,21 @@ public class CustomFeelingService {
 	public CustomFeelingResponse create(Long userId, CustomFeelingRequest request) {
 		String label = request.label() == null ? "" : request.label().trim();
 		if (label.isEmpty()) {
-			throw invalid("느낌 이름을 입력해 주세요");
+			throw invalid("감정 이름을 입력해 주세요");
 		}
 		if (label.length() > MAX_LABEL_LENGTH) {
-			throw invalid("느낌 이름은 " + MAX_LABEL_LENGTH + "자 이하로 입력해 주세요");
+			throw invalid("감정 이름은 " + MAX_LABEL_LENGTH + "자 이하로 입력해 주세요");
 		}
 		if (!ALLOWED.matcher(label).matches()) {
-			throw invalid("느낌 이름에는 한글, 영문, 숫자, 공백만 쓸 수 있어요");
+			throw invalid("감정 이름에는 한글, 영문, 숫자, 공백만 쓸 수 있어요");
 		}
 		String key = label.toLowerCase(Locale.ROOT);
 		if (BUILT_IN_LABELS.contains(label)
 				|| repository.findByUserIdOrderByIdAsc(userId).stream().anyMatch(own -> own.getLabel().toLowerCase(Locale.ROOT).equals(key))) {
-			throw invalid("이미 있는 느낌이에요");
+			throw invalid("이미 있는 감정이에요");
 		}
 		if (repository.countByUserId(userId) >= MAX_PER_USER) {
-			throw invalid("느낌은 " + MAX_PER_USER + "개까지 추가할 수 있어요");
+			throw invalid("감정은 " + MAX_PER_USER + "개까지 추가할 수 있어요");
 		}
 		return toResponse(repository.save(new CustomFeeling(userId, label, request.direction())));
 	}
@@ -63,14 +63,14 @@ public class CustomFeelingService {
 	@Transactional
 	public void delete(Long userId, Long id) {
 		CustomFeeling feeling = repository.findByIdAndUserId(id, userId)
-				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "느낌을 찾을 수 없어요"));
+				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "감정을 찾을 수 없어요"));
 		repository.delete(feeling);
 	}
 
 	/** 기록에 쓸 때 소유자를 확인해서 가져온다. 남의 것이거나 없으면 404. */
 	CustomFeeling findOwned(Long userId, Long id) {
 		return repository.findByIdAndUserId(id, userId)
-				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "느낌을 찾을 수 없어요"));
+				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "감정을 찾을 수 없어요"));
 	}
 
 	private static CustomFeelingResponse toResponse(CustomFeeling feeling) {

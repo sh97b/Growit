@@ -117,7 +117,7 @@ public class RecordService {
 		assertNotArchived(hobby);
 		assertNotFuture(request.recordDate());
 		if (request.feeling() != null && request.customFeelingId() != null) {
-			throw new ApiException(ErrorCode.VALIDATION_ERROR, "느낌은 하나만 고를 수 있어요");
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, "감정은 하나만 고를 수 있어요");
 		}
 		CustomFeeling customFeeling = request.customFeelingId() == null ? null
 				: customFeelingService.findOwned(userId, request.customFeelingId());
@@ -143,7 +143,7 @@ public class RecordService {
 
 	/**
 	 * {@code minutes}·{@code difficulty}·{@code feeling}은 안 보내면 유지, null로 보내면 비운다(JsonNullable로 구분).
-	 * 재분석은 글·어려운 점·느낌·날짜·분야 중 하나라도 바뀔 때만 트리거한다(minutes·isMilestone만 바뀌면 기존 분석을 그대로 둔다).
+	 * 재분석은 글·어려운 점·감정·날짜·분야 중 하나라도 바뀔 때만 트리거한다(minutes·isMilestone만 바뀌면 기존 분석을 그대로 둔다).
 	 */
 	@Transactional
 	public RecordResponse update(Long userId, Long id, RecordUpdateRequest request) {

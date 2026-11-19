@@ -249,12 +249,12 @@ function formatMinutes(total: number): string {
   return minutes === 0 ? `${hours}시간` : `${hours}시간 ${minutes}분`
 }
 
-/** 기록한 날·쌓인 시간·느낌 분포. 서버가 센 값을 그대로 보여 준다(순위나 비교 없이 담백하게). */
+/** 기록한 날·쌓인 시간·감정 분포. 서버가 센 값을 그대로 보여 준다(순위나 비교 없이 담백하게). */
 function StatsLine({ stats }: { stats: CoachStats }) {
   const parts = [`기록한 날 ${stats.recordedDays}일`]
   if (stats.totalMinutes > 0) parts.push(`쌓인 시간 ${formatMinutes(stats.totalMinutes)}`)
   if (stats.feelings.length > 0) {
-    parts.push(`느낌 ${stats.feelings.map((item) => `${item.label} ${item.count}`).join(' · ')}`)
+    parts.push(`감정 ${stats.feelings.map((item) => `${item.label} ${item.count}`).join(' · ')}`)
   }
   return <p className={`text-body-min leading-[1.7] text-ink-2 ${RESULT_CARD_CLASS}`}>{parts.join(' · ')}</p>
 }

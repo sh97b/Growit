@@ -15,7 +15,7 @@ export function PrivacyPage() {
       <section className="flex flex-col gap-2">
         <h2 className="text-card-title">수집 항목</h2>
         <p className="text-body-min leading-[1.75] text-ink-2">
-          이메일, 이름, 비밀번호(암호화해 저장), 활동 분야·기록·어려웠던 점·느낌·연습 시간, AI 호출 기록을 수집해요.
+          이메일, 이름, 비밀번호(암호화해 저장), 활동 분야·기록·어려웠던 점·감정·연습 시간, AI 호출 기록을 수집해요.
         </p>
       </section>
 

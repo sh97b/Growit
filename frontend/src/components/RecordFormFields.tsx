@@ -233,7 +233,7 @@ export function RecordFormFields({
           </Field>
 
           <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium">느낌</span>
+            <span className="text-sm font-medium">감정</span>
             <div className="flex flex-wrap gap-1.5">
               {FEELINGS.map(({ value, label }) => (
                 <button

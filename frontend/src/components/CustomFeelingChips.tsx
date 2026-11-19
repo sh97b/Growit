@@ -11,8 +11,8 @@ import {
 import { Button } from './Button'
 
 /**
- * 느낌 칩 줄에 이어 붙는 "직접 추가한 느낌" 칩들과 [+ 직접 추가]. 칩 줄(flex-wrap) 안에 그대로 놓아 쓴다.
- * 추가 폼은 새 줄(basis-full)로 펼쳐진다. 지워도 이미 쓴 기록의 느낌은 그대로 남는다(서버가 기록에 복사해 둠).
+ * 감정 칩 줄에 이어 붙는 "직접 추가한 감정" 칩들과 [+ 직접 추가]. 칩 줄(flex-wrap) 안에 그대로 놓아 쓴다.
+ * 추가 폼은 새 줄(basis-full)로 펼쳐진다. 지워도 이미 쓴 기록의 감정은 그대로 남는다(서버가 기록에 복사해 둠).
  */
 export function CustomFeelingChips({
   selectedId,
@@ -95,11 +95,11 @@ export function CustomFeelingChips({
           + 직접 추가
         </button>
       ) : null}
-      {full && !adding ? <span className="text-caption-min text-ink-3">직접 추가한 느낌은 {CUSTOM_FEELING_MAX_COUNT}개까지예요</span> : null}
+      {full && !adding ? <span className="text-caption-min text-ink-3">직접 추가한 감정은 {CUSTOM_FEELING_MAX_COUNT}개까지예요</span> : null}
       {adding ? (
         <div className="flex w-full basis-full flex-col gap-2 rounded-xl border border-line bg-white p-3">
           <label htmlFor="custom-feeling-label" className="text-caption-min font-medium text-ink-2">
-            느낌 이름 (1~{CUSTOM_FEELING_MAX_LENGTH}자)
+            감정 이름 (1~{CUSTOM_FEELING_MAX_LENGTH}자)
           </label>
           <input
             id="custom-feeling-label"

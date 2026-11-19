@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "느낌", description = "직접 추가한 느낌 목록")
+@Tag(name = "감정", description = "직접 추가한 감정 목록")
 @RestController
 @RequestMapping("/api/feelings")
 public class CustomFeelingController {
@@ -35,14 +35,14 @@ public class CustomFeelingController {
 		this.currentUserProvider = currentUserProvider;
 	}
 
-	@Operation(summary = "내가 직접 추가한 느낌 목록")
+	@Operation(summary = "내가 직접 추가한 감정 목록")
 	@GetMapping
 	public List<CustomFeelingResponse> list() {
 		return customFeelingService.list(currentUserProvider.getCurrentUserId());
 	}
 
 	/** 이름(1~8자, 한글·영문·숫자·공백)이 올바르지 않거나 중복이거나 12개를 넘으면 VALIDATION_ERROR(400). */
-	@Operation(summary = "느낌 직접 추가 (이름과 기분 방향)")
+	@Operation(summary = "감정 직접 추가 (이름과 기분 방향)")
 	@ApiResponse(responseCode = "400", description = "이름·개수 검증 실패",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@PostMapping
@@ -51,8 +51,8 @@ public class CustomFeelingController {
 		return ResponseEntity.status(HttpStatus.CREATED).body(response);
 	}
 
-	@Operation(summary = "직접 추가한 느낌 삭제 (이미 쓴 기록의 느낌은 그대로)")
-	@ApiResponse(responseCode = "404", description = "내 느낌이 아님",
+	@Operation(summary = "직접 추가한 감정 삭제 (이미 쓴 기록의 감정은 그대로)")
+	@ApiResponse(responseCode = "404", description = "내 감정이 아님",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@DeleteMapping("/{id}")
 	public ResponseEntity<Void> delete(@PathVariable Long id) {

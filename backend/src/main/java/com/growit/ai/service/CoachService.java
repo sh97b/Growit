@@ -360,7 +360,7 @@ public class CoachService {
 				computeStats(inputRecords), directionPlans);
 	}
 
-	/** 기록한 날·시간·느낌 분포는 AI가 아니라 서버가 센다. */
+	/** 기록한 날·시간·감정 분포는 AI가 아니라 서버가 센다. */
 	private StoredCoachStats computeStats(List<ActivityRecord> records) {
 		int recordedDays = (int) records.stream().map(ActivityRecord::getRecordDate).distinct().count();
 		int totalMinutes = records.stream().mapToInt(r -> r.getMinutes() == null ? 0 : r.getMinutes()).sum();
