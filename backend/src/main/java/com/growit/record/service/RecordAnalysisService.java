@@ -41,13 +41,22 @@ public class RecordAnalysisService {
 	private static final int TAG_MAX = 12;
 	private static final int TAGS_MAX_COUNT = 3;
 	private static final int RELATED_MAX_COUNT = 2;
-	private static final int CHANGE_TEXT_MAX = 60;
+	private static final int CHANGE_TEXT_MAX = 100;
 	private static final int NEXT_ACTION_TEXT_MAX = 50;
 	private static final int NEXT_ACTION_MIN_MINUTES = 5;
 	private static final int NEXT_ACTION_MAX_MINUTES = 10;
-	/** 접근 제한자를 package-private으로 완화함(E1 AI 품질 평가 하네스가 같은 패키지의 테스트에서 재사용). */
-	static final List<String> FORBIDDEN_WORDS =
-			List.of("실력", "늘었", "향상", "잘했", "훌륭", "대단", "점수", "순위");
+	/**
+	 * 접근 제한자를 package-private으로 완화함(E1 AI 품질 평가 하네스가 같은 패키지의 테스트에서 재사용).
+	 * "잘했", "훌륭", "대단"은 뺐다 — 과정에 대한 구체적인 인정·응원은 허용하고, 근거 없는 일반 칭찬이 되지 않게
+	 * 프롬프트가 제한한다.
+	 */
+	static final List<String> FORBIDDEN_WORDS = List.of(
+			// 능력 단정·점수화
+			"실력", "늘었", "향상", "점수", "순위",
+			// 과장
+			"완벽", "최고", "천재",
+			// 단정적 예측
+			"틀림없", "될 거예요", "될 거에요");
 	/** 다음 행동에는 재촉하는 말도 막는다(기록 해석의 금지어에 더해). */
 	static final List<String> URGENCY_WORDS = List.of("꼭", "반드시", "해야", "빨리");
 	/** 아무 기록에나 맞는 뻔한 제안 표현. 프롬프트가 막지만 서버도 한 번 더 거른다. */
@@ -56,7 +65,7 @@ public class RecordAnalysisService {
 	private static final int NEXT_ACTION_REASON_MAX = 40;
 	private static final String PROMPT_RESOURCE_NAME = "record-analysis-system.txt";
 	/** prompts/record-analysis-system.txt의 내용을 바꿀 때마다 올린다. 저장된 결과가 어떤 지시문으로 만들어졌는지 추적하기 위해서다. */
-	static final int PROMPT_VERSION = 5;
+	static final int PROMPT_VERSION = 6;
 
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
@@ -148,7 +157,8 @@ public class RecordAnalysisService {
 				// 직접 추가한 감정의 이름은 길이가 8자로 제한된 "자료"로만 넘긴다(지시로 읽히지 않게 프롬프트의 사용자 글 규칙을 따른다)
 				feelingText(record),
 				record.getMinutes(),
-				record.getId());
+				record.getId(),
+				feelingDirectionOf(record));
 		List<AnalysisHistoryItem> historyItems = history.stream()
 				.map(h -> new AnalysisHistoryItem(h.getId(), h.getRecordDate().toString(),
 						truncate(h.getContent(), HISTORY_CONTENT_MAX),
@@ -200,13 +210,14 @@ public class RecordAnalysisService {
 		String title = sanitizeTitle(node.path("title"));
 		List<String> tags = sanitizeTags(node.path("tags"));
 		List<Long> relatedRecordIds = sanitizeRelatedIds(node.path("relatedRecordIds"), allowedHistoryIds);
-		StoredChange change = sanitizeChange(node.path("change"), allowedHistoryIds);
-
-		// nextAction이 이상해도 나머지 결과는 살린다(전체 실패 금지).
+		// 비교할 이전 기록이 없을 때는 이 기록 자신이 근거가 될 수 있다(그래서 이 기록의 id도 허용한다).
 		Set<Long> nextActionEvidenceIds = new LinkedHashSet<>(allowedHistoryIds);
 		if (recordId != null) {
 			nextActionEvidenceIds.add(recordId);
 		}
+		StoredChange change = sanitizeChange(node.path("change"), nextActionEvidenceIds);
+
+		// nextAction이 이상해도 나머지 결과는 살린다(전체 실패 금지).
 		StoredNextAction nextAction = sanitizeNextAction(node.path("nextAction"), nextActionEvidenceIds, corpus,
 				recordId);
 
@@ -389,6 +400,17 @@ public class RecordAnalysisService {
 
 	private String nullToEmpty(String value) {
 		return value == null ? "" : value;
+	}
+
+	private String feelingDirectionOf(ActivityRecord record) {
+		if (record.getFeeling() == null) {
+			return record.getFeelingDirection();
+		}
+		return switch (record.getFeeling()) {
+			case PROUD, RELIEVED -> "GOOD";
+			case NEUTRAL -> "NEUTRAL";
+			case STUCK -> "HARD";
+		};
 	}
 
 	/** AI가 읽기 좋게 기본 감정은 한글 이름으로, 직접 추가한 감정은 이름 그대로 넘긴다(자료로만 쓰인다). */

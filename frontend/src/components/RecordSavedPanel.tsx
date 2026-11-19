@@ -121,7 +121,7 @@ export function RecordSavedPanel({
       <div>
         <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-7">
           <AiLabel>달라진 점</AiLabel>
-          {change ? <p className="font-serif text-lg leading-[1.55] lg:text-[1.5rem]">{change.text}</p> : null}
+          {change ? <p className="break-words font-serif text-lg leading-[1.55] lg:text-[1.5rem]">{change.text}</p> : null}
           {change ? (
             <ChangeFeedbackRow record={record} analysis={record.analysis as RecordAnalysis} onNotHelpfulAction={onViewDetail} />
           ) : null}
@@ -136,11 +136,12 @@ export function RecordSavedPanel({
   if (previousId != null) {
     // change가 있으면 비교 카드의 왼쪽을 그 근거 기록으로 바꾸고 라벨도 "지난번" 대신 날짜로 바꾼다
     // (AI 문장 쪽에 이미 같은 근거 칩이 있어 아래 비교 카드와 중복으로 보이지 않게).
-    const leftSource = change ? change.evidence : previousQuery.data
+    // 근거가 이 기록 자신이면(비교할 이전 기록이 없던 경우) 왼쪽 카드는 직전 기록으로 둔다.
+    const leftSource = change && change.evidence.id !== record.id ? change.evidence : previousQuery.data
     const left = leftSource
       ? {
           id: leftSource.id,
-          label: change ? formatMonthDay(leftSource.recordDate) : `지난번 · ${formatMonthDay(leftSource.recordDate)}`,
+          label: change && change.evidence.id !== record.id ? formatMonthDay(leftSource.recordDate) : `지난번 · ${formatMonthDay(leftSource.recordDate)}`,
           content: leftSource.content,
           maxLength: COMPARISON_CONTENT_MAX,
         }
@@ -152,7 +153,9 @@ export function RecordSavedPanel({
 
         {changeSentenceBlock}
 
-        {progressBlock}
+        {changeSentenceBlock}
+
+      {progressBlock}
 
       {nextActionInMain}
 

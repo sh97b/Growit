@@ -174,7 +174,7 @@ function ChangeBlock({ record, analysis }: { record: RecordDetail; analysis: Rec
   return (
     <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-6">
       <AiLabel>달라진 점</AiLabel>
-      <p className="font-serif text-lg leading-[1.55]">{change.text}</p>
+      <p className="break-words font-serif text-lg leading-[1.55]">{change.text}</p>
       <div>
         <EvidenceChip record={change.evidence} />
       </div>

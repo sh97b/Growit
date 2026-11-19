@@ -247,7 +247,7 @@ class RecordAnalysisServiceTest {
 		service(enabledProperties()).analyze(current.getId(), 1L);
 
 		ActivityRecord result = activityRecordRepository.findById(current.getId()).orElseThrow();
-		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":5").contains("\"model\":\"model\"");
+		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":6").contains("\"model\":\"model\"");
 	}
 
 	@Test
@@ -576,5 +576,96 @@ class RecordAnalysisServiceTest {
 
 		ActivityRecord result = activityRecordRepository.findById(current.getId()).orElseThrow();
 		assertThat(result.getAiAnalysis()).doesNotContain("\"nextAction\":null");
+	}
+
+	private ActivityRecord analyzeWithChange(String changeText, boolean withPrevious) {
+		Long hobbyId = createHobby(1L);
+		Long evidenceId = null;
+		if (withPrevious) {
+			ActivityRecord previous = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 1), "이전 연습");
+			evidenceId = previous.getId();
+		}
+		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "코드 전환 연습");
+		long evidence = evidenceId != null ? evidenceId : current.getId();
+		stubAiResponse("{\"title\":\"연습\",\"tags\":[],\"relatedRecordIds\":[],\"change\":{\"text\":\"" + changeText
+				+ "\",\"evidenceRecordId\":" + evidence + "},\"nextAction\":null}");
+		service(enabledProperties()).analyze(current.getId(), 1L);
+		return activityRecordRepository.findById(current.getId()).orElseThrow();
+	}
+
+	@Test
+	void change_encouragementAfterConcreteChange_isAccepted() {
+		String text = "처음엔 끊기던 Am→Dm 전환을 열 번 이어 쳤어요. 쉽지 않은 연습인데 끝까지 이어 간 게 멋져요.";
+
+		ActivityRecord result = analyzeWithChange(text, true);
+
+		assertThat(result.getAiAnalysis()).contains(text);
+	}
+
+	@Test
+	void change_comfortFirst_isAccepted() {
+		String text = "손가락이 아팠는데도 기록을 남겼네요. 오늘은 그걸로 충분해요.";
+
+		assertThat(analyzeWithChange(text, true).getAiAnalysis()).contains(text);
+	}
+
+	@Test
+	void change_wordsNoLongerBanned_areAccepted() {
+		for (String text : new String[] {"끊기던 전환을 이어 쳤어요. 잘했어요", "어려운 구간을 끝까지 쳤어요. 훌륭해요", "열 번을 이어 쳤어요. 대단해요"}) {
+			assertThat(analyzeWithChange(text, true).getAiAnalysis()).as(text).doesNotContain("\"change\":null");
+		}
+	}
+
+	@Test
+	void change_bannedWords_dropChangeOnly() {
+		for (String word : new String[] {"실력", "늘었", "향상", "점수", "순위", "완벽", "최고", "천재", "틀림없", "될 거예요"}) {
+			ActivityRecord result = analyzeWithChange("전환을 이어 쳤어요. 정말 " + word + " 해요", true);
+
+			assertThat(result.getAiStatus()).as(word).isEqualTo(AiStatus.DONE);
+			assertThat(result.getAiAnalysis()).as(word).contains("\"change\":null").contains("\"title\":\"연습\"");
+		}
+	}
+
+	@Test
+	void change_lengthLimitIsOneHundred() {
+		String hundred = "가".repeat(100);
+		String tooLong = "가".repeat(101);
+
+		assertThat(analyzeWithChange(hundred, true).getAiAnalysis()).doesNotContain("\"change\":null");
+		assertThat(analyzeWithChange(tooLong, true).getAiAnalysis()).contains("\"change\":null");
+	}
+
+	@Test
+	void change_withoutPreviousRecord_canUseThisRecordAsEvidence() {
+		String text = "코드 전환을 처음 기록으로 남겼어요. 시작한 것만으로 충분해요.";
+
+		ActivityRecord result = analyzeWithChange(text, false);
+
+		assertThat(result.getAiAnalysis()).contains(text).contains("\"evidenceRecordId\":" + result.getId());
+	}
+
+	@Test
+	void change_promptVersionIsSixAndOldResultsStillRead() {
+		ActivityRecord result = analyzeWithChange("전환을 이어 쳤어요. 이어 간 게 멋져요", true);
+		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":6");
+
+		StoredAnalysis old = service(enabledProperties()).readJson("{\"title\":\"예전\",\"tags\":[],"
+				+ "\"relatedRecordIds\":[],\"change\":{\"text\":\"지난번엔 끊겼는데 오늘은 이어 쳤어요\",\"evidenceRecordId\":1},"
+				+ "\"promptVersion\":2,\"model\":\"m\"}");
+		assertThat(old.change().text()).isEqualTo("지난번엔 끊겼는데 오늘은 이어 쳤어요");
+	}
+
+	@Test
+	void analyze_sendsFeelingDirectionToAi() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord record = new ActivityRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "연습", 20, "손가락이 아팠다",
+				Feeling.STUCK, false);
+		record.markAnalysisPending(LocalDateTime.now());
+		record = activityRecordRepository.save(record);
+		stubAiResponse(BASE + "\"nextAction\":null}");
+
+		service(enabledProperties()).analyze(record.getId(), 1L);
+
+		assertThat(capturedUserPrompt()).contains("\"feelingDirection\":\"HARD\"");
 	}
 }
