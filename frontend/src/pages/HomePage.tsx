@@ -5,6 +5,7 @@ import { AiLabel } from '../components/AiLabel'
 import { Band } from '../components/Card'
 import { Button } from '../components/Button'
 import { useLatestNextAction } from '../hooks/useLatestNextAction'
+import { NextActionDetails } from '../components/NextActionCard'
 import { Dropdown } from '../components/Dropdown'
 import { HobbyInlineCreate } from '../components/HobbyInlineCreate'
 import { HomeActivityCard } from '../components/HomeActivityCard'
@@ -365,7 +366,14 @@ function HomeCoachCard({ autoStatus }: { autoStatus: CoachAutoResponse | null })
     return <Loading />
   }
 
-  const nextAction = nextActionQuery.data ?? null
+  // 회고가 있든 없든, 최신 기록에 반응 전 제안이 있으면 항상 보인다(예전에는 회고가 있을 때만 카드 안에 있었다).
+  const nextAction = nextActionQuery.data && nextActionQuery.data.state == null ? nextActionQuery.data : null
+  const nextActionBlock = nextAction ? (
+    <div className="flex flex-col gap-1 rounded-xl bg-white/60 p-3">
+      <span className="text-caption-min font-medium text-ink-2">다음에 해 볼 일</span>
+      <NextActionDetails action={nextAction} />
+    </div>
+  ) : null
 
   // 회고가 아예 없으면: 오늘 접속 때 자동 생성 조건을 이미 확인했다면(autoStatus) 정확한 진행
   // 수치를, 아니면(같은 날 두 번째 접속 등으로 건너뛴 경우) 일반 안내만 보여준다.
@@ -375,6 +383,7 @@ function HomeCoachCard({ autoStatus }: { autoStatus: CoachAutoResponse | null })
       return (
         <div className="flex flex-col items-start gap-3 rounded-2xl bg-surface p-5">
           <h2 className="text-card-title">AI 회고</h2>
+          {nextActionBlock ? <div className="w-full">{nextActionBlock}</div> : null}
           <p className="text-caption-min text-ink-2">
             기록 {autoStatus.newRecordsSinceLast}/{autoStatus.requiredCount} · {autoStatus.requiredCount}개가 쌓이면
             회고가 자동으로 도착해요
@@ -391,6 +400,7 @@ function HomeCoachCard({ autoStatus }: { autoStatus: CoachAutoResponse | null })
     return (
       <div className="flex flex-col items-start gap-2 rounded-2xl bg-surface p-5">
         <h2 className="text-card-title">AI 회고</h2>
+        {nextActionBlock ? <div className="w-full">{nextActionBlock}</div> : null}
         <p className="text-caption-min text-ink-2">아직 받은 회고가 없어요.</p>
       </div>
     )
@@ -403,13 +413,7 @@ function HomeCoachCard({ autoStatus }: { autoStatus: CoachAutoResponse | null })
   ) : null
 
   // 다음 행동은 이제 기록 직후에 만들어지는 "다음에 해 볼 일"이 맡는다. 없으면 이 블록은 숨긴다.
-  const body = nextAction ? (
-    <div className="flex flex-col gap-1 rounded-xl bg-white/60 p-3">
-      <span className="text-caption-min font-medium text-ink-2">다음에 해 볼 일</span>
-      <p className="text-body-min text-ink">{nextAction.text}</p>
-      <span className="text-caption-min text-ink-2">약 {nextAction.minutes}분</span>
-    </div>
-  ) : null
+  const body = nextActionBlock
 
   return (
     <div className="flex flex-col gap-2.5 rounded-2xl bg-surface p-5">

@@ -46,9 +46,16 @@ public class RecordAnalysisService {
 			List.of("실력", "늘었", "향상", "잘했", "훌륭", "대단", "점수", "순위");
 	/** 다음 행동에는 재촉하는 말도 막는다(기록 해석의 금지어에 더해). */
 	static final List<String> URGENCY_WORDS = List.of("꼭", "반드시", "해야", "빨리");
+	/** 아무 기록에나 맞는 뻔한 제안 표현. 프롬프트가 막지만 서버도 한 번 더 거른다. */
+	static final List<String> GENERIC_PHRASES =
+			List.of("다시 연습", "복습", "꾸준히", "자신 있는 곳", "한 번 더 연습", "한 번 더 해");
+	/** 입력 낱말 비교에서 뺄 흔한 낱말(어느 기록에나 나와서 구체성의 증거가 못 된다). */
+	private static final Set<String> COMMON_WORDS = Set.of("연습", "오늘", "어제", "그냥", "조금", "많이", "정말",
+			"했다", "했어요", "하기", "너무", "계속", "다시", "처음", "이번", "지난");
+	private static final int NEXT_ACTION_REASON_MAX = 40;
 	private static final String PROMPT_RESOURCE_NAME = "record-analysis-system.txt";
 	/** prompts/record-analysis-system.txt의 내용을 바꿀 때마다 올린다. 저장된 결과가 어떤 지시문으로 만들어졌는지 추적하기 위해서다. */
-	static final int PROMPT_VERSION = 3;
+	static final int PROMPT_VERSION = 4;
 
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
@@ -60,6 +67,9 @@ public class RecordAnalysisService {
 
 	/** 패키지 안 테스트에서만 다른 리소스 이름으로 바꿔 끼워 읽기 실패를 재현한다. */
 	SystemPromptLoader promptLoader = new SystemPromptLoader(PROMPT_RESOURCE_NAME);
+
+	/** 제안이 입력의 낱말을 하나도 안 담으면 버린다. 테스트나 운영 중 문제가 있으면 끌 수 있다. */
+	boolean requireInputWord = true;
 
 	public RecordAnalysisService(ActivityRecordRepository activityRecordRepository, HobbyRepository hobbyRepository,
 			AiCallService aiCallService, AiResponseValidator aiResponseValidator, AiLogRepository aiLogRepository,
@@ -103,7 +113,8 @@ public class RecordAnalysisService {
 		StoredAnalysis analysis;
 		try {
 			AiCallResult result = aiCallService.call(userId, AiResultType.ANALYSIS, systemPrompt, input.payload());
-			analysis = validate(result.content(), input.allowedHistoryIds(), result.model());
+			analysis = validate(result.content(), input.allowedHistoryIds(), result.model(), input.recordId(),
+						input.corpus());
 		} catch (RuntimeException e) {
 			analysis = null;
 		}
@@ -131,7 +142,7 @@ public class RecordAnalysisService {
 				record.getContent(),
 				record.getDifficulty(),
 				// 직접 추가한 감정의 이름은 길이가 8자로 제한된 "자료"로만 넘긴다(지시로 읽히지 않게 프롬프트의 사용자 글 규칙을 따른다)
-				record.getFeeling() != null ? record.getFeeling().name() : record.getFeelingLabel(),
+				feelingText(record),
 				record.getMinutes());
 		List<AnalysisHistoryItem> historyItems = history.stream()
 				.map(h -> new AnalysisHistoryItem(h.getId(), h.getRecordDate().toString(),
@@ -149,7 +160,7 @@ public class RecordAnalysisService {
 
 		Set<Long> allowedIds = history.stream().map(ActivityRecord::getId)
 				.collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-		return new AnalysisInput(payload, allowedIds);
+		return new AnalysisInput(payload, allowedIds, record.getId(), corpusOf(hobby, record, history));
 	}
 
 	private void applyResult(Long recordId, Long userId, StoredAnalysis analysis) {
@@ -172,6 +183,12 @@ public class RecordAnalysisService {
 
 	/** 접근 제한자를 package-private으로 완화함(E1 AI 품질 평가 하네스가 같은 패키지의 테스트에서 재사용). */
 	StoredAnalysis validate(String rawJson, Set<Long> allowedHistoryIds, String model) {
+		return validate(rawJson, allowedHistoryIds, model, null, null);
+	}
+
+	/** corpus가 null이면 낱말 포함 검사는 건너뛴다(품질 평가 하네스처럼 입력 전문이 없는 호출). */
+	StoredAnalysis validate(String rawJson, Set<Long> allowedHistoryIds, String model, Long recordId,
+			String corpus) {
 		JsonNode node = aiResponseValidator.parse(rawJson);
 		aiResponseValidator.requireFields(node, "title", "tags", "relatedRecordIds");
 
@@ -181,7 +198,11 @@ public class RecordAnalysisService {
 		StoredChange change = sanitizeChange(node.path("change"), allowedHistoryIds);
 
 		// nextAction이 이상해도 나머지 결과는 살린다(전체 실패 금지).
-		StoredNextAction nextAction = sanitizeNextAction(node.path("nextAction"));
+		Set<Long> nextActionEvidenceIds = new LinkedHashSet<>(allowedHistoryIds);
+		if (recordId != null) {
+			nextActionEvidenceIds.add(recordId);
+		}
+		StoredNextAction nextAction = sanitizeNextAction(node.path("nextAction"), nextActionEvidenceIds, corpus);
 
 		return new StoredAnalysis(title, tags, relatedRecordIds, change, null, null, PROMPT_VERSION, model,
 				nextAction);
@@ -262,23 +283,77 @@ public class RecordAnalysisService {
 		return new StoredChange(text, evidenceId);
 	}
 
-	private StoredNextAction sanitizeNextAction(JsonNode actionNode) {
+	private StoredNextAction sanitizeNextAction(JsonNode actionNode, Set<Long> allowedIds, String corpus) {
 		if (!actionNode.isObject()) {
 			return null;
 		}
 		JsonNode textNode = actionNode.path("text");
 		JsonNode minutesNode = actionNode.path("minutes");
-		if (!textNode.isTextual() || !minutesNode.isIntegralNumber() || !minutesNode.canConvertToInt()) {
+		JsonNode reasonNode = actionNode.path("reason");
+		JsonNode evidenceNode = actionNode.path("evidenceRecordId");
+		if (!textNode.isTextual() || !minutesNode.isIntegralNumber() || !minutesNode.canConvertToInt()
+				|| !reasonNode.isTextual() || !evidenceNode.canConvertToLong() || !evidenceNode.isIntegralNumber()) {
 			return null;
 		}
 		String text = textNode.asText().trim();
+		String reason = reasonNode.asText().trim();
 		int minutes = minutesNode.asInt();
-		if (text.isEmpty() || text.length() > NEXT_ACTION_TEXT_MAX || containsForbiddenWord(text)
-				|| URGENCY_WORDS.stream().anyMatch(text::contains)
-				|| minutes < NEXT_ACTION_MIN_MINUTES || minutes > NEXT_ACTION_MAX_MINUTES) {
+		long evidenceId = evidenceNode.asLong();
+		if (text.isEmpty() || text.length() > NEXT_ACTION_TEXT_MAX || isRejectedWording(text)
+				|| minutes < NEXT_ACTION_MIN_MINUTES || minutes > NEXT_ACTION_MAX_MINUTES
+				|| reason.isEmpty() || reason.length() > NEXT_ACTION_REASON_MAX || isRejectedWording(reason)
+				|| !allowedIds.contains(evidenceId)) {
 			return null;
 		}
-		return new StoredNextAction(text, minutes, null);
+		if (requireInputWord && corpus != null && !mentionsInputWord(text, corpus)) {
+			return null;
+		}
+		return new StoredNextAction(text, minutes, null, reason, evidenceId);
+	}
+
+	private boolean isRejectedWording(String text) {
+		return containsForbiddenWord(text) || URGENCY_WORDS.stream().anyMatch(text::contains)
+				|| GENERIC_PHRASES.stream().anyMatch(text::contains);
+	}
+
+	/** text가 입력(이 기록·분야·최근 기록)에 나온 2글자 이상 낱말을 하나라도 담는지 본다(조사 한 글자는 떼고 비교). */
+	private boolean mentionsInputWord(String text, String corpus) {
+		for (String token : corpus.split("[^가-힣A-Za-z0-9]+")) {
+			if (token.length() < 2 || COMMON_WORDS.contains(token)) {
+				continue;
+			}
+			if (text.contains(token) || (token.length() >= 3 && text.contains(token.substring(0, token.length() - 1)))) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private String corpusOf(Hobby hobby, ActivityRecord record, List<ActivityRecord> history) {
+		StringBuilder corpus = new StringBuilder();
+		corpus.append(hobby.getName()).append(' ').append(nullToEmpty(hobby.getGoal())).append(' ')
+				.append(record.getContent()).append(' ').append(nullToEmpty(record.getDifficulty()));
+		for (ActivityRecord item : history) {
+			corpus.append(' ').append(item.getContent()).append(' ').append(nullToEmpty(item.getDifficulty()));
+		}
+		return corpus.toString();
+	}
+
+	private String nullToEmpty(String value) {
+		return value == null ? "" : value;
+	}
+
+	/** AI가 읽기 좋게 기본 감정은 한글 이름으로, 직접 추가한 감정은 이름 그대로 넘긴다(자료로만 쓰인다). */
+	private String feelingText(ActivityRecord record) {
+		if (record.getFeeling() == null) {
+			return record.getFeelingLabel();
+		}
+		return switch (record.getFeeling()) {
+			case PROUD -> "뿌듯함";
+			case STUCK -> "답답함";
+			case RELIEVED -> "개운함";
+			case NEUTRAL -> "잘 모르겠음";
+		};
 	}
 
 	private boolean containsForbiddenWord(String text) {

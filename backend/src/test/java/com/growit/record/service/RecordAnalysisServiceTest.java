@@ -247,7 +247,7 @@ class RecordAnalysisServiceTest {
 		service(enabledProperties()).analyze(current.getId(), 1L);
 
 		ActivityRecord result = activityRecordRepository.findById(current.getId()).orElseThrow();
-		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":3").contains("\"model\":\"model\"");
+		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":4").contains("\"model\":\"model\"");
 	}
 
 	@Test
@@ -274,21 +274,32 @@ class RecordAnalysisServiceTest {
 
 	private static final String BASE = "{\"title\":\"연습\",\"tags\":[],\"relatedRecordIds\":[],\"change\":null,";
 
+	/** %ID%는 분석할 기록의 id로 바뀐다(근거 id가 입력으로 준 기록이어야 해서). */
+	private static String actionJson(String text, String minutes, String reason, String evidenceId) {
+		return "{\"text\":\"" + text + "\",\"minutes\":" + minutes + ",\"reason\":\"" + reason
+				+ "\",\"evidenceRecordId\":" + evidenceId + "}";
+	}
+
+	private static String goodAction() {
+		return actionJson("코드 전환을 두 박자씩 나눠 천천히 쳐 봐요", "7", "코드 전환이 느렸다고 적었어요", "%ID%");
+	}
+
 	private ActivityRecord analyzeWithNextAction(String nextActionJson) {
 		Long hobbyId = createHobby(1L);
 		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "연습");
-		stubAiResponse(BASE + "\"nextAction\":" + nextActionJson + "}");
+		stubAiResponse(BASE + "\"nextAction\":" + nextActionJson.replace("%ID%", String.valueOf(current.getId())) + "}");
 		service(enabledProperties()).analyze(current.getId(), 1L);
 		return activityRecordRepository.findById(current.getId()).orElseThrow();
 	}
 
 	@Test
-	void analyze_nextAction_savedWithoutState() {
-		ActivityRecord result = analyzeWithNextAction("{\"text\":\"박자를 세며 한 곡만 쳐 봐요\",\"minutes\":7}");
+	void analyze_nextAction_savedWithReasonEvidenceAndWithoutState() {
+		ActivityRecord result = analyzeWithNextAction(goodAction());
 
 		assertThat(result.getAiStatus()).isEqualTo(AiStatus.DONE);
-		assertThat(result.getAiAnalysis()).contains("박자를 세며 한 곡만 쳐 봐요").contains("\"minutes\":7")
-				.contains("\"state\":null");
+		assertThat(result.getAiAnalysis()).contains("코드 전환을 두 박자씩 나눠 천천히 쳐 봐요").contains("\"minutes\":7")
+				.contains("\"state\":null").contains("코드 전환이 느렸다고 적었어요")
+				.contains("\"evidenceRecordId\":" + result.getId());
 	}
 
 	@Test
@@ -301,8 +312,9 @@ class RecordAnalysisServiceTest {
 
 	@Test
 	void analyze_urgentOrForbiddenWordsInNextAction_dropsNextActionOnly() {
-		for (String text : new String[] {"꼭 한 곡 쳐 봐요", "반드시 쳐 봐요", "지금 해야 해요", "빨리 쳐 봐요", "실력이 늘었는지 봐요"}) {
-			ActivityRecord result = analyzeWithNextAction("{\"text\":\"" + text + "\",\"minutes\":5}");
+		for (String text : new String[] {"꼭 코드 전환을 쳐 봐요", "반드시 코드 전환을 쳐 봐요", "코드 전환을 지금 해야 해요",
+				"코드 전환을 빨리 쳐 봐요", "코드 전환 실력이 늘었는지 봐요"}) {
+			ActivityRecord result = analyzeWithNextAction(actionJson(text, "5", "코드 전환이 느렸어요", "%ID%"));
 
 			assertThat(result.getAiStatus()).as(text).isEqualTo(AiStatus.DONE);
 			assertThat(result.getAiAnalysis()).as(text).contains("\"nextAction\":null").contains("\"title\":\"연습\"");
@@ -311,15 +323,92 @@ class RecordAnalysisServiceTest {
 
 	@Test
 	void analyze_nextActionMinutesOutOfRangeOrTooLong_dropsNextActionOnly() {
-		String longText = "가".repeat(51);
-		for (String json : new String[] {"{\"text\":\"쳐 봐요\",\"minutes\":4}", "{\"text\":\"쳐 봐요\",\"minutes\":11}",
-				"{\"text\":\"쳐 봐요\",\"minutes\":\"7\"}", "{\"text\":\"쳐 봐요\",\"minutes\":7.5}",
-				"{\"text\":\"" + longText + "\",\"minutes\":7}", "{\"text\":\" \",\"minutes\":7}"}) {
+		String longText = "코드 전환" + "가".repeat(50);
+		for (String json : new String[] {actionJson("코드 전환을 쳐 봐요", "4", "코드 전환이 느렸어요", "%ID%"),
+				actionJson("코드 전환을 쳐 봐요", "11", "코드 전환이 느렸어요", "%ID%"),
+				actionJson("코드 전환을 쳐 봐요", "\"7\"", "코드 전환이 느렸어요", "%ID%"),
+				actionJson("코드 전환을 쳐 봐요", "7.5", "코드 전환이 느렸어요", "%ID%"),
+				actionJson(longText, "7", "코드 전환이 느렸어요", "%ID%"),
+				actionJson(" ", "7", "코드 전환이 느렸어요", "%ID%")}) {
 			ActivityRecord result = analyzeWithNextAction(json);
 
 			assertThat(result.getAiStatus()).as(json).isEqualTo(AiStatus.DONE);
 			assertThat(result.getAiAnalysis()).as(json).contains("\"nextAction\":null");
 		}
+	}
+
+	@Test
+	void analyze_nextActionWithoutReasonOrEvidenceOrWithLongReason_dropsNextActionOnly() {
+		String noReason = "{\"text\":\"코드 전환을 천천히 쳐 봐요\",\"minutes\":7,\"evidenceRecordId\":%ID%}";
+		String noEvidence = "{\"text\":\"코드 전환을 천천히 쳐 봐요\",\"minutes\":7,\"reason\":\"코드 전환이 느렸어요\"}";
+		String longReason = actionJson("코드 전환을 천천히 쳐 봐요", "7", "코드 전환이 느렸어요" + "요".repeat(40), "%ID%");
+		for (String json : new String[] {noReason, noEvidence, longReason}) {
+			ActivityRecord result = analyzeWithNextAction(json);
+
+			assertThat(result.getAiStatus()).as(json).isEqualTo(AiStatus.DONE);
+			assertThat(result.getAiAnalysis()).as(json).contains("\"nextAction\":null");
+		}
+	}
+
+	@Test
+	void analyze_nextActionEvidenceNotInInput_dropsNextActionOnly() {
+		ActivityRecord result = analyzeWithNextAction(actionJson("코드 전환을 천천히 쳐 봐요", "7", "코드 전환이 느렸어요", "99999"));
+
+		assertThat(result.getAiStatus()).isEqualTo(AiStatus.DONE);
+		assertThat(result.getAiAnalysis()).contains("\"nextAction\":null");
+	}
+
+	@Test
+	void analyze_nextActionEvidenceIsOtherUsersRecord_dropsNextActionOnly() {
+		Long otherHobby = createHobby(2L);
+		ActivityRecord others = createPendingRecord(2L, otherHobby, LocalDate.of(2026, 10, 9), "남의 기록");
+		ActivityRecord result = analyzeWithNextAction(
+				actionJson("코드 전환을 천천히 쳐 봐요", "7", "코드 전환이 느렸어요", String.valueOf(others.getId())));
+
+		assertThat(result.getAiAnalysis()).contains("\"nextAction\":null");
+	}
+
+	@Test
+	void analyze_nextActionEvidenceFromHistory_isAccepted() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord previous = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 1), "이전 연습");
+		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "연습");
+		stubAiResponse(BASE + "\"nextAction\":"
+				+ actionJson("코드 전환을 천천히 쳐 봐요", "7", "지난번에도 코드 전환이 느렸어요", String.valueOf(previous.getId())) + "}");
+
+		service(enabledProperties()).analyze(current.getId(), 1L);
+
+		ActivityRecord result = activityRecordRepository.findById(current.getId()).orElseThrow();
+		assertThat(result.getAiAnalysis()).contains("\"evidenceRecordId\":" + previous.getId());
+	}
+
+	@Test
+	void analyze_genericNextAction_isDroppedButConcreteOneIsKept() {
+		for (String generic : new String[] {"코드 전환을 다시 연습해 봐요", "자신 있는 곳을 한 번 더 쳐 봐요", "기타를 꾸준히 쳐 봐요",
+				"코드 전환을 복습해 봐요"}) {
+			ActivityRecord result = analyzeWithNextAction(actionJson(generic, "7", "코드 전환이 느렸어요", "%ID%"));
+
+			assertThat(result.getAiAnalysis()).as(generic).contains("\"nextAction\":null");
+		}
+		ActivityRecord concrete = analyzeWithNextAction(
+				actionJson("C에서 G로 넘어가는 코드 전환만 박자 없이 열 번 바꿔 봐요", "7", "코드 전환이 느렸다고 적었어요", "%ID%"));
+		assertThat(concrete.getAiAnalysis()).doesNotContain("\"nextAction\":null");
+	}
+
+	@Test
+	void analyze_nextActionWithoutAnyInputWord_isDropped_andCanBeSwitchedOff() {
+		String vague = actionJson("조용한 곳에서 물을 마시며 쉬어 봐요", "5", "코드 전환이 느렸어요", "%ID%");
+		ActivityRecord dropped = analyzeWithNextAction(vague);
+		assertThat(dropped.getAiAnalysis()).contains("\"nextAction\":null");
+
+		Long hobbyId = createHobby(1L);
+		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 11), "연습");
+		stubAiResponse(BASE + "\"nextAction\":" + vague.replace("%ID%", String.valueOf(current.getId())) + "}");
+		RecordAnalysisService relaxed = service(enabledProperties());
+		relaxed.requireInputWord = false;
+		relaxed.analyze(current.getId(), 1L);
+		assertThat(activityRecordRepository.findById(current.getId()).orElseThrow().getAiAnalysis())
+				.doesNotContain("\"nextAction\":null");
 	}
 
 	private String capturedUserPrompt() {

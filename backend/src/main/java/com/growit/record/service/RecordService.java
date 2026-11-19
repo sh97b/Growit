@@ -304,6 +304,16 @@ public class RecordService {
 		return toNextActionResponse(record);
 	}
 
+	/** 근거 기록은 저장된 기록에서 채운다(내 기록이 아니거나 지워졌으면 null). */
+	private RecordRelatedRecord evidenceOf(Long userId, StoredNextAction action) {
+		if (action.evidenceRecordId() == null) {
+			return null;
+		}
+		return activityRecordRepository.findByIdAndUserId(action.evidenceRecordId(), userId)
+				.map(r -> new RecordRelatedRecord(r.getId(), r.getRecordDate(), r.getContent()))
+				.orElse(null);
+	}
+
 	private RecordNextActionResponse toNextActionResponse(ActivityRecord record) {
 		if (record.getAiStatus() != AiStatus.DONE || record.getAiAnalysis() == null) {
 			return null;
@@ -313,7 +323,7 @@ public class RecordService {
 			return null;
 		}
 		return new RecordNextActionResponse(record.getId(), record.getRecordDate(), action.text(), action.minutes(),
-				action.state());
+				action.state(), action.reason(), evidenceOf(record.getUserId(), action));
 	}
 
 	private void assertAnalysisReady(ActivityRecord record) {
@@ -520,7 +530,8 @@ public class RecordService {
 
 		RecordNextAction nextAction = stored.nextAction() == null ? null
 				: new RecordNextAction(stored.nextAction().text(), stored.nextAction().minutes(),
-						stored.nextAction().state());
+						stored.nextAction().state(), stored.nextAction().reason(),
+						evidenceOf(userId, stored.nextAction()));
 
 		return new RecordAnalysisResponse(stored.title(), stored.tags(), related, change,
 				stored.tagsFeedback(), stored.changeFeedback(), nextAction);

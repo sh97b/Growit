@@ -21,7 +21,15 @@ export type RecordAnalysis = {
 }
 
 /** 기록 직후의 "다음에 해 볼 일". state가 null이면 아직 반응이 없는 제안이다. */
-export type NextAction = { text: string; minutes: number; state: 'TRIED' | null }
+export type NextAction = {
+  text: string
+  minutes: number
+  state: 'TRIED' | null
+  /** 왜 이 제안인지 한 줄. 예전 결과에는 없다. */
+  reason?: string | null
+  /** 근거 기록(저장된 기록에서 채운 값). 예전 결과에는 없다. */
+  evidence?: RecordRelated | null
+}
 
 export type LatestNextAction = NextAction & { recordId: number; recordDate: string }
 

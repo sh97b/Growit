@@ -675,4 +675,46 @@ class RecordServiceTest {
 		assertThatThrownBy(() -> service.reactToNextAction(1L, withAction, "TOO_HARD"))
 				.isInstanceOf(ApiException.class);
 	}
+
+	@Test
+	void latestNextAction_includesReasonAndEvidenceFilledFromStoredRecord() {
+		RecordService service = recordServiceWithAiEnabled();
+		Long hobbyId = createHobby(1L, "기타");
+		Long evidenceId = doneRecordWithNextAction(1L, hobbyId, LocalDate.of(2026, 10, 1), NO_ACTION);
+		doneRecordWithNextAction(1L, hobbyId, LocalDate.of(2026, 10, 5),
+				WITH_ACTION.replace("\"state\":null}", "\"state\":null,\"reason\":\"코드 전환이 걸렸어요\",\"evidenceRecordId\":"
+						+ evidenceId + "}"));
+
+		var latest = service.latestNextAction(1L);
+
+		assertThat(latest.reason()).isEqualTo("코드 전환이 걸렸어요");
+		assertThat(latest.evidence().id()).isEqualTo(evidenceId);
+		assertThat(latest.evidence().content()).isEqualTo("기록");
+	}
+
+	@Test
+	void latestNextAction_oldResultWithoutReason_hasNullReasonAndEvidence() {
+		RecordService service = recordServiceWithAiEnabled();
+		Long hobbyId = createHobby(1L, "기타");
+		doneRecordWithNextAction(1L, hobbyId, LocalDate.of(2026, 10, 5), WITH_ACTION);
+
+		var latest = service.latestNextAction(1L);
+
+		assertThat(latest.text()).isEqualTo("한 곡만 쳐 봐요");
+		assertThat(latest.reason()).isNull();
+		assertThat(latest.evidence()).isNull();
+	}
+
+	@Test
+	void latestNextAction_evidenceOfOtherUser_isNotExposed() {
+		RecordService service = recordServiceWithAiEnabled();
+		Long hobbyId = createHobby(1L, "기타");
+		Long otherHobby = createHobby(2L, "피아노");
+		Long othersRecord = doneRecordWithNextAction(2L, otherHobby, LocalDate.of(2026, 10, 1), NO_ACTION);
+		doneRecordWithNextAction(1L, hobbyId, LocalDate.of(2026, 10, 5),
+				WITH_ACTION.replace("\"state\":null}", "\"state\":null,\"reason\":\"이유\",\"evidenceRecordId\":"
+						+ othersRecord + "}"));
+
+		assertThat(service.latestNextAction(1L).evidence()).isNull();
+	}
 }
