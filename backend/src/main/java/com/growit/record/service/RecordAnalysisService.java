@@ -31,6 +31,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class RecordAnalysisService {
 
+	private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(RecordAnalysisService.class);
+	private static final int RAW_LOG_MAX = 200;
+
 	private static final int HISTORY_LIMIT = 5;
 	private static final int HISTORY_CONTENT_MAX = 300;
 	private static final int HISTORY_DIFFICULTY_MAX = 200;
@@ -53,7 +56,7 @@ public class RecordAnalysisService {
 	private static final int NEXT_ACTION_REASON_MAX = 40;
 	private static final String PROMPT_RESOURCE_NAME = "record-analysis-system.txt";
 	/** prompts/record-analysis-system.txt의 내용을 바꿀 때마다 올린다. 저장된 결과가 어떤 지시문으로 만들어졌는지 추적하기 위해서다. */
-	static final int PROMPT_VERSION = 4;
+	static final int PROMPT_VERSION = 5;
 
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
@@ -66,8 +69,11 @@ public class RecordAnalysisService {
 	/** 패키지 안 테스트에서만 다른 리소스 이름으로 바꿔 끼워 읽기 실패를 재현한다. */
 	SystemPromptLoader promptLoader = new SystemPromptLoader(PROMPT_RESOURCE_NAME);
 
-	/** 제안이 입력의 낱말을 하나도 안 담으면 버린다. 테스트나 운영 중 문제가 있으면 끌 수 있다. */
-	boolean requireInputWord = true;
+	/**
+	 * true면 구체성 검사(입력 낱말·일반 표현)에 걸린 제안을 버린다. 기본은 완화(false)라서 로그(NEXT_ACTION_SOFT)만
+	 * 남기고 통과시킨다. 환경변수 AI_NEXT_ACTION_STRICT=true로 켠다.
+	 */
+	boolean strictSpecificity = "true".equalsIgnoreCase(System.getenv("AI_NEXT_ACTION_STRICT"));
 
 	public RecordAnalysisService(ActivityRecordRepository activityRecordRepository, HobbyRepository hobbyRepository,
 			AiCallService aiCallService, AiResponseValidator aiResponseValidator, AiLogRepository aiLogRepository,
@@ -141,7 +147,8 @@ public class RecordAnalysisService {
 				record.getDifficulty(),
 				// 직접 추가한 감정의 이름은 길이가 8자로 제한된 "자료"로만 넘긴다(지시로 읽히지 않게 프롬프트의 사용자 글 규칙을 따른다)
 				feelingText(record),
-				record.getMinutes());
+				record.getMinutes(),
+				record.getId());
 		List<AnalysisHistoryItem> historyItems = history.stream()
 				.map(h -> new AnalysisHistoryItem(h.getId(), h.getRecordDate().toString(),
 						truncate(h.getContent(), HISTORY_CONTENT_MAX),
@@ -200,7 +207,8 @@ public class RecordAnalysisService {
 		if (recordId != null) {
 			nextActionEvidenceIds.add(recordId);
 		}
-		StoredNextAction nextAction = sanitizeNextAction(node.path("nextAction"), nextActionEvidenceIds, corpus);
+		StoredNextAction nextAction = sanitizeNextAction(node.path("nextAction"), nextActionEvidenceIds, corpus,
+				recordId);
 
 		return new StoredAnalysis(title, tags, relatedRecordIds, change, null, null, PROMPT_VERSION, model,
 				nextAction);
@@ -281,37 +289,92 @@ public class RecordAnalysisService {
 		return new StoredChange(text, evidenceId);
 	}
 
-	private StoredNextAction sanitizeNextAction(JsonNode actionNode, Set<Long> allowedIds, String corpus) {
+	/**
+	 * 하드 검사(형식·길이·분 범위·금지어·재촉어·남의 기록 id)에 걸리면 nextAction만 버리고, 근거 id가 없거나
+	 * 입력에 없으면 "이 기록"으로 대체한다. 구체성 검사는 기본적으로 로그만 남기고 통과시킨다. 버릴 때마다
+	 * NEXT_ACTION_DROPPED 로그로 이유를 남겨 어디서 막히는지 운영에서 볼 수 있게 한다.
+	 */
+	private StoredNextAction sanitizeNextAction(JsonNode actionNode, Set<Long> allowedIds, String corpus,
+			Long recordId) {
+		if (actionNode.isMissingNode() || actionNode.isNull()) {
+			return dropped(recordId, "MISSING", actionNode);
+		}
 		if (!actionNode.isObject()) {
-			return null;
+			return dropped(recordId, "PARSE", actionNode);
 		}
 		JsonNode textNode = actionNode.path("text");
 		JsonNode minutesNode = actionNode.path("minutes");
 		JsonNode reasonNode = actionNode.path("reason");
-		JsonNode evidenceNode = actionNode.path("evidenceRecordId");
 		if (!textNode.isTextual() || !minutesNode.isIntegralNumber() || !minutesNode.canConvertToInt()
-				|| !reasonNode.isTextual() || !evidenceNode.canConvertToLong() || !evidenceNode.isIntegralNumber()) {
-			return null;
+				|| !reasonNode.isTextual()) {
+			return dropped(recordId, "FIELD", actionNode);
 		}
 		String text = textNode.asText().trim();
 		String reason = reasonNode.asText().trim();
 		int minutes = minutesNode.asInt();
-		long evidenceId = evidenceNode.asLong();
-		if (text.isEmpty() || text.length() > NEXT_ACTION_TEXT_MAX || isRejectedWording(text)
-				|| minutes < NEXT_ACTION_MIN_MINUTES || minutes > NEXT_ACTION_MAX_MINUTES
-				|| reason.isEmpty() || reason.length() > NEXT_ACTION_REASON_MAX || isRejectedWording(reason)
-				|| !allowedIds.contains(evidenceId)) {
-			return null;
+		if (minutes < NEXT_ACTION_MIN_MINUTES || minutes > NEXT_ACTION_MAX_MINUTES) {
+			return dropped(recordId, "RANGE", actionNode);
 		}
-		if (requireInputWord && corpus != null && !InputWords.mentions(text, corpus)) {
-			return null;
+		if (text.isEmpty() || text.length() > NEXT_ACTION_TEXT_MAX || reason.isEmpty()
+				|| reason.length() > NEXT_ACTION_REASON_MAX) {
+			return dropped(recordId, "LENGTH", actionNode);
+		}
+		if (isForbiddenWording(text) || isForbiddenWording(reason)) {
+			return dropped(recordId, "FORBIDDEN", actionNode);
+		}
+
+		JsonNode evidenceNode = actionNode.path("evidenceRecordId");
+		Long evidenceId = evidenceNode.isIntegralNumber() && evidenceNode.canConvertToLong() ? evidenceNode.asLong()
+				: null;
+		if (evidenceId != null && !allowedIds.contains(evidenceId)) {
+			if (isOtherUsersRecord(evidenceId, recordId)) {
+				return dropped(recordId, "EVIDENCE", actionNode);
+			}
+			evidenceId = null;
+		}
+		if (evidenceId == null) {
+			if (recordId == null) {
+				return dropped(recordId, "EVIDENCE", actionNode);
+			}
+			log.info("NEXT_ACTION_EVIDENCE_SUBSTITUTED recordId={}", recordId);
+			evidenceId = recordId;
+		}
+
+		if (corpus != null) {
+			String soft = GENERIC_PHRASES.stream().anyMatch(text::contains) ? "GENERIC"
+					: !InputWords.mentions(text, corpus) ? "NO_INPUT_WORD" : null;
+			if (soft != null) {
+				if (strictSpecificity) {
+					return dropped(recordId, soft, actionNode);
+				}
+				log.warn("NEXT_ACTION_SOFT recordId={} reason={} raw={}", recordId, soft, rawOf(actionNode));
+			}
 		}
 		return new StoredNextAction(text, minutes, null, reason, evidenceId);
 	}
 
-	private boolean isRejectedWording(String text) {
-		return containsForbiddenWord(text) || URGENCY_WORDS.stream().anyMatch(text::contains)
-				|| GENERIC_PHRASES.stream().anyMatch(text::contains);
+	private StoredNextAction dropped(Long recordId, String reason, JsonNode actionNode) {
+		log.warn("NEXT_ACTION_DROPPED recordId={} reason={} raw={}", recordId, reason, rawOf(actionNode));
+		return null;
+	}
+
+	private String rawOf(JsonNode node) {
+		String raw = node.isMissingNode() ? "" : node.toString();
+		return raw.length() > RAW_LOG_MAX ? raw.substring(0, RAW_LOG_MAX) : raw;
+	}
+
+	/** 입력에 없는 id가 실제로 다른 사용자의 기록이면 true(그 경우는 대체하지 않고 버린다). */
+	private boolean isOtherUsersRecord(Long evidenceId, Long recordId) {
+		if (recordId == null) {
+			return false;
+		}
+		Long ownerId = activityRecordRepository.findById(recordId).map(ActivityRecord::getUserId).orElse(null);
+		return activityRecordRepository.findById(evidenceId)
+				.map(other -> ownerId == null || !other.getUserId().equals(ownerId)).orElse(false);
+	}
+
+	private boolean isForbiddenWording(String text) {
+		return containsForbiddenWord(text) || URGENCY_WORDS.stream().anyMatch(text::contains);
 	}
 
 	private String corpusOf(Hobby hobby, ActivityRecord record, List<ActivityRecord> history) {

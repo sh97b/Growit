@@ -247,7 +247,7 @@ class RecordAnalysisServiceTest {
 		service(enabledProperties()).analyze(current.getId(), 1L);
 
 		ActivityRecord result = activityRecordRepository.findById(current.getId()).orElseThrow();
-		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":4").contains("\"model\":\"model\"");
+		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":5").contains("\"model\":\"model\"");
 	}
 
 	@Test
@@ -285,10 +285,16 @@ class RecordAnalysisServiceTest {
 	}
 
 	private ActivityRecord analyzeWithNextAction(String nextActionJson) {
+		return analyzeWithNextAction(nextActionJson, false);
+	}
+
+	private ActivityRecord analyzeWithNextAction(String nextActionJson, boolean strict) {
 		Long hobbyId = createHobby(1L);
 		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "연습");
 		stubAiResponse(BASE + "\"nextAction\":" + nextActionJson.replace("%ID%", String.valueOf(current.getId())) + "}");
-		service(enabledProperties()).analyze(current.getId(), 1L);
+		RecordAnalysisService service = service(enabledProperties());
+		service.strictSpecificity = strict;
+		service.analyze(current.getId(), 1L);
 		return activityRecordRepository.findById(current.getId()).orElseThrow();
 	}
 
@@ -337,12 +343,12 @@ class RecordAnalysisServiceTest {
 		}
 	}
 
+	/** 하드 검사(필수 필드·길이)에 걸리는 응답은 nextAction만 버린다. 근거 id 누락은 하드가 아니다. */
 	@Test
-	void analyze_nextActionWithoutReasonOrEvidenceOrWithLongReason_dropsNextActionOnly() {
+	void analyze_nextActionWithoutReasonOrWithLongReason_dropsNextActionOnly() {
 		String noReason = "{\"text\":\"코드 전환을 천천히 쳐 봐요\",\"minutes\":7,\"evidenceRecordId\":%ID%}";
-		String noEvidence = "{\"text\":\"코드 전환을 천천히 쳐 봐요\",\"minutes\":7,\"reason\":\"코드 전환이 느렸어요\"}";
 		String longReason = actionJson("코드 전환을 천천히 쳐 봐요", "7", "코드 전환이 느렸어요" + "요".repeat(40), "%ID%");
-		for (String json : new String[] {noReason, noEvidence, longReason}) {
+		for (String json : new String[] {noReason, longReason}) {
 			ActivityRecord result = analyzeWithNextAction(json);
 
 			assertThat(result.getAiStatus()).as(json).isEqualTo(AiStatus.DONE);
@@ -351,11 +357,21 @@ class RecordAnalysisServiceTest {
 	}
 
 	@Test
-	void analyze_nextActionEvidenceNotInInput_dropsNextActionOnly() {
+	void analyze_nextActionEvidenceMissing_isReplacedByThisRecord() {
+		String noEvidence = "{\"text\":\"코드 전환을 천천히 쳐 봐요\",\"minutes\":7,\"reason\":\"코드 전환이 느렸어요\"}";
+
+		ActivityRecord result = analyzeWithNextAction(noEvidence);
+
+		assertThat(result.getAiStatus()).isEqualTo(AiStatus.DONE);
+		assertThat(result.getAiAnalysis()).contains("\"evidenceRecordId\":" + result.getId());
+	}
+
+	@Test
+	void analyze_nextActionEvidenceNotInInput_isReplacedByThisRecord() {
 		ActivityRecord result = analyzeWithNextAction(actionJson("코드 전환을 천천히 쳐 봐요", "7", "코드 전환이 느렸어요", "99999"));
 
 		assertThat(result.getAiStatus()).isEqualTo(AiStatus.DONE);
-		assertThat(result.getAiAnalysis()).contains("\"nextAction\":null");
+		assertThat(result.getAiAnalysis()).contains("\"evidenceRecordId\":" + result.getId());
 	}
 
 	@Test
@@ -365,6 +381,7 @@ class RecordAnalysisServiceTest {
 		ActivityRecord result = analyzeWithNextAction(
 				actionJson("코드 전환을 천천히 쳐 봐요", "7", "코드 전환이 느렸어요", String.valueOf(others.getId())));
 
+		assertThat(result.getAiStatus()).isEqualTo(AiStatus.DONE);
 		assertThat(result.getAiAnalysis()).contains("\"nextAction\":null");
 	}
 
@@ -382,33 +399,101 @@ class RecordAnalysisServiceTest {
 		assertThat(result.getAiAnalysis()).contains("\"evidenceRecordId\":" + previous.getId());
 	}
 
+	/** 구체성 검사(일반 표현·입력 낱말)는 기본이 완화라 통과하고 로그만 남긴다. */
 	@Test
-	void analyze_genericNextAction_isDroppedButConcreteOneIsKept() {
-		for (String generic : new String[] {"코드 전환을 다시 연습해 봐요", "자신 있는 곳을 한 번 더 쳐 봐요", "기타를 꾸준히 쳐 봐요",
-				"코드 전환을 복습해 봐요"}) {
-			ActivityRecord result = analyzeWithNextAction(actionJson(generic, "7", "코드 전환이 느렸어요", "%ID%"));
+	void analyze_genericOrVagueNextAction_passesInRelaxedModeWithSoftLog() {
+		java.util.List<String> logs = captureLogs();
+		String generic = actionJson("코드 전환을 다시 연습해 봐요", "7", "코드 전환이 느렸어요", "%ID%");
+		String vague = actionJson("조용한 곳에서 물을 마시며 쉬어 봐요", "5", "코드 전환이 느렸어요", "%ID%");
 
-			assertThat(result.getAiAnalysis()).as(generic).contains("\"nextAction\":null");
-		}
-		ActivityRecord concrete = analyzeWithNextAction(
-				actionJson("C에서 G로 넘어가는 코드 전환만 박자 없이 열 번 바꿔 봐요", "7", "코드 전환이 느렸다고 적었어요", "%ID%"));
-		assertThat(concrete.getAiAnalysis()).doesNotContain("\"nextAction\":null");
+		assertThat(analyzeWithNextAction(generic).getAiAnalysis()).doesNotContain("\"nextAction\":null");
+		assertThat(analyzeWithNextAction(vague).getAiAnalysis()).doesNotContain("\"nextAction\":null");
+
+		assertThat(logs).anyMatch(line -> line.contains("NEXT_ACTION_SOFT") && line.contains("reason=GENERIC"));
+		assertThat(logs).anyMatch(line -> line.contains("NEXT_ACTION_SOFT") && line.contains("reason=NO_INPUT_WORD"));
 	}
 
 	@Test
-	void analyze_nextActionWithoutAnyInputWord_isDropped_andCanBeSwitchedOff() {
-		String vague = actionJson("조용한 곳에서 물을 마시며 쉬어 봐요", "5", "코드 전환이 느렸어요", "%ID%");
-		ActivityRecord dropped = analyzeWithNextAction(vague);
-		assertThat(dropped.getAiAnalysis()).contains("\"nextAction\":null");
+	void analyze_genericOrVagueNextAction_isDroppedInStrictMode() {
+		java.util.List<String> logs = captureLogs();
+		String[] generics = {"코드 전환을 다시 연습해 봐요", "자신 있는 곳을 한 번 더 쳐 봐요", "기타를 꾸준히 쳐 봐요", "코드 전환을 복습해 봐요"};
+		for (String generic : generics) {
+			ActivityRecord result = analyzeWithNextAction(actionJson(generic, "7", "코드 전환이 느렸어요", "%ID%"), true);
 
+			assertThat(result.getAiAnalysis()).as(generic).contains("\"nextAction\":null");
+		}
+		ActivityRecord vague = analyzeWithNextAction(actionJson("조용한 곳에서 물을 마시며 쉬어 봐요", "5", "코드 전환이 느렸어요", "%ID%"), true);
+		assertThat(vague.getAiAnalysis()).contains("\"nextAction\":null");
+		ActivityRecord concrete = analyzeWithNextAction(
+				actionJson("C에서 G로 넘어가는 코드 전환만 박자 없이 열 번 바꿔 봐요", "7", "코드 전환이 느렸다고 적었어요", "%ID%"), true);
+		assertThat(concrete.getAiAnalysis()).doesNotContain("\"nextAction\":null");
+
+		assertThat(logs).anyMatch(line -> line.contains("NEXT_ACTION_DROPPED") && line.contains("reason=GENERIC"));
+		assertThat(logs).anyMatch(line -> line.contains("NEXT_ACTION_DROPPED") && line.contains("reason=NO_INPUT_WORD"));
+	}
+
+	@Test
+	void analyze_nextActionDropLogs_carryReasonAndRecordId() {
+		java.util.List<String> logs = captureLogs();
+
+		ActivityRecord missing = analyzeWithNextAction("null");
+		analyzeWithNextAction(actionJson("코드 전환을 쳐 봐요", "11", "코드 전환이 느렸어요", "%ID%"));
+		analyzeWithNextAction("\"문자열\"");
+		analyzeWithNextAction("{\"text\":\"코드 전환을 쳐 봐요\"}");
+		analyzeWithNextAction(actionJson("꼭 코드 전환을 쳐 봐요", "7", "코드 전환이 느렸어요", "%ID%"));
+		analyzeWithNextAction(actionJson(" ", "7", "코드 전환이 느렸어요", "%ID%"));
+
+		assertThat(logs).anyMatch(line -> line.contains("NEXT_ACTION_DROPPED") && line.contains("reason=MISSING")
+				&& line.contains("recordId=" + missing.getId()));
+		for (String reason : new String[] {"RANGE", "PARSE", "FIELD", "FORBIDDEN", "LENGTH"}) {
+			assertThat(logs).as(reason).anyMatch(line -> line.contains("NEXT_ACTION_DROPPED") && line.contains("reason=" + reason));
+		}
+	}
+
+	@Test
+	void analyze_nextActionAbsentFromResponse_logsMissingAndHasNoCard() {
+		java.util.List<String> logs = captureLogs();
 		Long hobbyId = createHobby(1L);
-		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 11), "연습");
-		stubAiResponse(BASE + "\"nextAction\":" + vague.replace("%ID%", String.valueOf(current.getId())) + "}");
-		RecordAnalysisService relaxed = service(enabledProperties());
-		relaxed.requireInputWord = false;
-		relaxed.analyze(current.getId(), 1L);
-		assertThat(activityRecordRepository.findById(current.getId()).orElseThrow().getAiAnalysis())
-				.doesNotContain("\"nextAction\":null");
+		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "연습");
+		stubAiResponse("{\"title\":\"연습\",\"tags\":[],\"relatedRecordIds\":[],\"change\":null}");
+
+		service(enabledProperties()).analyze(current.getId(), 1L);
+
+		ActivityRecord result = activityRecordRepository.findById(current.getId()).orElseThrow();
+		assertThat(result.getAiStatus()).isEqualTo(AiStatus.DONE);
+		assertThat(result.getAiAnalysis()).contains("\"nextAction\":null");
+		assertThat(logs).anyMatch(line -> line.contains("NEXT_ACTION_DROPPED") && line.contains("reason=MISSING"));
+	}
+
+	@Test
+	void analyze_sendsThisRecordIdToAi() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "연습");
+		stubAiResponse(BASE + "\"nextAction\":null}");
+
+		service(enabledProperties()).analyze(current.getId(), 1L);
+
+		assertThat(capturedUserPrompt()).contains("\"id\":" + current.getId());
+	}
+
+	private java.util.List<String> captureLogs() {
+		ch.qos.logback.classic.Logger logger =
+				(ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(RecordAnalysisService.class);
+		ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+				new ch.qos.logback.core.read.ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		return new java.util.AbstractList<>() {
+			@Override
+			public String get(int index) {
+				return appender.list.get(index).getFormattedMessage();
+			}
+
+			@Override
+			public int size() {
+				return appender.list.size();
+			}
+		};
 	}
 
 	private String capturedUserPrompt() {
