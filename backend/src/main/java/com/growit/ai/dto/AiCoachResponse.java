@@ -32,7 +32,8 @@ public record AiCoachResponse(
 		List<CoachTextItemResponse> resolvedDifficulties,
 		List<CoachTextItemResponse> questions,
 		List<CoachTextItemResponse> directions,
-		CoachStatsResponse stats) {
+		CoachStatsResponse stats,
+		List<CoachDirectionResponse> directionPlans) {
 
 	/** 예전 모양의 결과를 만들 때 쓴다. */
 	public AiCoachResponse(boolean locked, Integer requiredCount, Integer currentCount, Long id, String mode,
@@ -42,7 +43,7 @@ public record AiCoachResponse(
 			String reaction, String cardState, boolean isNew) {
 		this(locked, requiredCount, currentCount, id, mode, startDate, endDate, createdAt, reused, periodSummary,
 				changes, repeatedDifficulties, nextAction, comebackAction, recordsRead, feedback, reaction, cardState,
-				isNew, null, null, null, null, null, null);
+				isNew, null, null, null, null, null, null, null);
 	}
 
 	public static AiCoachResponse locked(int requiredCount, int currentCount) {

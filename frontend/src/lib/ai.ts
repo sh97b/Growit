@@ -66,6 +66,9 @@ export type CoachTextItem = { text: string; evidence: CoachEvidenceItem[] }
 
 export type CoachAction = { title: string; minutes: number; reason: string; evidence: CoachEvidenceItem[] }
 
+/** 앞으로의 방향 후보 하나와 "이렇게 시작해 볼 수 있어요" 제안(steps). */
+export type CoachDirectionPlan = { direction: string; evidence: CoachEvidenceItem[]; steps: string[] }
+
 /** 서버가 기록에서 직접 센 숫자(AI가 만든 값이 아니다). */
 export type CoachStats = {
   recordCount: number
@@ -101,6 +104,8 @@ export type CoachResult = {
   questions?: CoachTextItem[] | null
   directions?: CoachTextItem[] | null
   stats?: CoachStats | null
+  /** 방향 후보에 시작 제안이 붙은 형태. 이전 새 구성 결과에는 없다(그땐 directions 문장만 있다). */
+  directionPlans?: CoachDirectionPlan[] | null
 }
 
 export function fetchCoach(payload: { hobbyId?: number; period: CoachPeriod }) {

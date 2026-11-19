@@ -8,6 +8,7 @@ import com.growit.ai.dto.AiCoachAutoResponse;
 import com.growit.ai.dto.AiCoachListResponse;
 import com.growit.ai.dto.AiCoachResponse;
 import com.growit.ai.dto.CoachActionResponse;
+import com.growit.ai.dto.CoachDirectionResponse;
 import com.growit.ai.dto.CoachEvidence;
 import com.growit.ai.dto.CoachFeelingCount;
 import com.growit.ai.dto.CoachStatsResponse;
@@ -18,6 +19,7 @@ import com.growit.ai.entity.AiResultType;
 import com.growit.ai.repository.AiResultRepository;
 import com.growit.common.exception.ApiException;
 import com.growit.common.exception.ErrorCode;
+import com.growit.common.text.InputWords;
 import com.growit.hobby.entity.Hobby;
 import com.growit.hobby.repository.HobbyRepository;
 import com.growit.notification.service.NotificationSchedulerService;
@@ -39,6 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class CoachService {
 
+	private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CoachService.class);
 	private static final ZoneId SERVER_ZONE = ZoneId.of("Asia/Seoul");
 	private static final int REQUIRED_RECORD_COUNT = 5;
 	private static final int MAX_INPUT_RECORDS = 30;
@@ -54,11 +57,17 @@ public class CoachService {
 	private static final int QUESTION_TEXT_MAX = 100;
 	private static final int DIRECTION_MAX_COUNT = 3;
 	private static final int DIRECTION_TEXT_MAX = 80;
+	private static final int DIRECTION_EVIDENCE_MAX = 2;
+	private static final int STEP_MAX_COUNT = 3;
+	private static final int STEP_TEXT_MAX = 40;
+	/** 시작 제안에는 기한 표현을 쓰지 않는다("먼저 → 그다음" 순서만). */
+	private static final List<String> DEADLINE_WORDS = List.of("이번 주", "이번주", "이번 달", "오늘", "내일", "주 안에",
+			"일 안에", "까지");
 	private static final int ACTION_TITLE_MAX = 40;
 	private static final int ACTION_REASON_MAX = 200;
 	private static final String PROMPT_RESOURCE_NAME = "ai-coach-system.txt";
 	/** prompts/ai-coach-system.txt를 바꿀 때마다 올린다. */
-	static final int PROMPT_VERSION = 3;
+	static final int PROMPT_VERSION = 4;
 	private static final List<String> FORBIDDEN_WORDS =
 			List.of("실력", "늘었", "향상", "잘했", "훌륭", "대단", "점수", "순위", "반드시", "오늘 안에");
 	/** 질문·방향 후보에는 재촉하는 말도 막는다(다음 행동은 기록 직후의 "다음에 해 볼 일"이 맡는다). */
@@ -330,6 +339,7 @@ public class CoachService {
 		}
 
 		// 다음 행동은 이 결과에 담지 않는다. 근거 id가 없거나 금지·재촉 표현이 든 항목은 그 항목만 버린다.
+		Map<String, Integer> drops = new LinkedHashMap<>();
 		List<StoredCoachTextItem> flow = sanitizeSectionItems(node.path("flow"), allowedIds, FLOW_MAX_COUNT,
 				FLOW_TEXT_MAX);
 		List<StoredCoachTextItem> changes = sanitizeSectionItems(node.path("changes"), allowedIds, 2, TEXT_ITEM_MAX);
@@ -339,12 +349,15 @@ public class CoachService {
 				allowedIds, RESOLVED_MAX_COUNT, TEXT_ITEM_MAX);
 		List<StoredCoachTextItem> questions = sanitizeSectionItems(node.path("questions"), allowedIds,
 				QUESTION_MAX_COUNT, QUESTION_TEXT_MAX);
-		List<StoredCoachTextItem> directions = sanitizeSectionItems(node.path("directions"), allowedIds,
-				DIRECTION_MAX_COUNT, DIRECTION_TEXT_MAX);
+		List<StoredCoachDirection> directionPlans = sanitizeDirections(node.path("directions"), allowedIds,
+				corpusOf(inputRecords), drops);
+		List<StoredCoachTextItem> directions = directionPlans.stream()
+				.map(plan -> new StoredCoachTextItem(plan.direction(), plan.recordIds())).toList();
+		logDrops(drops, flow, questions, directionPlans);
 
 		return new StoredCoachResult(mode, periodSummary, changes, repeatedDifficulties, null, null,
 				inputRecords.size(), null, flow, resolvedDifficulties, questions, directions,
-				computeStats(inputRecords));
+				computeStats(inputRecords), directionPlans);
 	}
 
 	/** 기록한 날·시간·느낌 분포는 AI가 아니라 서버가 센다. */
@@ -376,6 +389,101 @@ public class CoachService {
 			case RELIEVED -> "개운함";
 			case NEUTRAL -> "잘 모르겠음";
 		};
+	}
+
+	/**
+	 * 방향 후보: direction 한 문장, 근거 기록 1~2개, steps 1~3개. 근거가 없거나 시작 제안이 하나도 못 남은 후보만
+	 * 버리고 나머지는 살린다. 왜 얼마나 버렸는지는 원인 추적을 위해 로그로 남긴다(사용자 글은 남기지 않는다).
+	 */
+	private List<StoredCoachDirection> sanitizeDirections(JsonNode arrayNode, Set<Long> allowedIds, String corpus,
+			Map<String, Integer> drops) {
+		List<StoredCoachDirection> result = new ArrayList<>();
+		if (!arrayNode.isArray()) {
+			drops.merge("directions:not-array", 1, Integer::sum);
+			return result;
+		}
+		for (JsonNode itemNode : arrayNode) {
+			JsonNode directionNode = itemNode.path("direction");
+			if (!directionNode.isTextual()) {
+				drops.merge("directions:no-direction-text", 1, Integer::sum);
+				continue;
+			}
+			String direction = directionNode.asText().trim();
+			if (direction.isEmpty() || direction.length() > DIRECTION_TEXT_MAX) {
+				drops.merge("directions:bad-length", 1, Integer::sum);
+				continue;
+			}
+			if (containsForbiddenWord(direction) || URGENCY_WORDS.stream().anyMatch(direction::contains)) {
+				drops.merge("directions:forbidden-word", 1, Integer::sum);
+				continue;
+			}
+			List<Long> ids = sanitizeIds(itemNode.path("recordIds"), allowedIds);
+			if (ids.isEmpty()) {
+				drops.merge("directions:no-valid-evidence", 1, Integer::sum);
+				continue;
+			}
+			List<String> steps = sanitizeSteps(itemNode.path("steps"), corpus, drops);
+			if (steps.isEmpty()) {
+				drops.merge("directions:no-valid-steps", 1, Integer::sum);
+				continue;
+			}
+			result.add(new StoredCoachDirection(direction, ids.stream().limit(DIRECTION_EVIDENCE_MAX).toList(), steps));
+			if (result.size() == DIRECTION_MAX_COUNT) {
+				break;
+			}
+		}
+		return result;
+	}
+
+	private List<String> sanitizeSteps(JsonNode stepsNode, String corpus, Map<String, Integer> drops) {
+		List<String> steps = new ArrayList<>();
+		if (!stepsNode.isArray()) {
+			return steps;
+		}
+		for (JsonNode stepNode : stepsNode) {
+			if (!stepNode.isTextual()) {
+				continue;
+			}
+			String step = stepNode.asText().trim();
+			if (step.isEmpty() || step.length() > STEP_TEXT_MAX || containsForbiddenWord(step)
+					|| URGENCY_WORDS.stream().anyMatch(step::contains)) {
+				drops.merge("steps:bad-or-forbidden", 1, Integer::sum);
+				continue;
+			}
+			if (DEADLINE_WORDS.stream().anyMatch(step::contains)) {
+				drops.merge("steps:deadline-word", 1, Integer::sum);
+				continue;
+			}
+			if (!InputWords.mentions(step, corpus)) {
+				drops.merge("steps:no-input-word", 1, Integer::sum);
+				continue;
+			}
+			steps.add(step);
+			if (steps.size() == STEP_MAX_COUNT) {
+				break;
+			}
+		}
+		return steps;
+	}
+
+	private String corpusOf(List<ActivityRecord> records) {
+		StringBuilder corpus = new StringBuilder();
+		for (ActivityRecord record : records) {
+			corpus.append(record.getContent()).append(' ');
+			if (record.getDifficulty() != null) {
+				corpus.append(record.getDifficulty()).append(' ');
+			}
+		}
+		return corpus.toString();
+	}
+
+	private void logDrops(Map<String, Integer> drops, List<StoredCoachTextItem> flow,
+			List<StoredCoachTextItem> questions, List<StoredCoachDirection> plans) {
+		if (drops.isEmpty() && !plans.isEmpty()) {
+			return;
+		}
+		log.info("회고 항목 정리: 남은 흐름={}, 질문={}, 방향={}, 버린 이유={}", flow.size(), questions.size(), plans.size(),
+				drops);
 	}
 
 	private List<StoredCoachTextItem> sanitizeSectionItems(JsonNode arrayNode, Set<Long> allowedIds, int maxCount,
@@ -533,6 +641,9 @@ public class CoachService {
 			if (section != null) {
 				section.forEach(item -> haystack.add(item.text()));
 			}
+		}
+		if (stored.directionPlans() != null) {
+			stored.directionPlans().forEach(plan -> haystack.addAll(plan.steps()));
 		}
 		addActionText(haystack, stored.nextAction());
 		addActionText(haystack, stored.comebackAction());
@@ -698,7 +809,15 @@ public class CoachService {
 				toTextItems(stored.resolvedDifficulties(), userId, preloaded),
 				toTextItems(stored.questions(), userId, preloaded),
 				toTextItems(stored.directions(), userId, preloaded),
-				toStatsResponse(stored.stats()));
+				toStatsResponse(stored.stats()),
+				toDirectionPlans(stored.directionPlans(), userId, preloaded));
+	}
+
+	private List<CoachDirectionResponse> toDirectionPlans(List<StoredCoachDirection> plans, Long userId,
+			Map<Long, ActivityRecord> preloaded) {
+		return plans == null ? null
+				: plans.stream().map(plan -> new CoachDirectionResponse(plan.direction(),
+						toEvidence(plan.recordIds(), userId, preloaded), plan.steps())).toList();
 	}
 
 	private List<CoachTextItemResponse> toTextItems(List<StoredCoachTextItem> items, Long userId,

@@ -18,20 +18,22 @@ record StoredCoachResult(
 		List<StoredCoachTextItem> resolvedDifficulties,
 		List<StoredCoachTextItem> questions,
 		List<StoredCoachTextItem> directions,
-		StoredCoachStats stats) {
+		StoredCoachStats stats,
+		/** 방향 후보에 시작 제안(steps)이 붙은 형태(C2). 이전 새 구성 결과에는 없고, 그땐 directions 문장만 보인다. */
+		List<StoredCoachDirection> directionPlans) {
 
 	StoredCoachResult(String mode, String periodSummary, List<StoredCoachTextItem> changes,
 			List<StoredCoachTextItem> repeatedDifficulties, StoredCoachAction nextAction,
 			StoredCoachAction comebackAction, int recordsRead) {
 		this(mode, periodSummary, changes, repeatedDifficulties, nextAction, comebackAction, recordsRead, null, null,
-				null, null, null, null);
+				null, null, null, null, null);
 	}
 
 	StoredCoachResult(String mode, String periodSummary, List<StoredCoachTextItem> changes,
 			List<StoredCoachTextItem> repeatedDifficulties, StoredCoachAction nextAction,
 			StoredCoachAction comebackAction, int recordsRead, StoredCoachAction simplifiedAction) {
 		this(mode, periodSummary, changes, repeatedDifficulties, nextAction, comebackAction, recordsRead,
-				simplifiedAction, null, null, null, null, null);
+				simplifiedAction, null, null, null, null, null, null);
 	}
 
 	boolean isReflection() {

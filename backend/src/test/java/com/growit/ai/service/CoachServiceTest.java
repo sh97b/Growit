@@ -701,8 +701,10 @@ class CoachServiceTest {
 				+ "\"resolvedDifficulties\":[{\"text\":\"박자는 뒤에 따로 적지 않았어요\",\"recordIds\":[%d]}],"
 				+ "\"questions\":[{\"text\":\"코드 전환이 걸릴 땐 어떤 느낌이었나요?\",\"recordIds\":[%d]},"
 				+ "{\"text\":\"요즘 가장 손이 가는 곡은 무엇인가요?\",\"recordIds\":[%d]}],"
-				+ "\"directions\":[{\"text\":\"어려웠던 부분을 천천히 다시 보는 쪽\",\"recordIds\":[%d]},"
-				+ "{\"text\":\"새 곡을 조금씩 넓히는 쪽\",\"recordIds\":[%d]}]}")
+				+ "\"directions\":[{\"direction\":\"어려웠던 부분을 천천히 다시 보는 쪽\",\"recordIds\":[%d],"
+				+ "\"steps\":[\"먼저 어려웠다고 적은 부분만 천천히 해 봐요\"]},"
+				+ "{\"direction\":\"새 곡을 조금씩 넓히는 쪽\",\"recordIds\":[%d],"
+				+ "\"steps\":[\"먼저 어려웠다고 적은 곡 하나만 골라 봐요\"]}]}")
 				.formatted(a, b, b, a, b, b, a, b, a, b);
 	}
 
@@ -743,7 +745,8 @@ class CoachServiceTest {
 				+ "\"changes\":[],\"repeatedDifficulties\":[],"
 				+ "\"questions\":[{\"text\":\"꼭 답해 보세요\",\"recordIds\":[%d]},"
 				+ "{\"text\":\"빨리 정해야 하나요?\",\"recordIds\":[%d]},{\"text\":\"무엇이 가장 즐거웠나요?\",\"recordIds\":[%d]}],"
-				+ "\"directions\":[{\"text\":\"반드시 이쪽\",\"recordIds\":[%d]}]}").formatted(a, a, a, a, a, a));
+				+ "\"directions\":[{\"direction\":\"반드시 이쪽\",\"recordIds\":[%d],"
+				+ "\"steps\":[\"먼저 어려웠다고 적은 부분을 봐요\"]}]}").formatted(a, a, a, a, a, a));
 
 		AiCoachResponse response = service(enabledProperties()).coach(1L, new CoachRequest(hobbyId, "1M"));
 
@@ -762,8 +765,14 @@ class CoachServiceTest {
 		for (int i = 0; i < 8; i++) {
 			many.append(i == 0 ? "" : ",").append(item.formatted(i));
 		}
+		String directionItem = "{\"direction\":\"방향 %s\",\"recordIds\":[" + a
+				+ "],\"steps\":[\"먼저 어려웠다고 적은 부분을 봐요\"]}";
+		StringBuilder manyDirections = new StringBuilder();
+		for (int i = 0; i < 8; i++) {
+			manyDirections.append(i == 0 ? "" : ",").append(directionItem.formatted(i));
+		}
 		stubAiResponse("{\"periodSummary\":\"기록상 꾸준했어요\",\"flow\":[" + many + "],\"changes\":[],"
-				+ "\"repeatedDifficulties\":[],\"questions\":[" + many + "],\"directions\":[" + many + "]}");
+				+ "\"repeatedDifficulties\":[],\"questions\":[" + many + "],\"directions\":[" + manyDirections + "]}");
 
 		AiCoachResponse response = service(enabledProperties()).coach(1L, new CoachRequest(hobbyId, "1M"));
 
@@ -835,5 +844,91 @@ class CoachServiceTest {
 
 		assertThat(service.search(1L, null, "손이 가는 곡", null, null, 0, 20).items()).hasSize(1);
 		assertThat(service.search(2L, null, "손이 가는 곡", null, null, 0, 20).items()).isEmpty();
+	}
+
+	private static String directionJson(String direction, String ids, String steps) {
+		return "{\"direction\":\"" + direction + "\",\"recordIds\":[" + ids + "],\"steps\":[" + steps + "]}";
+	}
+
+	private AiCoachResponse coachWithDirections(Long hobbyId, String directionsJson) {
+		stubAiResponse("{\"periodSummary\":\"기록상 꾸준했어요\",\"flow\":[],\"changes\":[],\"repeatedDifficulties\":[],"
+				+ "\"questions\":[],\"directions\":" + directionsJson + "}");
+		return service(enabledProperties()).coach(1L, new CoachRequest(hobbyId, "1M"));
+	}
+
+	@Test
+	void coach_directionPlans_keepEvidenceUpToTwoAndStepsInOrder() {
+		Long hobbyId = createHobby(1L);
+		List<Long> ids = createRecordIds(1L, hobbyId, 5, LocalDate.now().minusDays(4));
+		String idList = ids.get(0) + "," + ids.get(1) + "," + ids.get(2);
+
+		AiCoachResponse response = coachWithDirections(hobbyId, "[" + directionJson("어려웠던 부분을 천천히 다시 보는 쪽", idList,
+				"\"먼저 어려웠다고 적은 부분만 천천히 해 봐요\",\"그다음 어려웠다고 적은 두 부분을 이어 봐요\"") + "]");
+
+		assertThat(response.directionPlans()).hasSize(1);
+		assertThat(response.directionPlans().get(0).evidence()).hasSize(2);
+		assertThat(response.directionPlans().get(0).steps()).containsExactly("먼저 어려웠다고 적은 부분만 천천히 해 봐요",
+				"그다음 어려웠다고 적은 두 부분을 이어 봐요");
+		assertThat(response.directions()).extracting(item -> item.text()).containsExactly("어려웠던 부분을 천천히 다시 보는 쪽");
+	}
+
+	@Test
+	void coach_directionPlans_dropOnlyBadOnesAndKeepTheRest() {
+		Long hobbyId = createHobby(1L);
+		List<Long> ids = createRecordIds(1L, hobbyId, 5, LocalDate.now().minusDays(4));
+		String id = String.valueOf(ids.get(0));
+		String goodStep = "\"먼저 어려웠다고 적은 부분만 해 봐요\"";
+
+		AiCoachResponse response = coachWithDirections(hobbyId, "["
+				+ directionJson("근거 없는 방향", "99999", goodStep) + ","
+				+ directionJson("시작 제안이 없는 방향", id, "") + ","
+				+ directionJson("기한이 든 방향", id, "\"먼저 어려웠다고 적은 부분을 이번 주까지 해 봐요\"") + ","
+				+ directionJson("입력 낱말이 없는 방향", id, "\"먼저 물을 마시고 쉬어 봐요\"") + ","
+				+ directionJson("반드시 이쪽", id, goodStep) + ","
+				+ directionJson("남는 방향", id, goodStep) + "]");
+
+		assertThat(response.directionPlans()).extracting(plan -> plan.direction()).containsExactly("남는 방향");
+	}
+
+	@Test
+	void coach_directionPlans_otherUsersRecordIdIsDropped() {
+		Long hobbyId = createHobby(1L);
+		createRecordIds(1L, hobbyId, 5, LocalDate.now().minusDays(4));
+		Long otherHobby = createHobby(2L);
+		long othersId = createRecord(2L, otherHobby, LocalDate.now(), "남의 기록").getId();
+
+		AiCoachResponse response = coachWithDirections(hobbyId,
+				"[" + directionJson("남의 근거 방향", String.valueOf(othersId), "\"먼저 어려웠다고 적은 부분을 봐요\"") + "]");
+
+		assertThat(response.directionPlans()).isEmpty();
+	}
+
+	@Test
+	void coach_allDirectionsDropped_resultStillSavedWithEmptyDirectionPlans() {
+		Long hobbyId = createHobby(1L);
+		createRecordIds(1L, hobbyId, 5, LocalDate.now().minusDays(4));
+
+		AiCoachResponse response = coachWithDirections(hobbyId, "[]");
+
+		assertThat(response.schemaVersion()).isEqualTo(2);
+		assertThat(response.directionPlans()).isEmpty();
+		assertThat(response.directions()).isEmpty();
+	}
+
+	@Test
+	void coachResultWithoutDirectionPlans_stillShowsDirectionSentences() {
+		Long hobbyId = createHobby(1L);
+		AiResult saved = aiResultRepository.save(new AiResult(1L, hobbyId, "COACH", LocalDate.now(), LocalDate.now(),
+				"{\"mode\":\"NORMAL\",\"periodSummary\":\"기록상 꾸준했어요\",\"changes\":[],\"repeatedDifficulties\":[],"
+						+ "\"nextAction\":null,\"comebackAction\":null,\"recordsRead\":5,\"flow\":[],"
+						+ "\"resolvedDifficulties\":[],\"questions\":[],"
+						+ "\"directions\":[{\"text\":\"천천히 다시 보는 쪽\",\"recordIds\":[]}],\"stats\":null}",
+				"[]", "z".repeat(64)));
+
+		AiCoachResponse response = service(enabledProperties()).getById(1L, saved.getId());
+
+		assertThat(response.schemaVersion()).isEqualTo(2);
+		assertThat(response.directionPlans()).isNull();
+		assertThat(response.directions()).hasSize(1);
 	}
 }

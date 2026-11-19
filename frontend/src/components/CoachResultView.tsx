@@ -207,6 +207,41 @@ export function CoachActionCard({
   )
 }
 
+/** 방향 후보 + 시작 제안. 후보가 하나도 없으면 섹션을 비우지 않고 안내 한 줄을 보여 준다. */
+function DirectionsBlock({ result }: { result: CoachResult }) {
+  const plans = result.directionPlans ?? []
+  const sentences = result.directions ?? []
+  const title = '앞으로의 방향 후보'
+  if (plans.length === 0 && sentences.length > 0) {
+    return <TextItemBlock title={title} items={sentences} note="고르는 건 내 몫이에요. 마음이 가는 쪽만 보면 돼요." />
+  }
+  return (
+    <div className={`flex flex-col gap-3 ${RESULT_CARD_CLASS}`}>
+      <h2 className="text-section-title">{title}</h2>
+      {plans.length === 0 ? (
+        <p className="text-body-min leading-[1.7] text-ink-2">기록이 조금 더 쌓이면 방향을 제안해 드릴게요.</p>
+      ) : (
+        <>
+          <p className="text-caption-min text-ink-2">고르는 건 내 몫이에요. 마음이 가는 쪽만 보면 돼요.</p>
+          {plans.map((plan, index) => (
+            <div key={index} className="flex flex-col gap-2">
+              <p className="text-body-min font-medium leading-[1.7] text-ink">{plan.direction}</p>
+              <ol className="m-0 flex list-none flex-col gap-1 p-0">
+                {plan.steps.map((step, stepIndex) => (
+                  <li key={stepIndex} className="text-body-min leading-[1.6] text-ink-2">
+                    {step}
+                  </li>
+                ))}
+              </ol>
+              <EvidenceRow evidence={plan.evidence} />
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  )
+}
+
 function formatMinutes(total: number): string {
   const hours = Math.floor(total / 60)
   const minutes = total % 60
@@ -238,11 +273,7 @@ function ReflectionBody({ result }: { result: CoachResult }) {
         items={result.questions ?? []}
         note="정답은 없어요. 떠오르는 대로 생각해 보세요."
       />
-      <TextItemBlock
-        title="앞으로의 방향 후보"
-        items={result.directions ?? []}
-        note="고르는 건 내 몫이에요. 마음이 가는 쪽만 보면 돼요."
-      />
+      <DirectionsBlock result={result} />
     </>
   )
 }
