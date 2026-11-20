@@ -247,7 +247,7 @@ class RecordAnalysisServiceTest {
 		service(enabledProperties()).analyze(current.getId(), 1L);
 
 		ActivityRecord result = activityRecordRepository.findById(current.getId()).orElseThrow();
-		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":8").contains("\"model\":\"model\"");
+		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":9").contains("\"model\":\"model\"");
 	}
 
 	@Test
@@ -669,6 +669,41 @@ class RecordAnalysisServiceTest {
 	}
 
 	@Test
+	void change_nullTextWithSupport_isStoredAsSupportOnly() {
+		ActivityRecord result = analyzeWithChange(null, "바쁜 날에도 10쪽을 펼친 게 좋아요.", true);
+
+		StoredChange change = storedChangeOf(result);
+		assertThat(change.text()).isNull();
+		assertThat(change.support()).isEqualTo("바쁜 날에도 10쪽을 펼친 게 좋아요.");
+	}
+
+	@Test
+	void change_reportStylePhrases_onlyWarnAndStayVisible() {
+		java.util.List<String> logs = captureLogs();
+
+		StoredChange change = storedChangeOf(
+				analyzeWithChange("열 번 이어 친 과정이 잘 드러나 있어요.", "끝까지 한 게 느껴져요.", true));
+
+		assertThat(change.text()).isNotNull();
+		assertThat(change.support()).isNotNull();
+		assertThat(logs).anyMatch(l -> l.contains("STYLE_SOFT") && l.contains("field=change"));
+		assertThat(logs).anyMatch(l -> l.contains("STYLE_SOFT") && l.contains("field=support"));
+	}
+
+	@Test
+	void change_wholeObjectNull_logsSupportMissing() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "코드 전환 연습");
+		stubAiResponse("{\"title\":\"연습\",\"tags\":[],\"relatedRecordIds\":[],\"change\":null,\"nextAction\":null}");
+		java.util.List<String> logs = captureLogs();
+
+		service(enabledProperties()).analyze(current.getId(), 1L);
+
+		assertThat(logs).anyMatch(l -> l.contains("SUPPORT_MISSING"));
+		assertThat(activityRecordRepository.findById(current.getId()).orElseThrow().getAiStatus()).isEqualTo(AiStatus.DONE);
+	}
+
+	@Test
 	void change_supportMissing_logsSupportMissing() {
 		java.util.List<String> logs = captureLogs();
 
@@ -688,9 +723,9 @@ class RecordAnalysisServiceTest {
 	}
 
 	@Test
-	void change_promptVersionIsEightAndOldSingleSentenceResultsStillRead() {
+	void change_promptVersionIsNineAndOldSingleSentenceResultsStillRead() {
 		ActivityRecord result = analyzeWithChange("전환을 이어 쳤어요.", "이어 간 게 멋져요.", true);
-		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":8");
+		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":9");
 
 		StoredAnalysis old = service(enabledProperties()).readJson("{\"title\":\"예전\",\"tags\":[],"
 				+ "\"relatedRecordIds\":[],\"change\":{\"text\":\"지난번엔 끊겼는데 오늘은 이어 쳤어요\",\"evidenceRecordId\":1},"

@@ -122,7 +122,7 @@ export function RecordSavedPanel({
     <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-7">
       <ChangeLabel change={change} />
       <ChangeTexts change={change} large />
-      <ChangeFeedbackRow record={record} analysis={record.analysis as RecordAnalysis} onNotHelpfulAction={onViewDetail} />
+      <ChangeFeedbackRow record={record} analysis={record.analysis as RecordAnalysis} />
     </div>
   ) : null
 
@@ -182,13 +182,16 @@ export function RecordSavedPanel({
     )
   }
 
-  // T1-1: 같은 분야에 이전 기록이 없으면(previousId == null) AI 한 줄을 기다리지 않는다.
-  // PENDING 로딩·폴링·FAILED 재시도·SKIPPED 안내를 전부 건너뛰고 저장 즉시 이 안내 하나만 보여준다
-  // (서비스 전체 첫 기록이든 분야의 첫 기록이든 같은 문구 — isFirstRecord는 더 이상 분기에 안 쓴다).
+  // 같은 분야에 이전 기록이 없으면(previousId == null) 첫 기록 안내를 저장 즉시 보여 주되, 분석이 진행 중이면
+  // 진행 카드가, 끝나면 결과 카드가 그 위에 붙는다(과거엔 이 경로에서 진행 카드가 빠져 있었다).
+  // 실패·꺼짐·시간 초과는 조용히 사라진다(isFirstRecord는 분기에 안 쓴다).
   void isFirstRecord
   const main = (
     <>
       {header}
+
+      {/* 분석이 진행 중이면 첫 기록이어도 진행 카드를, 끝나면 결과 카드를 먼저 보이고 첫 기록 안내는 그 아래에 둔다. */}
+      {progressBlock ?? changeSentenceBlock}
 
       <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-7">
         <AiLabel>첫 기록이에요</AiLabel>

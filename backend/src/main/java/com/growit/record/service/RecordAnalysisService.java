@@ -64,9 +64,10 @@ public class RecordAnalysisService {
 	static final List<String> GENERIC_PHRASES =
 			List.of("다시 연습", "복습", "꾸준히", "자신 있는 곳", "한 번 더 연습", "한 번 더 해");
 	private static final int NEXT_ACTION_REASON_MAX = 40;
+	private static final List<String> REPORT_STYLE_PHRASES = List.of("잘 드러", "느껴져요", "과정이 보여");
 	private static final String PROMPT_RESOURCE_NAME = "record-analysis-system.txt";
 	/** prompts/record-analysis-system.txt의 내용을 바꿀 때마다 올린다. 저장된 결과가 어떤 지시문으로 만들어졌는지 추적하기 위해서다. */
-	static final int PROMPT_VERSION = 8;
+	static final int PROMPT_VERSION = 9;
 
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
@@ -280,6 +281,8 @@ public class RecordAnalysisService {
 
 	private StoredChange sanitizeChange(JsonNode changeNode, Set<Long> allowedIds, Long recordId) {
 		if (changeNode.isMissingNode() || changeNode.isNull() || !changeNode.isObject()) {
+			// support는 항상 있어야 하는데 객체 자체가 없다. 같은 분석을 다시 부르는 재시도 장치가 없어 로그만 남긴다.
+			log.warn("SUPPORT_MISSING recordId={}", recordId);
 			return null;
 		}
 		// 근거 id가 틀리면 어느 문장도 화면에 낼 수 없으므로 통째로 버린다.
@@ -300,7 +303,16 @@ public class RecordAnalysisService {
 		if (text == null && support == null) {
 			return null;
 		}
+		warnIfReportStyle(recordId, "change", text);
+		warnIfReportStyle(recordId, "support", support);
 		return new StoredChange(text, evidenceId, support);
+	}
+
+	/** 보고서체 표현은 막지 않고 로그만 남겨 프롬프트 개선에 쓴다. */
+	private void warnIfReportStyle(Long recordId, String field, String value) {
+		if (value != null && REPORT_STYLE_PHRASES.stream().anyMatch(value::contains)) {
+			log.warn("STYLE_SOFT recordId={} field={} length={}", recordId, field, value.length());
+		}
 	}
 
 	/** 형식·길이·금지어를 검사해 통과하면 다듬은 글을, 아니면 null을 준다(버릴 때마다 필드와 이유를 로그로 남긴다). */
