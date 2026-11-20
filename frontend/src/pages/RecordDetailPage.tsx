@@ -4,6 +4,7 @@ import { AiLabel } from '../components/AiLabel'
 import { AiProgressCard } from '../components/AiProgress'
 import { Button } from '../components/Button'
 import { ChangeFeedbackRow } from '../components/ChangeFeedbackRow'
+import { ChangeLabel, ChangeTexts } from '../components/ChangeTexts'
 import { EvidenceChip } from '../components/EvidenceChip'
 import { FeedbackRow } from '../components/FeedbackRow'
 import { Loading } from '../components/Loading'
@@ -173,8 +174,8 @@ function ChangeBlock({ record, analysis }: { record: RecordDetail; analysis: Rec
 
   return (
     <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-6">
-      <AiLabel>달라진 점</AiLabel>
-      <p className="break-words font-serif text-lg leading-[1.55]">{change.text}</p>
+      <ChangeLabel change={change} />
+      <ChangeTexts change={change} />
       <div>
         <EvidenceChip record={change.evidence} />
       </div>

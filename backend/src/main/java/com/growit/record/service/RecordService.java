@@ -536,7 +536,7 @@ public class RecordService {
 			ActivityRecord evidence = activityRecordRepository
 					.findByIdAndUserId(stored.change().evidenceRecordId(), userId).orElse(null);
 			if (evidence != null) {
-				change = new RecordAnalysisChange(stored.change().text(),
+				change = new RecordAnalysisChange(stored.change().text(), stored.change().support(),
 						new RecordRelatedRecord(evidence.getId(), evidence.getRecordDate(), evidence.getContent()));
 			}
 		}

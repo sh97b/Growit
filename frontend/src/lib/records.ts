@@ -9,11 +9,14 @@ export type TagsFeedback = 'CONFIRMED' | 'DISPUTED' | 'EDITED' | null
 
 export type RecordRelated = { id: number; recordDate: string; content: string }
 
+/** text(구체적 변화)와 support(응원·위로)는 둘 중 하나가 없을 수 있다. 예전 결과는 text만 있다. */
+export type RecordAnalysisChange = { text: string | null; support?: string | null; evidence: RecordRelated }
+
 export type RecordAnalysis = {
   title: string | null
   tags: string[]
   relatedRecords: RecordRelated[]
-  change: { text: string; evidence: RecordRelated } | null
+  change: RecordAnalysisChange | null
   tagsFeedback: TagsFeedback
   changeFeedback: ChangeFeedback | null
   /** 예전 결과에는 없다. 없으면 화면에 내지 않는다. */

@@ -4,6 +4,7 @@ import { Button } from './Button'
 import { AiLabel } from './AiLabel'
 import { AiProgressCard } from './AiProgress'
 import { ChangeFeedbackRow } from './ChangeFeedbackRow'
+import { ChangeLabel, ChangeTexts } from './ChangeTexts'
 import { NextActionCard } from './NextActionCard'
 import { Split } from './PageLayout'
 import { RecentWeekStrip } from './RecentWeekStrip'
@@ -116,19 +117,14 @@ export function RecordSavedPanel({
   )
 
   // 비교 카드가 이미 같은 근거 기록을 보여주므로, 여기서는 AI 문장과 피드백만 두고 근거 칩은 만들지 않는다.
-  const changeSentenceBlock = (
-    <div className={['grid-collapse', change ? '' : 'is-collapsed'].join(' ')}>
-      <div>
-        <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-7">
-          <AiLabel>달라진 점</AiLabel>
-          {change ? <p className="break-words font-serif text-lg leading-[1.55] lg:text-[1.5rem]">{change.text}</p> : null}
-          {change ? (
-            <ChangeFeedbackRow record={record} analysis={record.analysis as RecordAnalysis} onNotHelpfulAction={onViewDetail} />
-          ) : null}
-        </div>
-      </div>
+  // 없으면 아예 그리지 않는다(접힌 칸도 부모의 gap 때문에 빈 간격이 남는다). 정리 중엔 진행 카드가 이 자리를 쓴다.
+  const changeSentenceBlock = change ? (
+    <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-7">
+      <ChangeLabel change={change} />
+      <ChangeTexts change={change} large />
+      <ChangeFeedbackRow record={record} analysis={record.analysis as RecordAnalysis} onNotHelpfulAction={onViewDetail} />
     </div>
-  )
+  ) : null
 
   // 같은 분야의 직전 기록이 있으면: AI를 기다리지 않고 비교 카드를 바로 보여주고, AI는 도착하면 위에
   // 한 줄로 얹는다. 실패·시간 초과·꺼짐·달라진 점 없음은 비교 카드가 이미 있으니 조용히 사라진다
@@ -151,13 +147,9 @@ export function RecordSavedPanel({
       <>
         {header}
 
-        {changeSentenceBlock}
+        {progressBlock ?? changeSentenceBlock}
 
-        {changeSentenceBlock}
-
-      {progressBlock}
-
-      {nextActionInMain}
+        {nextActionInMain}
 
         {!previousQuery.isLoading || change ? (
           <RecordPairCards
@@ -169,8 +161,6 @@ export function RecordSavedPanel({
             }}
           />
         ) : null}
-
-        {progressBlock}
 
         {actionButtons}
 

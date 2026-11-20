@@ -247,7 +247,7 @@ class RecordAnalysisServiceTest {
 		service(enabledProperties()).analyze(current.getId(), 1L);
 
 		ActivityRecord result = activityRecordRepository.findById(current.getId()).orElseThrow();
-		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":7").contains("\"model\":\"model\"");
+		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":8").contains("\"model\":\"model\"");
 	}
 
 	@Test
@@ -578,7 +578,7 @@ class RecordAnalysisServiceTest {
 		assertThat(result.getAiAnalysis()).doesNotContain("\"nextAction\":null");
 	}
 
-	private ActivityRecord analyzeWithChange(String changeText, boolean withPrevious) {
+	private ActivityRecord analyzeWithChange(String changeText, String support, boolean withPrevious) {
 		Long hobbyId = createHobby(1L);
 		Long evidenceId = null;
 		if (withPrevious) {
@@ -587,39 +587,65 @@ class RecordAnalysisServiceTest {
 		}
 		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "코드 전환 연습");
 		long evidence = evidenceId != null ? evidenceId : current.getId();
-		stubAiResponse("{\"title\":\"연습\",\"tags\":[],\"relatedRecordIds\":[],\"change\":{\"text\":\"" + changeText
-				+ "\",\"evidenceRecordId\":" + evidence + "},\"nextAction\":null}");
+		String textPart = changeText == null ? "" : "\"text\":\"" + changeText + "\",";
+		String supportPart = support == null ? "" : "\"support\":\"" + support + "\",";
+		stubAiResponse("{\"title\":\"연습\",\"tags\":[],\"relatedRecordIds\":[],\"change\":{" + textPart + supportPart
+				+ "\"evidenceRecordId\":" + evidence + "},\"nextAction\":null}");
 		service(enabledProperties()).analyze(current.getId(), 1L);
 		return activityRecordRepository.findById(current.getId()).orElseThrow();
 	}
 
-	@Test
-	void change_encouragementAfterConcreteChange_isAccepted() {
-		String text = "처음엔 끊기던 Am→Dm 전환을 열 번 이어 쳤어요. 쉽지 않은 연습인데 끝까지 이어 간 게 멋져요.";
-
-		ActivityRecord result = analyzeWithChange(text, true);
-
-		assertThat(result.getAiAnalysis()).contains(text);
+	private StoredChange storedChangeOf(ActivityRecord record) {
+		return service(enabledProperties()).readJson(record.getAiAnalysis()).change();
 	}
 
 	@Test
-	void change_comfortFirst_isAccepted() {
-		String text = "손가락이 아팠는데도 기록을 남겼네요. 오늘은 그걸로 충분해요.";
+	void change_changeAndSupport_bothAccepted() {
+		ActivityRecord result = analyzeWithChange("처음엔 끊기던 Am→Dm 전환을 열 번 이어 쳤어요.", "끝까지 열 번 이어 친 게 멋져요.", true);
 
-		assertThat(analyzeWithChange(text, true).getAiAnalysis()).contains(text);
+		StoredChange change = storedChangeOf(result);
+		assertThat(change.text()).isEqualTo("처음엔 끊기던 Am→Dm 전환을 열 번 이어 쳤어요.");
+		assertThat(change.support()).isEqualTo("끝까지 열 번 이어 친 게 멋져요.");
 	}
 
 	@Test
 	void change_wordsNoLongerBanned_areAccepted() {
-		for (String text : new String[] {"끊기던 전환을 이어 쳤어요. 잘했어요", "어려운 구간을 끝까지 쳤어요. 훌륭해요", "열 번을 이어 쳤어요. 대단해요"}) {
-			assertThat(analyzeWithChange(text, true).getAiAnalysis()).as(text).doesNotContain("\"change\":null");
+		for (String support : new String[] {"잘했어요. 끝까지 쳤네요", "훌륭해요. 열 번을 이어 쳤네요", "대단해요. 끊기던 전환을 이었네요"}) {
+			assertThat(storedChangeOf(analyzeWithChange("전환을 이어 쳤어요.", support, true)).support()).as(support)
+					.isEqualTo(support);
 		}
 	}
 
 	@Test
-	void change_bannedWords_dropChangeOnly() {
+	void change_supportFails_keepsChangeOnly_andLogsField() {
+		java.util.List<String> logs = captureLogs();
+
+		ActivityRecord result = analyzeWithChange("전환을 열 번 이어 쳤어요.", "정말 실력이 늘었네요", true);
+
+		StoredChange change = storedChangeOf(result);
+		assertThat(change.text()).isEqualTo("전환을 열 번 이어 쳤어요.");
+		assertThat(change.support()).isNull();
+		assertThat(logs).anyMatch(l -> l.contains("CHANGE_DROPPED") && l.contains("field=support")
+				&& l.contains("reason=FORBIDDEN"));
+	}
+
+	@Test
+	void change_changeFails_keepsSupportOnly_andLogsField() {
+		java.util.List<String> logs = captureLogs();
+
+		ActivityRecord result = analyzeWithChange("정말 완벽하게 쳤어요.", "끝까지 이어 친 게 멋져요.", true);
+
+		StoredChange change = storedChangeOf(result);
+		assertThat(change.text()).isNull();
+		assertThat(change.support()).isEqualTo("끝까지 이어 친 게 멋져요.");
+		assertThat(logs).anyMatch(l -> l.contains("CHANGE_DROPPED") && l.contains("field=change")
+				&& l.contains("reason=FORBIDDEN"));
+	}
+
+	@Test
+	void change_bothFail_dropsChange_andKeepsRestOfResult() {
 		for (String word : new String[] {"실력", "늘었", "향상", "점수", "순위", "완벽", "최고", "천재", "틀림없", "될 거예요"}) {
-			ActivityRecord result = analyzeWithChange("전환을 이어 쳤어요. 정말 " + word + " 해요", true);
+			ActivityRecord result = analyzeWithChange("전환을 이어 쳤어요. " + word, "정말 " + word + " 해요", true);
 
 			assertThat(result.getAiStatus()).as(word).isEqualTo(AiStatus.DONE);
 			assertThat(result.getAiAnalysis()).as(word).contains("\"change\":null").contains("\"title\":\"연습\"");
@@ -627,32 +653,50 @@ class RecordAnalysisServiceTest {
 	}
 
 	@Test
-	void change_lengthLimitIsOneHundred() {
-		String hundred = "가".repeat(100);
-		String tooLong = "가".repeat(101);
+	void change_lengthLimits_areNinetyAndSixty() {
+		String ninety = "가".repeat(90);
+		String sixty = "나".repeat(60);
 
-		assertThat(analyzeWithChange(hundred, true).getAiAnalysis()).doesNotContain("\"change\":null");
-		assertThat(analyzeWithChange(tooLong, true).getAiAnalysis()).contains("\"change\":null");
+		StoredChange ok = storedChangeOf(analyzeWithChange(ninety, sixty, true));
+		assertThat(ok.text()).isEqualTo(ninety);
+		assertThat(ok.support()).isEqualTo(sixty);
+
+		java.util.List<String> logs = captureLogs();
+		StoredChange over = storedChangeOf(analyzeWithChange("가".repeat(91), "나".repeat(61), true));
+		assertThat(over).isNull();
+		assertThat(logs).anyMatch(l -> l.contains("field=change") && l.contains("reason=LENGTH") && l.contains("length=91"));
+		assertThat(logs).anyMatch(l -> l.contains("field=support") && l.contains("reason=LENGTH") && l.contains("length=61"));
+	}
+
+	@Test
+	void change_supportMissing_logsSupportMissing() {
+		java.util.List<String> logs = captureLogs();
+
+		StoredChange change = storedChangeOf(analyzeWithChange("전환을 이어 쳤어요.", null, true));
+
+		assertThat(change.text()).isEqualTo("전환을 이어 쳤어요.");
+		assertThat(change.support()).isNull();
+		assertThat(logs).anyMatch(l -> l.contains("SUPPORT_MISSING"));
 	}
 
 	@Test
 	void change_withoutPreviousRecord_canUseThisRecordAsEvidence() {
-		String text = "코드 전환을 처음 기록으로 남겼어요. 시작한 것만으로 충분해요.";
+		ActivityRecord result = analyzeWithChange("코드 전환을 처음 기록으로 남겼어요.", "시작한 것만으로 충분해요.", false);
 
-		ActivityRecord result = analyzeWithChange(text, false);
-
-		assertThat(result.getAiAnalysis()).contains(text).contains("\"evidenceRecordId\":" + result.getId());
+		assertThat(result.getAiAnalysis()).contains("코드 전환을 처음 기록으로 남겼어요.")
+				.contains("\"evidenceRecordId\":" + result.getId());
 	}
 
 	@Test
-	void change_promptVersionIsSixAndOldResultsStillRead() {
-		ActivityRecord result = analyzeWithChange("전환을 이어 쳤어요. 이어 간 게 멋져요", true);
-		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":7");
+	void change_promptVersionIsEightAndOldSingleSentenceResultsStillRead() {
+		ActivityRecord result = analyzeWithChange("전환을 이어 쳤어요.", "이어 간 게 멋져요.", true);
+		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":8");
 
 		StoredAnalysis old = service(enabledProperties()).readJson("{\"title\":\"예전\",\"tags\":[],"
 				+ "\"relatedRecordIds\":[],\"change\":{\"text\":\"지난번엔 끊겼는데 오늘은 이어 쳤어요\",\"evidenceRecordId\":1},"
 				+ "\"promptVersion\":2,\"model\":\"m\"}");
 		assertThat(old.change().text()).isEqualTo("지난번엔 끊겼는데 오늘은 이어 쳤어요");
+		assertThat(old.change().support()).isNull();
 	}
 
 	@Test

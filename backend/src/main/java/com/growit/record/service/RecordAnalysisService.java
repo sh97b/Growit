@@ -41,7 +41,8 @@ public class RecordAnalysisService {
 	private static final int TAG_MAX = 12;
 	private static final int TAGS_MAX_COUNT = 3;
 	private static final int RELATED_MAX_COUNT = 2;
-	private static final int CHANGE_TEXT_MAX = 100;
+	private static final int CHANGE_TEXT_MAX = 90;
+	private static final int SUPPORT_TEXT_MAX = 60;
 	private static final int NEXT_ACTION_TEXT_MAX = 80;
 	private static final int NEXT_ACTION_MIN_MINUTES = 5;
 	private static final int NEXT_ACTION_MAX_MINUTES = 10;
@@ -65,7 +66,7 @@ public class RecordAnalysisService {
 	private static final int NEXT_ACTION_REASON_MAX = 40;
 	private static final String PROMPT_RESOURCE_NAME = "record-analysis-system.txt";
 	/** prompts/record-analysis-system.txt의 내용을 바꿀 때마다 올린다. 저장된 결과가 어떤 지시문으로 만들어졌는지 추적하기 위해서다. */
-	static final int PROMPT_VERSION = 7;
+	static final int PROMPT_VERSION = 8;
 
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
@@ -215,7 +216,7 @@ public class RecordAnalysisService {
 		if (recordId != null) {
 			nextActionEvidenceIds.add(recordId);
 		}
-		StoredChange change = sanitizeChange(node.path("change"), nextActionEvidenceIds);
+		StoredChange change = sanitizeChange(node.path("change"), nextActionEvidenceIds, recordId);
 
 		// nextAction이 이상해도 나머지 결과는 살린다(전체 실패 금지).
 		StoredNextAction nextAction = sanitizeNextAction(node.path("nextAction"), nextActionEvidenceIds, corpus,
@@ -277,27 +278,61 @@ public class RecordAnalysisService {
 		return result;
 	}
 
-	private StoredChange sanitizeChange(JsonNode changeNode, Set<Long> allowedIds) {
+	private StoredChange sanitizeChange(JsonNode changeNode, Set<Long> allowedIds, Long recordId) {
 		if (changeNode.isMissingNode() || changeNode.isNull() || !changeNode.isObject()) {
 			return null;
 		}
-		JsonNode textNode = changeNode.path("text");
-		if (!textNode.isTextual()) {
-			return null;
-		}
-		String text = textNode.asText().trim();
-		if (text.isEmpty() || text.length() > CHANGE_TEXT_MAX || containsForbiddenWord(text)) {
-			return null;
-		}
+		// 근거 id가 틀리면 어느 문장도 화면에 낼 수 없으므로 통째로 버린다.
 		JsonNode evidenceNode = changeNode.path("evidenceRecordId");
-		if (!evidenceNode.canConvertToLong()) {
+		if (!evidenceNode.canConvertToLong() || !allowedIds.contains(evidenceNode.asLong())) {
+			log.warn("CHANGE_DROPPED recordId={} field=change|support reason=EVIDENCE length=- raw={}", recordId,
+					rawOf(changeNode));
 			return null;
 		}
 		long evidenceId = evidenceNode.asLong();
-		if (!allowedIds.contains(evidenceId)) {
+		// 한쪽만 실패하면 그 필드만 버리고 나머지는 살린다.
+		String text = sanitizeChangeField(changeNode.path("text"), "change", CHANGE_TEXT_MAX, recordId);
+		String support = sanitizeChangeField(changeNode.path("support"), "support", SUPPORT_TEXT_MAX, recordId);
+		JsonNode supportNode = changeNode.path("support");
+		if (supportNode.isMissingNode() || supportNode.isNull()) {
+			log.warn("SUPPORT_MISSING recordId={}", recordId);
+		}
+		if (text == null && support == null) {
 			return null;
 		}
-		return new StoredChange(text, evidenceId);
+		return new StoredChange(text, evidenceId, support);
+	}
+
+	/** 형식·길이·금지어를 검사해 통과하면 다듬은 글을, 아니면 null을 준다(버릴 때마다 필드와 이유를 로그로 남긴다). */
+	private String sanitizeChangeField(JsonNode node, String field, int maxLength, Long recordId) {
+		if (node.isMissingNode() || node.isNull()) {
+			return null;
+		}
+		if (!node.isTextual()) {
+			droppedField(recordId, field, "FORMAT", node, -1);
+			return null;
+		}
+		String value = node.asText().trim();
+		if (value.isEmpty()) {
+			droppedField(recordId, field, "EMPTY", node, 0);
+			return null;
+		}
+		if (value.length() > maxLength) {
+			droppedField(recordId, field, "LENGTH", node, value.length());
+			return null;
+		}
+		if (containsForbiddenWord(value)) {
+			droppedField(recordId, field, "FORBIDDEN", node, value.length());
+			return null;
+		}
+		return value;
+	}
+
+	/** raw는 앞 150자만 남긴다(사용자 글 전체를 로그에 남기지 않기 위해). */
+	private void droppedField(Long recordId, String field, String reason, JsonNode node, int length) {
+		String raw = node.toString();
+		log.warn("CHANGE_DROPPED recordId={} field={} reason={} length={} raw={}", recordId, field, reason, length,
+				raw.length() > 150 ? raw.substring(0, 150) : raw);
 	}
 
 	/**

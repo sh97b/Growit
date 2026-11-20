@@ -5,6 +5,8 @@ import { pickClass } from '../lib/recordForm'
 type Hobby = { id: number; name: string }
 
 const SCROLL_RATIO = 0.7
+/** 첫·끝 칩이 가장자리에서 잘리지 않게 두는 좌우 여백(px). 칩 줄의 패딩과 같다. */
+const EDGE_GAP = 8
 
 function prefersReducedMotion(): boolean {
   return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -49,22 +51,30 @@ export function HobbyChipRow({
     return () => observer.disconnect()
   }, [updateArrows, hobbies.length])
 
+  // 스크롤 위치는 항상 scrollLeft만으로 [0, scrollWidth - clientWidth]에 묶어서 옮긴다(transform·음수 오프셋을 쓰지 않는다).
+  const scrollToClamped = useCallback((target: number, smooth: boolean) => {
+    const el = scrollerRef.current
+    if (!el) return
+    const max = Math.max(0, el.scrollWidth - el.clientWidth)
+    el.scrollTo({ left: Math.min(max, Math.max(0, target)), behavior: smooth && !prefersReducedMotion() ? 'smooth' : 'auto' })
+  }, [])
+
   // 선택된 칩이 보이는 위치로 옮긴다(페이지 자체는 움직이지 않도록 칩 줄 안에서만 스크롤한다).
   useEffect(() => {
     const el = scrollerRef.current
     const chip = el?.querySelector<HTMLElement>('[data-selected="true"]')
     if (!el || !chip) return
-    const left = chip.offsetLeft
+    const left = chip.getBoundingClientRect().left - el.getBoundingClientRect().left + el.scrollLeft
     const right = left + chip.offsetWidth
-    if (left < el.scrollLeft) el.scrollTo({ left: Math.max(0, left - 8), behavior: 'auto' })
-    else if (right > el.scrollLeft + el.clientWidth) el.scrollTo({ left: right - el.clientWidth + 8, behavior: 'auto' })
+    if (left < el.scrollLeft) scrollToClamped(left - EDGE_GAP, false)
+    else if (right > el.scrollLeft + el.clientWidth) scrollToClamped(right - el.clientWidth + EDGE_GAP, false)
     updateArrows()
-  }, [selectedId, hobbies.length, updateArrows])
+  }, [selectedId, hobbies.length, updateArrows, scrollToClamped])
 
   function scrollByPage(direction: 1 | -1) {
     const el = scrollerRef.current
     if (!el) return
-    el.scrollBy({ left: direction * el.clientWidth * SCROLL_RATIO, behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
+    scrollToClamped(el.scrollLeft + direction * el.clientWidth * SCROLL_RATIO, true)
   }
 
   function handleHover(direction: 1 | -1, event: PointerEvent<HTMLElement>) {
@@ -80,14 +90,16 @@ export function HobbyChipRow({
     'absolute top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 text-ink shadow-sm backdrop-blur-sm'
 
   return (
-    <div className="relative">
+    <div className="relative w-full min-w-0 max-w-full">
+      {/* overflow-x-auto 안에 width:max-content 칩 줄을 두고 왼쪽 시작 정렬만 쓴다(가운데 정렬은 넘친 쪽이 잘려 접근 불가). */}
       <div
         ref={scrollerRef}
         onScroll={updateArrows}
         role="group"
         aria-label="분야"
-        className="flex gap-2 overflow-x-auto scroll-smooth pb-1 [scrollbar-width:none] motion-reduce:scroll-auto [&::-webkit-scrollbar]:hidden"
+        className="w-full min-w-0 overflow-x-auto overflow-y-hidden pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
+        <div className="flex w-max min-w-full flex-nowrap items-center justify-start gap-2 px-2">
         {hobbies.map((hobby) => (
           <button
             key={hobby.id}
@@ -108,6 +120,7 @@ export function HobbyChipRow({
         >
           + 분야 추가
         </button>
+        </div>
       </div>
       {canLeft ? (
         <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 z-[5] w-10 bg-gradient-to-r from-paper to-transparent" />
