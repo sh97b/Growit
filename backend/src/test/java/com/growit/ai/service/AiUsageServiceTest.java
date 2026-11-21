@@ -62,6 +62,40 @@ class AiUsageServiceTest {
 	}
 
 	@Test
+	void reserve_limitReached_logsWarnWithKindScopeUsedLimit_andThrowsLimitException() {
+		Long userId = createUser();
+		AiProperties properties = properties(5, 100);
+		properties.setAnalysisUserDailyLimit(1);
+		AiUsageService service = new AiUsageService(aiLogRepository, properties);
+		ch.qos.logback.classic.Logger logger =
+				(ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(AiUsageService.class);
+		ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+				new ch.qos.logback.core.read.ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+
+		service.reserve(userId, AiResultType.ANALYSIS);
+		assertThatThrownBy(() -> service.reserve(userId, AiResultType.ANALYSIS))
+				.isInstanceOfSatisfying(AiLimitException.class, e -> assertThat(e.isGlobal()).isFalse());
+
+		assertThat(appender.list).extracting(ev -> ev.getFormattedMessage())
+				.contains("AI_LIMIT_REACHED kind=ANALYSIS scope=user used=1 limit=1");
+		logger.detachAppender(appender);
+	}
+
+	@Test
+	void reserve_globalLimitReached_isGlobalLimitExceptionWithAiBusy() {
+		Long userId = createUser();
+		AiUsageService service = new AiUsageService(aiLogRepository, properties(5, 0));
+
+		assertThatThrownBy(() -> service.reserve(userId, AiResultType.ANALYSIS))
+				.isInstanceOfSatisfying(AiLimitException.class, e -> {
+					assertThat(e.isGlobal()).isTrue();
+					assertThat(e.getCode()).isEqualTo(ErrorCode.AI_BUSY);
+				});
+	}
+
+	@Test
 	void reserve_userLimitedType_blocksOnceLimitReached() {
 		Long userId = createUser();
 		AiUsageService service = new AiUsageService(aiLogRepository, properties(2, 100));

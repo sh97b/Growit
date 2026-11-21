@@ -74,6 +74,30 @@ class AiCallServiceTest {
 	}
 
 	@Test
+	void call_retry_skipsReserveAndLogsRetryInsteadOfOk() {
+		given(aiChatClient.complete(anyString(), anyString()))
+				.willReturn(new AiChatResponse("{\"ok\":true}", 7, "gpt"));
+
+		service(enabledProperties(2)).call(1L, AiResultType.ANALYSIS, "sys", Map.of("a", 1), true);
+
+		org.mockito.Mockito.verify(aiUsageService, org.mockito.Mockito.never()).reserve(1L, AiResultType.ANALYSIS);
+		org.mockito.Mockito.verify(aiUsageService, org.mockito.Mockito.never()).release(1L, AiResultType.ANALYSIS);
+		ArgumentCaptor<AiLog> captor = ArgumentCaptor.forClass(AiLog.class);
+		verify(aiLogRepository).save(captor.capture());
+		assertThat(captor.getValue().getState()).isEqualTo(AiLogState.RETRY.name());
+	}
+
+	@Test
+	void call_roadmap_asksForAtLeast1500OutputTokens() {
+		given(aiChatClient.complete(anyString(), anyString(), org.mockito.ArgumentMatchers.anyInt()))
+				.willReturn(new AiChatResponse("{}", 7, "gpt"));
+
+		service(enabledProperties(2)).call(1L, AiResultType.ROADMAP, "sys", Map.of());
+
+		verify(aiChatClient).complete(anyString(), anyString(), org.mockito.ArgumentMatchers.eq(1500));
+	}
+
+	@Test
 	void call_rateLimitedProviderError_mapsToAiBusyAndLogsFail() {
 		given(aiChatClient.complete(anyString(), anyString()))
 				.willThrow(new AiClientException(AiClientException.Type.RATE_LIMITED, "provider busy"));

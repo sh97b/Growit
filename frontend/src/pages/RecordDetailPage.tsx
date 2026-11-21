@@ -28,7 +28,7 @@ import { useDeleteRecord, useEditAnalysisTags, useReanalyzeRecord, useRecord, us
 import { ApiError } from '../lib/api'
 import { formatMonthDay } from '../lib/date'
 import { FEELINGS } from '../lib/recordForm'
-import type { RecordAnalysis, RecordDetail } from '../lib/records'
+import { AI_LIMIT_NOTICE, type RecordAnalysis, type RecordDetail } from '../lib/records'
 
 const TAG_MAX_LENGTH = 12
 const TAGS_MAX_COUNT = 3
@@ -197,6 +197,10 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
 
   if (record.aiStatus === 'PENDING') {
     return <AiProgressCard message="AI가 기록을 살펴보고 있어요" lines={3} />
+  }
+
+  if (record.aiStatus === 'FAILED' && record.aiFailReason === 'LIMIT') {
+    return <Note variant="calm">{AI_LIMIT_NOTICE}</Note>
   }
 
   if (record.aiStatus === 'FAILED') {

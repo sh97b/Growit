@@ -709,6 +709,57 @@ class RecordAnalysisServiceTest {
 	}
 
 	@Test
+	void analyze_dailyLimitReached_marksFailedWithLimitReason_andOldFailedRowsHaveNone() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "첫 연습");
+		AiProperties properties = enabledProperties();
+		properties.setAnalysisUserDailyLimit(0);
+		RecordAnalysisService service = service(properties);
+
+		service.analyze(current.getId(), 1L);
+
+		ActivityRecord result = activityRecordRepository.findById(current.getId()).orElseThrow();
+		assertThat(result.getAiStatus()).isEqualTo(AiStatus.FAILED);
+		assertThat(service.failReasonOf(result.getAiAnalysis())).isEqualTo("LIMIT");
+		// MySQL JSON 컬럼은 공백을 넣어 돌려주므로 그 모양도 읽혀야 하고, 예전 FAILED 행(null)은 이유가 없다.
+		assertThat(service.failReasonOf("{\"failReason\": \"LIMIT\"}")).isEqualTo("LIMIT");
+		assertThat(service.failReasonOf(null)).isNull();
+		assertThat(service.failReasonOf("not json")).isNull();
+	}
+
+	@Test
+	void analyze_otherFailure_hasNoLimitReason() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "첫 연습");
+		stubAiResponse("not json");
+		RecordAnalysisService service = service(enabledProperties());
+
+		service.analyze(current.getId(), 1L);
+
+		ActivityRecord result = activityRecordRepository.findById(current.getId()).orElseThrow();
+		assertThat(result.getAiStatus()).isEqualTo(AiStatus.FAILED);
+		assertThat(service.failReasonOf(result.getAiAnalysis())).isNull();
+	}
+
+	@Test
+	void change_supportRetry_isNotCountedTowardTheDailyLimit() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord previous = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 1), "이전 연습");
+		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "코드 전환 연습");
+		given(aiChatClient.complete(anyString(), anyString())).willReturn(
+				new AiChatResponse(changeJson("전환을 이어 쳤어요.", "열 번 이어 쳤어요.", previous.getId()), 10, "model"),
+				new AiChatResponse(changeJson("전환을 이어 쳤어요.", "열 번 이어 쳐서 정말 멋져요.", previous.getId()), 10, "model"));
+		AiProperties properties = enabledProperties();
+		properties.setAnalysisUserDailyLimit(1);
+
+		service(properties).analyze(current.getId(), 1L);
+
+		// 한도가 1인데도 재호출까지 끝나 DONE이고, 한도에 세는 OK 로그는 1개뿐이다.
+		assertThat(activityRecordRepository.findById(current.getId()).orElseThrow().getAiStatus()).isEqualTo(AiStatus.DONE);
+		assertThat(aiLogRepository.findAll()).extracting(l -> l.getState()).containsExactlyInAnyOrder("OK", "RETRY");
+	}
+
+	@Test
 	void change_supportWithoutWarmPhrase_retriesOnceAndAcceptsCorrectedAnswer() {
 		Long hobbyId = createHobby(1L);
 		ActivityRecord previous = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 1), "이전 연습");

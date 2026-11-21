@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.growit.ai.entity.AiResultType;
 import com.growit.ai.service.AiCallResult;
 import com.growit.ai.service.AiCallService;
+import com.growit.ai.service.AiLimitException;
 import com.growit.ai.service.AiResponseValidator;
 import com.growit.common.exception.ApiException;
 import com.growit.common.exception.ErrorCode;
@@ -51,7 +52,10 @@ public class RoadmapGenerationService {
 
 	/** prompts/roadmap-system.txt를 바꿀 때마다 올린다. */
 	static final int PROMPT_VERSION = 1;
-	static final String FAIL_MESSAGE = "지금은 로드맵을 만들지 못했어요. 잠시 후 다시 시도해 주세요.";
+	/** 형식·검증 실패. 다시 누르면 대개 된다. */
+	static final String FAIL_MESSAGE = "로드맵을 만들지 못했어요. 한 번 더 눌러 주세요.";
+	/** 하루 한도(분야당·사용자·전체)에 도달. */
+	static final String LIMIT_MESSAGE = "오늘은 로드맵을 더 만들 수 없어요. 내일 다시 시도해 주세요.";
 	static final int DAILY_LIMIT_PER_HOBBY = 3;
 
 	private static final String PROMPT_RESOURCE_NAME = "roadmap-system.txt";
@@ -132,13 +136,17 @@ public class RoadmapGenerationService {
 		for (int attempt = 0; attempt < 2; attempt++) {
 			AiCallResult result;
 			try {
-				result = aiCallService.call(userId, AiResultType.ROADMAP, prompt, payload);
+				// 두 번째 호출은 교정 재호출이라 하루 한도에 세지 않는다.
+				result = aiCallService.call(userId, AiResultType.ROADMAP, prompt, payload, attempt > 0);
+			} catch (AiLimitException e) {
+				log.warn("ROADMAP_FAILED reason=LIMIT limit={}",
+						e.isGlobal() ? "AI_GLOBAL_DAILY_LIMIT" : "AI_ROADMAP_USER_DAILY_LIMIT");
+				throw new ApiException(ErrorCode.AI_LIMIT_EXCEEDED, LIMIT_MESSAGE);
 			} catch (ApiException e) {
-				if (e.getCode() == ErrorCode.AI_LIMIT_EXCEEDED || e.getCode() == ErrorCode.AI_BUSY) {
-					throw e;
-				}
-				log.warn("ROADMAP_DROPPED reason=CALL attempt={} detail={}", attempt, e.getCode());
-				break;
+				// 동시 호출 제한·공급자 429(AI_BUSY)와 호출 실패(AI_FAILED, 시간 초과 등)는 그 문구 그대로 보낸다.
+				log.warn("ROADMAP_FAILED reason={} attempt={}",
+						e.getCode() == ErrorCode.AI_BUSY ? "BUSY" : "CALL", attempt);
+				throw e;
 			}
 			try {
 				return validate(result.content());
@@ -148,6 +156,7 @@ public class RoadmapGenerationService {
 						+ ". 같은 입력으로 규칙을 지켜 JSON 객체 하나만 다시 응답해요.";
 			}
 		}
+		log.warn("ROADMAP_FAILED reason=VALIDATION");
 		throw new ApiException(ErrorCode.VALIDATION_ERROR, FAIL_MESSAGE);
 	}
 
@@ -167,8 +176,8 @@ public class RoadmapGenerationService {
 		long today = roadmapRepository.countByHobbyIdAndUserIdAndCreatedAtGreaterThanEqual(hobbyId, userId,
 				LocalDate.now(clock.withZone(SERVER_ZONE)).atStartOfDay());
 		if (today >= DAILY_LIMIT_PER_HOBBY) {
-			throw new ApiException(ErrorCode.AI_LIMIT_EXCEEDED, "이 분야의 로드맵은 하루에 " + DAILY_LIMIT_PER_HOBBY
-					+ "번까지 만들 수 있어요. 내일 다시 만들어 보세요.");
+			log.warn("ROADMAP_FAILED reason=LIMIT limit=HOBBY_DAILY_LIMIT({})", DAILY_LIMIT_PER_HOBBY);
+			throw new ApiException(ErrorCode.AI_LIMIT_EXCEEDED, LIMIT_MESSAGE);
 		}
 
 		List<RecentRecord> recent = activityRecordRepository
@@ -281,7 +290,7 @@ public class RoadmapGenerationService {
 		try (InputStream in = new ClassPathResource(PROMPT_RESOURCE_NAME).getInputStream()) {
 			return StreamUtils.copyToString(in, StandardCharsets.UTF_8);
 		} catch (IOException e) {
-			log.warn("ROADMAP_DROPPED reason=PROMPT_FILE");
+			log.warn("ROADMAP_FAILED reason=PROMPT_FILE");
 			throw new ApiException(ErrorCode.VALIDATION_ERROR, FAIL_MESSAGE);
 		}
 	}

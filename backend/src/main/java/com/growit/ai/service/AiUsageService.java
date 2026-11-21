@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class AiUsageService {
 
+	private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AiUsageService.class);
 	private static final ZoneId SERVER_ZONE = ZoneId.of("Asia/Seoul");
 	private static final List<String> USER_LIMITED_TYPES = List.of(
 			AiResultType.COMPARE.name(), AiResultType.COACH.name());
@@ -57,8 +58,8 @@ public class AiUsageService {
 
 			long globalOk = aiLogRepository.countByStateSince(AiLogState.OK.name(), startOfDay);
 			if (globalOk + globalReserved >= properties.getGlobalDailyLimit()) {
-				recordLimitLog(userId, type);
-				throw new ApiException(ErrorCode.AI_BUSY,
+				throw limitReached(userId, type, true, globalOk + globalReserved, properties.getGlobalDailyLimit(),
+						ErrorCode.AI_BUSY,
 						"지금은 AI 요청이 많아요. 기록은 안전하게 저장돼 있어요. 잠시 후 다시 시도해 주세요.");
 			}
 
@@ -67,8 +68,8 @@ public class AiUsageService {
 						userId, AiLogState.OK.name(), USER_LIMITED_TYPES, startOfDay);
 				int reserved = userReserved.getOrDefault(userId, 0);
 				if (userOk + reserved >= properties.getUserDailyLimit()) {
-					recordLimitLog(userId, type);
-					throw new ApiException(ErrorCode.AI_LIMIT_EXCEEDED,
+					throw limitReached(userId, type, false, userOk + reserved, properties.getUserDailyLimit(),
+							ErrorCode.AI_LIMIT_EXCEEDED,
 							"오늘 쓸 수 있는 AI 횟수를 다 썼어요. 기록은 안전하게 저장돼 있어요. 내일 다시 써 보세요.");
 				}
 				userReserved.put(userId, reserved + 1);
@@ -77,8 +78,8 @@ public class AiUsageService {
 						userId, AiLogState.OK.name(), List.of(AiResultType.ANALYSIS.name()), startOfDay);
 				int reserved = analysisReserved.getOrDefault(userId, 0);
 				if (userAnalysisOk + reserved >= properties.getAnalysisUserDailyLimit()) {
-					recordLimitLog(userId, type);
-					throw new ApiException(ErrorCode.AI_LIMIT_EXCEEDED,
+					throw limitReached(userId, type, false, userAnalysisOk + reserved, properties.getAnalysisUserDailyLimit(),
+							ErrorCode.AI_LIMIT_EXCEEDED,
 							"오늘 쓸 수 있는 기록 정리 횟수를 다 썼어요. 기록은 안전하게 저장돼 있어요.");
 				}
 				analysisReserved.put(userId, reserved + 1);
@@ -87,8 +88,8 @@ public class AiUsageService {
 						userId, AiLogState.OK.name(), List.of(AiResultType.SIMPLIFY.name()), startOfDay);
 				int reserved = simplifyReserved.getOrDefault(userId, 0);
 				if (userSimplifyOk + reserved >= properties.getSimplifyUserDailyLimit()) {
-					recordLimitLog(userId, type);
-					throw new ApiException(ErrorCode.AI_LIMIT_EXCEEDED,
+					throw limitReached(userId, type, false, userSimplifyOk + reserved, properties.getSimplifyUserDailyLimit(),
+							ErrorCode.AI_LIMIT_EXCEEDED,
 							"오늘 더 작게 바꿀 수 있는 횟수를 다 썼어요. 기록은 안전하게 저장돼 있어요.");
 				}
 				simplifyReserved.put(userId, reserved + 1);
@@ -97,8 +98,8 @@ public class AiUsageService {
 						userId, AiLogState.OK.name(), VIEW_LIMITED_TYPES, startOfDay);
 				int reserved = viewReserved.getOrDefault(userId, 0);
 				if (userViewOk + reserved >= properties.getViewUserDailyLimit()) {
-					recordLimitLog(userId, type);
-					throw new ApiException(ErrorCode.AI_LIMIT_EXCEEDED,
+					throw limitReached(userId, type, false, userViewOk + reserved, properties.getViewUserDailyLimit(),
+							ErrorCode.AI_LIMIT_EXCEEDED,
 							"오늘 쓸 수 있는 AI 횟수를 다 썼어요. 기록은 안전하게 저장돼 있어요. 내일 다시 써 보세요.");
 				}
 				viewReserved.put(userId, reserved + 1);
@@ -107,8 +108,8 @@ public class AiUsageService {
 						userId, AiLogState.OK.name(), List.of(AiResultType.ROADMAP.name()), startOfDay);
 				int reserved = roadmapReserved.getOrDefault(userId, 0);
 				if (userRoadmapOk + reserved >= properties.getRoadmapUserDailyLimit()) {
-					recordLimitLog(userId, type);
-					throw new ApiException(ErrorCode.AI_LIMIT_EXCEEDED,
+					throw limitReached(userId, type, false, userRoadmapOk + reserved, properties.getRoadmapUserDailyLimit(),
+							ErrorCode.AI_LIMIT_EXCEEDED,
 							"오늘 쓸 수 있는 로드맵 만들기 횟수를 다 썼어요. 내일 다시 써 보세요.");
 				}
 				roadmapReserved.put(userId, reserved + 1);
@@ -117,8 +118,8 @@ public class AiUsageService {
 						userId, AiLogState.OK.name(), AUTO_LIMITED_TYPES, startOfDay);
 				int reserved = autoReserved.getOrDefault(userId, 0);
 				if (userAutoOk + reserved >= properties.getAutoUserDailyLimit()) {
-					recordLimitLog(userId, type);
-					throw new ApiException(ErrorCode.AI_LIMIT_EXCEEDED,
+					throw limitReached(userId, type, false, userAutoOk + reserved, properties.getAutoUserDailyLimit(),
+							ErrorCode.AI_LIMIT_EXCEEDED,
 							"오늘 쓸 수 있는 AI 횟수를 다 썼어요. 기록은 안전하게 저장돼 있어요. 내일 다시 써 보세요.");
 				}
 				autoReserved.put(userId, reserved + 1);
@@ -168,6 +169,15 @@ public class AiUsageService {
 			autoReserved.clear();
 			roadmapReserved.clear();
 		}
+	}
+
+	/** 한도 때문에 호출을 건너뛸 때마다 한 줄 남긴다(원인 추적용). ai_logs에도 LIMIT 행을 쌓는다. */
+	private AiLimitException limitReached(Long userId, AiResultType type, boolean global, long used, int limit,
+			ErrorCode code, String message) {
+		recordLimitLog(userId, type);
+		log.warn("AI_LIMIT_REACHED kind={} scope={} used={} limit={}", type.name(), global ? "global" : "user", used,
+				limit);
+		return new AiLimitException(code, message, global);
 	}
 
 	private void recordLimitLog(Long userId, AiResultType type) {

@@ -9,6 +9,7 @@ import com.growit.ai.entity.AiResultType;
 import com.growit.ai.repository.AiLogRepository;
 import com.growit.ai.service.AiCallResult;
 import com.growit.ai.service.AiCallService;
+import com.growit.ai.service.AiLimitException;
 import com.growit.ai.service.AiResponseValidator;
 import com.growit.common.exception.ApiException;
 import com.growit.common.exception.ErrorCode;
@@ -111,6 +112,10 @@ public class RecordAnalysisService {
 		this.roadmapContextSource = source;
 	}
 
+	/** FAILED 상태의 ai_analysis에 넣는 값. 한도로 건너뛴 경우에만 있고, 예전 FAILED 행은 비어 있다. */
+	static final String FAIL_REASON_LIMIT = "LIMIT";
+	private static final String FAIL_REASON_LIMIT_JSON = "{\"failReason\":\"" + FAIL_REASON_LIMIT + "\"}";
+
 	boolean strictSpecificity = "true".equalsIgnoreCase(System.getenv("AI_NEXT_ACTION_STRICT"));
 
 	public RecordAnalysisService(ActivityRecordRepository activityRecordRepository, HobbyRepository hobbyRepository,
@@ -153,6 +158,7 @@ public class RecordAnalysisService {
 		}
 
 		StoredAnalysis analysis;
+		boolean limited = false;
 		try {
 			AiCallResult result = aiCallService.call(userId, AiResultType.ANALYSIS, systemPrompt, input.payload());
 			ValidationOutcome outcome = validateOutcome(result.content(), input.allowedHistoryIds(), result.model(),
@@ -161,12 +167,17 @@ public class RecordAnalysisService {
 				outcome = retryForSupport(userId, systemPrompt, input, outcome);
 			}
 			analysis = outcome.supportIssue() == null ? outcome.analysis() : withFallbackSupport(outcome, input);
+		} catch (AiLimitException e) {
+			// 하루 한도 때문에 건너뛴 것은 화면에서 "한도"로 따로 안내하려고 실패 이유를 남긴다.
+			analysis = null;
+			limited = true;
 		} catch (RuntimeException e) {
 			analysis = null;
 		}
 
 		StoredAnalysis finalAnalysis = analysis;
-		transactionTemplate.executeWithoutResult(status -> applyResult(recordId, userId, finalAnalysis));
+		boolean finalLimited = limited;
+		transactionTemplate.executeWithoutResult(status -> applyResult(recordId, userId, finalAnalysis, finalLimited));
 	}
 
 	/**
@@ -179,7 +190,7 @@ public class RecordAnalysisService {
 		String corrected = systemPrompt + "\n\n[교정 지시] 직전 응답의 support가 규칙을 어겼어요: " + first.supportIssue()
 				+ ". 같은 입력으로 규칙을 지켜 JSON 객체 하나만 다시 응답해요.";
 		try {
-			AiCallResult result = aiCallService.call(userId, AiResultType.ANALYSIS, corrected, input.payload());
+			AiCallResult result = aiCallService.call(userId, AiResultType.ANALYSIS, corrected, input.payload(), true);
 			ValidationOutcome second = validateOutcome(result.content(), input.allowedHistoryIds(), result.model(),
 					input.recordId(), input.corpus(), input.roadmapItemIds());
 			return second.supportIssue() == null ? second : first;
@@ -207,6 +218,19 @@ public class RecordAnalysisService {
 	}
 
 	private record ChangeOutcome(StoredChange change, String supportIssue, Long evidenceId) {
+	}
+
+	/** FAILED 기록의 실패 이유("LIMIT")를 읽는다. 예전 행처럼 값이 없거나 읽을 수 없으면 null. */
+	public String failReasonOf(String json) {
+		if (json == null || json.isBlank()) {
+			return null;
+		}
+		try {
+			JsonNode reason = objectMapper.readTree(json).path("failReason");
+			return FAIL_REASON_LIMIT.equals(reason.asText()) ? FAIL_REASON_LIMIT : null;
+		} catch (Exception e) {
+			return null;
+		}
 	}
 
 	public void markQueueRejected(Long recordId, Long userId) {
@@ -261,13 +285,17 @@ public class RecordAnalysisService {
 				roadmapItemIds);
 	}
 
-	private void applyResult(Long recordId, Long userId, StoredAnalysis analysis) {
+	private void applyResult(Long recordId, Long userId, StoredAnalysis analysis, boolean limited) {
 		ActivityRecord record = activityRecordRepository.findByIdAndUserId(recordId, userId).orElse(null);
 		if (record == null || record.getAiStatus() != AiStatus.PENDING) {
 			return;
 		}
 		if (analysis == null) {
-			record.markAnalysisFailed();
+			if (limited) {
+				record.markAnalysisFailed(FAIL_REASON_LIMIT_JSON);
+			} else {
+				record.markAnalysisFailed();
+			}
 			return;
 		}
 		record.markAnalysisDone(toJson(analysis));

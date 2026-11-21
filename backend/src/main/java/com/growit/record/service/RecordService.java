@@ -566,7 +566,8 @@ public class RecordService {
 				previous,
 				next,
 				record.getFeelingLabel(),
-				record.getFeelingDirection());
+				record.getFeelingDirection(),
+				record.getAiStatus() == AiStatus.FAILED ? recordAnalysisService.failReasonOf(record.getAiAnalysis()) : null);
 	}
 
 	/** 근거·이어서 볼 기록 목록이 필요해 N+1 조회가 생기므로, 목록 응답에는 쓰지 않는다. */

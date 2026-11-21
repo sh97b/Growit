@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from './Button'
+import { Note } from './Note'
 import { AiLabel } from './AiLabel'
 import { AiProgressCard } from './AiProgress'
 import { ChangeFeedbackRow } from './ChangeFeedbackRow'
@@ -12,7 +13,7 @@ import { RoadmapSuggestionCard } from './RoadmapSuggestionCard'
 import { RecordPairCards } from './RecordPairCards'
 import { CheckIcon } from './icons'
 import { formatMonthDay } from '../lib/date'
-import { fetchRecord, type RecordAnalysis, type RecordDetail } from '../lib/records'
+import { AI_LIMIT_NOTICE, fetchRecord, type RecordAnalysis, type RecordDetail } from '../lib/records'
 
 const COMPARISON_CONTENT_MAX = 120
 
@@ -104,6 +105,9 @@ export function RecordSavedPanel({
   // AI가 정리하는 동안(시간 초과 전까지)은 "달라진 점"·"다음에 해 볼 일" 자리에 눈에 띄는 진행 카드를 보여 준다.
   // 실패·꺼짐·시간 초과는 지금처럼 조용히 사라진다.
   const aiWorking = record.aiStatus === 'PENDING' && !timedOut
+  // 하루 한도로 건너뛴 경우만 안내한다(실패·꺼짐·시간 초과는 지금처럼 조용히 사라진다).
+  const limitBlock =
+    record.aiStatus === 'FAILED' && record.aiFailReason === 'LIMIT' ? <Note variant="calm">{AI_LIMIT_NOTICE}</Note> : null
   const progressBlock = aiWorking ? <AiProgressCard message="AI가 기록을 살펴보고 있어요" lines={3} /> : null
   const nextActionInMain = nextActionBlock ? <div className="lg:hidden">{nextActionBlock}</div> : null
   // 웹: 오른쪽 열이 최근 7일만 있어 비어 보여서 카드를 여기로 옮긴다. 간격은 왼쪽 열(gap-5)과 같게 둔다.
@@ -148,7 +152,7 @@ export function RecordSavedPanel({
       <>
         {header}
 
-        {progressBlock ?? changeSentenceBlock}
+        {progressBlock ?? changeSentenceBlock ?? limitBlock}
 
         <RoadmapSuggestionCard record={record} />
 
@@ -194,7 +198,7 @@ export function RecordSavedPanel({
       {header}
 
       {/* 분석이 진행 중이면 첫 기록이어도 진행 카드를, 끝나면 결과 카드를 먼저 보이고 첫 기록 안내는 그 아래에 둔다. */}
-      {progressBlock ?? changeSentenceBlock}
+      {progressBlock ?? changeSentenceBlock ?? limitBlock}
 
       <RoadmapSuggestionCard record={record} />
 

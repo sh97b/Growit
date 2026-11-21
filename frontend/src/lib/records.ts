@@ -7,6 +7,9 @@ export type ChangeFeedback = 'HELPFUL' | 'NOT_HELPFUL'
 export type TagsFeedbackChoice = 'CONFIRMED' | 'DISPUTED'
 export type TagsFeedback = 'CONFIRMED' | 'DISPUTED' | 'EDITED' | null
 
+/** 하루 한도로 AI 정리를 건너뛴 기록에 보여 주는 안내(AI 꺼짐·실패와 구분). */
+export const AI_LIMIT_NOTICE = '오늘은 AI 정리를 더 쓸 수 없어요. 기록은 안전하게 저장됐어요. 내일 다시 쓸 수 있어요.'
+
 export type RecordRelated = { id: number; recordDate: string; content: string }
 
 /** text(구체적 변화)와 support(응원·위로)는 둘 중 하나가 없을 수 있다. 예전 결과는 text만 있다. */
@@ -62,6 +65,8 @@ export type RecordDetail = {
   isMilestone: boolean
   aiStatus: AiStatus
   analysis: RecordAnalysis | null
+  /** 분석이 FAILED일 때, 하루 한도로 건너뛴 경우에만 'LIMIT'. 예전 응답에는 없다. */
+  aiFailReason?: 'LIMIT' | null
   previousRecord: RecordNeighbor | null
   nextRecord: RecordNeighbor | null
 }

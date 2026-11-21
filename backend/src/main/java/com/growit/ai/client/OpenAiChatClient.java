@@ -38,9 +38,14 @@ public class OpenAiChatClient implements AiChatClient {
 
 	@Override
 	public AiChatResponse complete(String systemPrompt, String userContent) {
+		return complete(systemPrompt, userContent, 0);
+	}
+
+	@Override
+	public AiChatResponse complete(String systemPrompt, String userContent, int minOutputTokens) {
 		Map<String, Object> body = new LinkedHashMap<>();
 		body.put("model", properties.getModel());
-		body.put("max_completion_tokens", properties.getMaxOutputTokens());
+		body.put("max_completion_tokens", Math.max(properties.getMaxOutputTokens(), minOutputTokens));
 		body.put("response_format", Map.of("type", "json_object"));
 		body.put("messages", List.of(
 				Map.of("role", "system", "content", systemPrompt),

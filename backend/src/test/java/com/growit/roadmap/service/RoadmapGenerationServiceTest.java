@@ -2,6 +2,7 @@ package com.growit.roadmap.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
@@ -95,7 +96,7 @@ class RoadmapGenerationServiceTest {
 		for (int i = 1; i < responses.length; i++) {
 			rest[i - 1] = new AiChatResponse(responses[i], 10, "model");
 		}
-		given(aiChatClient.complete(anyString(), anyString())).willReturn(first, rest);
+		given(aiChatClient.complete(anyString(), anyString(), anyInt())).willReturn(first, rest);
 	}
 
 	private java.util.List<String> captureLogs() {
@@ -140,7 +141,7 @@ class RoadmapGenerationServiceTest {
 		assertThat(response.goalText()).isEqualTo("코드 전환 익숙해지기");
 		assertThat(response.targetDate()).isEqualTo(LocalDate.now().plusDays(40));
 		assertThat(roadmapRepository.count()).isEqualTo(1);
-		verify(aiChatClient).complete(anyString(), user.capture());
+		verify(aiChatClient).complete(anyString(), user.capture(), anyInt());
 		assertThat(user.getValue()).contains("Am이 어려웠다").contains("\"totalRecordCount\":1")
 				.contains("코드 전환 익숙해지기");
 	}
@@ -151,7 +152,7 @@ class RoadmapGenerationServiceTest {
 
 		assertThatThrownBy(() -> service().create(1L, hobby.getId(), null)).isInstanceOf(ApiException.class)
 				.hasMessage("목표를 먼저 적어 주세요").satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.VALIDATION_ERROR));
-		verify(aiChatClient, never()).complete(anyString(), anyString());
+		verify(aiChatClient, never()).complete(anyString(), anyString(), anyInt());
 	}
 
 	@Test
@@ -161,7 +162,7 @@ class RoadmapGenerationServiceTest {
 
 		assertThatThrownBy(() -> service().create(1L, hobby.getId(), null))
 				.satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.ROADMAP_ACTIVE));
-		verify(aiChatClient, never()).complete(anyString(), anyString());
+		verify(aiChatClient, never()).complete(anyString(), anyString(), anyInt());
 	}
 
 	@Test
@@ -174,7 +175,7 @@ class RoadmapGenerationServiceTest {
 
 		assertThatThrownBy(() -> service().create(1L, hobby.getId(), null))
 				.satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.AI_LIMIT_EXCEEDED));
-		verify(aiChatClient, never()).complete(anyString(), anyString());
+		verify(aiChatClient, never()).complete(anyString(), anyString(), anyInt());
 	}
 
 	@Test
@@ -216,7 +217,56 @@ class RoadmapGenerationServiceTest {
 			assertThat(roadmapRepository.findAll()).noneMatch(r -> r.getHobbyId().equals(hobby.getId()));
 			assertThat(logs).as(body).filteredOn(l -> l.contains("ROADMAP_DROPPED")).hasSize(2);
 		}
-		verify(aiChatClient, times(invalid.size() * 2)).complete(anyString(), anyString());
+		verify(aiChatClient, times(invalid.size() * 2)).complete(anyString(), anyString(), anyInt());
+	}
+
+	@Test
+	void create_retryIsNotCountedTowardTheLimit_andUsesAtLeast1500Tokens() {
+		Hobby hobby = hobby(1L, "목표");
+		stub("{\"steps\":[]}", VALID);
+		org.mockito.ArgumentCaptor<Integer> tokens = org.mockito.ArgumentCaptor.forClass(Integer.class);
+
+		service().create(1L, hobby.getId(), null);
+
+		verify(aiChatClient, times(2)).complete(anyString(), anyString(), tokens.capture());
+		assertThat(tokens.getAllValues()).containsOnly(1500);
+		assertThat(aiLogRepository.findAll()).filteredOn(l -> "ROADMAP".equals(l.getResultType()))
+				.extracting(l -> l.getState()).containsExactlyInAnyOrder("OK", "RETRY");
+	}
+
+	@Test
+	void create_whenUserLimitReached_saysLimitMessageAndLogsRoadmapFailed() {
+		Hobby hobby = hobby(1L, "목표");
+		AiProperties properties = new AiProperties();
+		properties.setApiKey("key");
+		properties.setModel("model");
+		properties.setRoadmapUserDailyLimit(0);
+		AiUsageService usage = new AiUsageService(aiLogRepository, properties);
+		AiCallService call = new AiCallService(properties, aiChatClient, aiLogRepository, usage, objectMapper);
+		RoadmapGenerationService limited = new RoadmapGenerationService(hobbyRepository, activityRecordRepository,
+				roadmapRepository, stepRepository, itemRepository, call, new AiResponseValidator(objectMapper),
+				new RoadmapService(roadmapRepository, stepRepository, itemRepository, hobbyRepository, Clock.systemUTC()),
+				Clock.systemUTC(), transactionManager);
+		java.util.List<String> logs = captureLogs();
+
+		assertThatThrownBy(() -> limited.create(1L, hobby.getId(), null)).isInstanceOf(ApiException.class)
+				.hasMessage(RoadmapGenerationService.LIMIT_MESSAGE)
+				.satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.AI_LIMIT_EXCEEDED));
+		assertThat(logs).anyMatch(l -> l.contains("ROADMAP_FAILED reason=LIMIT limit=AI_ROADMAP_USER_DAILY_LIMIT"));
+		verify(aiChatClient, never()).complete(anyString(), anyString(), anyInt());
+	}
+
+	@Test
+	void create_whenProviderBusy_keepsBusyMessage() {
+		Hobby hobby = hobby(1L, "목표");
+		given(aiChatClient.complete(anyString(), anyString(), anyInt())).willThrow(
+				new com.growit.ai.client.AiClientException(com.growit.ai.client.AiClientException.Type.RATE_LIMITED, "429"));
+		java.util.List<String> logs = captureLogs();
+
+		assertThatThrownBy(() -> service().create(1L, hobby.getId(), null))
+				.hasMessageContaining("지금은 AI 요청이 많아요")
+				.satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.AI_BUSY));
+		assertThat(logs).anyMatch(l -> l.contains("ROADMAP_FAILED reason=BUSY"));
 	}
 
 	@Test
@@ -228,7 +278,7 @@ class RoadmapGenerationServiceTest {
 		RoadmapResponse response = service().create(1L, hobby.getId(), null);
 
 		assertThat(response.steps()).hasSize(3);
-		verify(aiChatClient, times(2)).complete(system.capture(), anyString());
+		verify(aiChatClient, times(2)).complete(system.capture(), anyString(), anyInt());
 		assertThat(system.getAllValues().get(1)).contains("[교정 지시]");
 		assertThat(system.getAllValues().get(0)).doesNotContain("[교정 지시]");
 	}

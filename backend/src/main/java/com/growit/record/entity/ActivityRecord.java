@@ -212,6 +212,12 @@ public class ActivityRecord {
 		this.aiStatus = AiStatus.FAILED;
 	}
 
+	/** 실패 이유(예: 하루 한도)를 JSON으로 함께 남긴다. 컬럼은 그대로 쓰고 값만 다르다. */
+	public void markAnalysisFailed(String failureJson) {
+		this.aiStatus = AiStatus.FAILED;
+		this.aiAnalysis = failureJson;
+	}
+
 	/** DELETE /api/ai/data 전용: SKIPPED는 그대로 두고, 그 외에는 NONE으로 되돌리며 분석 결과는 항상 비운다. */
 	public void resetAnalysisForDataDeletion() {
 		if (this.aiStatus != AiStatus.SKIPPED) {
