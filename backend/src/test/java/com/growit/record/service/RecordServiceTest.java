@@ -676,6 +676,69 @@ class RecordServiceTest {
 				.isInstanceOf(ApiException.class);
 	}
 
+	private static final String WITH_SUGGESTION = "{\"title\":\"t\",\"tags\":[],\"relatedRecordIds\":[],\"change\":null,"
+			+ "\"roadmapSuggestion\":{\"itemId\":77,\"answer\":null}}";
+
+	private RecordService serviceWithRoadmapItem(RoadmapContextSource.RoadmapItemRef pending) {
+		RecordService service = recordServiceWithAiEnabled();
+		service.setRoadmapContextSource(new RoadmapContextSource() {
+			@Override
+			public RoadmapContext currentContext(Long userId, Long hobbyId) {
+				return null;
+			}
+
+			@Override
+			public RoadmapItemRef findPendingItem(Long userId, Long itemId) {
+				return userId.equals(1L) && itemId.equals(77L) ? pending : null;
+			}
+		});
+		return service;
+	}
+
+	@Test
+	void roadmapSuggestion_isShownWithStoredItemText_andHiddenAfterAnswer() {
+		RecordService service = serviceWithRoadmapItem(new RoadmapContextSource.RoadmapItemRef(77L, "Am 코드 짚기", "Am 익히기"));
+		Long hobbyId = createHobby(1L, "기타");
+		Long id = doneRecordWithNextAction(1L, hobbyId, LocalDate.of(2026, 10, 5), WITH_SUGGESTION);
+
+		var suggestion = service.get(1L, id).analysis().roadmapSuggestion();
+		assertThat(suggestion.itemId()).isEqualTo(77L);
+		assertThat(suggestion.text()).isEqualTo("Am 코드 짚기");
+		assertThat(suggestion.stepTitle()).isEqualTo("Am 익히기");
+
+		service.answerRoadmapSuggestion(1L, id, "DISMISSED");
+
+		assertThat(service.get(1L, id).analysis().roadmapSuggestion()).isNull();
+	}
+
+	@Test
+	void roadmapSuggestion_hiddenWhenItemIsNoLongerPending() {
+		RecordService service = serviceWithRoadmapItem(null);
+		Long hobbyId = createHobby(1L, "기타");
+		Long id = doneRecordWithNextAction(1L, hobbyId, LocalDate.of(2026, 10, 5), WITH_SUGGESTION);
+
+		assertThat(service.get(1L, id).analysis().roadmapSuggestion()).isNull();
+	}
+
+	@Test
+	void roadmapSuggestion_answer_rejectsOtherUsersBadValuesAndMissingSuggestion() {
+		RecordService service = serviceWithRoadmapItem(new RoadmapContextSource.RoadmapItemRef(77L, "항목", "단계"));
+		Long hobbyId = createHobby(2L, "기타");
+		Long others = doneRecordWithNextAction(2L, hobbyId, LocalDate.of(2026, 10, 5), WITH_SUGGESTION);
+		Long myHobby = createHobby(1L, "독서");
+		Long mine = doneRecordWithNextAction(1L, myHobby, LocalDate.of(2026, 10, 5), WITH_SUGGESTION);
+		Long none = doneRecordWithNextAction(1L, myHobby, LocalDate.of(2026, 10, 6), NO_ACTION);
+
+		assertThatThrownBy(() -> service.answerRoadmapSuggestion(1L, others, "CHECKED"))
+				.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.NOT_FOUND));
+		assertThatThrownBy(() -> service.answerRoadmapSuggestion(1L, mine, "MAYBE"))
+				.isInstanceOfSatisfying(ApiException.class,
+						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
+		assertThatThrownBy(() -> service.answerRoadmapSuggestion(1L, none, "CHECKED"))
+				.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.NOT_FOUND));
+		assertThat(service.get(2L, others).analysis().roadmapSuggestion()).isNull();
+	}
+
 	@Test
 	void latestNextAction_includesReasonAndEvidenceFilledFromStoredRecord() {
 		RecordService service = recordServiceWithAiEnabled();

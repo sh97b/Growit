@@ -247,7 +247,7 @@ class RecordAnalysisServiceTest {
 		service(enabledProperties()).analyze(current.getId(), 1L);
 
 		ActivityRecord result = activityRecordRepository.findById(current.getId()).orElseThrow();
-		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":10").contains("\"model\":\"model\"");
+		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":11").contains("\"model\":\"model\"");
 	}
 
 	@Test
@@ -616,6 +616,80 @@ class RecordAnalysisServiceTest {
 		assertThat(logs).noneMatch(l -> l.contains("SUPPORT_RETRY") || l.contains("SUPPORT_FALLBACK"));
 	}
 
+	private RoadmapContextSource sourceWith(RoadmapContextSource.RoadmapContext context) {
+		return new RoadmapContextSource() {
+			@Override
+			public RoadmapContext currentContext(Long userId, Long hobbyId) {
+				return context;
+			}
+
+			@Override
+			public RoadmapItemRef findPendingItem(Long userId, Long itemId) {
+				return null;
+			}
+		};
+	}
+
+	private ActivityRecord analyzeWithRoadmap(RoadmapContextSource.RoadmapContext context, String suggestionJson) {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "Am 코드를 짚어 봤다");
+		stubAiResponse("{\"title\":\"연습\",\"tags\":[],\"relatedRecordIds\":[],\"change\":null,"
+				+ "\"nextAction\":null" + (suggestionJson == null ? "" : ",\"roadmapSuggestion\":" + suggestionJson) + "}");
+		RecordAnalysisService service = service(enabledProperties());
+		service.setRoadmapContextSource(sourceWith(context));
+		service.analyze(current.getId(), 1L);
+		return activityRecordRepository.findById(current.getId()).orElseThrow();
+	}
+
+	private static RoadmapContextSource.RoadmapContext twoItems() {
+		return new RoadmapContextSource.RoadmapContext("Am 익히기", java.util.List.of(
+				new RoadmapContextSource.RoadmapItemRef(11L, "Am 코드를 짚고 소리 확인하기", "Am 익히기"),
+				new RoadmapContextSource.RoadmapItemRef(12L, "C에서 Am으로 열 번 바꿔 보기", "Am 익히기")));
+	}
+
+	@Test
+	void roadmap_present_sendsCurrentStepAndPendingItems_andKeepsValidSuggestion() {
+		ActivityRecord result = analyzeWithRoadmap(twoItems(), "{\"itemId\":11}");
+
+		assertThat(capturedUserPrompt()).contains("\"roadmap\":{\"currentStep\":\"Am 익히기\"")
+				.contains("\"id\":11").contains("\"id\":12");
+		StoredAnalysis stored = service(enabledProperties()).readJson(result.getAiAnalysis());
+		assertThat(stored.roadmapSuggestion().itemId()).isEqualTo(11L);
+		assertThat(stored.roadmapSuggestion().answer()).isNull();
+		// 항목 문장은 저장하지 않는다(보여 줄 때 로드맵에서 읽는다).
+		assertThat(result.getAiAnalysis()).doesNotContain("Am 코드를 짚고 소리 확인하기");
+	}
+
+	@Test
+	void roadmap_suggestionWithUnknownOrCheckedOrOtherUsersId_isDropped() {
+		java.util.List<String> logs = captureLogs();
+
+		// 입력으로 주지 않은 id(남의 항목·이미 체크한 항목·지어낸 id)는 모두 입력 목록에 없다.
+		for (String suggestion : new String[] {"{\"itemId\":999}", "{\"itemId\":13}", "{\"itemId\":\"11\"}", "{}"}) {
+			ActivityRecord result = analyzeWithRoadmap(twoItems(), suggestion);
+			assertThat(service(enabledProperties()).readJson(result.getAiAnalysis()).roadmapSuggestion())
+					.as(suggestion).isNull();
+		}
+		assertThat(logs).anyMatch(l -> l.contains("ROADMAP_SUGGESTION_DROPPED"));
+	}
+
+	@Test
+	void roadmap_absent_keepsOldBehavior_andIgnoresSuggestion() {
+		ActivityRecord result = analyzeWithRoadmap(null, "{\"itemId\":11}");
+
+		assertThat(capturedUserPrompt()).doesNotContain("\"roadmap\"");
+		assertThat(service(enabledProperties()).readJson(result.getAiAnalysis()).roadmapSuggestion()).isNull();
+		assertThat(result.getAiStatus()).isEqualTo(AiStatus.DONE);
+	}
+
+	@Test
+	void roadmap_suggestionNull_isFine() {
+		ActivityRecord result = analyzeWithRoadmap(twoItems(), "null");
+
+		assertThat(service(enabledProperties()).readJson(result.getAiAnalysis()).roadmapSuggestion()).isNull();
+		assertThat(result.getAiStatus()).isEqualTo(AiStatus.DONE);
+	}
+
 	@Test
 	void change_everyWarmPhrase_isAccepted() {
 		for (String warm : RecordAnalysisService.WARM_PHRASES) {
@@ -765,9 +839,9 @@ class RecordAnalysisServiceTest {
 	}
 
 	@Test
-	void change_promptVersionIsTenAndOldSingleSentenceResultsStillRead() {
+	void change_promptVersionIsElevenAndOldSingleSentenceResultsStillRead() {
 		ActivityRecord result = analyzeWithChange("전환을 이어 쳤어요.", "이어 간 게 멋져요.", true);
-		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":10");
+		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":11");
 
 		StoredAnalysis old = service(enabledProperties()).readJson("{\"title\":\"예전\",\"tags\":[],"
 				+ "\"relatedRecordIds\":[],\"change\":{\"text\":\"지난번엔 끊겼는데 오늘은 이어 쳤어요\",\"evidenceRecordId\":1},"

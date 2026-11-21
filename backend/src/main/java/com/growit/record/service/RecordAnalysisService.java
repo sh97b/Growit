@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -75,7 +76,7 @@ public class RecordAnalysisService {
 	static final String FALLBACK_SUPPORT_NORMAL = "이어 가는 것 자체가 대단해요.";
 	private static final String PROMPT_RESOURCE_NAME = "record-analysis-system.txt";
 	/** prompts/record-analysis-system.txt의 내용을 바꿀 때마다 올린다. 저장된 결과가 어떤 지시문으로 만들어졌는지 추적하기 위해서다. */
-	static final int PROMPT_VERSION = 10;
+	static final int PROMPT_VERSION = 11;
 
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
@@ -92,6 +93,24 @@ public class RecordAnalysisService {
 	 * true면 구체성 검사(입력 낱말·일반 표현)에 걸린 제안을 버린다. 기본은 완화(false)라서 로그(NEXT_ACTION_SOFT)만
 	 * 남기고 통과시킨다. 환경변수 AI_NEXT_ACTION_STRICT=true로 켠다.
 	 */
+	/** 로드맵 요약(없으면 항상 null이라 기존 동작 그대로). 생성자를 늘리지 않으려고 setter로 받는다. */
+	private RoadmapContextSource roadmapContextSource = new RoadmapContextSource() {
+		@Override
+		public RoadmapContext currentContext(Long userId, Long hobbyId) {
+			return null;
+		}
+
+		@Override
+		public RoadmapItemRef findPendingItem(Long userId, Long itemId) {
+			return null;
+		}
+	};
+
+	@Autowired(required = false)
+	void setRoadmapContextSource(RoadmapContextSource source) {
+		this.roadmapContextSource = source;
+	}
+
 	boolean strictSpecificity = "true".equalsIgnoreCase(System.getenv("AI_NEXT_ACTION_STRICT"));
 
 	public RecordAnalysisService(ActivityRecordRepository activityRecordRepository, HobbyRepository hobbyRepository,
@@ -137,7 +156,7 @@ public class RecordAnalysisService {
 		try {
 			AiCallResult result = aiCallService.call(userId, AiResultType.ANALYSIS, systemPrompt, input.payload());
 			ValidationOutcome outcome = validateOutcome(result.content(), input.allowedHistoryIds(), result.model(),
-					input.recordId(), input.corpus());
+					input.recordId(), input.corpus(), input.roadmapItemIds());
 			if (outcome.supportIssue() != null) {
 				outcome = retryForSupport(userId, systemPrompt, input, outcome);
 			}
@@ -162,7 +181,7 @@ public class RecordAnalysisService {
 		try {
 			AiCallResult result = aiCallService.call(userId, AiResultType.ANALYSIS, corrected, input.payload());
 			ValidationOutcome second = validateOutcome(result.content(), input.allowedHistoryIds(), result.model(),
-					input.recordId(), input.corpus());
+					input.recordId(), input.corpus(), input.roadmapItemIds());
 			return second.supportIssue() == null ? second : first;
 		} catch (RuntimeException e) {
 			return first;
@@ -180,7 +199,7 @@ public class RecordAnalysisService {
 		String text = a.change() == null ? null : a.change().text();
 		StoredChange change = new StoredChange(text, outcome.evidenceId(), support);
 		return new StoredAnalysis(a.title(), a.tags(), a.relatedRecordIds(), change, a.tagsFeedback(),
-				a.changeFeedback(), a.promptVersion(), a.model(), a.nextAction());
+				a.changeFeedback(), a.promptVersion(), a.model(), a.nextAction(), a.roadmapSuggestion());
 	}
 
 	/** supportIssue가 null이 아니면 support가 규칙을 어긴 것이다(evidenceId는 그때 기본 문장을 붙일 근거 기록). */
@@ -224,12 +243,22 @@ public class RecordAnalysisService {
 				? new AnalysisContext(true, null)
 				: new AnalysisContext(false, (int) java.time.temporal.ChronoUnit.DAYS
 						.between(previousOfUser.get(0).getRecordDate(), record.getRecordDate()));
+		RoadmapContextSource.RoadmapContext roadmapContext = roadmapContextSource.currentContext(userId,
+				record.getHobbyId());
+		AnalysisRoadmapInput roadmapInput = roadmapContext == null ? null
+				: new AnalysisRoadmapInput(roadmapContext.stepTitle(), roadmapContext.items().stream()
+						.map(item -> new AnalysisRoadmapInput.AnalysisRoadmapItem(item.id(), item.text())).toList());
+		Set<Long> roadmapItemIds = roadmapContext == null ? Set.of()
+				: roadmapContext.items().stream().map(RoadmapContextSource.RoadmapItemRef::id)
+						.collect(java.util.stream.Collectors.toSet());
 		AnalysisPayload payload = new AnalysisPayload(
-				new AnalysisHobbyInput(hobby.getName(), hobby.getGoal()), recordInput, historyItems, context);
+				new AnalysisHobbyInput(hobby.getName(), hobby.getGoal()), recordInput, historyItems, context,
+				roadmapInput);
 
 		Set<Long> allowedIds = history.stream().map(ActivityRecord::getId)
 				.collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-		return new AnalysisInput(payload, allowedIds, record.getId(), corpusOf(hobby, record, history));
+		return new AnalysisInput(payload, allowedIds, record.getId(), corpusOf(hobby, record, history),
+				roadmapItemIds);
 	}
 
 	private void applyResult(Long recordId, Long userId, StoredAnalysis analysis) {
@@ -258,11 +287,11 @@ public class RecordAnalysisService {
 	/** corpus가 null이면 낱말 포함 검사는 건너뛴다(품질 평가 하네스처럼 입력 전문이 없는 호출). */
 	StoredAnalysis validate(String rawJson, Set<Long> allowedHistoryIds, String model, Long recordId,
 			String corpus) {
-		return validateOutcome(rawJson, allowedHistoryIds, model, recordId, corpus).analysis();
+		return validateOutcome(rawJson, allowedHistoryIds, model, recordId, corpus, Set.of()).analysis();
 	}
 
 	private ValidationOutcome validateOutcome(String rawJson, Set<Long> allowedHistoryIds, String model,
-			Long recordId, String corpus) {
+			Long recordId, String corpus, Set<Long> roadmapItemIds) {
 		JsonNode node = aiResponseValidator.parse(rawJson);
 		aiResponseValidator.requireFields(node, "title", "tags", "relatedRecordIds");
 
@@ -280,9 +309,24 @@ public class RecordAnalysisService {
 		StoredNextAction nextAction = sanitizeNextAction(node.path("nextAction"), nextActionEvidenceIds, corpus,
 				recordId);
 
+		StoredRoadmapSuggestion suggestion = sanitizeRoadmapSuggestion(node.path("roadmapSuggestion"), roadmapItemIds,
+				recordId);
 		StoredAnalysis analysis = new StoredAnalysis(title, tags, relatedRecordIds, changeOutcome.change(), null, null,
-				PROMPT_VERSION, model, nextAction);
+				PROMPT_VERSION, model, nextAction, suggestion);
 		return new ValidationOutcome(analysis, changeOutcome.supportIssue(), changeOutcome.evidenceId());
+	}
+
+	/** 입력으로 준 미완료 항목의 id만 받는다(남의 것·이미 체크한 것·지어낸 id는 버린다). 자동 체크는 하지 않는다. */
+	private StoredRoadmapSuggestion sanitizeRoadmapSuggestion(JsonNode node, Set<Long> allowedItemIds, Long recordId) {
+		if (node.isMissingNode() || node.isNull()) {
+			return null;
+		}
+		JsonNode idNode = node.path("itemId");
+		if (!idNode.isIntegralNumber() || !idNode.canConvertToLong() || !allowedItemIds.contains(idNode.asLong())) {
+			log.warn("ROADMAP_SUGGESTION_DROPPED recordId={} raw={}", recordId, rawOf(node));
+			return null;
+		}
+		return new StoredRoadmapSuggestion(idNode.asLong(), null);
 	}
 
 	private String sanitizeTitle(JsonNode titleNode) {

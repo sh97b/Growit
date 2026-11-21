@@ -211,6 +211,83 @@ class RoadmapServiceTest {
 	}
 
 	@Test
+	void setItemDone_lastItemOfStep_returnsCompletionMessageWithNextStepTitle() {
+		Hobby hobby = hobby(1L);
+		seed(1L, hobby.getId());
+		RoadmapResponse before = service().getActive(1L, hobby.getId());
+		Long first = before.steps().get(0).items().get(0).id();
+		Long second = before.steps().get(0).items().get(1).id();
+
+		RoadmapResponse afterFirst = service().setItemDone(1L, first, new RoadmapItemDoneRequest(true));
+		RoadmapResponse afterSecond = service().setItemDone(1L, second, new RoadmapItemDoneRequest(true));
+		RoadmapResponse unchecked = service().setItemDone(1L, second, new RoadmapItemDoneRequest(false));
+
+		assertThat(afterFirst.completedStepMessage()).isNull();
+		// "단계 2"는 받침이 있어 "이에요".
+		assertThat(afterSecond.completedStepMessage()).isEqualTo("이 단계를 모두 마쳤어요. 다음 단계는 단계 2이에요.");
+		assertThat(unchecked.completedStepMessage()).isNull();
+		assertThat(service().getActive(1L, hobby.getId()).completedStepMessage()).isNull();
+	}
+
+	@Test
+	void setItemDone_completionMessage_usesYeoyoWithoutFinalConsonant_andNoNextStepAtEnd() {
+		Hobby hobby = hobby(1L);
+		Roadmap roadmap = roadmapRepository.save(new Roadmap(1L, hobby.getId(), "목표", null, 1));
+		RoadmapStep one = stepRepository.save(new RoadmapStep(roadmap.getId(), 1, "처음", null));
+		RoadmapStep two = stepRepository.save(new RoadmapStep(roadmap.getId(), 2, "다음 코드", null));
+		RoadmapItem a = itemRepository.save(new RoadmapItem(one.getId(), 1, "가", RoadmapItemOrigin.AI));
+		RoadmapItem b = itemRepository.save(new RoadmapItem(two.getId(), 1, "나", RoadmapItemOrigin.AI));
+
+		assertThat(service().setItemDone(1L, a.getId(), new RoadmapItemDoneRequest(true)).completedStepMessage())
+				.isEqualTo("이 단계를 모두 마쳤어요. 다음 단계는 다음 코드예요.");
+		assertThat(service().setItemDone(1L, b.getId(), new RoadmapItemDoneRequest(true)).completedStepMessage())
+				.isEqualTo("이 단계를 모두 마쳤어요.");
+	}
+
+	@Test
+	void contextProvider_returnsFirstUnfinishedStepWithPendingItemsOnly_andScopesToUser() {
+		Hobby hobby = hobby(1L);
+		Roadmap roadmap = seed(1L, hobby.getId());
+		RoadmapContextProvider provider = new RoadmapContextProvider(roadmapRepository, stepRepository, itemRepository);
+		RoadmapResponse before = service().getActive(1L, hobby.getId());
+		Long done = before.steps().get(0).items().get(0).id();
+		Long pending = before.steps().get(0).items().get(1).id();
+		service().setItemDone(1L, done, new RoadmapItemDoneRequest(true));
+
+		var context = provider.currentContext(1L, hobby.getId());
+		assertThat(context.stepTitle()).isEqualTo("단계 1");
+		assertThat(context.items()).extracting("id").containsExactly(pending);
+
+		assertThat(provider.currentContext(2L, hobby.getId())).isNull();
+		assertThat(provider.findPendingItem(1L, pending)).isNotNull();
+		assertThat(provider.findPendingItem(1L, done)).isNull();
+		assertThat(provider.findPendingItem(2L, pending)).isNull();
+
+		service().archive(1L, roadmap.getId());
+		assertThat(provider.currentContext(1L, hobby.getId())).isNull();
+		assertThat(provider.findPendingItem(1L, pending)).isNull();
+	}
+
+	@Test
+	void contextProvider_limitsToSixItems_andSkipsFinishedSteps() {
+		Hobby hobby = hobby(1L);
+		Roadmap roadmap = roadmapRepository.save(new Roadmap(1L, hobby.getId(), "목표", null, 1));
+		RoadmapStep finished = stepRepository.save(new RoadmapStep(roadmap.getId(), 1, "끝난 단계", null));
+		RoadmapItem doneItem = itemRepository.save(new RoadmapItem(finished.getId(), 1, "했음", RoadmapItemOrigin.AI));
+		doneItem.markDone(true, java.time.LocalDateTime.now());
+		RoadmapStep open = stepRepository.save(new RoadmapStep(roadmap.getId(), 2, "열린 단계", null));
+		for (int i = 1; i <= 8; i++) {
+			itemRepository.save(new RoadmapItem(open.getId(), i, "항목 " + i, RoadmapItemOrigin.AI));
+		}
+		RoadmapContextProvider provider = new RoadmapContextProvider(roadmapRepository, stepRepository, itemRepository);
+
+		var context = provider.currentContext(1L, hobby.getId());
+
+		assertThat(context.stepTitle()).isEqualTo("열린 단계");
+		assertThat(context.items()).hasSize(6);
+	}
+
+	@Test
 	void otherUsersRoadmap_stepAndItem_areNotFound() {
 		Hobby hobby = hobby(1L);
 		Roadmap roadmap = seed(1L, hobby.getId());

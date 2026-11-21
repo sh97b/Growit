@@ -9,5 +9,6 @@ public record RecordAnalysisResponse(
 		RecordAnalysisChange change,
 		String tagsFeedback,
 		String changeFeedback,
-		RecordNextAction nextAction) {
+		RecordNextAction nextAction,
+		RecordRoadmapSuggestion roadmapSuggestion) {
 }

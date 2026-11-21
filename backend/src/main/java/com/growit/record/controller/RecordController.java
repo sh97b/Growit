@@ -5,6 +5,7 @@ import com.growit.common.exception.ErrorResponse;
 import com.growit.record.dto.AnalysisFeedbackRequest;
 import com.growit.record.dto.AnalysisTagsEditRequest;
 import com.growit.record.dto.NextActionStateRequest;
+import com.growit.record.dto.RoadmapSuggestionAnswerRequest;
 import com.growit.record.dto.RecordCreateRequest;
 import com.growit.record.dto.RecordListResponse;
 import com.growit.record.dto.RecordNextActionResponse;
@@ -111,6 +112,16 @@ public class RecordController {
 		RecordNextActionResponse response = recordService.latestNextAction(currentUserProvider.getCurrentUserId(),
 				hobbyId);
 		return response == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(response);
+	}
+
+	@Operation(summary = "로드맵 항목 제안에 답하기 (CHECKED·DISMISSED, 내 기록만)")
+	@ApiResponse(responseCode = "404", description = "내 기록이 아니거나 제안이 없음",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@PutMapping("/{id}/roadmap-suggestion/answer")
+	public ResponseEntity<Void> answerRoadmapSuggestion(@PathVariable Long id,
+			@RequestBody RoadmapSuggestionAnswerRequest request) {
+		recordService.answerRoadmapSuggestion(currentUserProvider.getCurrentUserId(), id, request.value());
+		return ResponseEntity.noContent().build();
 	}
 
 	@Operation(summary = "'다음에 해 볼 일' 상태 바꾸기 (TRIED·HOLD, null이면 해제, 내 기록만)")

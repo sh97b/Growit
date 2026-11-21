@@ -108,6 +108,7 @@ public class CorsIntegrationTest {
 				Arguments.of("/api/records/1/analysis/tags", "PATCH"),
 				Arguments.of("/api/records/next-action/latest", "GET"),
 				Arguments.of("/api/records/1/next-action/state", "PUT"),
+				Arguments.of("/api/records/1/roadmap-suggestion/answer", "PUT"),
 				Arguments.of("/api/hobbies/1/roadmap", "GET"),
 				Arguments.of("/api/hobbies/1/roadmap", "POST"),
 				Arguments.of("/api/roadmaps/1", "PATCH"),

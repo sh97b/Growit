@@ -11,6 +11,7 @@ import com.growit.record.dto.AnalysisTagsEditRequest;
 import com.growit.record.dto.RecordAnalysisChange;
 import com.growit.record.dto.RecordAnalysisResponse;
 import com.growit.record.dto.RecordNextAction;
+import com.growit.record.dto.RecordRoadmapSuggestion;
 import com.growit.record.dto.RecordNextActionResponse;
 import com.growit.record.dto.RecordAnalysisSummary;
 import com.growit.record.dto.RecordCreateRequest;
@@ -317,6 +318,51 @@ public class RecordService {
 		return toNextActionResponse(record);
 	}
 
+	/** 아직 답하지 않았고 항목이 여전히 내 로드맵의 안 한 항목일 때만 보인다(문장은 로드맵의 저장된 값). */
+	private RecordRoadmapSuggestion roadmapSuggestionOf(Long userId, StoredAnalysis stored) {
+		StoredRoadmapSuggestion suggestion = stored.roadmapSuggestion();
+		if (suggestion == null || suggestion.answer() != null) {
+			return null;
+		}
+		RoadmapContextSource.RoadmapItemRef ref = roadmapContextSource.findPendingItem(userId, suggestion.itemId());
+		return ref == null ? null : new RecordRoadmapSuggestion(ref.id(), ref.text(), ref.stepTitle());
+	}
+
+	/** value는 CHECKED·DISMISSED. 남의 기록이거나 제안이 없으면 404. 체크 자체는 로드맵 API가 한다. */
+	@Transactional
+	public void answerRoadmapSuggestion(Long userId, Long id, String value) {
+		if (!"CHECKED".equals(value) && !"DISMISSED".equals(value)) {
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, "value는 CHECKED 또는 DISMISSED여야 해요");
+		}
+		ActivityRecord record = findOwned(userId, id);
+		if (record.getAiStatus() != AiStatus.DONE || record.getAiAnalysis() == null) {
+			throw new ApiException(ErrorCode.NOT_FOUND, "로드맵 제안을 찾을 수 없어요");
+		}
+		StoredAnalysis stored = recordAnalysisService.readJson(record.getAiAnalysis());
+		if (stored.roadmapSuggestion() == null) {
+			throw new ApiException(ErrorCode.NOT_FOUND, "로드맵 제안을 찾을 수 없어요");
+		}
+		record.markAnalysisDone(recordAnalysisService.toJson(stored.withRoadmapAnswer(value)));
+	}
+
+	/** 로드맵 요약(없으면 항상 null이라 기존 동작 그대로). 생성자를 늘리지 않으려고 setter로 받는다. */
+	private RoadmapContextSource roadmapContextSource = new RoadmapContextSource() {
+		@Override
+		public RoadmapContext currentContext(Long userId, Long hobbyId) {
+			return null;
+		}
+
+		@Override
+		public RoadmapItemRef findPendingItem(Long userId, Long itemId) {
+			return null;
+		}
+	};
+
+	@org.springframework.beans.factory.annotation.Autowired(required = false)
+	void setRoadmapContextSource(RoadmapContextSource source) {
+		this.roadmapContextSource = source;
+	}
+
 	/** 근거 기록은 저장된 기록에서 채운다(내 기록이 아니거나 지워졌으면 null). */
 	private RecordRelatedRecord evidenceOf(Long userId, StoredNextAction action) {
 		if (action.evidenceRecordId() == null) {
@@ -547,7 +593,7 @@ public class RecordService {
 						evidenceOf(userId, stored.nextAction()));
 
 		return new RecordAnalysisResponse(stored.title(), stored.tags(), related, change,
-				stored.tagsFeedback(), stored.changeFeedback(), nextAction);
+				stored.tagsFeedback(), stored.changeFeedback(), nextAction, roadmapSuggestionOf(userId, stored));
 	}
 
 	private RecordSummaryResponse toSummaryResponse(ActivityRecord record) {

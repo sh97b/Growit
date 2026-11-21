@@ -61,7 +61,14 @@
     시작해 봐요" / 나쁜 예 "자신 있는 거리를 한 번 더 달려 봐요".
   - 영어 공부(기록: "관계대명사 문장이 헷갈렸다"): 좋은 예 "헷갈린 관계대명사 문장 두 개만 골라 소리 내어
     천천히 따라 읽어 봐요" / 나쁜 예 "영어를 꾸준히 복습해 봐요".
+- 입력에 roadmap이 있으면(currentStep: 현재 단계 제목, items: 아직 체크하지 않은 항목 최대 6개 {id, text}) 사용자가 이 분야의 로드맵을
+  따라가는 중이다. roadmap이 없으면 이 규칙은 모두 무시한다.
+  · nextAction은 가능하면 items 중 오늘 기록과 가장 이어지는 항목 하나를 골라, 5~10분 안에 끝나는 더 작은 행동으로 쪼개서 제안한다.
+    항목 문장을 그대로 복사하지 않는다. 어울리는 항목이 없으면 위의 nextAction 규칙대로 쓴다.
+  · roadmapSuggestion은 선택이다. 오늘 기록에 그 항목을 해 봤다고 볼 근거가 분명할 때만 {"itemId": items 중 하나의 id}를 쓴다.
+    조금이라도 확신이 없으면 null로 둔다. items에 없는 id를 쓰지 않는다. 체크는 사용자가 직접 하므로 체크했다고 쓰지 않는다.
 - 아래 모양의 JSON 객체 하나만 응답한다. 다른 글자나 설명을 덧붙이지 않는다.
 
 {"title": "string", "tags": ["string"], "relatedRecordIds": [0], "change": {"text": "string 또는 null", "support": "string", "evidenceRecordId": 0},
- "nextAction": {"text": "string", "minutes": 5, "reason": "string", "evidenceRecordId": 0} 또는 null}
+ "nextAction": {"text": "string", "minutes": 5, "reason": "string", "evidenceRecordId": 0} 또는 null,
+ "roadmapSuggestion": {"itemId": 0} 또는 null}

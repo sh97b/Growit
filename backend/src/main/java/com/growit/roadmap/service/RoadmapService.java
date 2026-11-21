@@ -186,11 +186,43 @@ public class RoadmapService {
 		if (item.isDone() != done) {
 			item.markDone(done, LocalDateTime.now(clock.withZone(SERVER_ZONE)));
 		}
-		return toResponse(roadmapOf(stepOf(item)));
+		RoadmapStep step = stepOf(item);
+		Roadmap roadmap = roadmapOf(step);
+		String message = done && item.isDone() ? completedStepMessage(roadmap, step) : null;
+		return toResponse(roadmap, message);
+	}
+
+	/** 방금 체크한 항목으로 단계의 항목이 모두 끝났으면 차분한 한 줄을 만든다(연출·점수·연속 표현 없음). */
+	private String completedStepMessage(Roadmap roadmap, RoadmapStep step) {
+		boolean allDone = itemRepository.findByStepIdOrderBySortOrderAscIdAsc(step.getId()).stream()
+				.allMatch(RoadmapItem::isDone);
+		if (!allDone) {
+			return null;
+		}
+		List<RoadmapStep> steps = stepRepository.findByRoadmapIdOrderBySortOrderAscIdAsc(roadmap.getId());
+		int index = indexOf(steps, step.getId(), RoadmapStep::getId);
+		if (index + 1 >= steps.size()) {
+			return "이 단계를 모두 마쳤어요.";
+		}
+		String next = steps.get(index + 1).getTitle();
+		return "이 단계를 모두 마쳤어요. 다음 단계는 " + next + endingFor(next) + ".";
+	}
+
+	/** 받침이 있으면 "이에요", 없으면 "예요". 한글이 아니면 "이에요"로 둔다. */
+	private static String endingFor(String word) {
+		char last = word.charAt(word.length() - 1);
+		if (last >= 0xAC00 && last <= 0xD7A3) {
+			return (last - 0xAC00) % 28 == 0 ? "예요" : "이에요";
+		}
+		return "이에요";
 	}
 
 	/** 생성 서비스가 저장한 직후 응답을 만들 때도 쓴다. */
 	public RoadmapResponse toResponse(Roadmap roadmap) {
+		return toResponse(roadmap, null);
+	}
+
+	private RoadmapResponse toResponse(Roadmap roadmap, String completedStepMessage) {
 		List<RoadmapStep> steps = stepRepository.findByRoadmapIdOrderBySortOrderAscIdAsc(roadmap.getId());
 		Map<Long, List<RoadmapItem>> itemsByStep = steps.isEmpty() ? Map.of()
 				: itemRepository.findByStepIdInOrderBySortOrderAscIdAsc(steps.stream().map(RoadmapStep::getId).toList())
@@ -209,7 +241,7 @@ public class RoadmapService {
 					itemResponses));
 		}
 		return new RoadmapResponse(roadmap.getId(), roadmap.getHobbyId(), roadmap.getGoalText(),
-				roadmap.getTargetDate(), stepResponses);
+				roadmap.getTargetDate(), stepResponses, completedStepMessage);
 	}
 
 	private Roadmap ownedActive(Long userId, Long roadmapId) {

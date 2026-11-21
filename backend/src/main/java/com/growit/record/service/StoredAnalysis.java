@@ -16,25 +16,31 @@ record StoredAnalysis(
 		String changeFeedback,
 		Integer promptVersion,
 		String model,
-		StoredNextAction nextAction) {
+		StoredNextAction nextAction,
+		StoredRoadmapSuggestion roadmapSuggestion) {
 
 	StoredAnalysis withTagsFeedback(String feedback) {
 		return new StoredAnalysis(title, tags, relatedRecordIds, change, feedback, changeFeedback, promptVersion,
-				model, nextAction);
+				model, nextAction, roadmapSuggestion);
 	}
 
 	StoredAnalysis withChangeFeedback(String feedback) {
 		return new StoredAnalysis(title, tags, relatedRecordIds, change, tagsFeedback, feedback, promptVersion,
-				model, nextAction);
+				model, nextAction, roadmapSuggestion);
 	}
 
 	StoredAnalysis withEditedTags(List<String> newTags) {
 		return new StoredAnalysis(title, newTags, relatedRecordIds, change, "EDITED", changeFeedback, promptVersion,
-				model, nextAction);
+				model, nextAction, roadmapSuggestion);
 	}
 
 	StoredAnalysis withNextActionState(String state) {
 		return new StoredAnalysis(title, tags, relatedRecordIds, change, tagsFeedback, changeFeedback, promptVersion,
-				model, nextAction == null ? null : nextAction.withState(state));
+				model, nextAction == null ? null : nextAction.withState(state), roadmapSuggestion);
+	}
+
+	StoredAnalysis withRoadmapAnswer(String answer) {
+		return new StoredAnalysis(title, tags, relatedRecordIds, change, tagsFeedback, changeFeedback, promptVersion,
+				model, nextAction, roadmapSuggestion == null ? null : new StoredRoadmapSuggestion(roadmapSuggestion.itemId(), answer));
 	}
 }
