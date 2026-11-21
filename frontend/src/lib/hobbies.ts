@@ -10,7 +10,8 @@ export type Hobby = {
 
 export type HobbyPatch = {
   name?: string
-  goal?: string
+  /** null을 보내면 목표를 비운다. */
+  goal?: string | null
   archived?: boolean
 }
 

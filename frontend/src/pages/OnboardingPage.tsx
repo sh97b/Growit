@@ -345,6 +345,11 @@ export function OnboardingPage() {
               <p className="text-[1.0625rem] text-ink-2">
                 하루 한 번, 정한 시간에만 알려요. 안 쓴 날을 알려주는 알림은 보내지 않아요.
               </p>
+              {Object.values(goalDrafts).some((goal) => goal.trim() !== '') ? (
+                <p className="text-sm text-ink-2">
+                  목표를 적어 두셨네요. 로드맵을 만들어 볼까요? 나중에 분야 관리에서도 만들 수 있어요.
+                </p>
+              ) : null}
 
               {/* 디자인에 없는 추가: 116 보드는 알림만 다루지만, 지시문에 따라 AI 정리 켜기도 이 단계에 포함한다. */}
               <div className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl bg-surface px-4 py-3">

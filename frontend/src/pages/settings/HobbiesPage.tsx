@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { Button } from '../../components/Button'
 import { Field } from '../../components/Field'
 import { Input } from '../../components/Input'
@@ -14,8 +15,9 @@ import { useFitPageSize, useStablePageOnResize } from '../../hooks/useFitPageSiz
 import { useIsDesktop } from '../../hooks/useIsDesktop'
 
 /** 분야 행 하나의 대략적 높이(이름+기록 수 두 줄, py-4, 테두리, rem). ListPane 개수 계산에 쓴다. */
-const ROW_HEIGHT_REM = 5
+const ROW_HEIGHT_REM = 8
 const MOBILE_PAGE_SIZE = 5
+const GOAL_MAX = 200
 
 function errorMessageOf(error: unknown): string {
   return error instanceof ApiError ? error.message : '잠시 후 다시 시도해 주세요'
@@ -24,6 +26,8 @@ function errorMessageOf(error: unknown): string {
 function HobbyRow({ hobby, onError }: { hobby: Hobby; onError: (message: string) => void }) {
   const [renaming, setRenaming] = useState(false)
   const [draftName, setDraftName] = useState(hobby.name)
+  const [editingGoal, setEditingGoal] = useState(false)
+  const [draftGoal, setDraftGoal] = useState(hobby.goal ?? '')
   const updateHobby = useUpdateHobby()
 
   function startRename() {
@@ -41,6 +45,19 @@ function HobbyRow({ hobby, onError }: { hobby: Hobby; onError: (message: string)
       { id: hobby.id, patch: { name: trimmed } },
       {
         onSuccess: () => setRenaming(false),
+        onError: (error) => onError(errorMessageOf(error)),
+      },
+    )
+  }
+
+  function saveGoal(event: FormEvent) {
+    event.preventDefault()
+    const trimmed = draftGoal.trim()
+    // 비우면 목표를 지운다(서버는 null로 보내면 비운다).
+    updateHobby.mutate(
+      { id: hobby.id, patch: { goal: trimmed === '' ? null : trimmed } },
+      {
+        onSuccess: () => setEditingGoal(false),
         onError: (error) => onError(errorMessageOf(error)),
       },
     )
@@ -72,9 +89,12 @@ function HobbyRow({ hobby, onError }: { hobby: Hobby; onError: (message: string)
     )
   }
 
+  const goal = hobby.goal?.trim() ?? ''
+
   return (
-    <div className="flex items-center gap-4 border-t border-line py-4 first:border-t-0">
-      <div className="flex flex-1 flex-col gap-0.5">
+    <div className="flex flex-col gap-2 border-t border-line py-4 first:border-t-0">
+    <div className="flex items-center gap-4">
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-card-title">{hobby.name}</span>
         <span className="text-caption-min text-ink-2">기록 {hobby.recordCount}개</span>
       </div>
@@ -93,6 +113,56 @@ function HobbyRow({ hobby, onError }: { hobby: Hobby; onError: (message: string)
       >
         {hobby.archived ? '다시 꺼내기' : '보관'}
       </Button>
+    </div>
+      {editingGoal ? (
+        <form className="flex flex-col gap-2 lg:flex-row lg:items-center" onSubmit={saveGoal}>
+          <Input
+            value={draftGoal}
+            maxLength={GOAL_MAX}
+            onChange={(event) => setDraftGoal(event.target.value)}
+            placeholder="예: 코드 전환 익숙해지기"
+            aria-label={`${hobby.name} 목표`}
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <Button type="submit" size="sm" disabled={updateHobby.isPending}>
+              저장
+            </Button>
+            <Button type="button" size="sm" variant="secondary" onClick={() => setEditingGoal(false)}>
+              취소
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <div className="flex flex-col gap-1 lg:flex-row lg:items-center lg:gap-3">
+          <p className="min-w-0 flex-1 break-words text-body-min text-ink-2">
+            {goal ? `목표: ${goal}` : '목표를 적으면 로드맵을 만들 수 있어요'}
+          </p>
+          {!hobby.archived ? (
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setDraftGoal(hobby.goal ?? '')
+                  setEditingGoal(true)
+                }}
+              >
+                {goal ? '목표 고치기' : '목표 적기'}
+              </Button>
+              {goal ? (
+                <Link
+                  to={`/hobbies/${hobby.id}/roadmap`}
+                  className="inline-flex min-h-11 items-center rounded-lg border border-line-2 bg-white px-4 text-caption-min font-medium text-ink no-underline lg:min-h-9"
+                >
+                  로드맵
+                </Link>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      )}
     </div>
   )
 }

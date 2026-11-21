@@ -16,6 +16,7 @@ import { PrivacyPage } from './pages/PrivacyPage'
 import { RecordDetailPage } from './pages/RecordDetailPage'
 import { RecordEditPage } from './pages/RecordEditPage'
 import { RecordNewPage } from './pages/RecordNewPage'
+import { RoadmapPage } from './pages/RoadmapPage'
 import { RecordSavedPage } from './pages/RecordSavedPage'
 import { RecordsPage } from './pages/RecordsPage'
 import { SignupPage } from './pages/SignupPage'
@@ -79,6 +80,7 @@ function App() {
         <Route path="/changes/metrics" element={<Navigate to="/changes" replace />} />
         <Route path="/weeks/:weekStart" element={<WeekDetailPage />} />
         <Route path="/dots/collection" element={<DotCollectionPage />} />
+        <Route path="/hobbies/:id/roadmap" element={<RoadmapPage />} />
         <Route path="/records/new" element={<RecordNewPage />} />
         <Route path="/records/:id/saved" element={<RecordSavedPage />} />
         <Route path="/records/:id" element={<RecordDetailPage />} />
