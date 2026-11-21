@@ -16,6 +16,11 @@ type UseFitPageSizeOptions = {
    * 이 개수로 즉시 목록을 그린다("개수가 확정되기 전에는 그리지 않는다"는 이전 규칙 폐기).
    */
   defaultSize?: number
+  /**
+   * 실제로 잰 행 높이(px). 값이 있으면 itemHeightRem 추정 대신 이 값을 쓴다 — 행 높이가 글꼴·줄바꿈에 따라
+   * 추정과 달라지면 마지막 행이 반만 보이는 문제가 생겨서(활동 분야 관리).
+   */
+  itemHeightPx?: number | null
 }
 
 /**
@@ -39,6 +44,7 @@ export function useFitPageSize({
   max = 12,
   debounceMs = 150,
   defaultSize,
+  itemHeightPx: measuredItemHeightPx,
 }: UseFitPageSizeOptions): { containerRef: React.RefObject<HTMLDivElement | null>; pageSize: number; ready: boolean } {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const initialSize = Math.min(max, Math.max(min, defaultSize ?? 6))
@@ -57,7 +63,7 @@ export function useFitPageSize({
       const el2 = containerRef.current
       if (!el2) return
       const rootFontSizePx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
-      const itemHeightPx = itemHeightRem * rootFontSizePx
+      const itemHeightPx = measuredItemHeightPx && measuredItemHeightPx > 0 ? measuredItemHeightPx : itemHeightRem * rootFontSizePx
       const gapPx = gapRem * rootFontSizePx
       const height = el2.clientHeight
       if (height <= 0 || itemHeightPx <= 0) {
@@ -84,7 +90,7 @@ export function useFitPageSize({
       observer.disconnect()
       if (timeoutId) clearTimeout(timeoutId)
     }
-  }, [itemHeightRem, columns, gapRem, min, max, debounceMs])
+  }, [itemHeightRem, measuredItemHeightPx, columns, gapRem, min, max, debounceMs])
 
   return { containerRef, pageSize, ready }
 }

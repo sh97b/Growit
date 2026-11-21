@@ -1,5 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import { Button } from '../../components/Button'
 import { Field } from '../../components/Field'
 import { Input } from '../../components/Input'
@@ -13,9 +12,10 @@ import type { Hobby } from '../../lib/hobbies'
 import { useCreateHobby, useHobbies, useUpdateHobby } from '../../hooks/useHobbies'
 import { useFitPageSize, useStablePageOnResize } from '../../hooks/useFitPageSize'
 import { useIsDesktop } from '../../hooks/useIsDesktop'
+import { PencilIcon } from '../../components/icons'
 
-/** 분야 행 하나의 대략적 높이(이름+기록 수 두 줄, py-4, 테두리, rem). ListPane 개수 계산에 쓴다. */
-const ROW_HEIGHT_REM = 8
+/** 실제 행 높이를 재기 전(첫 렌더)에만 쓰는 추정 높이(rem). 잰 값이 생기면 그걸 쓴다. */
+const ROW_HEIGHT_REM = 4.5
 const MOBILE_PAGE_SIZE = 5
 const GOAL_MAX = 200
 
@@ -23,12 +23,29 @@ function errorMessageOf(error: unknown): string {
   return error instanceof ApiError ? error.message : '잠시 후 다시 시도해 주세요'
 }
 
-function HobbyRow({ hobby, onError }: { hobby: Hobby; onError: (message: string) => void }) {
+function HobbyRow({
+  hobby,
+  onError,
+  onMeasure,
+}: {
+  hobby: Hobby
+  onError: (message: string) => void
+  /** 첫 행이 평소 모양일 때 실제 높이(px)를 알려 준다. 페이지당 행 수 계산에 쓴다. */
+  onMeasure?: (heightPx: number) => void
+}) {
   const [renaming, setRenaming] = useState(false)
   const [draftName, setDraftName] = useState(hobby.name)
   const [editingGoal, setEditingGoal] = useState(false)
   const [draftGoal, setDraftGoal] = useState(hobby.goal ?? '')
   const updateHobby = useUpdateHobby()
+  const rowRef = useRef<HTMLDivElement | null>(null)
+  const editing = renaming || editingGoal
+
+  // 편집 중에는 높이가 달라지니 평소 모양일 때만 잰다. 첫 행에는 위 테두리가 없어(first:border-t-0) 1px를 더한다.
+  useLayoutEffect(() => {
+    if (!onMeasure || editing || !rowRef.current) return
+    onMeasure(Math.ceil(rowRef.current.getBoundingClientRect().height) + 1)
+  })
 
   function startRename() {
     setDraftName(hobby.name)
@@ -70,9 +87,11 @@ function HobbyRow({ hobby, onError }: { hobby: Hobby; onError: (message: string)
     )
   }
 
+  const rowClass = 'flex items-center gap-2 border-t border-line py-3 first:border-t-0'
+
   if (renaming) {
     return (
-      <div className="flex items-center gap-2 border-t border-line py-4 first:border-t-0">
+      <div ref={rowRef} className={rowClass}>
         <Input
           value={draftName}
           onChange={(event) => setDraftName(event.target.value)}
@@ -89,14 +108,66 @@ function HobbyRow({ hobby, onError }: { hobby: Hobby; onError: (message: string)
     )
   }
 
+  if (editingGoal) {
+    return (
+      <form ref={rowRef as React.RefObject<HTMLFormElement | null>} className={rowClass} onSubmit={saveGoal}>
+        <Input
+          value={draftGoal}
+          maxLength={GOAL_MAX}
+          onChange={(event) => setDraftGoal(event.target.value)}
+          placeholder="예: 코드 전환 익숙해지기"
+          aria-label={`${hobby.name} 목표`}
+          autoFocus
+          className="flex-1"
+        />
+        <Button type="submit" size="sm" disabled={updateHobby.isPending}>
+          저장
+        </Button>
+        <Button type="button" size="sm" variant="secondary" onClick={() => setEditingGoal(false)}>
+          취소
+        </Button>
+      </form>
+    )
+  }
+
   const goal = hobby.goal?.trim() ?? ''
 
+  function openGoalEdit() {
+    setDraftGoal(hobby.goal ?? '')
+    setEditingGoal(true)
+  }
+
   return (
-    <div className="flex flex-col gap-2 border-t border-line py-4 first:border-t-0">
-    <div className="flex items-center gap-4">
+    <div ref={rowRef} className={`${rowClass} gap-4`}>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="text-card-title">{hobby.name}</span>
-        <span className="text-caption-min text-ink-2">기록 {hobby.recordCount}개</span>
+        <span className="truncate text-card-title">{hobby.name}</span>
+        <div className="flex min-w-0 items-center gap-1 text-caption-min text-ink-2">
+          <span className="min-w-0 truncate">
+            기록 {hobby.recordCount}개{goal ? ` · 목표: ${goal}` : ''}
+          </span>
+          {!hobby.archived && goal ? (
+            <button
+              type="button"
+              aria-label="목표 고치기"
+              onClick={openGoalEdit}
+              className="-my-3 inline-flex h-11 w-11 flex-none items-center justify-center rounded-full text-ink-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+            >
+              <PencilIcon width={14} height={14} />
+            </button>
+          ) : null}
+          {!hobby.archived && !goal ? (
+            <>
+              <span aria-hidden="true">·</span>
+              <button
+                type="button"
+                onClick={openGoalEdit}
+                className="-my-3 inline-flex min-h-11 flex-none items-center rounded-full px-1 text-caption-min font-medium text-base-ink underline-offset-2 hover:underline focus-visible:underline"
+              >
+                목표 적기
+              </button>
+            </>
+          ) : null}
+        </div>
       </div>
       {!hobby.archived ? (
         <Button type="button" variant="secondary" size="sm" onClick={startRename}>
@@ -113,56 +184,6 @@ function HobbyRow({ hobby, onError }: { hobby: Hobby; onError: (message: string)
       >
         {hobby.archived ? '다시 꺼내기' : '보관'}
       </Button>
-    </div>
-      {editingGoal ? (
-        <form className="flex flex-col gap-2 lg:flex-row lg:items-center" onSubmit={saveGoal}>
-          <Input
-            value={draftGoal}
-            maxLength={GOAL_MAX}
-            onChange={(event) => setDraftGoal(event.target.value)}
-            placeholder="예: 코드 전환 익숙해지기"
-            aria-label={`${hobby.name} 목표`}
-            autoFocus
-          />
-          <div className="flex gap-2">
-            <Button type="submit" size="sm" disabled={updateHobby.isPending}>
-              저장
-            </Button>
-            <Button type="button" size="sm" variant="secondary" onClick={() => setEditingGoal(false)}>
-              취소
-            </Button>
-          </div>
-        </form>
-      ) : (
-        <div className="flex flex-col gap-1 lg:flex-row lg:items-center lg:gap-3">
-          <p className="min-w-0 flex-1 break-words text-body-min text-ink-2">
-            {goal ? `목표: ${goal}` : '목표를 적으면 로드맵을 만들 수 있어요'}
-          </p>
-          {!hobby.archived ? (
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  setDraftGoal(hobby.goal ?? '')
-                  setEditingGoal(true)
-                }}
-              >
-                {goal ? '목표 고치기' : '목표 적기'}
-              </Button>
-              {goal ? (
-                <Link
-                  to={`/hobbies/${hobby.id}/roadmap`}
-                  className="inline-flex min-h-11 items-center rounded-lg border border-line-2 bg-white px-4 text-caption-min font-medium text-ink no-underline lg:min-h-9"
-                >
-                  로드맵
-                </Link>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      )}
     </div>
   )
 }
@@ -188,11 +209,14 @@ export function HobbiesPage() {
   const [tab, setTab] = useState<'active' | 'archived'>('active')
   const [page, setPage] = useState(0)
   const isDesktop = useIsDesktop()
+  // 첫 행을 실제로 잰 높이. 이 값으로 한 페이지에 완전히 들어가는 행 수만 보여 줘서 잘린 행이 없게 한다.
+  const [rowHeightPx, setRowHeightPx] = useState<number | null>(null)
 
   // S1 A단계: ready로 렌더를 막지 않는다 — 기본값(또는 직전 값)으로 즉시 그리고, 측정되면 보정한다.
   const { containerRef, pageSize: fitPageSize } = useFitPageSize({
     itemHeightRem: ROW_HEIGHT_REM,
-    min: 3,
+    itemHeightPx: rowHeightPx,
+    min: 1,
     max: 20,
     defaultSize: 6,
   })
@@ -298,8 +322,13 @@ export function HobbiesPage() {
             </p>
           ) : (
             <div className="flex flex-col">
-              {pageItems.map((hobby) => (
-                <HobbyRow key={hobby.id} hobby={hobby} onError={setErrorMessage} />
+              {pageItems.map((hobby, index) => (
+                <HobbyRow
+                  key={hobby.id}
+                  hobby={hobby}
+                  onError={setErrorMessage}
+                  onMeasure={index === 0 ? setRowHeightPx : undefined}
+                />
               ))}
             </div>
           )}
