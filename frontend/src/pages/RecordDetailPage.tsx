@@ -9,6 +9,7 @@ import { EvidenceChip } from '../components/EvidenceChip'
 import { FeedbackRow } from '../components/FeedbackRow'
 import { Loading } from '../components/Loading'
 import { NextActionStatus } from '../components/NextActionStatus'
+import { RoadmapSuggestionCard } from '../components/RoadmapSuggestionCard'
 import { Note } from '../components/Note'
 import { Split } from '../components/PageLayout'
 import { Tag } from '../components/Tag'
@@ -318,6 +319,7 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
     <div className="flex flex-col gap-3">
       {analysis.title ? <h2 className="text-card-title">{analysis.title}</h2> : null}
       <ChangeBlock record={record} analysis={analysis} />
+      <RoadmapSuggestionCard record={record} />
       {analysis.nextAction ? <NextActionStatus record={record} action={analysis.nextAction} /> : null}
 
       <AiLabel>AI 정리</AiLabel>

@@ -8,6 +8,7 @@ import { ChangeLabel, ChangeTexts } from './ChangeTexts'
 import { NextActionCard } from './NextActionCard'
 import { Split } from './PageLayout'
 import { RecentWeekStrip } from './RecentWeekStrip'
+import { RoadmapSuggestionCard } from './RoadmapSuggestionCard'
 import { RecordPairCards } from './RecordPairCards'
 import { CheckIcon } from './icons'
 import { formatMonthDay } from '../lib/date'
@@ -149,6 +150,8 @@ export function RecordSavedPanel({
 
         {progressBlock ?? changeSentenceBlock}
 
+        <RoadmapSuggestionCard record={record} />
+
         {nextActionInMain}
 
         {!previousQuery.isLoading || change ? (
@@ -192,6 +195,8 @@ export function RecordSavedPanel({
 
       {/* 분석이 진행 중이면 첫 기록이어도 진행 카드를, 끝나면 결과 카드를 먼저 보이고 첫 기록 안내는 그 아래에 둔다. */}
       {progressBlock ?? changeSentenceBlock}
+
+      <RoadmapSuggestionCard record={record} />
 
       <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-7">
         <AiLabel>첫 기록이에요</AiLabel>

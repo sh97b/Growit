@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  answerRoadmapSuggestion,
   deleteRecord,
   editAnalysisTags,
   fetchRecord,
@@ -108,6 +109,17 @@ export function useSubmitAnalysisFeedback() {
       }
     },
     onSuccess: apply,
+  })
+}
+
+export function useAnswerRoadmapSuggestion() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ recordId, value }: { recordId: number; value: 'CHECKED' | 'DISMISSED' }) =>
+      answerRoadmapSuggestion(recordId, value),
+    onSuccess: (_data, { recordId }) => {
+      queryClient.invalidateQueries({ queryKey: ['records', recordId] })
+    },
   })
 }
 

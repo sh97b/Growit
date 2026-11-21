@@ -12,6 +12,9 @@ export type RecordRelated = { id: number; recordDate: string; content: string }
 /** text(구체적 변화)와 support(응원·위로)는 둘 중 하나가 없을 수 있다. 예전 결과는 text만 있다. */
 export type RecordAnalysisChange = { text: string | null; support?: string | null; evidence: RecordRelated }
 
+/** 오늘 기록이 로드맵 항목을 해 본 것으로 보일 때의 제안. 답하거나 항목이 체크되면 사라진다. */
+export type RecordRoadmapSuggestion = { itemId: number; text: string; stepTitle: string }
+
 export type RecordAnalysis = {
   title: string | null
   tags: string[]
@@ -21,6 +24,8 @@ export type RecordAnalysis = {
   changeFeedback: ChangeFeedback | null
   /** 예전 결과에는 없다. 없으면 화면에 내지 않는다. */
   nextAction?: NextAction | null
+  /** 로드맵이 없거나 제안이 없으면 비어 있다. */
+  roadmapSuggestion?: RecordRoadmapSuggestion | null
 }
 
 /** 기록 직후의 "다음에 해 볼 일". state가 null이면 아직 반응이 없는 제안이다. */
@@ -142,6 +147,13 @@ export function fetchLatestNextAction(hobbyId?: number | null) {
 /** value가 null이면 상태를 해제한다(아직 안 했어요). */
 export function setNextActionState(recordId: number, value: NextActionState) {
   return apiRequest<LatestNextAction>(`/api/records/${recordId}/next-action/state`, {
+    method: 'PUT',
+    body: { value },
+  })
+}
+
+export function answerRoadmapSuggestion(recordId: number, value: 'CHECKED' | 'DISMISSED') {
+  return apiRequest<void>(`/api/records/${recordId}/roadmap-suggestion/answer`, {
     method: 'PUT',
     body: { value },
   })

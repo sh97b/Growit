@@ -57,6 +57,7 @@ export function RoadmapPage() {
   const [targetDraft, setTargetDraft] = useState('')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [confirmingRenew, setConfirmingRenew] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
 
   const backLink = (
     <Link
@@ -158,6 +159,7 @@ export function RoadmapPage() {
         onCancelRenew={() => setConfirmingRenew(false)}
         onRenew={renew}
         onError={setErrorMessage}
+        onNotice={setNotice}
       />
     )
   }
@@ -167,6 +169,7 @@ export function RoadmapPage() {
       {backLink}
       <h1 className="text-page-title">{title}</h1>
       {errorMessage ? <Note variant="sand">{errorMessage}</Note> : null}
+      {notice ? <Note variant="calm">{notice}</Note> : null}
       {body}
       <p className="text-caption-min leading-[1.7] text-ink-2">{NOTICE}</p>
     </Full>
@@ -181,6 +184,7 @@ function RoadmapBody({
   onCancelRenew,
   onRenew,
   onError,
+  onNotice,
 }: {
   roadmap: Roadmap
   hobbyId: number
@@ -189,6 +193,7 @@ function RoadmapBody({
   onCancelRenew: () => void
   onRenew: () => void
   onError: (message: string | null) => void
+  onNotice: (message: string | null) => void
 }) {
   const updateTarget = useUpdateRoadmapTarget(hobbyId)
   const addStep = useAddStep(hobbyId)
@@ -254,6 +259,7 @@ function RoadmapBody({
             expanded={open[step.id] ?? step.id === currentId}
             onToggle={() => setOpen((prev) => ({ ...prev, [step.id]: !(prev[step.id] ?? step.id === currentId) }))}
             onError={onError}
+            onNotice={onNotice}
           />
         ))}
       </ol>
@@ -308,6 +314,7 @@ function StepCard({
   expanded,
   onToggle,
   onError,
+  onNotice,
 }: {
   step: RoadmapStep
   number: number
@@ -318,6 +325,7 @@ function StepCard({
   expanded: boolean
   onToggle: () => void
   onError: (message: string | null) => void
+  onNotice: (message: string | null) => void
 }) {
   const updateStep = useUpdateStep(hobbyId)
   const deleteStep = useDeleteStep(hobbyId)
@@ -430,6 +438,7 @@ function StepCard({
                 isFirst={index === 0}
                 isLast={index === step.items.length - 1}
                 onError={onError}
+                onNotice={onNotice}
               />
             ))}
           </ul>
@@ -520,12 +529,14 @@ function ItemRow({
   isFirst,
   isLast,
   onError,
+  onNotice,
 }: {
   item: RoadmapItem
   hobbyId: number
   isFirst: boolean
   isLast: boolean
   onError: (message: string | null) => void
+  onNotice: (message: string | null) => void
 }) {
   const setDone = useSetItemDone(hobbyId)
   const updateItem = useUpdateItem(hobbyId)
@@ -598,7 +609,14 @@ function ItemRow({
           disabled={setDone.isPending}
           onChange={(event) => {
             onError(null)
-            setDone.mutate({ id: item.id, done: event.target.checked }, { onError: (error) => onError(errorMessageOf(error)) })
+            onNotice(null)
+            setDone.mutate(
+              { id: item.id, done: event.target.checked },
+              {
+                onSuccess: (roadmap) => onNotice(roadmap.completedStepMessage ?? null),
+                onError: (error) => onError(errorMessageOf(error)),
+              },
+            )
           }}
           className="h-5 w-5 flex-none accent-[var(--color-base)]"
         />

@@ -23,6 +23,8 @@ export type Roadmap = {
   goalText: string
   targetDate: string | null
   steps: RoadmapStep[]
+  /** 항목을 방금 체크해 그 단계가 모두 끝났을 때만 있는 한 줄(그 응답에서만 쓴다). */
+  completedStepMessage?: string | null
 }
 
 export type MoveDirection = 'UP' | 'DOWN'
