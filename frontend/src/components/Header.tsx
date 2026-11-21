@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { AccountMenu } from './AccountMenu'
-import { isReviewPath } from './nav-items'
+import { isReviewPath, isRoadmapPath } from './nav-items'
 import { PlusIcon } from './icons'
 import growitLogo from '../assets/brand/growit-logo.svg'
 
@@ -9,6 +9,7 @@ export function Header() {
 
   const homeActive = location.pathname === '/'
   const reviewActive = isReviewPath(location.pathname)
+  const roadmapActive = isRoadmapPath(location.pathname)
 
   return (
     <header className="hidden h-[4.25rem] flex-none border-b border-line bg-paper lg:block">
@@ -26,6 +27,16 @@ export function Header() {
             ].join(' ')}
           >
             홈
+          </Link>
+          <Link
+            to="/roadmap"
+            aria-current={roadmapActive ? 'page' : undefined}
+            className={[
+              'flex items-center border-b-2 text-body-min font-medium no-underline',
+              roadmapActive ? 'border-ink font-semibold text-ink' : 'border-transparent text-ink-2',
+            ].join(' ')}
+          >
+            로드맵
           </Link>
           <Link
             to="/records"

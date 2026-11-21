@@ -108,6 +108,17 @@ export function ChevronDownIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+/** 로드맵: 길 위에 놓인 점 세 개. */
+export function RoadmapIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <circle cx="6" cy="18" r="2" />
+      <circle cx="18" cy="6" r="2" />
+      <path d="M8 18h6a3 3 0 0 0 0-6h-4a3 3 0 0 1 0-6h6" />
+    </Icon>
+  )
+}
+
 export function PencilIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>

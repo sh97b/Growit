@@ -1,12 +1,14 @@
-import { useState, type FormEvent } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useState, type FormEvent, type ReactNode } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { Spinner } from '../components/AiProgress'
 import { Button } from '../components/Button'
 import { Full } from '../components/PageLayout'
+import { HobbyChipRow } from '../components/HobbyChipRow'
 import { Input } from '../components/Input'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
-import { CheckIcon, ChevronDownIcon, ChevronLeftIcon, PencilIcon, PlusIcon, TrashIcon, XIcon } from '../components/icons'
+import { CheckIcon, ChevronDownIcon, PencilIcon, PlusIcon, TrashIcon, XIcon } from '../components/icons'
 import {
   useAddItem,
   useAddStep,
@@ -20,7 +22,8 @@ import {
   useUpdateRoadmapTarget,
   useUpdateStep,
 } from '../hooks/useRoadmap'
-import { useHobbies } from '../hooks/useHobbies'
+import { useHobbies, useUpdateHobby, type Hobby } from '../hooks/useHobbies'
+import { fetchRecords } from '../lib/records'
 import { ApiError } from '../lib/api'
 import { formatYearMonthDay, todayLocalDate } from '../lib/date'
 import type { Roadmap, RoadmapItem, RoadmapStep } from '../lib/roadmap'
@@ -46,11 +49,149 @@ function currentStepId(steps: RoadmapStep[]): number | null {
   return steps.find((step) => step.items.some((item) => !item.done))?.id ?? null
 }
 
-export function RoadmapPage() {
+const STORED_HOBBY_KEY = 'growit.roadmap.hobbyId'
+
+function readStoredHobbyId(): number | null {
+  try {
+    const value = Number(localStorage.getItem(STORED_HOBBY_KEY))
+    return Number.isFinite(value) && value > 0 ? value : null
+  } catch {
+    return null
+  }
+}
+
+function writeStoredHobbyId(id: number) {
+  try {
+    localStorage.setItem(STORED_HOBBY_KEY, String(id))
+  } catch {
+    // 저장소를 못 쓰는 환경(사생활 보호 창 등)에서는 기억만 포기한다.
+  }
+}
+
+/** 예전 주소(/hobbies/:id/roadmap)는 새 주소로 보내고 그 분야를 고른 채로 연다. */
+export function RoadmapLegacyRedirect() {
   const { id } = useParams()
-  const hobbyId = Number(id)
-  const { data: hobbies } = useHobbies(true)
-  const hobby = hobbies?.find((item) => item.id === hobbyId)
+  return <Navigate to={`/roadmap?hobby=${encodeURIComponent(id ?? '')}`} replace />
+}
+
+/**
+ * 상단 메뉴의 로드맵 화면. 분야는 기록 작성 화면과 같은 칩 줄로 고르고, 마지막으로 고른 분야를 기억한다
+ * (처음에는 가장 최근에 기록한 분야). 분야 하나의 화면은 HobbyRoadmap이 상태별로 그린다.
+ */
+export function RoadmapPage() {
+  const [searchParams] = useSearchParams()
+  const { data: hobbies, isLoading } = useHobbies(false)
+  const recentQuery = useQuery({ queryKey: ['records', 'recent'], queryFn: () => fetchRecords({ size: 1 }) })
+  const [pickedId, setPickedId] = useState<number | null>(() => {
+    const fromUrl = Number(searchParams.get('hobby'))
+    return Number.isFinite(fromUrl) && fromUrl > 0 ? fromUrl : readStoredHobbyId()
+  })
+
+  const list = hobbies ?? []
+  const recentHobbyId = recentQuery.data?.items[0]?.hobbyId ?? null
+  const waitingForRecent = pickedId == null && recentQuery.isLoading
+  const selected =
+    list.find((hobby) => hobby.id === pickedId) ??
+    list.find((hobby) => hobby.id === recentHobbyId) ??
+    list[0] ??
+    null
+
+  function pick(id: number) {
+    setPickedId(id)
+    writeStoredHobbyId(id)
+  }
+
+  let body
+  if (isLoading || waitingForRecent) {
+    body = <Loading />
+  } else if (!selected) {
+    body = (
+      <div className="flex flex-col items-start gap-3">
+        <p className="text-body-min text-ink-2">분야를 먼저 추가해 주세요</p>
+        <Link
+          to="/settings/hobbies"
+          className="inline-flex min-h-11 items-center rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink no-underline"
+        >
+          활동 분야 관리
+        </Link>
+      </div>
+    )
+  } else {
+    body = <HobbyRoadmap key={selected.id} hobby={selected} />
+  }
+
+  return (
+    <Full>
+      <h1 className="text-page-title">로드맵</h1>
+      {selected ? <HobbyChipRow hobbies={list} selectedId={selected.id} onSelect={pick} /> : null}
+      {body}
+    </Full>
+  )
+}
+
+/** 목표 한 줄과 ✎ 수정. 비우고 저장하면 목표를 지운다. */
+function GoalLine({ hobby, onError }: { hobby: Hobby; onError: (message: string | null) => void }) {
+  const updateHobby = useUpdateHobby()
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(hobby.goal ?? '')
+  const goal = hobby.goal?.trim() ?? ''
+
+  function save(event: FormEvent) {
+    event.preventDefault()
+    const trimmed = draft.trim()
+    onError(null)
+    updateHobby.mutate(
+      { id: hobby.id, patch: { goal: trimmed === '' ? null : trimmed } },
+      { onSuccess: () => setEditing(false), onError: (error) => onError(errorMessageOf(error)) },
+    )
+  }
+
+  if (editing || !goal) {
+    return (
+      <form className="flex flex-col gap-2 lg:flex-row lg:items-center" onSubmit={save}>
+        <Input
+          value={draft}
+          maxLength={200}
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder="예: 코드 전환 익숙해지기"
+          aria-label={`${hobby.name} 목표`}
+          autoFocus={editing}
+          className="lg:max-w-md"
+        />
+        <div className="flex gap-2">
+          <Button type="submit" disabled={updateHobby.isPending || (!goal && !draft.trim())}>
+            저장
+          </Button>
+          {editing ? (
+            <Button type="button" variant="secondary" onClick={() => setEditing(false)}>
+              취소
+            </Button>
+          ) : null}
+        </div>
+      </form>
+    )
+  }
+
+  return (
+    <div className="flex items-start gap-1">
+      <p className="min-w-0 flex-1 break-words font-serif text-lg leading-[1.55] lg:text-[1.5rem]">{goal}</p>
+      <button
+        type="button"
+        aria-label="목표 고치기"
+        className={iconButton}
+        onClick={() => {
+          setDraft(hobby.goal ?? '')
+          setEditing(true)
+        }}
+      >
+        <PencilIcon width={18} height={18} />
+      </button>
+    </div>
+  )
+}
+
+function HobbyRoadmap({ hobby }: { hobby: Hobby }) {
+  const hobbyId = hobby.id
   const { data: roadmap, isLoading, isError } = useRoadmap(hobbyId)
   const create = useCreateRoadmap(hobbyId)
   const archive = useArchiveRoadmap(hobbyId)
@@ -59,25 +200,7 @@ export function RoadmapPage() {
   const [confirmingRenew, setConfirmingRenew] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
 
-  const backLink = (
-    <Link
-      to="/settings/hobbies"
-      className="inline-flex min-h-11 w-fit items-center gap-1 rounded-full px-2 -mx-2 text-sm font-medium text-base-ink no-underline hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
-    >
-      <ChevronLeftIcon width={16} height={16} />
-      활동 분야 관리
-    </Link>
-  )
-
-  if (!Number.isFinite(hobbyId) || isError) {
-    return (
-      <Full>
-        {backLink}
-        <Note variant="sand">로드맵을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</Note>
-      </Full>
-    )
-  }
-
+  // 로드맵 만들기는 이 버튼을 눌렀을 때만 요청한다(화면을 열 때 자동으로 만들지 않는다).
   function generate(targetDate: string | null) {
     setErrorMessage(null)
     create.mutate(targetDate, { onError: (error) => setErrorMessage(errorMessageOf(error)) })
@@ -93,23 +216,31 @@ export function RoadmapPage() {
     })
   }
 
-  const title = hobby ? `${hobby.name} 로드맵` : '로드맵'
-  const goal = hobby?.goal?.trim() ?? ''
+  function archiveOnly() {
+    if (!roadmap) return
+    setErrorMessage(null)
+    setConfirmingRenew(false)
+    archive.mutate(roadmap.id, { onError: (error) => setErrorMessage(errorMessageOf(error)) })
+  }
+
+  const goal = hobby.goal?.trim() ?? ''
 
   let body
-  if (isLoading || (!hobbies && !roadmap)) {
+  if (isError) {
+    body = <Note variant="sand">로드맵을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</Note>
+  } else if (isLoading) {
     body = <Loading />
   } else if (create.isPending || archive.isPending) {
     body = (
-      <div role="status" aria-live="polite" className="flex flex-col gap-3.5 rounded-2xl bg-surface p-5">
-        <p className="flex items-center gap-2.5 text-[1rem] font-medium leading-[1.5] text-ink">
+      <div role="status" aria-live="polite" className="flex flex-col gap-4 rounded-2xl bg-surface p-6">
+        <p className="flex items-center gap-3 text-[1.125rem] font-medium leading-[1.5] text-ink">
           <Spinner className="text-base-ink" />
           AI가 로드맵을 만들고 있어요
         </p>
         {[0, 1, 2].map((index) => (
           <div
             key={index}
-            className={`h-3.5 animate-pulse rounded-full bg-rest motion-reduce:animate-none ${index === 0 ? 'w-[80%]' : 'w-full'}`}
+            className={`h-4 animate-pulse rounded-full bg-rest motion-reduce:animate-none ${index === 0 ? 'w-[80%]' : 'w-full'}`}
           />
         ))}
       </div>
@@ -117,12 +248,9 @@ export function RoadmapPage() {
   } else if (!roadmap) {
     body = (
       <div className="flex flex-col gap-4">
+        <GoalLine hobby={hobby} onError={setErrorMessage} />
         {goal ? (
           <>
-            <p className="font-serif text-lg leading-[1.55]">{goal}</p>
-            <p className="text-body-min text-ink-2">
-              이 목표까지 가는 길을 단계로 나눠 드려요. 날짜별 일정은 만들지 않아요.
-            </p>
             <label className="flex max-w-xs flex-col gap-1.5 text-sm font-medium">
               목표일(선택)
               <Input
@@ -135,17 +263,10 @@ export function RoadmapPage() {
             <Button type="button" className="w-fit" onClick={() => generate(targetDraft || null)}>
               {errorMessage ? '다시 시도' : '로드맵 만들기'}
             </Button>
+            <p className="text-body-min text-ink-2">AI가 목표까지의 단계를 제안해요. 단계와 할 일은 마음대로 고칠 수 있어요</p>
           </>
         ) : (
-          <>
-            <p className="text-body-min text-ink-2">목표를 적으면 로드맵을 만들 수 있어요.</p>
-            <Link
-              to="/settings/hobbies"
-              className="inline-flex min-h-11 w-fit items-center rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink no-underline"
-            >
-              분야 관리에서 목표 적기
-            </Link>
-          </>
+          <p className="text-body-min text-ink-2">목표를 적으면 로드맵을 만들 수 있어요.</p>
         )}
       </div>
     )
@@ -154,10 +275,13 @@ export function RoadmapPage() {
       <RoadmapBody
         roadmap={roadmap}
         hobbyId={hobbyId}
+        goalNode={<GoalLine hobby={hobby} onError={setErrorMessage} />}
+        goalChanged={goal !== '' && goal !== roadmap.goalText}
         confirmingRenew={confirmingRenew}
         onAskRenew={() => setConfirmingRenew(true)}
         onCancelRenew={() => setConfirmingRenew(false)}
         onRenew={renew}
+        onArchiveOnly={archiveOnly}
         onError={setErrorMessage}
         onNotice={setNotice}
       />
@@ -165,33 +289,38 @@ export function RoadmapPage() {
   }
 
   return (
-    <Full>
-      {backLink}
-      <h1 className="text-page-title">{title}</h1>
+    <div className="flex flex-col gap-5">
       {errorMessage ? <Note variant="sand">{errorMessage}</Note> : null}
       {notice ? <Note variant="calm">{notice}</Note> : null}
       {body}
       <p className="text-caption-min leading-[1.7] text-ink-2">{NOTICE}</p>
-    </Full>
+    </div>
   )
 }
 
 function RoadmapBody({
   roadmap,
   hobbyId,
+  goalNode,
+  goalChanged,
   confirmingRenew,
   onAskRenew,
   onCancelRenew,
   onRenew,
+  onArchiveOnly,
   onError,
   onNotice,
 }: {
   roadmap: Roadmap
   hobbyId: number
+  goalNode: ReactNode
+  /** 분야의 목표가 이 로드맵을 만들 때의 목표와 달라졌을 때 true. */
+  goalChanged: boolean
   confirmingRenew: boolean
   onAskRenew: () => void
   onCancelRenew: () => void
   onRenew: () => void
+  onArchiveOnly: () => void
   onError: (message: string | null) => void
   onNotice: (message: string | null) => void
 }) {
@@ -224,7 +353,12 @@ function RoadmapBody({
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-3">
-        <p className="font-serif text-lg leading-[1.55] lg:text-[1.5rem]">{roadmap.goalText}</p>
+        {goalNode}
+        {goalChanged ? (
+          <p className="text-caption-min text-ink-2">
+            이 로드맵은 &lsquo;{roadmap.goalText}&rsquo; 목표로 만들었어요. 새로 만들면 지금 목표로 다시 제안해요.
+          </p>
+        ) : null}
         <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-4">
           <label className="flex items-center gap-2 text-sm text-ink-2">
             목표일
@@ -285,9 +419,12 @@ function RoadmapBody({
         {confirmingRenew ? (
           <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
             <p className="text-body-min">지금 로드맵은 보관하고 새로 만들까요?</p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button type="button" onClick={onRenew}>
                 새로 만들기
+              </Button>
+              <Button type="button" variant="secondary" onClick={onArchiveOnly}>
+                보관만 하기
               </Button>
               <Button type="button" variant="secondary" onClick={onCancelRenew}>
                 그대로 둘게요

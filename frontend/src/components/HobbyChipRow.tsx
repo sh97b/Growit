@@ -27,8 +27,9 @@ export function HobbyChipRow({
   hobbies: Hobby[]
   selectedId: number
   onSelect: (id: number) => void
-  addOpen: boolean
-  onToggleAdd: () => void
+  /** 둘 다 없으면 "+ 분야 추가" 칩을 그리지 않는다(분야만 고르는 화면). */
+  addOpen?: boolean
+  onToggleAdd?: () => void
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null)
   const lastHoverScrollRef = useRef(0)
@@ -112,14 +113,16 @@ export function HobbyChipRow({
             {hobby.name}
           </button>
         ))}
-        <button
-          type="button"
-          aria-expanded={addOpen}
-          onClick={onToggleAdd}
-          className="inline-flex min-h-11 flex-none items-center justify-center rounded-lg border border-dashed border-line-2 bg-white px-4 text-sm font-medium whitespace-nowrap text-ink-2"
-        >
-          + 분야 추가
-        </button>
+        {onToggleAdd ? (
+          <button
+            type="button"
+            aria-expanded={addOpen ?? false}
+            onClick={onToggleAdd}
+            className="inline-flex min-h-11 flex-none items-center justify-center rounded-lg border border-dashed border-line-2 bg-white px-4 text-sm font-medium whitespace-nowrap text-ink-2"
+          >
+            + 분야 추가
+          </button>
+        ) : null}
         </div>
       </div>
       {canLeft ? (
