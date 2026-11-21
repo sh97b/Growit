@@ -8,6 +8,9 @@ import com.growit.hobby.dto.HobbyUpdateRequest;
 import com.growit.hobby.entity.Hobby;
 import com.growit.hobby.repository.HobbyRepository;
 import com.growit.record.repository.ActivityRecordRepository;
+import com.growit.roadmap.repository.RoadmapItemRepository;
+import com.growit.roadmap.repository.RoadmapRepository;
+import com.growit.roadmap.repository.RoadmapStepRepository;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -19,10 +22,18 @@ public class HobbyService {
 
 	private final HobbyRepository hobbyRepository;
 	private final ActivityRecordRepository activityRecordRepository;
+	private final RoadmapRepository roadmapRepository;
+	private final RoadmapStepRepository roadmapStepRepository;
+	private final RoadmapItemRepository roadmapItemRepository;
 
-	public HobbyService(HobbyRepository hobbyRepository, ActivityRecordRepository activityRecordRepository) {
+	public HobbyService(HobbyRepository hobbyRepository, ActivityRecordRepository activityRecordRepository,
+			RoadmapRepository roadmapRepository, RoadmapStepRepository roadmapStepRepository,
+			RoadmapItemRepository roadmapItemRepository) {
 		this.hobbyRepository = hobbyRepository;
 		this.activityRecordRepository = activityRecordRepository;
+		this.roadmapRepository = roadmapRepository;
+		this.roadmapStepRepository = roadmapStepRepository;
+		this.roadmapItemRepository = roadmapItemRepository;
 	}
 
 	public List<HobbyResponse> list(Long userId, boolean includeArchived) {
@@ -78,6 +89,10 @@ public class HobbyService {
 		if (activityRecordRepository.existsByHobbyId(hobby.getId())) {
 			throw new ApiException(ErrorCode.HOBBY_HAS_RECORDS, "기록이 있는 분야는 삭제할 수 없어요");
 		}
+		// 로드맵(항목 → 단계 → 로드맵) 순서로 먼저 지워야 외래 키에 걸리지 않는다.
+		roadmapItemRepository.deleteByHobbyId(hobby.getId());
+		roadmapStepRepository.deleteByHobbyId(hobby.getId());
+		roadmapRepository.deleteByHobbyId(hobby.getId());
 		hobbyRepository.delete(hobby);
 	}
 

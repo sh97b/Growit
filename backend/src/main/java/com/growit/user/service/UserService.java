@@ -22,6 +22,9 @@ import com.growit.user.dto.DeleteAccountRequest;
 import com.growit.user.dto.MeResponse;
 import com.growit.user.dto.UpdateMeRequest;
 import com.growit.user.entity.User;
+import com.growit.roadmap.repository.RoadmapItemRepository;
+import com.growit.roadmap.repository.RoadmapRepository;
+import com.growit.roadmap.repository.RoadmapStepRepository;
 import com.growit.user.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -53,6 +56,9 @@ public class UserService {
 	private final DotProgressRepository dotProgressRepository;
 	private final DotGoalRepository dotGoalRepository;
 	private final CustomFeelingRepository customFeelingRepository;
+	private final RoadmapRepository roadmapRepository;
+	private final RoadmapStepRepository roadmapStepRepository;
+	private final RoadmapItemRepository roadmapItemRepository;
 
 	public UserService(UserRepository userRepository, CurrentUserProvider currentUserProvider,
 			PasswordEncoder passwordEncoder, PasswordPolicy passwordPolicy, LoginAttemptLimiter loginAttemptLimiter,
@@ -61,7 +67,8 @@ public class UserService {
 			NotificationSettingsRepository notificationSettingsRepository,
 			PushSubscriptionRepository pushSubscriptionRepository, SocialAccountRepository socialAccountRepository,
 			DotProgressRepository dotProgressRepository, DotGoalRepository dotGoalRepository,
-			CustomFeelingRepository customFeelingRepository) {
+			CustomFeelingRepository customFeelingRepository, RoadmapRepository roadmapRepository,
+			RoadmapStepRepository roadmapStepRepository, RoadmapItemRepository roadmapItemRepository) {
 		this.userRepository = userRepository;
 		this.currentUserProvider = currentUserProvider;
 		this.passwordEncoder = passwordEncoder;
@@ -78,6 +85,9 @@ public class UserService {
 		this.dotProgressRepository = dotProgressRepository;
 		this.dotGoalRepository = dotGoalRepository;
 		this.customFeelingRepository = customFeelingRepository;
+		this.roadmapRepository = roadmapRepository;
+		this.roadmapStepRepository = roadmapStepRepository;
+		this.roadmapItemRepository = roadmapItemRepository;
 	}
 
 	public MeResponse me() {
@@ -155,6 +165,9 @@ public class UserService {
 		aiLogRepository.deleteByUserId(userId);
 		dotProgressRepository.deleteByUserId(userId);
 		dotGoalRepository.deleteByUserId(userId);
+		roadmapItemRepository.deleteByUserId(userId);
+		roadmapStepRepository.deleteByUserId(userId);
+		roadmapRepository.deleteByUserId(userId);
 		activityRecordRepository.deleteByUserId(userId);
 		customFeelingRepository.deleteByUserId(userId);
 		hobbyRepository.deleteByUserId(userId);

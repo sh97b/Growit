@@ -77,6 +77,15 @@ class UserServiceTest {
 	private DotGoalRepository dotGoalRepository;
 
 	@Autowired
+	private com.growit.roadmap.repository.RoadmapRepository roadmapRepository;
+
+	@Autowired
+	private com.growit.roadmap.repository.RoadmapStepRepository roadmapStepRepository;
+
+	@Autowired
+	private com.growit.roadmap.repository.RoadmapItemRepository roadmapItemRepository;
+
+	@Autowired
 	private DotProgressRepository dotProgressRepository;
 
 	@Autowired
@@ -110,7 +119,7 @@ class UserServiceTest {
 				new LoginAttemptLimiter(Clock.systemUTC()), jwtTokenProvider, aiResultRepository, aiLogRepository,
 				activityRecordRepository, hobbyRepository, notificationSettingsRepository, pushSubscriptionRepository,
 				socialAccountRepository, dotProgressRepository, dotGoalRepository,
-				customFeelingRepository);
+				customFeelingRepository, roadmapRepository, roadmapStepRepository, roadmapItemRepository);
 	}
 
 	@Test
@@ -301,6 +310,37 @@ class UserServiceTest {
 		assertThat(dotProgressRepository.countByGoalId(myGoalId)).isZero();
 		assertThat(dotGoalRepository.findById(otherGoalId)).isPresent();
 		assertThat(dotProgressRepository.countByGoalId(otherGoalId)).isEqualTo(1);
+	}
+
+	@Test
+	void deleteAccount_removesRoadmapsInForeignKeyOrder_andKeepsOthers() {
+		Long userId = createUserWithPassword("growit_user", CURRENT_PASSWORD);
+		Long otherId = userRepository
+				.save(new User("someone_else2@example.com", passwordEncoder.encode(CURRENT_PASSWORD), "other_user2"))
+				.getId();
+		Long myRoadmap = newRoadmap(userId);
+		Long otherRoadmap = newRoadmap(otherId);
+
+		userService(userId).deleteAccount(new DeleteAccountRequest(CURRENT_PASSWORD, null));
+		entityManager.flush();
+		entityManager.clear();
+
+		assertThat(roadmapRepository.findById(myRoadmap)).isEmpty();
+		assertThat(roadmapStepRepository.findByRoadmapIdOrderBySortOrderAscIdAsc(myRoadmap)).isEmpty();
+		assertThat(roadmapRepository.findById(otherRoadmap)).isPresent();
+		assertThat(roadmapStepRepository.findByRoadmapIdOrderBySortOrderAscIdAsc(otherRoadmap)).hasSize(1);
+		assertThat(roadmapItemRepository.count()).isEqualTo(1);
+	}
+
+	private Long newRoadmap(Long userId) {
+		Long hobbyId = hobbyRepository.save(new com.growit.hobby.entity.Hobby(userId, "기타", "목표")).getId();
+		Long roadmapId = roadmapRepository
+				.save(new com.growit.roadmap.entity.Roadmap(userId, hobbyId, "목표", null, 1)).getId();
+		Long stepId = roadmapStepRepository
+				.save(new com.growit.roadmap.entity.RoadmapStep(roadmapId, 1, "단계", null)).getId();
+		roadmapItemRepository.save(new com.growit.roadmap.entity.RoadmapItem(stepId, 1, "항목",
+				com.growit.roadmap.entity.RoadmapItemOrigin.AI));
+		return roadmapId;
 	}
 
 	private Long newDotGoal(Long userId) {

@@ -9,7 +9,7 @@ public class AiProperties {
 	private String model = "";
 	private String baseUrl = "https://api.openai.com/v1";
 	private int timeoutSeconds = 20;
-	private int maxOutputTokens = 600;
+	private int maxOutputTokens = 1500;
 	private int maxConcurrency = 2;
 	private int userDailyLimit = 5;
 	private int globalDailyLimit = 100;
@@ -17,6 +17,7 @@ public class AiProperties {
 	private int simplifyUserDailyLimit = 5;
 	private int viewUserDailyLimit = 20;
 	private int autoUserDailyLimit = 1;
+	private int roadmapUserDailyLimit = 10;
 
 	/** 키나 모델이 비어 있으면 AI 기능 전체가 꺼진 상태다. 이때도 서버는 정상적으로 시작한다. */
 	public boolean isEnabled() {
@@ -85,6 +86,14 @@ public class AiProperties {
 
 	public void setGlobalDailyLimit(int globalDailyLimit) {
 		this.globalDailyLimit = globalDailyLimit;
+	}
+
+	public int getRoadmapUserDailyLimit() {
+		return roadmapUserDailyLimit;
+	}
+
+	public void setRoadmapUserDailyLimit(int roadmapUserDailyLimit) {
+		this.roadmapUserDailyLimit = roadmapUserDailyLimit;
 	}
 
 	public int getAnalysisUserDailyLimit() {

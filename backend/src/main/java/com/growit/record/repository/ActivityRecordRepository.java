@@ -29,6 +29,10 @@ public interface ActivityRecordRepository
 
 	long countByHobbyId(Long hobbyId);
 
+	/** 로드맵 생성 때 현재 수준을 가늠할 최근 기록(분야별). */
+	List<ActivityRecord> findByUserIdAndHobbyIdOrderByRecordDateDescIdDesc(Long userId, Long hobbyId,
+			org.springframework.data.domain.Pageable pageable);
+
 	/** 같은 분야 안에서 {@code (recordDate, id)} 순으로 바로 앞 1건을 찾는다. id를 함께 정렬해 같은 날짜가 여러 건이어도 순서가 흔들리지 않게 한다. */
 	@Query("select r from ActivityRecord r where r.userId = :userId and r.hobbyId = :hobbyId "
 			+ "and (r.recordDate < :recordDate or (r.recordDate = :recordDate and r.id < :id)) "

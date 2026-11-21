@@ -27,8 +27,18 @@ class HobbyServiceTest {
 	@Autowired
 	private ActivityRecordRepository activityRecordRepository;
 
+	@Autowired
+	private com.growit.roadmap.repository.RoadmapRepository roadmapRepository;
+
+	@Autowired
+	private com.growit.roadmap.repository.RoadmapStepRepository roadmapStepRepository;
+
+	@Autowired
+	private com.growit.roadmap.repository.RoadmapItemRepository roadmapItemRepository;
+
 	private HobbyService hobbyService() {
-		return new HobbyService(hobbyRepository, activityRecordRepository);
+		return new HobbyService(hobbyRepository, activityRecordRepository, roadmapRepository, roadmapStepRepository,
+				roadmapItemRepository);
 	}
 
 	@Test
