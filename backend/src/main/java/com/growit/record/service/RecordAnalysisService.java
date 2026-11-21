@@ -42,7 +42,7 @@ public class RecordAnalysisService {
 	private static final int TAGS_MAX_COUNT = 3;
 	private static final int RELATED_MAX_COUNT = 2;
 	private static final int CHANGE_TEXT_MAX = 90;
-	private static final int SUPPORT_TEXT_MAX = 60;
+	private static final int SUPPORT_TEXT_MAX = 80;
 	private static final int NEXT_ACTION_TEXT_MAX = 80;
 	private static final int NEXT_ACTION_MIN_MINUTES = 5;
 	private static final int NEXT_ACTION_MAX_MINUTES = 10;
@@ -64,10 +64,18 @@ public class RecordAnalysisService {
 	static final List<String> GENERIC_PHRASES =
 			List.of("다시 연습", "복습", "꾸준히", "자신 있는 곳", "한 번 더 연습", "한 번 더 해");
 	private static final int NEXT_ACTION_REASON_MAX = 40;
-	private static final List<String> REPORT_STYLE_PHRASES = List.of("잘 드러", "느껴져요", "과정이 보여");
+	/** support에는 이 중 하나 이상이 있어야 한다(따뜻한 직접 표현). 문구를 늘릴 때는 이 목록만 고친다. */
+	static final List<String> WARM_PHRASES = List.of("멋져요", "대단해요", "잘하셨어요", "잘했어요", "고생했어요", "수고했어요",
+			"애썼어요", "괜찮아요", "충분해요", "좋은 시작이에요", "응원해요");
+	/** 보고서처럼 관찰하는 문체. support와 change 모두에서 막는다. */
+	static final List<String> REPORT_STYLE_PHRASES = List.of("알 수 있어요", "알 수 있습니다", "주목해요", "기억해요", "느껴져요",
+			"잘 드러", "과정이 보여", "점이에요", "기록이에요", "보여요");
+	static final String FALLBACK_SUPPORT_HARD = "힘든 날에도 기록을 남겼네요. 정말 고생했어요. 오늘은 이걸로 충분해요.";
+	static final String FALLBACK_SUPPORT_GOOD = "오늘도 이어 간 게 멋져요. 잘하셨어요.";
+	static final String FALLBACK_SUPPORT_NORMAL = "이어 가는 것 자체가 대단해요.";
 	private static final String PROMPT_RESOURCE_NAME = "record-analysis-system.txt";
 	/** prompts/record-analysis-system.txt의 내용을 바꿀 때마다 올린다. 저장된 결과가 어떤 지시문으로 만들어졌는지 추적하기 위해서다. */
-	static final int PROMPT_VERSION = 9;
+	static final int PROMPT_VERSION = 10;
 
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
@@ -128,14 +136,58 @@ public class RecordAnalysisService {
 		StoredAnalysis analysis;
 		try {
 			AiCallResult result = aiCallService.call(userId, AiResultType.ANALYSIS, systemPrompt, input.payload());
-			analysis = validate(result.content(), input.allowedHistoryIds(), result.model(), input.recordId(),
-						input.corpus());
+			ValidationOutcome outcome = validateOutcome(result.content(), input.allowedHistoryIds(), result.model(),
+					input.recordId(), input.corpus());
+			if (outcome.supportIssue() != null) {
+				outcome = retryForSupport(userId, systemPrompt, input, outcome);
+			}
+			analysis = outcome.supportIssue() == null ? outcome.analysis() : withFallbackSupport(outcome, input);
 		} catch (RuntimeException e) {
 			analysis = null;
 		}
 
 		StoredAnalysis finalAnalysis = analysis;
 		transactionTemplate.executeWithoutResult(status -> applyResult(recordId, userId, finalAnalysis));
+	}
+
+	/**
+	 * support가 규칙을 어겼을 때만 같은 분석을 교정 지시와 함께 한 번 더 부른다. 다시 불러도 실패하거나 호출 자체가
+	 * 막히면(한도 등) 처음 결과를 그대로 두고 support만 기본 문장으로 채운다.
+	 */
+	private ValidationOutcome retryForSupport(Long userId, String systemPrompt, AnalysisInput input,
+			ValidationOutcome first) {
+		log.warn("SUPPORT_RETRY recordId={} reason={}", input.recordId(), first.supportIssue());
+		String corrected = systemPrompt + "\n\n[교정 지시] 직전 응답의 support가 규칙을 어겼어요: " + first.supportIssue()
+				+ ". 같은 입력으로 규칙을 지켜 JSON 객체 하나만 다시 응답해요.";
+		try {
+			AiCallResult result = aiCallService.call(userId, AiResultType.ANALYSIS, corrected, input.payload());
+			ValidationOutcome second = validateOutcome(result.content(), input.allowedHistoryIds(), result.model(),
+					input.recordId(), input.corpus());
+			return second.supportIssue() == null ? second : first;
+		} catch (RuntimeException e) {
+			return first;
+		}
+	}
+
+	private StoredAnalysis withFallbackSupport(ValidationOutcome outcome, AnalysisInput input) {
+		AnalysisRecordInput record = input.payload().record();
+		boolean hard = "HARD".equals(record.feelingDirection())
+				|| (record.difficulty() != null && !record.difficulty().isBlank());
+		String support = hard ? FALLBACK_SUPPORT_HARD
+				: "GOOD".equals(record.feelingDirection()) ? FALLBACK_SUPPORT_GOOD : FALLBACK_SUPPORT_NORMAL;
+		log.warn("SUPPORT_FALLBACK recordId={} reason={}", input.recordId(), outcome.supportIssue());
+		StoredAnalysis a = outcome.analysis();
+		String text = a.change() == null ? null : a.change().text();
+		StoredChange change = new StoredChange(text, outcome.evidenceId(), support);
+		return new StoredAnalysis(a.title(), a.tags(), a.relatedRecordIds(), change, a.tagsFeedback(),
+				a.changeFeedback(), a.promptVersion(), a.model(), a.nextAction());
+	}
+
+	/** supportIssue가 null이 아니면 support가 규칙을 어긴 것이다(evidenceId는 그때 기본 문장을 붙일 근거 기록). */
+	private record ValidationOutcome(StoredAnalysis analysis, String supportIssue, Long evidenceId) {
+	}
+
+	private record ChangeOutcome(StoredChange change, String supportIssue, Long evidenceId) {
 	}
 
 	public void markQueueRejected(Long recordId, Long userId) {
@@ -206,6 +258,11 @@ public class RecordAnalysisService {
 	/** corpus가 null이면 낱말 포함 검사는 건너뛴다(품질 평가 하네스처럼 입력 전문이 없는 호출). */
 	StoredAnalysis validate(String rawJson, Set<Long> allowedHistoryIds, String model, Long recordId,
 			String corpus) {
+		return validateOutcome(rawJson, allowedHistoryIds, model, recordId, corpus).analysis();
+	}
+
+	private ValidationOutcome validateOutcome(String rawJson, Set<Long> allowedHistoryIds, String model,
+			Long recordId, String corpus) {
 		JsonNode node = aiResponseValidator.parse(rawJson);
 		aiResponseValidator.requireFields(node, "title", "tags", "relatedRecordIds");
 
@@ -217,14 +274,15 @@ public class RecordAnalysisService {
 		if (recordId != null) {
 			nextActionEvidenceIds.add(recordId);
 		}
-		StoredChange change = sanitizeChange(node.path("change"), nextActionEvidenceIds, recordId);
+		ChangeOutcome changeOutcome = sanitizeChange(node.path("change"), nextActionEvidenceIds, recordId);
 
 		// nextAction이 이상해도 나머지 결과는 살린다(전체 실패 금지).
 		StoredNextAction nextAction = sanitizeNextAction(node.path("nextAction"), nextActionEvidenceIds, corpus,
 				recordId);
 
-		return new StoredAnalysis(title, tags, relatedRecordIds, change, null, null, PROMPT_VERSION, model,
-				nextAction);
+		StoredAnalysis analysis = new StoredAnalysis(title, tags, relatedRecordIds, changeOutcome.change(), null, null,
+				PROMPT_VERSION, model, nextAction);
+		return new ValidationOutcome(analysis, changeOutcome.supportIssue(), changeOutcome.evidenceId());
 	}
 
 	private String sanitizeTitle(JsonNode titleNode) {
@@ -279,65 +337,75 @@ public class RecordAnalysisService {
 		return result;
 	}
 
-	private StoredChange sanitizeChange(JsonNode changeNode, Set<Long> allowedIds, Long recordId) {
+	private ChangeOutcome sanitizeChange(JsonNode changeNode, Set<Long> allowedIds, Long recordId) {
 		if (changeNode.isMissingNode() || changeNode.isNull() || !changeNode.isObject()) {
-			// support는 항상 있어야 하는데 객체 자체가 없다. 같은 분석을 다시 부르는 재시도 장치가 없어 로그만 남긴다.
+			// 객체 자체가 없으면 근거 기록도 없어 기본 문장을 붙일 수 없다. 로그만 남긴다.
 			log.warn("SUPPORT_MISSING recordId={}", recordId);
-			return null;
+			return new ChangeOutcome(null, null, null);
 		}
 		// 근거 id가 틀리면 어느 문장도 화면에 낼 수 없으므로 통째로 버린다.
 		JsonNode evidenceNode = changeNode.path("evidenceRecordId");
 		if (!evidenceNode.canConvertToLong() || !allowedIds.contains(evidenceNode.asLong())) {
 			log.warn("CHANGE_DROPPED recordId={} field=change|support reason=EVIDENCE length=- raw={}", recordId,
 					rawOf(changeNode));
-			return null;
+			return new ChangeOutcome(null, null, null);
 		}
 		long evidenceId = evidenceNode.asLong();
 		// 한쪽만 실패하면 그 필드만 버리고 나머지는 살린다.
-		String text = sanitizeChangeField(changeNode.path("text"), "change", CHANGE_TEXT_MAX, recordId);
-		String support = sanitizeChangeField(changeNode.path("support"), "support", SUPPORT_TEXT_MAX, recordId);
+		String text = sanitizeChangeField(changeNode.path("text"), "change", CHANGE_TEXT_MAX, recordId, false);
 		JsonNode supportNode = changeNode.path("support");
-		if (supportNode.isMissingNode() || supportNode.isNull()) {
-			log.warn("SUPPORT_MISSING recordId={}", recordId);
+		String support = sanitizeChangeField(supportNode, "support", SUPPORT_TEXT_MAX, recordId, true);
+		String supportIssue = null;
+		if (support == null) {
+			supportIssue = lastDropReason.get() != null ? lastDropReason.get() : "support가 없음";
+			if (supportNode.isMissingNode() || supportNode.isNull()) {
+				log.warn("SUPPORT_MISSING recordId={}", recordId);
+			}
 		}
+		lastDropReason.remove();
 		if (text == null && support == null) {
-			return null;
+			return new ChangeOutcome(null, supportIssue, evidenceId);
 		}
-		warnIfReportStyle(recordId, "change", text);
-		warnIfReportStyle(recordId, "support", support);
-		return new StoredChange(text, evidenceId, support);
+		return new ChangeOutcome(new StoredChange(text, evidenceId, support), supportIssue, evidenceId);
 	}
 
-	/** 보고서체 표현은 막지 않고 로그만 남겨 프롬프트 개선에 쓴다. */
-	private void warnIfReportStyle(Long recordId, String field, String value) {
-		if (value != null && REPORT_STYLE_PHRASES.stream().anyMatch(value::contains)) {
-			log.warn("STYLE_SOFT recordId={} field={} length={}", recordId, field, value.length());
-		}
-	}
+	/** 직전 sanitizeChangeField가 버린 이유를 교정 지시 문장으로 넘기는 용도(호출 스레드 안에서만 쓴다). */
+	private final ThreadLocal<String> lastDropReason = new ThreadLocal<>();
 
-	/** 형식·길이·금지어를 검사해 통과하면 다듬은 글을, 아니면 null을 준다(버릴 때마다 필드와 이유를 로그로 남긴다). */
-	private String sanitizeChangeField(JsonNode node, String field, int maxLength, Long recordId) {
+	/** 형식·길이·금지어·관찰체를 검사해 통과하면 다듬은 글을, 아니면 null을 준다(버릴 때마다 필드와 이유를 로그로 남긴다). */
+	private String sanitizeChangeField(JsonNode node, String field, int maxLength, Long recordId, boolean requireWarm) {
+		lastDropReason.remove();
 		if (node.isMissingNode() || node.isNull()) {
 			return null;
 		}
 		if (!node.isTextual()) {
-			droppedField(recordId, field, "FORMAT", node, -1);
-			return null;
+			return dropField(recordId, field, "FORMAT", node, -1, field + "가 문자열이 아님");
 		}
 		String value = node.asText().trim();
 		if (value.isEmpty()) {
-			droppedField(recordId, field, "EMPTY", node, 0);
-			return null;
+			return dropField(recordId, field, "EMPTY", node, 0, field + "가 비어 있음");
 		}
 		if (value.length() > maxLength) {
-			droppedField(recordId, field, "LENGTH", node, value.length());
-			return null;
+			return dropField(recordId, field, "LENGTH", node, value.length(), field + "가 " + maxLength + "자를 넘음");
 		}
 		if (containsForbiddenWord(value)) {
-			droppedField(recordId, field, "FORBIDDEN", node, value.length());
-			return null;
+			return dropField(recordId, field, "FORBIDDEN", node, value.length(), "능력 단정·과장·점수화·단정적 예측 표현을 씀");
+		}
+		if (REPORT_STYLE_PHRASES.stream().anyMatch(value::contains)) {
+			return dropField(recordId, field, "STYLE", node, value.length(),
+					"관찰체·보고서체 표현(" + String.join(", ", REPORT_STYLE_PHRASES) + ")을 씀");
+		}
+		if (requireWarm && WARM_PHRASES.stream().noneMatch(value::contains)) {
+			return dropField(recordId, field, "NOT_WARM", node, value.length(),
+					"따뜻한 직접 표현(" + String.join(", ", WARM_PHRASES) + ") 중 하나가 없음");
 		}
 		return value;
+	}
+
+	private String dropField(Long recordId, String field, String reason, JsonNode node, int length, String correction) {
+		droppedField(recordId, field, reason, node, length);
+		lastDropReason.set(correction);
+		return null;
 	}
 
 	/** raw는 앞 150자만 남긴다(사용자 글 전체를 로그에 남기지 않기 위해). */

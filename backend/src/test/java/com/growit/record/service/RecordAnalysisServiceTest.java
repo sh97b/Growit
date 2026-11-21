@@ -247,7 +247,7 @@ class RecordAnalysisServiceTest {
 		service(enabledProperties()).analyze(current.getId(), 1L);
 
 		ActivityRecord result = activityRecordRepository.findById(current.getId()).orElseThrow();
-		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":9").contains("\"model\":\"model\"");
+		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":10").contains("\"model\":\"model\"");
 	}
 
 	@Test
@@ -578,6 +578,13 @@ class RecordAnalysisServiceTest {
 		assertThat(result.getAiAnalysis()).doesNotContain("\"nextAction\":null");
 	}
 
+	private static String changeJson(String changeText, String support, long evidence) {
+		String textPart = changeText == null ? "\"text\":null," : "\"text\":\"" + changeText + "\",";
+		String supportPart = support == null ? "" : "\"support\":\"" + support + "\",";
+		return "{\"title\":\"연습\",\"tags\":[],\"relatedRecordIds\":[],\"change\":{" + textPart + supportPart
+				+ "\"evidenceRecordId\":" + evidence + "},\"nextAction\":null}";
+	}
+
 	private ActivityRecord analyzeWithChange(String changeText, String support, boolean withPrevious) {
 		Long hobbyId = createHobby(1L);
 		Long evidenceId = null;
@@ -587,10 +594,7 @@ class RecordAnalysisServiceTest {
 		}
 		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "코드 전환 연습");
 		long evidence = evidenceId != null ? evidenceId : current.getId();
-		String textPart = changeText == null ? "" : "\"text\":\"" + changeText + "\",";
-		String supportPart = support == null ? "" : "\"support\":\"" + support + "\",";
-		stubAiResponse("{\"title\":\"연습\",\"tags\":[],\"relatedRecordIds\":[],\"change\":{" + textPart + supportPart
-				+ "\"evidenceRecordId\":" + evidence + "},\"nextAction\":null}");
+		stubAiResponse(changeJson(changeText, support, evidence));
 		service(enabledProperties()).analyze(current.getId(), 1L);
 		return activityRecordRepository.findById(current.getId()).orElseThrow();
 	}
@@ -600,118 +604,156 @@ class RecordAnalysisServiceTest {
 	}
 
 	@Test
-	void change_changeAndSupport_bothAccepted() {
-		ActivityRecord result = analyzeWithChange("처음엔 끊기던 Am→Dm 전환을 열 번 이어 쳤어요.", "끝까지 열 번 이어 친 게 멋져요.", true);
+	void change_changeAndSupport_bothAccepted_withoutRetry() {
+		java.util.List<String> logs = captureLogs();
+
+		ActivityRecord result = analyzeWithChange("지난번엔 끊겼는데, 오늘은 열 번을 이어 쳤네요.",
+				"열 번을 이어 쳤다니 정말 멋져요.", true);
 
 		StoredChange change = storedChangeOf(result);
-		assertThat(change.text()).isEqualTo("처음엔 끊기던 Am→Dm 전환을 열 번 이어 쳤어요.");
-		assertThat(change.support()).isEqualTo("끝까지 열 번 이어 친 게 멋져요.");
+		assertThat(change.text()).isEqualTo("지난번엔 끊겼는데, 오늘은 열 번을 이어 쳤네요.");
+		assertThat(change.support()).isEqualTo("열 번을 이어 쳤다니 정말 멋져요.");
+		assertThat(logs).noneMatch(l -> l.contains("SUPPORT_RETRY") || l.contains("SUPPORT_FALLBACK"));
 	}
 
 	@Test
-	void change_wordsNoLongerBanned_areAccepted() {
-		for (String support : new String[] {"잘했어요. 끝까지 쳤네요", "훌륭해요. 열 번을 이어 쳤네요", "대단해요. 끊기던 전환을 이었네요"}) {
-			assertThat(storedChangeOf(analyzeWithChange("전환을 이어 쳤어요.", support, true)).support()).as(support)
+	void change_everyWarmPhrase_isAccepted() {
+		for (String warm : RecordAnalysisService.WARM_PHRASES) {
+			String support = "끝까지 쳤네요. " + warm;
+			assertThat(storedChangeOf(analyzeWithChange("전환을 이어 쳤어요.", support, true)).support()).as(warm)
 					.isEqualTo(support);
 		}
 	}
 
 	@Test
-	void change_supportFails_keepsChangeOnly_andLogsField() {
+	void change_nullTextWithWarmSupport_isStoredAsSupportOnly() {
+		ActivityRecord result = analyzeWithChange(null, "잠들기 전에 20쪽이나 읽다니 좋은 시작이에요.", false);
+
+		StoredChange change = storedChangeOf(result);
+		assertThat(change.text()).isNull();
+		assertThat(change.support()).isEqualTo("잠들기 전에 20쪽이나 읽다니 좋은 시작이에요.");
+	}
+
+	@Test
+	void change_supportWithoutWarmPhrase_retriesOnceAndAcceptsCorrectedAnswer() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord previous = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 1), "이전 연습");
+		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "코드 전환 연습");
+		given(aiChatClient.complete(anyString(), anyString())).willReturn(
+				new AiChatResponse(changeJson("전환을 이어 쳤어요.", "열 번 이어 쳤어요.", previous.getId()), 10, "model"),
+				new AiChatResponse(changeJson("전환을 이어 쳤어요.", "열 번 이어 쳐서 정말 멋져요.", previous.getId()), 10, "model"));
+		java.util.List<String> logs = captureLogs();
+
+		service(enabledProperties()).analyze(current.getId(), 1L);
+
+		StoredChange change = storedChangeOf(activityRecordRepository.findById(current.getId()).orElseThrow());
+		assertThat(change.support()).isEqualTo("열 번 이어 쳐서 정말 멋져요.");
+		assertThat(logs).anyMatch(l -> l.contains("SUPPORT_RETRY"));
+		assertThat(logs).noneMatch(l -> l.contains("SUPPORT_FALLBACK"));
+		org.mockito.ArgumentCaptor<String> system = org.mockito.ArgumentCaptor.forClass(String.class);
+		org.mockito.Mockito.verify(aiChatClient, org.mockito.Mockito.times(2)).complete(system.capture(), anyString());
+		assertThat(system.getAllValues().get(1)).contains("[교정 지시]").contains("따뜻한 직접 표현");
+		assertThat(system.getAllValues().get(0)).doesNotContain("[교정 지시]");
+	}
+
+	@Test
+	void change_retryAlsoFails_usesDirectionBasedFallback_andKeepsOtherFields() {
 		java.util.List<String> logs = captureLogs();
 
 		ActivityRecord result = analyzeWithChange("전환을 열 번 이어 쳤어요.", "정말 실력이 늘었네요", true);
 
 		StoredChange change = storedChangeOf(result);
 		assertThat(change.text()).isEqualTo("전환을 열 번 이어 쳤어요.");
-		assertThat(change.support()).isNull();
+		// 이 기록에는 어려움("코드 전환이 느렸다")이 적혀 있어 힘든 쪽 문장을 쓴다.
+		assertThat(change.support()).isEqualTo(RecordAnalysisService.FALLBACK_SUPPORT_HARD);
+		assertThat(result.getAiAnalysis()).contains("\"title\":\"연습\"");
 		assertThat(logs).anyMatch(l -> l.contains("CHANGE_DROPPED") && l.contains("field=support")
 				&& l.contains("reason=FORBIDDEN"));
+		assertThat(logs).anyMatch(l -> l.contains("SUPPORT_RETRY"));
+		assertThat(logs).anyMatch(l -> l.contains("SUPPORT_FALLBACK"));
 	}
 
 	@Test
-	void change_changeFails_keepsSupportOnly_andLogsField() {
-		java.util.List<String> logs = captureLogs();
+	void change_fallbackSupport_followsFeelingDirection() {
+		String[][] cases = {{"PROUD", RecordAnalysisService.FALLBACK_SUPPORT_GOOD},
+				{"NEUTRAL", RecordAnalysisService.FALLBACK_SUPPORT_NORMAL},
+				{"STUCK", RecordAnalysisService.FALLBACK_SUPPORT_HARD}};
+		for (String[] c : cases) {
+			Long hobbyId = createHobby(1L);
+			ActivityRecord current = new ActivityRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "연습", 20, null,
+					Feeling.valueOf(c[0]), false);
+			current.markAnalysisPending(LocalDateTime.now());
+			current = activityRecordRepository.save(current);
+			stubAiResponse(changeJson(null, "그냥 했어요.", current.getId()));
 
-		ActivityRecord result = analyzeWithChange("정말 완벽하게 쳤어요.", "끝까지 이어 친 게 멋져요.", true);
+			service(enabledProperties()).analyze(current.getId(), 1L);
 
-		StoredChange change = storedChangeOf(result);
-		assertThat(change.text()).isNull();
-		assertThat(change.support()).isEqualTo("끝까지 이어 친 게 멋져요.");
-		assertThat(logs).anyMatch(l -> l.contains("CHANGE_DROPPED") && l.contains("field=change")
-				&& l.contains("reason=FORBIDDEN"));
-	}
-
-	@Test
-	void change_bothFail_dropsChange_andKeepsRestOfResult() {
-		for (String word : new String[] {"실력", "늘었", "향상", "점수", "순위", "완벽", "최고", "천재", "틀림없", "될 거예요"}) {
-			ActivityRecord result = analyzeWithChange("전환을 이어 쳤어요. " + word, "정말 " + word + " 해요", true);
-
-			assertThat(result.getAiStatus()).as(word).isEqualTo(AiStatus.DONE);
-			assertThat(result.getAiAnalysis()).as(word).contains("\"change\":null").contains("\"title\":\"연습\"");
+			StoredChange change = storedChangeOf(activityRecordRepository.findById(current.getId()).orElseThrow());
+			assertThat(change.support()).as(c[0]).isEqualTo(c[1]);
 		}
 	}
 
 	@Test
-	void change_lengthLimits_areNinetyAndSixty() {
-		String ninety = "가".repeat(90);
-		String sixty = "나".repeat(60);
-
-		StoredChange ok = storedChangeOf(analyzeWithChange(ninety, sixty, true));
-		assertThat(ok.text()).isEqualTo(ninety);
-		assertThat(ok.support()).isEqualTo(sixty);
-
-		java.util.List<String> logs = captureLogs();
-		StoredChange over = storedChangeOf(analyzeWithChange("가".repeat(91), "나".repeat(61), true));
-		assertThat(over).isNull();
-		assertThat(logs).anyMatch(l -> l.contains("field=change") && l.contains("reason=LENGTH") && l.contains("length=91"));
-		assertThat(logs).anyMatch(l -> l.contains("field=support") && l.contains("reason=LENGTH") && l.contains("length=61"));
-	}
-
-	@Test
-	void change_nullTextWithSupport_isStoredAsSupportOnly() {
-		ActivityRecord result = analyzeWithChange(null, "바쁜 날에도 10쪽을 펼친 게 좋아요.", true);
-
-		StoredChange change = storedChangeOf(result);
-		assertThat(change.text()).isNull();
-		assertThat(change.support()).isEqualTo("바쁜 날에도 10쪽을 펼친 게 좋아요.");
-	}
-
-	@Test
-	void change_reportStylePhrases_onlyWarnAndStayVisible() {
+	void change_reportStylePhrases_areRejectedInBothFields() {
 		java.util.List<String> logs = captureLogs();
 
 		StoredChange change = storedChangeOf(
-				analyzeWithChange("열 번 이어 친 과정이 잘 드러나 있어요.", "끝까지 한 게 느껴져요.", true));
+				analyzeWithChange("열 번 이어 친 점을 알 수 있어요.", "끝까지 한 과정이 보여요. 멋져요", true));
 
-		assertThat(change.text()).isNotNull();
-		assertThat(change.support()).isNotNull();
-		assertThat(logs).anyMatch(l -> l.contains("STYLE_SOFT") && l.contains("field=change"));
-		assertThat(logs).anyMatch(l -> l.contains("STYLE_SOFT") && l.contains("field=support"));
+		assertThat(change.text()).isNull();
+		assertThat(change.support()).isEqualTo(RecordAnalysisService.FALLBACK_SUPPORT_HARD);
+		assertThat(logs).anyMatch(l -> l.contains("field=change") && l.contains("reason=STYLE"));
+		assertThat(logs).anyMatch(l -> l.contains("field=support") && l.contains("reason=STYLE"));
 	}
 
 	@Test
-	void change_wholeObjectNull_logsSupportMissing() {
-		Long hobbyId = createHobby(1L);
-		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "코드 전환 연습");
-		stubAiResponse("{\"title\":\"연습\",\"tags\":[],\"relatedRecordIds\":[],\"change\":null,\"nextAction\":null}");
+	void change_everyReportStylePhrase_isRejected() {
+		for (String phrase : RecordAnalysisService.REPORT_STYLE_PHRASES) {
+			StoredChange change = storedChangeOf(analyzeWithChange("전환을 이어 쳤어요. " + phrase, "열 번 쳐서 멋져요", true));
+			assertThat(change.text()).as(phrase).isNull();
+		}
+	}
+
+	@Test
+	void change_bannedWords_neverReachScreen() {
+		for (String word : new String[] {"실력", "늘었", "향상", "점수", "순위", "완벽", "최고", "천재", "틀림없", "될 거예요"}) {
+			ActivityRecord result = analyzeWithChange("전환을 이어 쳤어요. " + word, "정말 " + word + " 해요 멋져요", true);
+
+			assertThat(result.getAiStatus()).as(word).isEqualTo(AiStatus.DONE);
+			StoredChange change = storedChangeOf(result);
+			assertThat(change.text()).as(word).isNull();
+			assertThat(change.support()).as(word).isEqualTo(RecordAnalysisService.FALLBACK_SUPPORT_HARD);
+		}
+	}
+
+	@Test
+	void change_lengthLimits_areNinetyAndEighty() {
+		String ninety = "가".repeat(90);
+		String eighty = "나".repeat(76) + " 멋져요";
+
+		StoredChange ok = storedChangeOf(analyzeWithChange(ninety, eighty, true));
+		assertThat(eighty).hasSize(80);
+		assertThat(ok.text()).isEqualTo(ninety);
+		assertThat(ok.support()).isEqualTo(eighty);
+
 		java.util.List<String> logs = captureLogs();
-
-		service(enabledProperties()).analyze(current.getId(), 1L);
-
-		assertThat(logs).anyMatch(l -> l.contains("SUPPORT_MISSING"));
-		assertThat(activityRecordRepository.findById(current.getId()).orElseThrow().getAiStatus()).isEqualTo(AiStatus.DONE);
+		StoredChange over = storedChangeOf(analyzeWithChange("가".repeat(91), "나".repeat(77) + " 멋져요", true));
+		assertThat(over.text()).isNull();
+		assertThat(over.support()).isEqualTo(RecordAnalysisService.FALLBACK_SUPPORT_HARD);
+		assertThat(logs).anyMatch(l -> l.contains("field=change") && l.contains("reason=LENGTH") && l.contains("length=91"));
+		assertThat(logs).anyMatch(l -> l.contains("field=support") && l.contains("reason=LENGTH") && l.contains("length=81"));
 	}
 
 	@Test
-	void change_supportMissing_logsSupportMissing() {
+	void change_supportMissing_retriesThenFallsBack() {
 		java.util.List<String> logs = captureLogs();
 
 		StoredChange change = storedChangeOf(analyzeWithChange("전환을 이어 쳤어요.", null, true));
 
 		assertThat(change.text()).isEqualTo("전환을 이어 쳤어요.");
-		assertThat(change.support()).isNull();
+		assertThat(change.support()).isEqualTo(RecordAnalysisService.FALLBACK_SUPPORT_HARD);
 		assertThat(logs).anyMatch(l -> l.contains("SUPPORT_MISSING"));
+		assertThat(logs).anyMatch(l -> l.contains("SUPPORT_RETRY"));
 	}
 
 	@Test
@@ -723,9 +765,9 @@ class RecordAnalysisServiceTest {
 	}
 
 	@Test
-	void change_promptVersionIsNineAndOldSingleSentenceResultsStillRead() {
+	void change_promptVersionIsTenAndOldSingleSentenceResultsStillRead() {
 		ActivityRecord result = analyzeWithChange("전환을 이어 쳤어요.", "이어 간 게 멋져요.", true);
-		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":9");
+		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":10");
 
 		StoredAnalysis old = service(enabledProperties()).readJson("{\"title\":\"예전\",\"tags\":[],"
 				+ "\"relatedRecordIds\":[],\"change\":{\"text\":\"지난번엔 끊겼는데 오늘은 이어 쳤어요\",\"evidenceRecordId\":1},"
