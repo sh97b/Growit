@@ -34,10 +34,11 @@ export function fetchRoadmap(hobbyId: number) {
   return apiRequest<Roadmap | null>(`/api/hobbies/${hobbyId}/roadmap`)
 }
 
-export function createRoadmap(hobbyId: number, targetDate?: string | null) {
+/** mode가 'MANUAL'이면 AI 없이 단계·항목이 없는 빈 로드맵을 만든다. */
+export function createRoadmap(hobbyId: number, targetDate?: string | null, mode?: 'AI' | 'MANUAL') {
   return apiRequest<Roadmap>(`/api/hobbies/${hobbyId}/roadmap`, {
     method: 'POST',
-    body: targetDate ? { targetDate } : {},
+    body: { ...(targetDate ? { targetDate } : {}), ...(mode === 'MANUAL' ? { mode } : {}) },
   })
 }
 

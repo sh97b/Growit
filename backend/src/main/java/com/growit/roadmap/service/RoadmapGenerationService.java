@@ -121,6 +121,30 @@ public class RoadmapGenerationService {
 		}
 	}
 
+	/**
+	 * AI 없이 단계·항목이 없는 빈 ACTIVE 로드맵을 만든다. AI를 부르지 않으므로 AI 하루 한도에 세지 않고 분야당
+	 * 생성 횟수 제한도 걸지 않는다(그 제한은 AI 호출 비용을 막는 용도라서). prompt_version은 AI를 안 썼다는 뜻으로 0이다.
+	 */
+	public RoadmapResponse createManual(Long userId, Long hobbyId, LocalDate targetDate) {
+		return transactionTemplate.execute(status -> {
+			Hobby hobby = hobbyRepository.findByIdAndUserId(hobbyId, userId)
+					.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "활동 분야를 찾을 수 없어요"));
+			String goal = hobby.getGoal() == null ? "" : hobby.getGoal().trim();
+			if (goal.isEmpty()) {
+				throw new ApiException(ErrorCode.VALIDATION_ERROR, "목표를 먼저 적어 주세요");
+			}
+			if (targetDate != null && targetDate.isBefore(LocalDate.now(clock.withZone(SERVER_ZONE)))) {
+				throw new ApiException(ErrorCode.VALIDATION_ERROR, "목표일은 오늘 이후 날짜로 정해 주세요");
+			}
+			if (roadmapRepository.findFirstByHobbyIdAndUserIdAndState(hobbyId, userId, RoadmapState.ACTIVE)
+					.isPresent()) {
+				throw new ApiException(ErrorCode.ROADMAP_ACTIVE, "이미 진행 중인 로드맵이 있어요");
+			}
+			Roadmap roadmap = roadmapRepository.save(new Roadmap(userId, hobbyId, goal, targetDate, 0));
+			return roadmapService.toResponse(roadmap);
+		});
+	}
+
 	private RoadmapResponse createLocked(Long userId, Long hobbyId, LocalDate targetDate) {
 		Prepared prepared = transactionTemplate.execute(status -> prepare(userId, hobbyId, targetDate));
 		String systemPrompt = loadPrompt();

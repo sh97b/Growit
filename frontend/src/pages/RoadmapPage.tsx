@@ -201,9 +201,9 @@ function HobbyRoadmap({ hobby }: { hobby: Hobby }) {
   const [notice, setNotice] = useState<string | null>(null)
 
   // 로드맵 만들기는 이 버튼을 눌렀을 때만 요청한다(화면을 열 때 자동으로 만들지 않는다).
-  function generate(targetDate: string | null) {
+  function generate(targetDate: string | null, mode: 'AI' | 'MANUAL' = 'AI') {
     setErrorMessage(null)
-    create.mutate(targetDate, { onError: (error) => setErrorMessage(errorMessageOf(error)) })
+    create.mutate({ targetDate, mode }, { onError: (error) => setErrorMessage(errorMessageOf(error)) })
   }
 
   function renew() {
@@ -264,6 +264,16 @@ function HobbyRoadmap({ hobby }: { hobby: Hobby }) {
               {errorMessage ? '다시 시도' : '로드맵 만들기'}
             </Button>
             <p className="text-body-min text-ink-2">AI가 목표까지의 단계를 제안해요. 단계와 할 일은 마음대로 고칠 수 있어요</p>
+            <div className="flex flex-col items-start">
+              <button
+                type="button"
+                onClick={() => generate(targetDraft || null, 'MANUAL')}
+                className="inline-flex min-h-11 items-center rounded-full px-1 text-sm font-medium text-base-ink underline underline-offset-2"
+              >
+                AI 없이 직접 만들기
+              </button>
+              <span className="text-caption-min text-ink-2">단계와 할 일을 직접 적어요</span>
+            </div>
           </>
         ) : (
           <p className="text-body-min text-ink-2">목표를 적으면 로드맵을 만들 수 있어요.</p>
@@ -380,6 +390,15 @@ function RoadmapBody({
         </p>
       </div>
 
+      {roadmap.steps.length === 0 ? (
+        <div className="flex flex-col items-start gap-3 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-5">
+          <p className="text-body-min">아직 단계가 없어요. 목표까지 가는 첫 단계를 적어 보세요.</p>
+          <Button type="button" onClick={() => document.getElementById('new-step-title')?.focus()}>
+            첫 단계 추가하기
+          </Button>
+        </div>
+      ) : null}
+
       <ol className="flex flex-col gap-3">
         {roadmap.steps.map((step, index) => (
           <StepCard
@@ -405,6 +424,7 @@ function RoadmapBody({
             maxLength={40}
             onChange={(event) => setNewStepTitle(event.target.value)}
             placeholder="단계 추가하기"
+            id="new-step-title"
             aria-label="새 단계 제목"
             className="lg:max-w-sm"
           />

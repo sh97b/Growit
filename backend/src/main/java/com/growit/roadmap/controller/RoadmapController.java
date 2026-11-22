@@ -18,6 +18,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.time.LocalDate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -61,7 +62,7 @@ public class RoadmapController {
 	}
 
 	/** 목표가 비어 있으면 400, 진행 중인 로드맵이 있으면 ROADMAP_ACTIVE(409), 하루 한도를 넘으면 429. */
-	@Operation(summary = "AI 로드맵 생성")
+	@Operation(summary = "로드맵 생성 (mode=MANUAL이면 AI 없이 빈 로드맵, 아니면 AI 생성)")
 	@ApiResponse(responseCode = "400", description = "목표 없음 또는 생성 실패",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@ApiResponse(responseCode = "409", description = "이미 진행 중인 로드맵이 있음",
@@ -69,8 +70,11 @@ public class RoadmapController {
 	@PostMapping("/hobbies/{hobbyId}/roadmap")
 	public ResponseEntity<RoadmapResponse> create(@PathVariable Long hobbyId,
 			@Valid @RequestBody(required = false) RoadmapCreateRequest request) {
-		RoadmapResponse response = generationService.create(currentUserProvider.getCurrentUserId(), hobbyId,
-				request == null ? null : request.targetDate());
+		Long userId = currentUserProvider.getCurrentUserId();
+		LocalDate targetDate = request == null ? null : request.targetDate();
+		RoadmapResponse response = request != null && request.isManual()
+				? generationService.createManual(userId, hobbyId, targetDate)
+				: generationService.create(userId, hobbyId, targetDate);
 		return ResponseEntity.status(HttpStatus.CREATED).body(response);
 	}
 

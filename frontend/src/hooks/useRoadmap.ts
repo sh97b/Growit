@@ -39,7 +39,9 @@ function useRoadmapMutation<TVariables>(hobbyId: number, mutationFn: (variables:
 }
 
 export function useCreateRoadmap(hobbyId: number) {
-  return useRoadmapMutation(hobbyId, (targetDate: string | null) => createRoadmap(hobbyId, targetDate))
+  return useRoadmapMutation(hobbyId, ({ targetDate, mode }: { targetDate: string | null; mode?: 'AI' | 'MANUAL' }) =>
+    createRoadmap(hobbyId, targetDate, mode),
+  )
 }
 
 export function useArchiveRoadmap(hobbyId: number) {

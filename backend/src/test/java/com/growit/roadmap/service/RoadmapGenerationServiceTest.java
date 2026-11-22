@@ -221,6 +221,40 @@ class RoadmapGenerationServiceTest {
 	}
 
 	@Test
+	void createManual_makesEmptyActiveRoadmap_withoutAiCallOrLogOrLimit() {
+		Hobby hobby = hobby(1L, "코드 전환 익숙해지기");
+		for (int i = 0; i < 3; i++) {
+			roadmapRepository.save(new Roadmap(1L, hobby.getId(), "목표", null, 1)).archive();
+		}
+
+		RoadmapResponse response = service().createManual(1L, hobby.getId(), LocalDate.now().plusDays(10));
+
+		assertThat(response.steps()).isEmpty();
+		assertThat(response.goalText()).isEqualTo("코드 전환 익숙해지기");
+		assertThat(roadmapRepository.findFirstByHobbyIdAndUserIdAndState(hobby.getId(), 1L,
+				com.growit.roadmap.entity.RoadmapState.ACTIVE)).isPresent();
+		verify(aiChatClient, never()).complete(anyString(), anyString(), anyInt());
+		assertThat(aiLogRepository.findAll()).isEmpty();
+		// 빈 로드맵은 기록 분석 입력에 넣지 않는다.
+		assertThat(new RoadmapContextProvider(roadmapRepository, stepRepository, itemRepository)
+				.currentContext(1L, hobby.getId())).isNull();
+	}
+
+	@Test
+	void createManual_rejectsMissingGoal_activeExisting_andOtherUsersHobby() {
+		Hobby noGoal = hobby(1L, " ");
+		assertThatThrownBy(() -> service().createManual(1L, noGoal.getId(), null))
+				.satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.VALIDATION_ERROR));
+
+		Hobby hobby = hobby(1L, "목표");
+		service().createManual(1L, hobby.getId(), null);
+		assertThatThrownBy(() -> service().createManual(1L, hobby.getId(), null))
+				.satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.ROADMAP_ACTIVE));
+		assertThatThrownBy(() -> service().createManual(2L, hobby.getId(), null))
+				.satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.NOT_FOUND));
+	}
+
+	@Test
 	void create_retryIsNotCountedTowardTheLimit_andUsesAtLeast1500Tokens() {
 		Hobby hobby = hobby(1L, "목표");
 		stub("{\"steps\":[]}", VALID);
