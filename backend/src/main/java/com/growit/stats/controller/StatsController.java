@@ -3,6 +3,7 @@ package com.growit.stats.controller;
 import com.growit.auth.security.CurrentUserProvider;
 import com.growit.common.exception.ErrorResponse;
 import com.growit.stats.dto.ActivityMapEntry;
+import com.growit.stats.dto.GrowthResponse;
 import com.growit.stats.dto.StatsSummaryResponse;
 import com.growit.stats.dto.WeekDetailResponse;
 import com.growit.stats.dto.WeekSummaryResponse;
@@ -66,6 +67,20 @@ public class StatsController {
 			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
 			@RequestParam(required = false) Long hobbyId) {
 		return statsService.weeks(currentUserProvider.getCurrentUserId(), from, to, hobbyId);
+	}
+
+	/** from 없으면 to(기본 오늘)의 400일 전부터. 범위가 400일을 넘으면 400, hobbyId가 내 분야가 아니면 404. */
+	@Operation(summary = "성장 화면 집계 (요약·주별·분야별·요일·감정·주제·의미 있는 날, AI 호출 없음)")
+	@ApiResponse(responseCode = "400", description = "날짜 범위 오류",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "404", description = "내 활동 분야가 아님",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@GetMapping("/growth")
+	public GrowthResponse growth(
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+			@RequestParam(required = false) Long hobbyId) {
+		return statsService.growth(currentUserProvider.getCurrentUserId(), from, to, hobbyId);
 	}
 
 	/** weekStart가 월요일이 아니면 VALIDATION_ERROR(400), hobbyId가 내 분야가 아니면 NOT_FOUND(404). */

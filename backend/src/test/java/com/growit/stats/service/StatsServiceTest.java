@@ -12,7 +12,10 @@ import com.growit.record.entity.ActivityRecord;
 import com.growit.record.repository.ActivityRecordRepository;
 import com.growit.record.entity.Feeling;
 import com.growit.stats.dto.ActivityMapEntry;
+import com.growit.record.entity.FeelingDirection;
+import com.growit.stats.dto.GrowthResponse;
 import com.growit.stats.dto.StatsSummaryResponse;
+import com.growit.stats.dto.WeekTagCount;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
@@ -395,5 +398,162 @@ class StatsServiceTest {
 		assertThatThrownBy(() -> service.weekDetail(1L, monday, hobbyId))
 				.isInstanceOfSatisfying(ApiException.class,
 						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.NOT_FOUND));
+	}
+
+	private ActivityRecord save(Long userId, Long hobbyId, LocalDate date, String content, Integer minutes,
+			Feeling feeling, boolean milestone) {
+		return activityRecordRepository
+				.save(new ActivityRecord(userId, hobbyId, date, content, minutes, null, feeling, milestone));
+	}
+
+	@Test
+	void growth_hobbyFilter_countsOnlyThatHobby_andOtherUsersHobbyIsNotFound() {
+		StatsService service = statsService();
+		Long guitar = createHobby(1L, "기타");
+		Long draw = createHobby(1L, "드로잉");
+		Long others = createHobby(2L, "남의 분야");
+		LocalDate d = LocalDate.of(2026, 11, 10);
+		save(1L, guitar, d, "기타", 20, Feeling.PROUD, false);
+		save(1L, draw, d, "그림", 30, Feeling.NEUTRAL, false);
+		save(2L, others, d, "남의 기록", 99, Feeling.STUCK, false);
+
+		GrowthResponse all = service.growth(1L, d.minusDays(5), d.plusDays(5), null);
+		GrowthResponse only = service.growth(1L, d.minusDays(5), d.plusDays(5), guitar);
+
+		assertThat(all.summary().records()).isEqualTo(2);
+		assertThat(all.summary().minutes()).isEqualTo(50);
+		assertThat(all.byHobby()).extracting(GrowthResponse.ByHobby::name).containsExactlyInAnyOrder("기타", "드로잉");
+		assertThat(only.summary().records()).isEqualTo(1);
+		assertThat(only.byHobby()).extracting(GrowthResponse.ByHobby::hobbyId).containsExactly(guitar);
+		assertThat(all.feelings().totals().hard()).isZero();
+		assertThatThrownBy(() -> service.growth(1L, d.minusDays(5), d.plusDays(5), others))
+				.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.NOT_FOUND));
+	}
+
+	@Test
+	void growth_weeksStartOnMonday_sundayAndMondayAreDifferentWeeks() {
+		StatsService service = statsService();
+		Long hobbyId = createHobby(1L, "기타");
+		save(1L, hobbyId, LocalDate.of(2026, 11, 15), "일요일", 10, null, false);
+		save(1L, hobbyId, LocalDate.of(2026, 11, 16), "월요일", 20, null, false);
+
+		GrowthResponse response = service.growth(1L, LocalDate.of(2026, 11, 9), LocalDate.of(2026, 11, 22), null);
+
+		assertThat(response.weekly()).extracting(GrowthResponse.Weekly::start)
+				.containsExactly(LocalDate.of(2026, 11, 9), LocalDate.of(2026, 11, 16));
+		assertThat(response.weekly().get(0).minutes()).isEqualTo(10);
+		assertThat(response.weekly().get(1).minutes()).isEqualTo(20);
+		// 월요일 칸(0)과 일요일 칸(6)에 각각 1개.
+		assertThat(response.weekday()).containsExactly(1, 0, 0, 0, 0, 0, 1);
+	}
+
+	@Test
+	void growth_feelings_builtInMapping_customCopiedOnRecord_andNoneForUnselected() {
+		StatsService service = statsService();
+		Long hobbyId = createHobby(1L, "기타");
+		LocalDate d = LocalDate.of(2026, 11, 10);
+		save(1L, hobbyId, d, "a", 10, Feeling.PROUD, false);
+		save(1L, hobbyId, d, "b", 10, Feeling.RELIEVED, false);
+		save(1L, hobbyId, d, "c", 10, Feeling.NEUTRAL, false);
+		save(1L, hobbyId, d, "d", 10, Feeling.STUCK, false);
+		save(1L, hobbyId, d, "e", 10, null, false);
+		// 직접 추가한 감정: 감정 목록(custom_feelings)에 행이 없어도(지웠어도) 기록에 복사된 값이 남는다.
+		ActivityRecord custom = save(1L, hobbyId, d, "f", 10, null, false);
+		custom.setCustomFeeling("설렘", FeelingDirection.GOOD);
+		ActivityRecord custom2 = save(1L, hobbyId, d, "g", 10, null, false);
+		custom2.setCustomFeeling("설렘", FeelingDirection.GOOD);
+		activityRecordRepository.flush();
+
+		GrowthResponse.Feelings feelings = service.growth(1L, d, d, null).feelings();
+
+		assertThat(feelings.totals()).isEqualTo(new GrowthResponse.Totals(4, 1, 1, 1));
+		assertThat(feelings.buckets()).hasSize(1);
+		assertThat(feelings.buckets().get(0)).isEqualTo(new GrowthResponse.Bucket(d, d, 4, 1, 1, 1));
+		assertThat(feelings.byFeeling().get(0)).isEqualTo(new GrowthResponse.ByFeeling("설렘", "GOOD", false, 2));
+		assertThat(feelings.byFeeling()).extracting(GrowthResponse.ByFeeling::label)
+				.contains("뿌듯함", "개운함", "담담함", "답답함");
+		assertThat(feelings.byFeeling()).filteredOn(GrowthResponse.ByFeeling::builtIn).hasSize(4);
+	}
+
+	@Test
+	void growth_bucketsAreDailyUpTo31Days_andWeeklyBeyond() {
+		StatsService service = statsService();
+		LocalDate start = LocalDate.of(2026, 10, 1);
+
+		assertThat(service.growth(1L, start, start.plusDays(30), null).feelings().buckets()).hasSize(31);
+		List<GrowthResponse.Bucket> weekly = service.growth(1L, start, start.plusDays(31), null).feelings().buckets();
+		assertThat(weekly).allSatisfy(b -> {
+			assertThat(b.start().getDayOfWeek()).isEqualTo(java.time.DayOfWeek.MONDAY);
+			assertThat(b.end()).isEqualTo(b.start().plusDays(6));
+		});
+	}
+
+	@Test
+	void growth_archivedHobby_isMarkedArchived_andKeepsFirstDateEvenOutsideRange() {
+		StatsService service = statsService();
+		Hobby hobby = hobbyRepository.save(new Hobby(1L, "보관한 분야", null));
+		save(1L, hobby.getId(), LocalDate.of(2026, 1, 5), "예전", 10, null, false);
+		save(1L, hobby.getId(), LocalDate.of(2026, 11, 10), "최근", 10, null, false);
+		hobby.archive(java.time.LocalDateTime.of(2026, 11, 11, 0, 0));
+		hobbyRepository.flush();
+
+		GrowthResponse response = service.growth(1L, LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 30), null);
+
+		assertThat(response.byHobby()).hasSize(1);
+		assertThat(response.byHobby().get(0).archived()).isTrue();
+		assertThat(response.byHobby().get(0).records()).isEqualTo(1);
+		assertThat(response.byHobby().get(0).firstDate()).isEqualTo(LocalDate.of(2026, 1, 5));
+		assertThat(response.summary().firstRecordDate()).isEqualTo(LocalDate.of(2026, 1, 5));
+	}
+
+	@Test
+	void growth_emptyPeriod_isAllZerosAndEmptyLists() {
+		StatsService service = statsService();
+		createHobby(1L, "기타");
+
+		GrowthResponse response = service.growth(1L, LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 14), null);
+
+		assertThat(response.summary()).isEqualTo(new GrowthResponse.Summary(0, 0, 0, null));
+		assertThat(response.weekly()).hasSize(3).allSatisfy(w -> {
+			assertThat(w.days()).isZero();
+			assertThat(w.minutes()).isZero();
+		});
+		assertThat(response.byHobby()).isEmpty();
+		assertThat(response.weekday()).containsExactly(0, 0, 0, 0, 0, 0, 0);
+		assertThat(response.topics()).isEmpty();
+		assertThat(response.milestones()).isEmpty();
+		assertThat(response.feelings().byFeeling()).isEmpty();
+	}
+
+	@Test
+	void growth_milestones_latestFirst_previewCutAt40_andTopicsFromExistingTags() {
+		StatsService service = statsService();
+		Long hobbyId = createHobby(1L, "기타");
+		String longText = "가".repeat(60);
+		ActivityRecord older = save(1L, hobbyId, LocalDate.of(2026, 11, 3), "처음 해낸 날", 10, null, true);
+		ActivityRecord newer = save(1L, hobbyId, LocalDate.of(2026, 11, 9), longText, 10, null, true);
+		save(1L, hobbyId, LocalDate.of(2026, 11, 10), "평범한 날", 10, null, false);
+		older.markAnalysisDone("{\"tags\":[\"코드\",\"리듬\"]}");
+		newer.markAnalysisDone("{\"tags\":[\"코드\"]}");
+		activityRecordRepository.flush();
+
+		GrowthResponse response = service.growth(1L, LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 30), null);
+
+		assertThat(response.milestones()).extracting(GrowthResponse.Milestone::recordId)
+				.containsExactly(newer.getId(), older.getId());
+		assertThat(response.milestones().get(0).preview()).hasSize(40);
+		assertThat(response.milestones().get(0).hobbyName()).isEqualTo("기타");
+		assertThat(response.topics()).extracting(WeekTagCount::tag).containsExactly("코드", "리듬");
+		assertThat(response.topics().get(0).count()).isEqualTo(2);
+	}
+
+	@Test
+	void growth_rejectsRangeOver400Days_andReversedRange() {
+		StatsService service = statsService();
+		LocalDate d = LocalDate.of(2026, 11, 1);
+
+		assertThatThrownBy(() -> service.growth(1L, d.minusDays(401), d, null)).isInstanceOf(ApiException.class);
+		assertThatThrownBy(() -> service.growth(1L, d, d.minusDays(1), null)).isInstanceOf(ApiException.class);
+		assertThat(service.growth(1L, null, d, null).weekly()).hasSizeLessThanOrEqualTo(52);
 	}
 }

@@ -12,6 +12,7 @@ import com.growit.record.entity.AiStatus;
 import com.growit.record.entity.Feeling;
 import com.growit.record.repository.ActivityRecordRepository;
 import com.growit.stats.dto.ActivityMapEntry;
+import com.growit.stats.dto.GrowthResponse;
 import com.growit.stats.dto.StatsSummaryResponse;
 import com.growit.stats.dto.WeekDay;
 import com.growit.stats.dto.WeekDayRecord;
@@ -40,6 +41,12 @@ public class StatsService {
 
 	private static final ZoneId SERVER_ZONE = ZoneId.of("Asia/Seoul");
 	private static final long MAX_RANGE_DAYS = 400;
+	private static final int MAX_GROWTH_WEEKS = 52;
+	private static final int DAILY_BUCKET_MAX_DAYS = 31;
+	private static final int MAX_TOPICS = 8;
+	private static final int MAX_MILESTONES = 12;
+	private static final int MAX_FEELING_CHIPS = 12;
+	private static final int PREVIEW_MAX = 40;
 
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
@@ -143,6 +150,10 @@ public class StatsService {
 
 	/** ai_status=DONE 기록의 analysis.tags를 세어 상위 5개만 돌려준다. */
 	private List<WeekTagCount> computeTopTags(List<ActivityRecord> weekRecords) {
+		return computeTopTags(weekRecords, 5);
+	}
+
+	private List<WeekTagCount> computeTopTags(List<ActivityRecord> weekRecords, int limit) {
 		Map<String, Long> counts = new java.util.LinkedHashMap<>();
 		for (ActivityRecord record : weekRecords) {
 			if (record.getAiStatus() != AiStatus.DONE) {
@@ -154,7 +165,7 @@ public class StatsService {
 		}
 		return counts.entrySet().stream()
 				.sorted(Map.Entry.<String, Long>comparingByValue().reversed())
-				.limit(5)
+				.limit(limit)
 				.map(entry -> new WeekTagCount(entry.getKey(), entry.getValue()))
 				.toList();
 	}
@@ -222,6 +233,161 @@ public class StatsService {
 
 		return new WeekDetailResponse(weekStart, weekEnd, (int) recordedDays, totalMinutes, hobbyCount, days,
 				weekStart.minusDays(7), nextWeekStart);
+	}
+
+	/**
+	 * 성장 화면용 집계. from이 없으면 to(기본 오늘)로부터 400일 전부터, 범위가 400일을 넘으면 400(주별 집계와 같은 상한).
+	 * 주는 월요일 시작, 날짜는 Asia/Seoul 기준이다. 감정 방향은 기본 감정은 고정 매핑, 직접 추가한 감정은 기록에 복사된 값을 쓴다.
+	 */
+	public GrowthResponse growth(Long userId, LocalDate from, LocalDate to, Long hobbyId) {
+		LocalDate end = to != null ? to : LocalDate.now(SERVER_ZONE);
+		LocalDate start = from != null ? from : end.minusDays(MAX_RANGE_DAYS);
+		validateRange(start, end);
+		if (hobbyId != null) {
+			requireOwnedHobby(userId, hobbyId);
+		}
+
+		List<ActivityRecord> records = hobbyId == null
+				? activityRecordRepository.findByUserIdAndRecordDateBetween(userId, start, end)
+				: activityRecordRepository.findByUserIdAndHobbyIdAndRecordDateBetween(userId, hobbyId, start, end);
+		List<Hobby> hobbies = hobbyRepository.findByUserIdOrderByIdAsc(userId);
+		Map<Long, Hobby> hobbyById = hobbies.stream().collect(Collectors.toMap(Hobby::getId, h -> h));
+		Map<Long, LocalDate> firstDates = new HashMap<>();
+		for (Object[] row : activityRecordRepository.findFirstRecordDatesByHobby(userId)) {
+			firstDates.put((Long) row[0], (LocalDate) row[1]);
+		}
+
+		LocalDate firstRecordDate = hobbyId != null ? firstDates.get(hobbyId)
+				: firstDates.values().stream().min(LocalDate::compareTo).orElse(null);
+		GrowthResponse.Summary summary = new GrowthResponse.Summary(
+				(int) records.stream().map(ActivityRecord::getRecordDate).distinct().count(), records.size(),
+				minutesOf(records), firstRecordDate);
+
+		// 주별: 기록 없는 주도 0으로 채우고, 너무 길면 최근 52주만.
+		Map<LocalDate, List<ActivityRecord>> byWeek = records.stream()
+				.collect(Collectors.groupingBy(r -> weekStartOf(r.getRecordDate())));
+		List<GrowthResponse.Weekly> weekly = new ArrayList<>();
+		for (LocalDate week = weekStartOf(start); !week.isAfter(weekStartOf(end)); week = week.plusDays(7)) {
+			List<ActivityRecord> weekRecords = byWeek.getOrDefault(week, List.of());
+			weekly.add(new GrowthResponse.Weekly(week,
+					(int) weekRecords.stream().map(ActivityRecord::getRecordDate).distinct().count(),
+					minutesOf(weekRecords)));
+		}
+		if (weekly.size() > MAX_GROWTH_WEEKS) {
+			weekly = new ArrayList<>(weekly.subList(weekly.size() - MAX_GROWTH_WEEKS, weekly.size()));
+		}
+
+		Map<Long, List<ActivityRecord>> byHobbyRecords = records.stream()
+				.collect(Collectors.groupingBy(ActivityRecord::getHobbyId));
+		List<GrowthResponse.ByHobby> byHobby = byHobbyRecords.entrySet().stream()
+				.map(entry -> {
+					Hobby hobby = hobbyById.get(entry.getKey());
+					return new GrowthResponse.ByHobby(entry.getKey(), hobby == null ? "" : hobby.getName(),
+							entry.getValue().size(), minutesOf(entry.getValue()), firstDates.get(entry.getKey()),
+							hobby != null && hobby.isArchived());
+				})
+				.sorted(Comparator.comparingLong(GrowthResponse.ByHobby::records).reversed()
+						.thenComparing(GrowthResponse.ByHobby::hobbyId))
+				.toList();
+
+		int[] weekdayCounts = new int[7];
+		for (ActivityRecord record : records) {
+			weekdayCounts[record.getRecordDate().getDayOfWeek().getValue() - 1]++;
+		}
+		List<Integer> weekday = java.util.Arrays.stream(weekdayCounts).boxed().toList();
+
+		List<GrowthResponse.Milestone> milestones = records.stream().filter(ActivityRecord::isMilestone)
+				.sorted(Comparator.comparing(ActivityRecord::getRecordDate).reversed()
+						.thenComparing(ActivityRecord::getId, Comparator.reverseOrder()))
+				.limit(MAX_MILESTONES)
+				.map(r -> new GrowthResponse.Milestone(r.getId(), r.getRecordDate(),
+						hobbyById.containsKey(r.getHobbyId()) ? hobbyById.get(r.getHobbyId()).getName() : "",
+						previewOf(r.getContent())))
+				.toList();
+
+		return new GrowthResponse(summary, weekly, byHobby, weekday, growthFeelings(records, start, end),
+				computeTopTags(records, MAX_TOPICS), milestones);
+	}
+
+	private GrowthResponse.Feelings growthFeelings(List<ActivityRecord> records, LocalDate start, LocalDate end) {
+		boolean daily = ChronoUnit.DAYS.between(start, end) + 1 <= DAILY_BUCKET_MAX_DAYS;
+		Map<LocalDate, long[]> bucketCounts = new java.util.LinkedHashMap<>();
+		if (daily) {
+			for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
+				bucketCounts.put(d, new long[4]);
+			}
+		} else {
+			for (LocalDate w = weekStartOf(start); !w.isAfter(weekStartOf(end)); w = w.plusDays(7)) {
+				bucketCounts.put(w, new long[4]);
+			}
+		}
+		Map<String, long[]> byLabel = new HashMap<>();
+		Map<String, String> labelDirection = new HashMap<>();
+		Map<String, Boolean> labelBuiltIn = new HashMap<>();
+		long[] totals = new long[4];
+		for (ActivityRecord record : records) {
+			String direction = directionOf(record);
+			int slot = direction == null ? 3 : switch (direction) {
+				case "GOOD" -> 0;
+				case "NEUTRAL" -> 1;
+				default -> 2;
+			};
+			bucketCounts.get(daily ? record.getRecordDate() : weekStartOf(record.getRecordDate()))[slot]++;
+			totals[slot]++;
+			String label = labelOf(record);
+			if (label != null && direction != null) {
+				String key = (record.getFeeling() != null ? "B:" : "C:") + label;
+				byLabel.computeIfAbsent(key, k -> new long[1])[0]++;
+				labelDirection.put(key, direction);
+				labelBuiltIn.put(key, record.getFeeling() != null);
+			}
+		}
+		List<GrowthResponse.Bucket> buckets = bucketCounts.entrySet().stream()
+				.map(e -> new GrowthResponse.Bucket(e.getKey(), daily ? e.getKey() : e.getKey().plusDays(6),
+						e.getValue()[0], e.getValue()[1], e.getValue()[2], e.getValue()[3]))
+				.toList();
+		List<GrowthResponse.ByFeeling> byFeeling = byLabel.entrySet().stream()
+				.map(e -> new GrowthResponse.ByFeeling(e.getKey().substring(2), labelDirection.get(e.getKey()),
+						labelBuiltIn.get(e.getKey()), e.getValue()[0]))
+				.sorted(Comparator.comparingLong(GrowthResponse.ByFeeling::count).reversed()
+						.thenComparing(GrowthResponse.ByFeeling::label))
+				.limit(MAX_FEELING_CHIPS)
+				.toList();
+		return new GrowthResponse.Feelings(buckets, byFeeling,
+				new GrowthResponse.Totals(totals[0], totals[1], totals[2], totals[3]));
+	}
+
+	/** 기본 감정은 고정 매핑, 직접 추가한 감정은 기록에 복사된 방향(감정 목록에서 지워도 남는다). 안 고르면 null. */
+	private static String directionOf(ActivityRecord record) {
+		if (record.getFeeling() != null) {
+			return switch (record.getFeeling()) {
+				case PROUD, RELIEVED -> "GOOD";
+				case NEUTRAL -> "NEUTRAL";
+				case STUCK -> "HARD";
+			};
+		}
+		return record.getFeelingLabel() == null ? null : record.getFeelingDirection();
+	}
+
+	private static String labelOf(ActivityRecord record) {
+		if (record.getFeeling() != null) {
+			return switch (record.getFeeling()) {
+				case PROUD -> "뿌듯함";
+				case RELIEVED -> "개운함";
+				case NEUTRAL -> "담담함";
+				case STUCK -> "답답함";
+			};
+		}
+		return record.getFeelingLabel();
+	}
+
+	private static long minutesOf(List<ActivityRecord> records) {
+		return records.stream().mapToLong(r -> r.getMinutes() == null ? 0 : r.getMinutes()).sum();
+	}
+
+	private static String previewOf(String content) {
+		String flat = content == null ? "" : content.replaceAll("\\s+", " ").trim();
+		return flat.length() > PREVIEW_MAX ? flat.substring(0, PREVIEW_MAX) : flat;
 	}
 
 	private void validateRange(LocalDate from, LocalDate to) {

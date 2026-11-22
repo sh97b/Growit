@@ -141,6 +141,7 @@ public class CorsIntegrationTest {
 				Arguments.of("/api/stats/summary", "GET"),
 				Arguments.of("/api/stats/activity-map", "GET"),
 				Arguments.of("/api/stats/weeks", "GET"),
+				Arguments.of("/api/stats/growth", "GET"),
 				Arguments.of("/api/stats/weeks/2026-11-02", "GET"),
 				Arguments.of("/api/ai/data", "DELETE"),
 				Arguments.of("/api/ai/usage", "GET"),
