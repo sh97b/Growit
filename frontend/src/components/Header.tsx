@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { AccountMenu } from './AccountMenu'
-import { isReviewPath, isRoadmapPath } from './nav-items'
+import { isGrowthPath, isReviewPath, isRoadmapPath } from './nav-items'
 import { PlusIcon } from './icons'
 import growitLogo from '../assets/brand/growit-logo.svg'
 
@@ -10,6 +10,7 @@ export function Header() {
   const homeActive = location.pathname === '/'
   const reviewActive = isReviewPath(location.pathname)
   const roadmapActive = isRoadmapPath(location.pathname)
+  const growthActive = isGrowthPath(location.pathname)
 
   return (
     <header className="hidden h-[4.25rem] flex-none border-b border-line bg-paper lg:block">
@@ -47,6 +48,16 @@ export function Header() {
             ].join(' ')}
           >
             돌아보기
+          </Link>
+          <Link
+            to="/growth"
+            aria-current={growthActive ? 'page' : undefined}
+            className={[
+              'flex items-center border-b-2 text-body-min font-medium no-underline',
+              growthActive ? 'border-ink font-semibold text-ink' : 'border-transparent text-ink-2',
+            ].join(' ')}
+          >
+            성장
           </Link>
         </nav>
         <div className="ml-auto flex items-center gap-2">

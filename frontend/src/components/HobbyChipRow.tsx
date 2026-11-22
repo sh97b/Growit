@@ -21,12 +21,18 @@ export function HobbyChipRow({
   hobbies,
   selectedId,
   onSelect,
+  allLabel,
+  onSelectAll,
   addOpen,
   onToggleAdd,
 }: {
   hobbies: Hobby[]
-  selectedId: number
+  /** allLabel이 있으면 null이 "전체" 칩 선택 상태다. */
+  selectedId: number | null
   onSelect: (id: number) => void
+  /** 맨 앞에 "전체" 같은 칩을 하나 더 둔다(분야로 거르지 않는 화면). */
+  allLabel?: string
+  onSelectAll?: () => void
   /** 둘 다 없으면 "+ 분야 추가" 칩을 그리지 않는다(분야만 고르는 화면). */
   addOpen?: boolean
   onToggleAdd?: () => void
@@ -101,6 +107,17 @@ export function HobbyChipRow({
         className="w-full min-w-0 overflow-x-auto overflow-y-hidden pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         <div className="flex w-max min-w-full flex-nowrap items-center justify-start gap-2 px-2">
+        {allLabel && onSelectAll ? (
+          <button
+            type="button"
+            aria-pressed={selectedId === null}
+            data-selected={selectedId === null}
+            onClick={onSelectAll}
+            className={pickClass(selectedId === null)}
+          >
+            {allLabel}
+          </button>
+        ) : null}
         {hobbies.map((hobby) => (
           <button
             key={hobby.id}

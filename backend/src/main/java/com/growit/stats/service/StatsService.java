@@ -269,9 +269,9 @@ public class StatsService {
 		List<GrowthResponse.Weekly> weekly = new ArrayList<>();
 		for (LocalDate week = weekStartOf(start); !week.isAfter(weekStartOf(end)); week = week.plusDays(7)) {
 			List<ActivityRecord> weekRecords = byWeek.getOrDefault(week, List.of());
-			weekly.add(new GrowthResponse.Weekly(week,
-					(int) weekRecords.stream().map(ActivityRecord::getRecordDate).distinct().count(),
-					minutesOf(weekRecords)));
+			// 돌아보기의 주별 집계(/weeks)와 같은 계산을 쓴다.
+			WeekSummaryResponse week7 = summarizeWeek(week, weekRecords);
+			weekly.add(new GrowthResponse.Weekly(week, week7.recordedDays(), week7.totalMinutes()));
 		}
 		if (weekly.size() > MAX_GROWTH_WEEKS) {
 			weekly = new ArrayList<>(weekly.subList(weekly.size() - MAX_GROWTH_WEEKS, weekly.size()));

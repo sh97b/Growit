@@ -16,6 +16,7 @@ import { PrivacyPage } from './pages/PrivacyPage'
 import { RecordDetailPage } from './pages/RecordDetailPage'
 import { RecordEditPage } from './pages/RecordEditPage'
 import { RecordNewPage } from './pages/RecordNewPage'
+import { GrowthPage } from './pages/GrowthPage'
 import { RoadmapLegacyRedirect, RoadmapPage } from './pages/RoadmapPage'
 import { RecordSavedPage } from './pages/RecordSavedPage'
 import { RecordsPage } from './pages/RecordsPage'
@@ -81,6 +82,7 @@ function App() {
         <Route path="/weeks/:weekStart" element={<WeekDetailPage />} />
         <Route path="/dots/collection" element={<DotCollectionPage />} />
         <Route path="/roadmap" element={<RoadmapPage />} />
+        <Route path="/growth" element={<GrowthPage />} />
         <Route path="/hobbies/:id/roadmap" element={<RoadmapLegacyRedirect />} />
         <Route path="/records/new" element={<RecordNewPage />} />
         <Route path="/records/:id/saved" element={<RecordSavedPage />} />

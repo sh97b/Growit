@@ -108,6 +108,17 @@ export function ChevronDownIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+/** 성장: 높이가 다른 막대 세 개. */
+export function GrowthIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M5 20v-6" />
+      <path d="M12 20V9" />
+      <path d="M19 20V4" />
+    </Icon>
+  )
+}
+
 /** 로드맵: 길 위에 놓인 점 세 개. */
 export function RoadmapIcon(props: SVGProps<SVGSVGElement>) {
   return (
