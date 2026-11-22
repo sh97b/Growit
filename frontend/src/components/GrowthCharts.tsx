@@ -12,8 +12,11 @@ const PAD_TOP = 14
 const PAD_BOTTOM = 28
 const PAD_X = 8
 const MIN_BAR = 8
-const MAX_BAR = 40
+/** 막대가 너무 굵어 보이지 않게 제한한다(카드가 커도 막대 두께는 그대로). */
+const MAX_BAR = 30
+/** 축·라벨은 12px, 값은 14px(고정 px, 스케일되지 않는다). */
 const FONT = 12
+const VALUE_FONT = 14
 const MIN_CHART_HEIGHT = 140
 /** 가로 스크롤바가 생길 때 그만큼 그림을 줄여 아래쪽 글자가 잘리지 않게 한다. */
 const SCROLLBAR_ROOM = 12
@@ -116,7 +119,7 @@ export function BarChart({
                 {items.map((item, index) => {
                   const x = PAD_X + slot * index + (slot - barW) / 2
                   const total = item.parts.reduce((sum, part) => sum + part.value, 0)
-                  const showValue = !!item.valueText && total > 0 && slot >= item.valueText.length * 9 + 4
+                  const showValue = !!item.valueText && total > 0 && slot >= item.valueText.length * 10 + 4
                   let y = yOf(0)
                   const focus = () => setActive(index)
                   return (
@@ -180,7 +183,7 @@ export function BarChart({
                           x={x + barW / 2}
                           y={yOf(total) - 4}
                           textAnchor="middle"
-                          fontSize={FONT}
+                          fontSize={VALUE_FONT}
                           fill={CHART_COLORS.strong}
                         >
                           {item.valueText}
@@ -232,7 +235,7 @@ export function HBarChart({
   color?: string
 }) {
   const { ref, width } = useElementSize<HTMLDivElement>()
-  const rowH = 32
+  const rowH = 34
   const labelW = 116
   const valueW = 84
   const max = Math.max(1, ...items.map((item) => item.value))
@@ -248,12 +251,12 @@ export function HBarChart({
             const label = item.label.length > 8 ? `${item.label.slice(0, 7)}…` : item.label
             return (
               <g key={`${item.label}-${index}`} opacity={item.muted ? 0.55 : 1}>
-                <text x={0} y={y + 21} fontSize={13} fill={CHART_COLORS.strong}>
+                <text x={0} y={y + 22} fontSize={VALUE_FONT} fill={CHART_COLORS.strong}>
                   {label}
                 </text>
                 <rect x={labelW} y={y + 7} width={w} height={rowH - 14} rx={3} fill={color} />
                 {item.value > 0 ? (
-                  <text x={labelW + w + 6} y={y + 21} fontSize={FONT} fill={CHART_COLORS.text}>
+                  <text x={labelW + w + 6} y={y + 22} fontSize={VALUE_FONT} fill={CHART_COLORS.text}>
                     {item.valueText}
                   </text>
                 ) : null}
@@ -344,9 +347,15 @@ export function ChartCard({
   chart,
   table,
   caption,
+  intro,
+  headerExtra,
   scrollBody = false,
 }: {
   title: string
+  /** 토글 줄 바로 아래에 늘 보이는 한두 줄 요약(그래프·표 어느 쪽이든). */
+  intro?: ReactNode
+  /** 제목 줄 오른쪽, [그래프|표] 토글 앞에 두는 컨트롤(예: 기록 수 | 쌓인 시간). */
+  headerExtra?: ReactNode
   chart: ReactNode
   /** 없으면 토글을 그리지 않는다(데이터가 부족한 카드 등). */
   table?: TableData
@@ -362,7 +371,9 @@ export function ChartCard({
       className="flex min-w-0 flex-col gap-2 rounded-xl border border-line bg-white p-4 lg:min-h-0 lg:p-5"
     >
       <div className="flex flex-none items-center justify-between gap-2">
-        <h2 className="min-w-0 truncate text-card-title font-semibold">{title}</h2>
+        <h2 className="min-w-0 truncate text-[18px] font-semibold leading-tight">{title}</h2>
+        <div className="flex flex-none items-center gap-2">
+        {headerExtra}
         {table ? (
           <div role="radiogroup" aria-label={`${title} 보기 방식`} className="flex flex-none gap-0.5 rounded-lg border border-line-2 bg-white p-0.5">
             {(['chart', 'table'] as const).map((key) => (
@@ -382,7 +393,9 @@ export function ChartCard({
             ))}
           </div>
         ) : null}
+        </div>
       </div>
+      {intro ? <div className="flex-none">{intro}</div> : null}
       <div
         className={[
           'flex min-h-0 flex-col lg:flex-1',

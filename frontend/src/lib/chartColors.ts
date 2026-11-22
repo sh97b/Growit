@@ -4,8 +4,8 @@ export const CHART_COLORS = {
   base: '#3E7C68',
   /** 쌓인 시간(같은 계열의 중간 초록). */
   time: '#8DB8A7',
-  /** 보통이에요(중립 돌색). */
-  neutral: '#A59D8D',
+  /** 보통이에요(청회색). */
+  neutral: '#7C8FA0',
   /** 힘들어요: 빨강 대신 차분한 따뜻한 색. */
   hard: '#C9904A',
   grid: '#E7E1D6',

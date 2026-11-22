@@ -1,7 +1,7 @@
 import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { BarChart, ChartCard, HBarChart, Legend, type BarItem } from '../components/GrowthCharts'
-import { HobbyChipRow } from '../components/HobbyChipRow'
+import { ChevronDownIcon } from '../components/icons'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
 import { useGrowth } from '../hooks/useGrowth'
@@ -12,6 +12,7 @@ import { countAxis, currentWeekStart, dayTicks, minutesAxis, trimWeeks, weekTick
 import { formatDurationMinutes, formatMonthDay, formatYearMonthDay } from '../lib/date'
 import {
   PERIOD_OPTIONS,
+  filterTopics,
   readGrowthFilter,
   writeGrowthFilter,
   type Growth,
@@ -23,9 +24,9 @@ type TabKey = 'overview' | 'hobby' | 'feeling' | 'rhythm'
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'overview', label: '한눈에' },
-  { key: 'hobby', label: '분야' },
+  { key: 'hobby', label: '분야별' },
   { key: 'feeling', label: '감정' },
-  { key: 'rhythm', label: '리듬' },
+  { key: 'rhythm', label: '요일·주제' },
 ]
 
 const WEEKDAY_LABELS = ['월', '화', '수', '목', '금', '토', '일']
@@ -39,6 +40,10 @@ const HARD_LABEL = '힘들어요'
 
 const DIRECTION_LABEL = { GOOD: GOOD_LABEL, NEUTRAL: NEUTRAL_LABEL, HARD: HARD_LABEL } as const
 const DIRECTION_COLOR = { GOOD: CHART_COLORS.base, NEUTRAL: CHART_COLORS.neutral, HARD: CHART_COLORS.hard } as const
+
+const MAX_HOBBY_ROWS = 8
+const MAX_TOPICS = 6
+const MIN_TOPICS = 3
 
 const REST_NOTE = '쉬어 간 주도 흐름이에요'
 
@@ -198,92 +203,120 @@ function OverviewTab({ growth, minSlot, compact }: { growth: Growth; minSlot: nu
   )
 }
 
+function firstDateLabel(isoDate: string | null): string {
+  if (!isoDate) return ''
+  const sameYear = isoDate.slice(0, 4) === String(new Date().getFullYear())
+  return `첫 기록 ${sameYear ? formatMonthDay(isoDate) : formatYearMonthDay(isoDate)}`
+}
+
+type HobbyMetric = 'records' | 'minutes'
+
 function HobbyTab({ growth }: { growth: Growth }) {
   const enough = growth.summary.records >= MIN_RECORDS_FOR_CHARTS
+  const [metric, setMetric] = useState<HobbyMetric>('records')
   const hobbyName = (name: string, archived: boolean) => (archived ? `${name} (보관)` : name)
+
+  // 기록 0개 분야는 뺀다. 선택한 기준으로 내림차순, 같으면 다른 기준으로.
+  const sorted = useMemo(() => {
+    const other: HobbyMetric = metric === 'records' ? 'minutes' : 'records'
+    return growth.byHobby
+      .filter((hobby) => hobby.records > 0)
+      .sort((a, b) => b[metric] - a[metric] || b[other] - a[other])
+  }, [growth.byHobby, metric])
+  const shown = sorted.slice(0, MAX_HOBBY_ROWS)
+  const max = Math.max(1, ...shown.map((hobby) => hobby[metric]))
+
+  const toggle = (
+    <div role="radiogroup" aria-label="분야별 기준" className="flex gap-0.5 rounded-lg border border-line-2 bg-white p-0.5">
+      {(
+        [
+          ['records', '기록 수'],
+          ['minutes', '쌓인 시간'],
+        ] as const
+      ).map(([key, label]) => (
+        <button
+          key={key}
+          type="button"
+          role="radio"
+          aria-checked={metric === key}
+          onClick={() => setMetric(key)}
+          className={[
+            'inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-md px-3 text-caption-min font-medium lg:min-h-8',
+            metric === key ? 'bg-ink text-white' : 'text-ink-2',
+          ].join(' ')}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+
   return (
-    <Panel>
+    <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-rows-[minmax(0,1fr)]">
       <ChartCard
-        title="분야별 기록 수"
+        title="분야별 기록"
         scrollBody
+        headerExtra={toggle}
         table={
           enough
             ? {
-                headers: ['분야', '기록', '첫 기록일'],
-                numeric: [1],
-                rows: growth.byHobby.map((hobby) => [
+                headers: ['분야', '기록', '쌓인 시간', '첫 기록일'],
+                numeric: [1, 2],
+                rows: sorted.map((hobby) => [
                   hobbyName(hobby.name, hobby.archived),
                   `${hobby.records}개`,
+                  formatDurationMinutes(hobby.minutes),
                   hobby.firstDate ? formatYearMonthDay(hobby.firstDate) : '-',
                 ]),
               }
             : undefined
         }
+        caption={
+          enough && sorted.length > MAX_HOBBY_ROWS ? (
+            <p className="text-caption-min text-ink-2">나머지는 표로 볼 수 있어요</p>
+          ) : undefined
+        }
         chart={
           enough ? (
-            <HBarChart
-              ariaLabel="분야별 기록 수 가로 막대 그래프"
-              items={growth.byHobby.map((hobby) => ({
-                label: hobbyName(hobby.name, hobby.archived),
-                value: hobby.records,
-                valueText: `${hobby.records}개`,
-                muted: hobby.archived,
-              }))}
-            />
+            <ul className="flex flex-col gap-2.5" aria-label={metric === 'records' ? '분야별 기록 수' : '분야별 쌓인 시간'}>
+              {shown.map((hobby) => (
+                <li key={hobby.hobbyId} className={hobby.archived ? 'opacity-60' : ''}>
+                  <div className="flex items-center gap-3">
+                    <span className="w-24 flex-none truncate text-[14px] text-ink lg:w-32" title={hobby.name}>
+                      {hobbyName(hobby.name, hobby.archived)}
+                    </span>
+                    <span className="h-3 min-w-0 flex-1 rounded-full bg-surface" aria-hidden="true">
+                      <span
+                        className="block h-3 rounded-full"
+                        style={{
+                          width: `${Math.max(2, (hobby[metric] / max) * 100)}%`,
+                          background: CHART_COLORS.base,
+                        }}
+                      />
+                    </span>
+                    <span className="flex-none text-right text-[14px] tabular-nums text-ink">
+                      {hobby.records}개 · {formatDurationMinutes(hobby.minutes)}
+                    </span>
+                  </div>
+                  {hobby.firstDate ? (
+                    <p className="pl-[6.75rem] text-[12px] text-ink-2 lg:pl-[8.75rem]">{firstDateLabel(hobby.firstDate)}</p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
           ) : (
             <TooFew />
           )
         }
       />
-      <ChartCard
-        title="분야별 쌓인 시간"
-        scrollBody
-        table={
-          enough
-            ? {
-                headers: ['분야', '쌓인 시간'],
-                numeric: [1],
-                rows: growth.byHobby.map((hobby) => [
-                  hobbyName(hobby.name, hobby.archived),
-                  formatDurationMinutes(hobby.minutes),
-                ]),
-              }
-            : undefined
-        }
-        chart={
-          enough ? (
-            <div className="flex flex-col gap-3">
-              <HBarChart
-                color={CHART_COLORS.time}
-                ariaLabel="분야별 쌓인 시간 가로 막대 그래프"
-                items={growth.byHobby.map((hobby) => ({
-                  label: hobbyName(hobby.name, hobby.archived),
-                  value: hobby.minutes,
-                  valueText: formatDurationMinutes(hobby.minutes),
-                  muted: hobby.archived,
-                }))}
-              />
-              <ul className="flex flex-col gap-1 text-caption-min text-ink-2" aria-label="분야별 첫 기록일">
-                {growth.byHobby.map((hobby) => (
-                  <li key={hobby.hobbyId} className={hobby.archived ? 'opacity-60' : ''}>
-                    {hobbyName(hobby.name, hobby.archived)} · 첫 기록{' '}
-                    {hobby.firstDate ? formatYearMonthDay(hobby.firstDate) : '-'}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : (
-            <TooFew />
-          )
-        }
-      />
-    </Panel>
+    </div>
   )
 }
 
 function FeelingTab({ growth, minSlot }: { growth: Growth; minSlot: number }) {
   const enough = growth.summary.records >= MIN_RECORDS_FOR_CHARTS
   const { buckets, byFeeling, totals } = growth.feelings
+  const counted = totals.good + totals.neutral + totals.hard
   const daily = buckets.length > 0 && buckets[0].start === buckets[0].end
   const thisWeek = currentWeekStart()
   const hasCurrent = !daily && buckets.length > 0 && buckets[buckets.length - 1].start === thisWeek
@@ -301,32 +334,23 @@ function FeelingTab({ growth, minSlot }: { growth: Growth; minSlot: number }) {
       { value: bucket.neutral, color: CHART_COLORS.neutral },
       { value: bucket.hard, color: CHART_COLORS.hard },
     ],
+    valueText: String(bucket.good + bucket.neutral + bucket.hard),
     tooltip: `${daily ? formatMonthDay(bucket.start) : weekLabel(bucket.start)} · ${GOOD_LABEL} ${bucket.good} · ${NEUTRAL_LABEL} ${bucket.neutral} · ${HARD_LABEL} ${bucket.hard}${!daily && bucket.start === thisWeek ? ' · 이번 주' : ''}`,
     current: !daily && bucket.start === thisWeek,
   }))
   const axis = countAxis(Math.max(0, ...buckets.map((bucket) => bucket.good + bucket.neutral + bucket.hard)))
-  const legend = (
-    <Legend
-      items={[
-        { label: GOOD_LABEL, color: CHART_COLORS.base },
-        { label: NEUTRAL_LABEL, color: CHART_COLORS.neutral },
-        { label: HARD_LABEL, color: CHART_COLORS.hard },
-      ]}
-    />
-  )
+
   return (
-    <Panel>
+    <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-rows-[minmax(0,1fr)]">
       <ChartCard
         title={daily ? '날짜별 감정' : '주별 감정'}
-        caption={
+        intro={
           enough ? (
-            <>
-              <p className="text-body-min">
-                이 기간 기록 {growth.summary.records}개 중 {GOOD_LABEL} 쪽 {totals.good}개, {NEUTRAL_LABEL} {totals.neutral}개,{' '}
-                {HARD_LABEL} {totals.hard}개예요.
-              </p>
-              {legend}
-            </>
+            <p className="text-[14px]">
+              {counted > 0
+                ? `감정을 남긴 기록 ${counted}개 중 ${GOOD_LABEL} 쪽 ${totals.good}개, ${NEUTRAL_LABEL} ${totals.neutral}개, ${HARD_LABEL} ${totals.hard}개예요.`
+                : '이 기간에는 감정을 남긴 기록이 아직 없어요.'}
+            </p>
           ) : undefined
         }
         table={
@@ -344,6 +368,41 @@ function FeelingTab({ growth, minSlot }: { growth: Growth; minSlot: number }) {
               }
             : undefined
         }
+        caption={
+          enough ? (
+            <>
+              <Legend
+                items={[
+                  { label: GOOD_LABEL, color: CHART_COLORS.base },
+                  { label: NEUTRAL_LABEL, color: CHART_COLORS.neutral },
+                  { label: HARD_LABEL, color: CHART_COLORS.hard },
+                ]}
+              />
+              {byFeeling.length > 0 ? (
+                <ul className="flex flex-wrap gap-2 pt-1" aria-label="자주 쓴 감정">
+                  {byFeeling.map((feeling) => (
+                    <li
+                      key={`${feeling.builtIn}-${feeling.label}`}
+                      className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-line-2 bg-white px-3 text-[14px]"
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="inline-block h-2.5 w-2.5 rounded-full"
+                        style={{ background: DIRECTION_COLOR[feeling.direction] }}
+                      />
+                      {feeling.label}
+                      <span className="text-ink-2">{feeling.count}번</span>
+                      <span className="sr-only">{DIRECTION_LABEL[feeling.direction]} 쪽 감정</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {totals.none > 0 ? (
+                <p className="pt-1 text-[12px] text-ink-2">감정을 고르지 않은 기록 {totals.none}개는 빼고 셌어요</p>
+              ) : null}
+            </>
+          ) : undefined
+        }
         chart={
           enough ? (
             <BarChart
@@ -359,47 +418,13 @@ function FeelingTab({ growth, minSlot }: { growth: Growth; minSlot: number }) {
           )
         }
       />
-      <ChartCard
-        title="자주 쓴 감정"
-        scrollBody
-        caption={
-          <>
-            {legend}
-            {totals.none > 0 ? (
-              <p className="text-caption-min text-ink-2">감정을 고르지 않은 기록은 {totals.none}개예요.</p>
-            ) : null}
-          </>
-        }
-        chart={
-          byFeeling.length === 0 ? (
-            <p className="py-6 text-body-min text-ink-2">이 기간에 고른 감정이 아직 없어요</p>
-          ) : (
-            <ul className="flex flex-wrap content-start gap-2" aria-label="자주 쓴 감정">
-              {byFeeling.map((feeling) => (
-                <li
-                  key={`${feeling.builtIn}-${feeling.label}`}
-                  className="inline-flex min-h-9 items-center gap-2 rounded-full border border-line-2 bg-white px-3 text-sm"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="inline-block h-2.5 w-2.5 rounded-full"
-                    style={{ background: DIRECTION_COLOR[feeling.direction] }}
-                  />
-                  {feeling.label}
-                  <span className="text-ink-2">{feeling.count}번</span>
-                  <span className="sr-only">{DIRECTION_LABEL[feeling.direction]} 쪽 감정</span>
-                </li>
-              ))}
-            </ul>
-          )
-        }
-      />
-    </Panel>
+    </div>
   )
 }
 
 function RhythmTab({ growth, minSlot }: { growth: Growth; minSlot: number }) {
   const enough = growth.summary.records >= MIN_RECORDS_FOR_CHARTS
+  const { data: allHobbies } = useHobbies(true)
   const axis = countAxis(Math.max(0, ...growth.weekday))
   const items: BarItem[] = WEEKDAY_LABELS.map((label, index) => ({
     id: label,
@@ -408,98 +433,123 @@ function RhythmTab({ growth, minSlot }: { growth: Growth; minSlot: number }) {
     valueText: String(growth.weekday[index] ?? 0),
     tooltip: `${label}요일 · ${growth.weekday[index] ?? 0}개`,
   }))
+  const topics = useMemo(
+    () => filterTopics(growth.topics, (allHobbies ?? []).map((hobby) => hobby.name), MAX_TOPICS),
+    [growth.topics, allHobbies],
+  )
+  const enoughTopics = topics.length >= MIN_TOPICS
+  const recentMilestones = growth.milestones.slice(0, 3)
+
   return (
-    <Panel columns={3}>
-      <ChartCard
-        title="요일별 기록"
-        table={
-          enough
-            ? {
-                headers: ['요일', '기록'],
-                numeric: [1],
-                rows: WEEKDAY_LABELS.map((label, index) => [`${label}요일`, `${growth.weekday[index] ?? 0}개`]),
-              }
-            : undefined
-        }
-        chart={
-          enough ? (
-            <BarChart
-              items={items}
-              yMax={axis.yMax}
-              yTicks={axis.ticks}
-              formatTick={String}
-              minSlot={Math.max(minSlot, 28)}
-              ariaLabel="요일별 기록 수 막대 그래프"
-            />
-          ) : (
-            <TooFew />
-          )
-        }
-      />
-      <ChartCard
-        title="자주 하는 주제"
-        scrollBody
-        table={
-          growth.topics.length > 0
-            ? {
-                headers: ['주제', '횟수'],
-                numeric: [1],
-                rows: growth.topics.map((topic) => [topic.tag, `${topic.count}번`]),
-              }
-            : undefined
-        }
-        chart={
-          growth.topics.length === 0 ? (
-            <p className="py-6 text-body-min text-ink-2">AI가 정리한 기록이 쌓이면 주제가 보여요</p>
-          ) : (
-            <HBarChart
-              ariaLabel="자주 하는 주제 가로 막대 그래프"
-              items={growth.topics.map((topic) => ({
-                label: topic.tag,
-                value: topic.count,
-                valueText: `${topic.count}번`,
-              }))}
-            />
-          )
-        }
-      />
-      <ChartCard
-        title="의미 있는 날"
-        scrollBody
-        chart={
-          growth.milestones.length === 0 ? (
-            <p className="py-6 text-body-min text-ink-2">기록할 때 &lsquo;의미 있는 날&rsquo;로 표시하면 여기에 모여요</p>
-          ) : (
-            <ol className="flex flex-col" aria-label="의미 있는 날 목록">
-              {growth.milestones.map((milestone) => (
-                <li
-                  key={milestone.recordId}
-                  className="border-l-2 border-[color-mix(in_srgb,var(--color-base)_40%,white)] pl-3"
+    <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
+      <Panel>
+        <ChartCard
+          title="요일별 기록"
+          table={
+            enough
+              ? {
+                  headers: ['요일', '기록'],
+                  numeric: [1],
+                  rows: WEEKDAY_LABELS.map((label, index) => [`${label}요일`, `${growth.weekday[index] ?? 0}개`]),
+                }
+              : undefined
+          }
+          chart={
+            enough ? (
+              <BarChart
+                items={items}
+                yMax={axis.yMax}
+                yTicks={axis.ticks}
+                formatTick={String}
+                minSlot={Math.max(minSlot, 28)}
+                ariaLabel="요일별 기록 수 막대 그래프"
+              />
+            ) : (
+              <TooFew />
+            )
+          }
+        />
+        <ChartCard
+          title="자주 하는 주제"
+          scrollBody
+          table={
+            enoughTopics
+              ? {
+                  headers: ['주제', '횟수'],
+                  numeric: [1],
+                  rows: topics.map((topic) => [topic.tag, `${topic.count}번`]),
+                }
+              : undefined
+          }
+          chart={
+            enoughTopics ? (
+              <HBarChart
+                ariaLabel="자주 하는 주제 가로 막대 그래프"
+                items={topics.map((topic) => ({
+                  label: topic.tag,
+                  value: topic.count,
+                  valueText: `${topic.count}번`,
+                }))}
+              />
+            ) : (
+              <p className="py-6 text-body-min text-ink-2">기록이 쌓이면 자주 하는 주제를 보여 드릴게요</p>
+            )
+          }
+        />
+      </Panel>
+      {recentMilestones.length > 0 ? (
+        <section aria-label="의미 있는 날" className="flex-none">
+          <ol className="grid gap-2 lg:grid-cols-3 lg:gap-3">
+            {recentMilestones.map((milestone) => (
+              <li key={milestone.recordId} className="min-w-0">
+                <Link
+                  to={`/records/${milestone.recordId}`}
+                  className="flex min-h-11 flex-col justify-center rounded-xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_7%,white)] px-4 py-2 text-ink no-underline"
                 >
-                  <Link
-                    to={`/records/${milestone.recordId}`}
-                    className="flex min-h-11 flex-col justify-center rounded-lg py-1.5 text-ink no-underline hover:bg-surface focus-visible:bg-surface"
-                  >
-                    <span className="text-caption-min text-ink-2">
-                      {formatYearMonthDay(milestone.date)} · {milestone.hobbyName}
-                    </span>
-                    <span className="font-serif text-body-min">{milestone.preview}</span>
-                  </Link>
-                </li>
-              ))}
-            </ol>
-          )
-        }
-      />
-    </Panel>
+                  <span className="truncate text-[12px] text-ink-2">
+                    의미 있는 날 · {formatMonthDay(milestone.date)} · {milestone.hobbyName}
+                  </span>
+                  <span className="truncate font-serif text-[14px]">{milestone.preview}</span>
+                </Link>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+    </div>
   )
 }
 
-function segmentClass(active: boolean): string {
-  return [
-    'inline-flex min-h-11 flex-none items-center justify-center whitespace-nowrap rounded-md px-3 text-sm font-medium lg:min-h-9',
-    active ? 'bg-ink text-white' : 'bg-transparent text-ink-2',
-  ].join(' ')
+/** 네이티브 select를 꾸민 드롭다운. 높이 40px(모바일 44px), 오른쪽에 화살표 아이콘. */
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  children,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  children: ReactNode
+}) {
+  return (
+    <div className="relative min-w-0">
+      <select
+        aria-label={label}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-11 w-full min-w-0 appearance-none rounded-lg border border-line-2 bg-white pl-3 pr-9 text-sm font-medium text-ink lg:h-10 lg:w-44"
+      >
+        {children}
+      </select>
+      <ChevronDownIcon
+        width={16}
+        height={16}
+        aria-hidden="true"
+        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink-2"
+      />
+    </div>
+  )
 }
 
 export function GrowthPage() {
@@ -511,10 +561,13 @@ export function GrowthPage() {
   // 막대 하나가 차지하는 최소 칸: 웹 12px(막대 8px+여백), 모바일 24px(막대당 20px 이상).
   const minSlot = isDesktop ? 12 : 24
 
-  const list = hobbies ?? []
-  // 지금 없는 분야가 저장돼 있으면 전체로 본다(분야를 지웠거나 다른 계정일 때).
+  // 드롭다운에는 보관하지 않은 분야만 둔다(기록이 0개여도 보인다).
+  const activeHobbies = (hobbies ?? []).filter((hobby) => !hobby.archived)
+  // 지금 목록에 없는 분야가 저장돼 있으면 전체로 본다(보관·삭제했거나 다른 계정일 때).
   const hobbyId =
-    hobbies && filter.hobbyId != null && !hobbies.some((hobby) => hobby.id === filter.hobbyId) ? null : filter.hobbyId
+    hobbies && filter.hobbyId != null && !activeHobbies.some((hobby) => hobby.id === filter.hobbyId)
+      ? null
+      : filter.hobbyId
   const { data: growth, isLoading, isError } = useGrowth(filter.period, hobbyId)
 
   function update(next: GrowthFilter) {
@@ -524,10 +577,13 @@ export function GrowthPage() {
 
   function onTabKey(event: KeyboardEvent<HTMLDivElement>) {
     const index = TABS.findIndex((item) => item.key === tab)
-    if (event.key === 'ArrowRight') setTab(TABS[(index + 1) % TABS.length].key)
-    else if (event.key === 'ArrowLeft') setTab(TABS[(index + TABS.length - 1) % TABS.length].key)
+    let next: TabKey
+    if (event.key === 'ArrowRight') next = TABS[(index + 1) % TABS.length].key
+    else if (event.key === 'ArrowLeft') next = TABS[(index + TABS.length - 1) % TABS.length].key
     else return
     event.preventDefault()
+    setTab(next)
+    document.getElementById(`growth-tab-${next}`)?.focus()
   }
 
   let body: ReactNode
@@ -546,62 +602,60 @@ export function GrowthPage() {
   }
 
   return (
-    <div className="flex flex-col gap-3 lg:min-h-0 lg:flex-1 lg:gap-3">
+    <div className="flex flex-col gap-3 lg:min-h-0 lg:flex-1">
       <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
         <h1 className="text-page-title">성장</h1>
-        <div
-          role="tablist"
-          aria-label="성장 보기"
-          onKeyDown={onTabKey}
-          className="scrollbar-none flex max-w-full flex-none gap-1 overflow-x-auto rounded-lg border border-line-2 bg-white p-1"
-        >
-          {TABS.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              role="tab"
-              id={`growth-tab-${item.key}`}
-              aria-selected={tab === item.key}
-              aria-controls="growth-panel"
-              tabIndex={tab === item.key ? 0 : -1}
-              className={[segmentClass(tab === item.key), 'flex-1 lg:flex-none'].join(' ')}
-              onClick={() => setTab(item.key)}
-            >
-              {item.label}
-            </button>
-          ))}
+        <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-none">
+          <FilterSelect
+            label="분야"
+            value={hobbyId == null ? 'ALL' : String(hobbyId)}
+            onChange={(value) => update({ ...filter, hobbyId: value === 'ALL' ? null : Number(value) })}
+          >
+            <option value="ALL">전체 분야</option>
+            {activeHobbies.map((hobby) => (
+              <option key={hobby.id} value={hobby.id}>
+                {hobby.name}
+              </option>
+            ))}
+          </FilterSelect>
+          <FilterSelect
+            label="기간"
+            value={filter.period}
+            onChange={(value) => update({ ...filter, period: value as GrowthPeriod })}
+          >
+            {PERIOD_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </FilterSelect>
         </div>
       </div>
 
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-4">
-        {/* 칩 줄은 안쪽에 0.5rem 패딩이 있어, 같은 크기만큼 당겨서 제목·카드의 왼쪽 끝에 맞춘다. */}
-        <div className="-ml-2 min-w-0 lg:flex-1">
-          <HobbyChipRow
-            hobbies={list}
-            selectedId={hobbyId}
-            onSelect={(id) => update({ ...filter, hobbyId: id })}
-            allLabel="전체"
-            onSelectAll={() => update({ ...filter, hobbyId: null })}
-          />
-        </div>
-        <div
-          role="radiogroup"
-          aria-label="기간"
-          className="scrollbar-none flex max-w-full flex-none gap-1 overflow-x-auto rounded-lg border border-line-2 bg-white p-1"
-        >
-          {PERIOD_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              role="radio"
-              aria-checked={filter.period === option.value}
-              className={segmentClass(filter.period === option.value)}
-              onClick={() => update({ ...filter, period: option.value as GrowthPeriod })}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+      <div
+        role="tablist"
+        aria-label="성장 보기"
+        onKeyDown={onTabKey}
+        className="scrollbar-none flex flex-none gap-1 overflow-x-auto border-b border-line"
+      >
+        {TABS.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            role="tab"
+            id={`growth-tab-${item.key}`}
+            aria-selected={tab === item.key}
+            aria-controls="growth-panel"
+            tabIndex={tab === item.key ? 0 : -1}
+            onClick={() => setTab(item.key)}
+            className={[
+              '-mb-px inline-flex min-h-11 flex-none items-center justify-center whitespace-nowrap border-b-2 px-4 text-[15px] lg:min-h-10',
+              tab === item.key ? 'border-base font-bold text-ink' : 'border-transparent font-medium text-ink-2',
+            ].join(' ')}
+          >
+            {item.label}
+          </button>
+        ))}
       </div>
 
       <div

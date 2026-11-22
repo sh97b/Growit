@@ -75,3 +75,29 @@ export function writeGrowthFilter(filter: GrowthFilter) {
     // 기억만 포기한다.
   }
 }
+
+const TOPIC_STOPWORDS = new Set(['연습', '기록', '오늘', '하루'])
+const NUMBER_WITH_UNIT = /^\d+\s*[가-힣a-zA-Z]{0,4}$/
+
+/**
+ * 자주 하는 주제에서 의미 없는 태그를 걸러 상위 limit개만 남긴다: 분야 이름과 같은 태그(대소문자 무시),
+ * 숫자+단위 표현(30분·2회·20쪽), 한 글자 태그, 흔한 말(연습·기록·오늘·하루).
+ */
+export function filterTopics(
+  topics: { tag: string; count: number }[],
+  hobbyNames: string[],
+  limit = 6,
+): { tag: string; count: number }[] {
+  const names = new Set(hobbyNames.map((name) => name.trim().toLowerCase()))
+  return topics
+    .filter((topic) => {
+      const tag = topic.tag.trim()
+      return (
+        tag.length >= 2 &&
+        !names.has(tag.toLowerCase()) &&
+        !NUMBER_WITH_UNIT.test(tag) &&
+        !TOPIC_STOPWORDS.has(tag)
+      )
+    })
+    .slice(0, limit)
+}
