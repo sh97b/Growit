@@ -17,6 +17,11 @@ import org.springframework.web.client.RestClientException;
 @Component
 public class OpenAiChatClient implements AiChatClient {
 
+	/** 429여도 속도 제한이 아니라 결제·한도 문제인 코드. */
+	private static final java.util.Set<String> PROVIDER_DOWN_SUBS = java.util.Set.of(
+			"insufficient_quota", "organization_spend_limit_exceeded", "billing_hard_limit_reached",
+			"billing_not_active", "access_terminated");
+
 	private final AiProperties properties;
 	private final ObjectMapper objectMapper;
 	private final RestClient restClient;
@@ -61,8 +66,14 @@ public class OpenAiChatClient implements AiChatClient {
 					.retrieve()
 					.body(String.class);
 		} catch (HttpStatusCodeException e) {
-			if (e.getStatusCode().value() == 429) {
-				throw new AiClientException(AiClientException.Type.RATE_LIMITED, "AI 제공자가 요청을 거절함(429)");
+			int status = e.getStatusCode().value();
+			String sub = errorSubOf(e, status);
+			if (status == 429 && !PROVIDER_DOWN_SUBS.contains(sub)) {
+				throw new AiClientException(AiClientException.Type.RATE_LIMITED, "AI 제공자가 요청을 거절함(429)", sub);
+			}
+			if (status == 401 || status == 403 || status == 404 || (status == 429)) {
+				throw new AiClientException(AiClientException.Type.PROVIDER_DOWN,
+						"AI 제공자를 쓸 수 없음(" + status + ")", sub);
 			}
 			if (e.getStatusCode().is5xxServerError()) {
 				throw new AiClientException(AiClientException.Type.SERVER_ERROR,
@@ -78,6 +89,21 @@ public class OpenAiChatClient implements AiChatClient {
 		}
 
 		return parse(raw);
+	}
+
+	/** 응답 본문의 error.code(없으면 error.type)만 꺼낸다. 영문 소문자·숫자·밑줄만 남겨 사용자 글이 섞일 여지를 없앤다. */
+	private String errorSubOf(HttpStatusCodeException e, int status) {
+		try {
+			JsonNode error = objectMapper.readTree(e.getResponseBodyAsString()).path("error");
+			String value = error.path("code").isTextual() ? error.path("code").asText()
+					: error.path("type").isTextual() ? error.path("type").asText() : "";
+			if (value.matches("[a-z0-9_]{1,60}")) {
+				return value;
+			}
+		} catch (Exception ignored) {
+			// 본문이 JSON이 아니면 상태 코드만 쓴다.
+		}
+		return "http_" + status;
 	}
 
 	private boolean isTimeout(Throwable e) {

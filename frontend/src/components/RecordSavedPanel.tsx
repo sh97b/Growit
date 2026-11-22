@@ -13,7 +13,7 @@ import { RoadmapSuggestionCard } from './RoadmapSuggestionCard'
 import { RecordPairCards } from './RecordPairCards'
 import { CheckIcon } from './icons'
 import { formatMonthDay } from '../lib/date'
-import { AI_LIMIT_NOTICE, fetchRecord, type RecordAnalysis, type RecordDetail } from '../lib/records'
+import { AI_LIMIT_NOTICE, AI_PROVIDER_DOWN_NOTICE, fetchRecord, type RecordAnalysis, type RecordDetail } from '../lib/records'
 
 const COMPARISON_CONTENT_MAX = 120
 
@@ -107,7 +107,11 @@ export function RecordSavedPanel({
   const aiWorking = record.aiStatus === 'PENDING' && !timedOut
   // 하루 한도로 건너뛴 경우만 안내한다(실패·꺼짐·시간 초과는 지금처럼 조용히 사라진다).
   const limitBlock =
-    record.aiStatus === 'FAILED' && record.aiFailReason === 'LIMIT' ? <Note variant="calm">{AI_LIMIT_NOTICE}</Note> : null
+    record.aiStatus === 'FAILED' && record.aiFailReason === 'LIMIT' ? (
+      <Note variant="calm">{AI_LIMIT_NOTICE}</Note>
+    ) : record.aiStatus === 'FAILED' && record.aiFailReason === 'PROVIDER_DOWN' ? (
+      <Note variant="calm">{AI_PROVIDER_DOWN_NOTICE}</Note>
+    ) : null
   const progressBlock = aiWorking ? <AiProgressCard message="AI가 기록을 살펴보고 있어요" lines={3} /> : null
   const nextActionInMain = nextActionBlock ? <div className="lg:hidden">{nextActionBlock}</div> : null
   // 웹: 오른쪽 열이 최근 7일만 있어 비어 보여서 카드를 여기로 옮긴다. 간격은 왼쪽 열(gap-5)과 같게 둔다.

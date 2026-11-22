@@ -20,6 +20,10 @@ public class AiCallService {
 
 	private static final String MESSAGE_FAILED = "지금은 AI를 쓸 수 없어요. 기록은 안전하게 저장돼 있어요.";
 	private static final String MESSAGE_BUSY = "지금은 AI 요청이 많아요. 기록은 안전하게 저장돼 있어요. 잠시 후 다시 시도해 주세요.";
+	private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AiCallService.class);
+	/** OpenAI 쪽 문제(결제·한도 소진, 인증, 모델 접근)일 때의 안내. 속도 제한·혼잡 문구와 구분한다. */
+	static final String MESSAGE_PROVIDER_DOWN = "지금은 AI 기능을 잠시 쓸 수 없어요. 기록은 안전하게 저장돼 있어요.";
+	private static final long PROVIDER_DOWN_LOG_INTERVAL_MS = 60_000;
 	private static final int ERROR_MESSAGE_MAX_LENGTH = 500;
 	/** 로드맵 JSON은 길어서 환경변수(AI_MAX_OUTPUT_TOKENS)가 작게 고정돼 있어도 이 값 아래로 내려가지 않게 한다. */
 	static final int ROADMAP_MIN_OUTPUT_TOKENS = 1500;
@@ -30,6 +34,8 @@ public class AiCallService {
 	private final AiUsageService aiUsageService;
 	private final ObjectMapper objectMapper;
 	private final Semaphore concurrencyLimiter;
+	private final java.util.concurrent.ConcurrentHashMap<String, Long> providerDownLoggedAt =
+			new java.util.concurrent.ConcurrentHashMap<>();
 
 	public AiCallService(AiProperties properties, AiChatClient aiChatClient, AiLogRepository aiLogRepository,
 			AiUsageService aiUsageService, ObjectMapper objectMapper) {
@@ -93,6 +99,10 @@ public class AiCallService {
 				int responseMs = (int) (System.currentTimeMillis() - startedAt);
 				aiLogRepository.save(new AiLog(userId, type.name(), AiLogState.FAIL.name(), responseMs, null,
 						truncate(e.getMessage())));
+				if (e.getType() == AiClientException.Type.PROVIDER_DOWN) {
+					logProviderDown(e);
+					throw new AiProviderDownException(MESSAGE_PROVIDER_DOWN);
+				}
 				ErrorCode code = e.getType() == AiClientException.Type.RATE_LIMITED
 						? ErrorCode.AI_BUSY
 						: ErrorCode.AI_FAILED;
@@ -109,6 +119,18 @@ public class AiCallService {
 				aiUsageService.release(userId, type);
 			}
 		}
+	}
+
+	/** 같은 원인(sub)은 분당 한 줄만 남긴다. 요청 본문·키·사용자 글은 넣지 않는다. */
+	private void logProviderDown(AiClientException e) {
+		String sub = e.getSub() == null ? "unknown" : e.getSub();
+		long now = System.currentTimeMillis();
+		Long last = providerDownLoggedAt.get(sub);
+		if (last != null && now - last < PROVIDER_DOWN_LOG_INTERVAL_MS) {
+			return;
+		}
+		providerDownLoggedAt.put(sub, now);
+		log.error("AI_PROVIDER_DOWN sub={} type={}", sub, e.getType());
 	}
 
 	private String truncate(String message) {

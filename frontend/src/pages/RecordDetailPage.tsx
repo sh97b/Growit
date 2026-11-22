@@ -28,7 +28,7 @@ import { useDeleteRecord, useEditAnalysisTags, useReanalyzeRecord, useRecord, us
 import { ApiError } from '../lib/api'
 import { formatMonthDay } from '../lib/date'
 import { FEELINGS } from '../lib/recordForm'
-import { AI_LIMIT_NOTICE, type RecordAnalysis, type RecordDetail } from '../lib/records'
+import { AI_LIMIT_NOTICE, AI_PROVIDER_DOWN_NOTICE, type RecordAnalysis, type RecordDetail } from '../lib/records'
 
 const TAG_MAX_LENGTH = 12
 const TAGS_MAX_COUNT = 3
@@ -201,6 +201,10 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
 
   if (record.aiStatus === 'FAILED' && record.aiFailReason === 'LIMIT') {
     return <Note variant="calm">{AI_LIMIT_NOTICE}</Note>
+  }
+
+  if (record.aiStatus === 'FAILED' && record.aiFailReason === 'PROVIDER_DOWN') {
+    return <Note variant="calm">{AI_PROVIDER_DOWN_NOTICE}</Note>
   }
 
   if (record.aiStatus === 'FAILED') {

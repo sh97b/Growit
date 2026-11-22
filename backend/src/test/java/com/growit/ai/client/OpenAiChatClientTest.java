@@ -75,6 +75,42 @@ class OpenAiChatClientTest {
 	}
 
 	@Test
+	void complete_quotaExhausted429_isProviderDownWithSub() throws IOException {
+		HttpServer server = startServer(429, "{\"error\":{\"code\":\"insufficient_quota\",\"message\":\"secret text\"}}");
+		OpenAiChatClient client = new OpenAiChatClient(properties(server.getAddress().getPort(), 5), new ObjectMapper());
+
+		assertThatThrownBy(() -> client.complete("system", "{}"))
+				.isInstanceOfSatisfying(AiClientException.class, e -> {
+					assertThat(e.getType()).isEqualTo(AiClientException.Type.PROVIDER_DOWN);
+					assertThat(e.getSub()).isEqualTo("insufficient_quota");
+					assertThat(e.getMessage()).doesNotContain("secret");
+				});
+	}
+
+	@Test
+	void complete_rateLimit429WithCode_staysRateLimited() throws IOException {
+		HttpServer server = startServer(429, "{\"error\":{\"code\":\"rate_limit_exceeded\"}}");
+		OpenAiChatClient client = new OpenAiChatClient(properties(server.getAddress().getPort(), 5), new ObjectMapper());
+
+		assertThatThrownBy(() -> client.complete("system", "{}"))
+				.isInstanceOfSatisfying(AiClientException.class,
+						e -> assertThat(e.getType()).isEqualTo(AiClientException.Type.RATE_LIMITED));
+	}
+
+	@Test
+	void complete_unauthorizedAndForbidden_areProviderDown() throws IOException {
+		for (int status : new int[] {401, 403}) {
+			HttpServer server = startServer(status, "{\"error\":{\"code\":\"invalid_api_key\"}}");
+			OpenAiChatClient client = new OpenAiChatClient(properties(server.getAddress().getPort(), 5), new ObjectMapper());
+
+			assertThatThrownBy(() -> client.complete("system", "{}"))
+					.isInstanceOfSatisfying(AiClientException.class,
+							e -> assertThat(e.getType()).isEqualTo(AiClientException.Type.PROVIDER_DOWN));
+			server.stop(0);
+		}
+	}
+
+	@Test
 	void complete_serverError_throwsServerError() throws IOException {
 		HttpServer server = startServer(500, "{\"error\":\"boom\"}");
 		OpenAiChatClient client = new OpenAiChatClient(properties(server.getAddress().getPort(), 5), new ObjectMapper());

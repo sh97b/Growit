@@ -74,6 +74,29 @@ class AiCallServiceTest {
 	}
 
 	@Test
+	void call_providerDown_throwsProviderDownMessage_andLogsOncePerMinutePerSub() {
+		given(aiChatClient.complete(anyString(), anyString())).willThrow(new com.growit.ai.client.AiClientException(
+				com.growit.ai.client.AiClientException.Type.PROVIDER_DOWN, "x", "insufficient_quota"));
+		ch.qos.logback.classic.Logger logger =
+				(ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(AiCallService.class);
+		ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+				new ch.qos.logback.core.read.ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		AiCallService service = service(enabledProperties(2));
+
+		for (int i = 0; i < 3; i++) {
+			assertThatThrownBy(() -> service.call(1L, AiResultType.ANALYSIS, "sys", Map.of()))
+					.isInstanceOf(AiProviderDownException.class)
+					.hasMessage("지금은 AI 기능을 잠시 쓸 수 없어요. 기록은 안전하게 저장돼 있어요.");
+		}
+
+		assertThat(appender.list).extracting(ev -> ev.getFormattedMessage())
+				.containsExactly("AI_PROVIDER_DOWN sub=insufficient_quota type=PROVIDER_DOWN");
+		logger.detachAppender(appender);
+	}
+
+	@Test
 	void call_retry_skipsReserveAndLogsRetryInsteadOfOk() {
 		given(aiChatClient.complete(anyString(), anyString()))
 				.willReturn(new AiChatResponse("{\"ok\":true}", 7, "gpt"));

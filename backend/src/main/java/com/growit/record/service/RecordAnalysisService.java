@@ -10,6 +10,7 @@ import com.growit.ai.repository.AiLogRepository;
 import com.growit.ai.service.AiCallResult;
 import com.growit.ai.service.AiCallService;
 import com.growit.ai.service.AiLimitException;
+import com.growit.ai.service.AiProviderDownException;
 import com.growit.ai.service.AiResponseValidator;
 import com.growit.common.exception.ApiException;
 import com.growit.common.exception.ErrorCode;
@@ -114,7 +115,7 @@ public class RecordAnalysisService {
 
 	/** FAILED 상태의 ai_analysis에 넣는 값. 한도로 건너뛴 경우에만 있고, 예전 FAILED 행은 비어 있다. */
 	static final String FAIL_REASON_LIMIT = "LIMIT";
-	private static final String FAIL_REASON_LIMIT_JSON = "{\"failReason\":\"" + FAIL_REASON_LIMIT + "\"}";
+	static final String FAIL_REASON_PROVIDER_DOWN = "PROVIDER_DOWN";
 
 	boolean strictSpecificity = "true".equalsIgnoreCase(System.getenv("AI_NEXT_ACTION_STRICT"));
 
@@ -158,7 +159,7 @@ public class RecordAnalysisService {
 		}
 
 		StoredAnalysis analysis;
-		boolean limited = false;
+		String failReason = null;
 		try {
 			AiCallResult result = aiCallService.call(userId, AiResultType.ANALYSIS, systemPrompt, input.payload());
 			ValidationOutcome outcome = validateOutcome(result.content(), input.allowedHistoryIds(), result.model(),
@@ -170,14 +171,17 @@ public class RecordAnalysisService {
 		} catch (AiLimitException e) {
 			// 하루 한도 때문에 건너뛴 것은 화면에서 "한도"로 따로 안내하려고 실패 이유를 남긴다.
 			analysis = null;
-			limited = true;
+			failReason = FAIL_REASON_LIMIT;
+		} catch (AiProviderDownException e) {
+			analysis = null;
+			failReason = FAIL_REASON_PROVIDER_DOWN;
 		} catch (RuntimeException e) {
 			analysis = null;
 		}
 
 		StoredAnalysis finalAnalysis = analysis;
-		boolean finalLimited = limited;
-		transactionTemplate.executeWithoutResult(status -> applyResult(recordId, userId, finalAnalysis, finalLimited));
+		String finalFailReason = failReason;
+		transactionTemplate.executeWithoutResult(status -> applyResult(recordId, userId, finalAnalysis, finalFailReason));
 	}
 
 	/**
@@ -227,7 +231,8 @@ public class RecordAnalysisService {
 		}
 		try {
 			JsonNode reason = objectMapper.readTree(json).path("failReason");
-			return FAIL_REASON_LIMIT.equals(reason.asText()) ? FAIL_REASON_LIMIT : null;
+			String value = reason.asText();
+			return FAIL_REASON_LIMIT.equals(value) || FAIL_REASON_PROVIDER_DOWN.equals(value) ? value : null;
 		} catch (Exception e) {
 			return null;
 		}
@@ -285,14 +290,14 @@ public class RecordAnalysisService {
 				roadmapItemIds);
 	}
 
-	private void applyResult(Long recordId, Long userId, StoredAnalysis analysis, boolean limited) {
+	private void applyResult(Long recordId, Long userId, StoredAnalysis analysis, String failReason) {
 		ActivityRecord record = activityRecordRepository.findByIdAndUserId(recordId, userId).orElse(null);
 		if (record == null || record.getAiStatus() != AiStatus.PENDING) {
 			return;
 		}
 		if (analysis == null) {
-			if (limited) {
-				record.markAnalysisFailed(FAIL_REASON_LIMIT_JSON);
+			if (failReason != null) {
+				record.markAnalysisFailed("{\"failReason\":\"" + failReason + "\"}");
 			} else {
 				record.markAnalysisFailed();
 			}

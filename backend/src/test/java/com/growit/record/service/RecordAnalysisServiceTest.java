@@ -728,6 +728,21 @@ class RecordAnalysisServiceTest {
 	}
 
 	@Test
+	void analyze_providerDown_marksFailedWithProviderDownReason() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "첫 연습");
+		given(aiChatClient.complete(anyString(), anyString())).willThrow(new com.growit.ai.client.AiClientException(
+				com.growit.ai.client.AiClientException.Type.PROVIDER_DOWN, "x", "http_401"));
+		RecordAnalysisService service = service(enabledProperties());
+
+		service.analyze(current.getId(), 1L);
+
+		ActivityRecord result = activityRecordRepository.findById(current.getId()).orElseThrow();
+		assertThat(result.getAiStatus()).isEqualTo(AiStatus.FAILED);
+		assertThat(service.failReasonOf(result.getAiAnalysis())).isEqualTo("PROVIDER_DOWN");
+	}
+
+	@Test
 	void analyze_otherFailure_hasNoLimitReason() {
 		Long hobbyId = createHobby(1L);
 		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "첫 연습");
