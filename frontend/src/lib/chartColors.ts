@@ -1,11 +1,16 @@
 /** 성장 차트 색. 힘들어요는 빨강 대신 차분한 따뜻한 색을 쓴다. */
 export const CHART_COLORS = {
-  base: 'var(--color-base)',
-  /** 중립 돌색. */
+  /** 기록한 날(앱 초록). */
+  base: '#3E7C68',
+  /** 쌓인 시간(같은 계열의 중간 초록). */
+  time: '#8DB8A7',
+  /** 보통이에요(중립 돌색). */
   neutral: '#A59D8D',
   /** 힘들어요: 빨강 대신 차분한 따뜻한 색. */
   hard: '#C9904A',
-  grid: 'var(--color-line)',
-  text: 'var(--color-ink-2)',
-  muted: 'var(--color-line-2)',
+  grid: '#E7E1D6',
+  axis: '#CFC7B8',
+  /** 축 눈금·라벨 글자(흰 배경 대비 4.5:1 이상). */
+  text: '#57524A',
+  strong: '#2B2823',
 } as const

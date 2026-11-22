@@ -6,7 +6,7 @@ export type GrowthPeriod = 'MONTH' | 'THREE_MONTHS' | 'ALL'
 export const PERIOD_OPTIONS: { value: GrowthPeriod; label: string }[] = [
   { value: 'MONTH', label: '이번 달' },
   { value: 'THREE_MONTHS', label: '최근 3개월' },
-  { value: 'ALL', label: '전체' },
+  { value: 'ALL', label: '전체(최근 400일)' },
 ]
 
 export type GrowthDirection = 'GOOD' | 'NEUTRAL' | 'HARD'
