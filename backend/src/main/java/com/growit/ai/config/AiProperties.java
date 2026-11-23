@@ -7,7 +7,10 @@ public class AiProperties {
 
 	private String apiKey = "";
 	private String model = "";
-	private String baseUrl = "https://api.openai.com/v1";
+	/** openai(기본) 또는 xai. 그 밖의 값은 openai로 본다. 요청·응답 형식은 둘 다 OpenAI 호환이라 주소와 로그 표기만 다르다. */
+	private String provider = "openai";
+	/** 비어 있으면 업체의 기본 주소를 쓴다. */
+	private String baseUrl = "";
 	private int timeoutSeconds = 20;
 	private int maxOutputTokens = 1500;
 	private int maxConcurrency = 2;
@@ -22,6 +25,22 @@ public class AiProperties {
 	/** 키나 모델이 비어 있으면 AI 기능 전체가 꺼진 상태다. 이때도 서버는 정상적으로 시작한다. */
 	public boolean isEnabled() {
 		return apiKey != null && !apiKey.isBlank() && model != null && !model.isBlank();
+	}
+
+	public static final String PROVIDER_OPENAI = "openai";
+	public static final String PROVIDER_XAI = "xai";
+
+	public String getProvider() {
+		return provider != null && PROVIDER_XAI.equalsIgnoreCase(provider.trim()) ? PROVIDER_XAI : PROVIDER_OPENAI;
+	}
+
+	/** 설정된 원래 값(알 수 없는 값 경고용). */
+	public String getRawProvider() {
+		return provider;
+	}
+
+	public void setProvider(String provider) {
+		this.provider = provider;
 	}
 
 	public String getApiKey() {
@@ -41,7 +60,10 @@ public class AiProperties {
 	}
 
 	public String getBaseUrl() {
-		return baseUrl;
+		if (baseUrl != null && !baseUrl.isBlank()) {
+			return baseUrl.trim();
+		}
+		return PROVIDER_XAI.equals(getProvider()) ? "https://api.x.ai/v1" : "https://api.openai.com/v1";
 	}
 
 	public void setBaseUrl(String baseUrl) {

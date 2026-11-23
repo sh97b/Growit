@@ -29,7 +29,7 @@ export function PrivacyPage() {
       <section className="flex flex-col gap-2">
         <h2 className="text-card-title">외부 전송</h2>
         <p className="text-body-min leading-[1.75] text-ink-2">
-          AI 정리가 켜져 있으면 기록 내용이 서비스 기능 제공 목적으로 OpenAI API에 전송돼요.
+          AI 정리가 켜져 있으면 기록 내용이 서비스 기능 제공 목적으로 외부 AI 서비스 API에 전송돼요.
         </p>
         <p className="text-body-min leading-[1.75] text-ink-2">
           음성 입력을 쓰면 말한 소리가 브라우저의 음성 인식 서비스(크롬은 구글)로 전송돼 글자로 바뀌어요. 이

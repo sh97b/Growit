@@ -91,8 +91,10 @@ class AiCallServiceTest {
 					.hasMessage("지금은 AI 기능을 잠시 쓸 수 없어요. 기록은 안전하게 저장돼 있어요.");
 		}
 
+		// AI_PROVIDER_DOWN은 같은 원인당 분당 한 줄(AI_CALL_FAILED는 실패마다 한 줄).
 		assertThat(appender.list).extracting(ev -> ev.getFormattedMessage())
-				.containsExactly("AI_PROVIDER_DOWN sub=insufficient_quota type=PROVIDER_DOWN");
+				.filteredOn(m -> m.startsWith("AI_PROVIDER_DOWN"))
+				.containsExactly("AI_PROVIDER_DOWN provider=openai sub=insufficient_quota type=PROVIDER_DOWN");
 		logger.detachAppender(appender);
 	}
 
@@ -131,7 +133,7 @@ class AiCallServiceTest {
 		ArgumentCaptor<AiLog> captor = ArgumentCaptor.forClass(AiLog.class);
 		verify(aiLogRepository).save(captor.capture());
 		assertThat(captor.getValue().getState()).isEqualTo(AiLogState.FAIL.name());
-		assertThat(captor.getValue().getErrorMessage()).isEqualTo("provider busy");
+		assertThat(captor.getValue().getErrorMessage()).isEqualTo("provider=openai provider busy");
 		verify(aiUsageService).release(1L, AiResultType.COACH);
 	}
 

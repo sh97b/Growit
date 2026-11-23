@@ -276,7 +276,12 @@ npm run dev
 
 ### 5) AI 설정
 
-`AI_API_KEY`, `AI_MODEL`이 비어 있으면 AI 기능은 꺼진 상태로 서버가 정상 시작한다(호출 시 `AI_FAILED`). IntelliJ 실행 설정에 `AI_API_KEY`, `AI_MODEL`을 입력하면 켜진다. 나머지 설정(`AI_BASE_URL`, `AI_TIMEOUT_SECONDS`, `AI_MAX_OUTPUT_TOKENS`, `AI_MAX_CONCURRENCY`, `AI_USER_DAILY_LIMIT`, `AI_GLOBAL_DAILY_LIMIT`, `AI_ANALYSIS_USER_DAILY_LIMIT`, `AI_SIMPLIFY_USER_DAILY_LIMIT`, `AI_VIEW_USER_DAILY_LIMIT`, `AI_AUTO_USER_DAILY_LIMIT`)은 `.env.example`을 참고한다. 여러 명이 같이 쓰는 공용 키라 호출 한도는 낮게 시작하고, 실제 한도(과금 계획, rate limit)를 확인한 뒤 조정한다. 로그인 후 `GET /api/ai/usage`로 내 사용량을 확인할 수 있다.
+`AI_API_KEY`, `AI_MODEL`이 비어 있으면 AI 기능은 꺼진 상태로 서버가 정상 시작한다(호출 시 `AI_FAILED`). IntelliJ 실행 설정에 `AI_API_KEY`, `AI_MODEL`을 입력하면 켜진다. 나머지 설정(`AI_PROVIDER`, `AI_BASE_URL`, `AI_TIMEOUT_SECONDS`, `AI_MAX_OUTPUT_TOKENS`, `AI_MAX_CONCURRENCY`, `AI_USER_DAILY_LIMIT`, `AI_GLOBAL_DAILY_LIMIT`, `AI_ANALYSIS_USER_DAILY_LIMIT`, `AI_SIMPLIFY_USER_DAILY_LIMIT`, `AI_VIEW_USER_DAILY_LIMIT`, `AI_AUTO_USER_DAILY_LIMIT`)은 `.env.example`을 참고한다. 여러 명이 같이 쓰는 공용 키라 호출 한도는 낮게 시작하고, 실제 한도(과금 계획, rate limit)를 확인한 뒤 조정한다. 로그인 후 `GET /api/ai/usage`로 내 사용량을 확인할 수 있다.
+
+**AI 업체 바꾸기(OpenAI ↔ xAI)**: 요청·응답 형식이 같아서 설정만 바꾼다.
+- OpenAI(기본): `AI_PROVIDER=openai`, `AI_MODEL`에 OpenAI 모델 이름. `AI_BASE_URL`은 비워 둔다.
+- xAI: `AI_PROVIDER=xai`, `AI_API_KEY`에 xAI 키, `AI_MODEL=grok-4.20-0309-non-reasoning`(추론형 모델은 시작 시 경고 로그). `AI_BASE_URL`을 비우면 `https://api.x.ai/v1`.
+- 키는 `.env`가 아니라 SSM·IntelliJ에 넣고, 바꾼 뒤 백엔드 컨테이너를 다시 띄운다. 로그의 `provider=`로 어느 업체로 호출했는지 확인한다.
 
 ### 6) 계정 보안
 

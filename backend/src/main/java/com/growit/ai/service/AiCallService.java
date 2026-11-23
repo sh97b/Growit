@@ -98,7 +98,8 @@ public class AiCallService {
 			} catch (AiClientException e) {
 				int responseMs = (int) (System.currentTimeMillis() - startedAt);
 				aiLogRepository.save(new AiLog(userId, type.name(), AiLogState.FAIL.name(), responseMs, null,
-						truncate(e.getMessage())));
+						truncate("provider=" + properties.getProvider() + " " + e.getMessage())));
+				log.warn("AI_CALL_FAILED provider={} type={} sub={}", properties.getProvider(), e.getType(), e.getSub());
 				if (e.getType() == AiClientException.Type.PROVIDER_DOWN) {
 					logProviderDown(e);
 					throw new AiProviderDownException(MESSAGE_PROVIDER_DOWN);
@@ -130,7 +131,7 @@ public class AiCallService {
 			return;
 		}
 		providerDownLoggedAt.put(sub, now);
-		log.error("AI_PROVIDER_DOWN sub={} type={}", sub, e.getType());
+		log.error("AI_PROVIDER_DOWN provider={} sub={} type={}", properties.getProvider(), sub, e.getType());
 	}
 
 	private String truncate(String message) {
