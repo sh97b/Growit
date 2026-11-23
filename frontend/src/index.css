@@ -48,6 +48,10 @@
  * CLAUDE.md에 기록).
  */
 :root {
+  /* 성장 화면 감정 색(흰 배경 대비 3.1:1 이상). 힘들어요는 빨강 대신 주황. */
+  --feel-good: #3FA27A;
+  --feel-neutral: #4F93CE;
+  --feel-hard: #D9792B;
   --fs-caption: max(14px, 0.875rem);
   --fs-body: max(16px, 1rem);
   --fs-card-title: max(17px, 1.0625rem);

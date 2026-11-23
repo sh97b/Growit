@@ -23,6 +23,15 @@ const SCROLLBAR_ROOM = 12
 
 export type BarPart = { value: number; color: string }
 
+/** 위쪽 모서리만 둥근 막대 경로(아래는 직각이라 쌓은 막대가 이어진다). */
+function topRoundedPath(x: number, y: number, w: number, h: number, radius: number): string {
+  const r = Math.max(0, Math.min(radius, h, w / 2))
+  return `M${x},${y + h} L${x},${y + r} Q${x},${y} ${x + r},${y} L${x + w - r},${y} Q${x + w},${y} ${x + w},${y + r} L${x + w},${y + h} Z`
+}
+
+const BAR_RADIUS = 4
+const SEGMENT_GAP = 1
+
 export type BarItem = {
   id: string
   /** x축 라벨. 없으면 그리지 않는다. */
@@ -33,6 +42,9 @@ export type BarItem = {
   valueText?: string
   /** 호버·포커스·탭에 보이는 설명. 스크린 리더 라벨로도 쓴다. */
   tooltip: string
+  /** 있으면 툴팁에 색점과 함께 줄로 보여 준다(감정처럼 색이 뜻을 가진 막대). tooltip은 첫 줄 제목으로도 쓴다. */
+  tooltipRows?: { label: string; value: number; color: string }[]
+  tooltipTitle?: string
   /** 이번 주처럼 아직 진행 중인 막대(연하게). */
   current?: boolean
 }
@@ -157,25 +169,25 @@ export function BarChart({
                           strokeDasharray="3 2"
                         />
                       ) : (
-                        <g opacity={item.current ? 0.55 : 1}>
-                          {item.parts.map((part, partIndex) => {
-                            if (part.value <= 0) return null
-                            const h = Math.max(3, (part.value / yMax) * plotH)
-                            y -= h
-                            return (
-                              <rect
-                                key={partIndex}
-                                x={x}
-                                y={y}
-                                width={barW}
-                                height={h}
-                                rx={item.parts.length === 1 ? 3 : 0}
-                                fill={part.color}
-                                stroke={item.parts.length > 1 ? 'white' : undefined}
-                                strokeWidth={item.parts.length > 1 && h > 3 ? 1 : 0}
-                              />
-                            )
-                          })}
+                        <g
+                          opacity={item.current ? 0.55 : 1}
+                          style={active === index ? { filter: 'brightness(1.12)' } : undefined}
+                        >
+                          {(() => {
+                            const visible = item.parts.filter((part) => part.value > 0)
+                            return visible.map((part, partIndex) => {
+                              const full = Math.max(3, (part.value / yMax) * plotH)
+                              // 쌓인 구간 사이에는 1px 흰 간격을 둔다(맨 아래 구간은 그대로).
+                              const h = partIndex === 0 ? full : Math.max(1, full - SEGMENT_GAP)
+                              y -= full
+                              const isTop = partIndex === visible.length - 1
+                              return isTop ? (
+                                <path key={partIndex} d={topRoundedPath(x, y, barW, h, BAR_RADIUS)} fill={part.color} />
+                              ) : (
+                                <rect key={partIndex} x={x} y={y} width={barW} height={h} fill={part.color} />
+                              )
+                            })
+                          })()}
                         </g>
                       )}
                       {showValue ? (
@@ -211,7 +223,19 @@ export function BarChart({
                   className="pointer-events-none absolute z-10 whitespace-nowrap rounded-md bg-ink px-2.5 py-1.5 text-caption-min text-white shadow"
                   style={{ left: tipX, top: 0, transform: 'translateX(-50%)' }}
                 >
-                  {activeItem.tooltip}
+                  {activeItem.tooltipRows ? (
+                    <>
+                      <div>{activeItem.tooltipTitle ?? activeItem.tooltip}</div>
+                      {activeItem.tooltipRows.map((row) => (
+                        <div key={row.label} className="flex items-center gap-1.5">
+                          <span aria-hidden="true" className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: row.color }} />
+                          {row.label} {row.value}
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    activeItem.tooltip
+                  )}
                 </div>
               ) : null}
             </div>
@@ -287,7 +311,13 @@ export function Legend({ items }: { items: { label: string; color: string; faded
   )
 }
 
-export type TableData = { headers: string[]; rows: string[][]; numeric?: number[] }
+export type TableData = {
+  headers: string[]
+  rows: string[][]
+  numeric?: number[]
+  /** 열 번호 → 색점. 머리글 글자 앞에 점을 달아 색이 뜻하는 걸 표에서도 보여 준다. */
+  headerDots?: Record<number, string>
+}
 
 /** 차트와 같은 숫자를 표로. 넘칠 때만 이 영역 안에서 얇게 스크롤하고, 머리글은 위에 붙는다. */
 function DataTable({ caption, data }: { caption: string; data: TableData }) {
@@ -311,6 +341,13 @@ function DataTable({ caption, data }: { caption: string; data: TableData }) {
                   data.numeric?.includes(column) ? 'text-right' : '',
                 ].join(' ')}
               >
+                {data.headerDots?.[column] ? (
+                  <span
+                    aria-hidden="true"
+                    className="mr-1.5 inline-block h-2.5 w-2.5 rounded-full align-baseline"
+                    style={{ background: data.headerDots[column] }}
+                  />
+                ) : null}
                 {header}
               </th>
             ))}

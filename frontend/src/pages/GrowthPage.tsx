@@ -1,7 +1,7 @@
 import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { BarChart, ChartCard, HBarChart, Legend, type BarItem } from '../components/GrowthCharts'
-import { ChevronDownIcon } from '../components/icons'
+import { Dropdown } from '../components/Dropdown'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
 import { useGrowth } from '../hooks/useGrowth'
@@ -39,7 +39,7 @@ const NEUTRAL_LABEL = '보통이에요'
 const HARD_LABEL = '힘들어요'
 
 const DIRECTION_LABEL = { GOOD: GOOD_LABEL, NEUTRAL: NEUTRAL_LABEL, HARD: HARD_LABEL } as const
-const DIRECTION_COLOR = { GOOD: CHART_COLORS.base, NEUTRAL: CHART_COLORS.neutral, HARD: CHART_COLORS.hard } as const
+const DIRECTION_COLOR = { GOOD: CHART_COLORS.good, NEUTRAL: CHART_COLORS.neutral, HARD: CHART_COLORS.hard } as const
 
 const MAX_HOBBY_ROWS = 8
 const MAX_TOPICS = 6
@@ -278,29 +278,36 @@ function HobbyTab({ growth }: { growth: Growth }) {
         }
         chart={
           enough ? (
-            <ul className="flex flex-col gap-2.5" aria-label={metric === 'records' ? '분야별 기록 수' : '분야별 쌓인 시간'}>
+            <ul className="flex flex-col gap-3" aria-label={metric === 'records' ? '분야별 기록 수' : '분야별 쌓인 시간'}>
               {shown.map((hobby) => (
-                <li key={hobby.hobbyId} className={hobby.archived ? 'opacity-60' : ''}>
-                  <div className="flex items-center gap-3">
-                    <span className="w-24 flex-none truncate text-[14px] text-ink lg:w-32" title={hobby.name}>
+                // 분야명·값 열을 고정 폭으로 둬서 모든 행의 트랙 시작·끝이 세로로 맞는다.
+                <li
+                  key={hobby.hobbyId}
+                  className={[
+                    'grid grid-cols-[6.5rem_minmax(0,1fr)_7.5rem] items-center gap-x-3 lg:grid-cols-[8.5rem_minmax(0,1fr)_9.5rem]',
+                    hobby.archived ? 'opacity-60' : '',
+                  ].join(' ')}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-[14px] text-ink" title={hobby.name}>
                       {hobbyName(hobby.name, hobby.archived)}
-                    </span>
-                    <span className="h-3 min-w-0 flex-1 rounded-full bg-surface" aria-hidden="true">
-                      <span
-                        className="block h-3 rounded-full"
-                        style={{
-                          width: `${Math.max(2, (hobby[metric] / max) * 100)}%`,
-                          background: CHART_COLORS.base,
-                        }}
-                      />
-                    </span>
-                    <span className="flex-none text-right text-[14px] tabular-nums text-ink">
-                      {hobby.records}개 · {formatDurationMinutes(hobby.minutes)}
-                    </span>
+                    </p>
+                    {hobby.firstDate ? (
+                      <p className="truncate text-[12px] text-ink-2">{firstDateLabel(hobby.firstDate)}</p>
+                    ) : null}
                   </div>
-                  {hobby.firstDate ? (
-                    <p className="pl-[6.75rem] text-[12px] text-ink-2 lg:pl-[8.75rem]">{firstDateLabel(hobby.firstDate)}</p>
-                  ) : null}
+                  <span className="block h-3 overflow-hidden rounded-full bg-surface" aria-hidden="true">
+                    <span
+                      className="block h-3 rounded-full"
+                      style={{
+                        width: `${hobby[metric] > 0 ? Math.max(4, (hobby[metric] / max) * 100) : 0}%`,
+                        background: CHART_COLORS.base,
+                      }}
+                    />
+                  </span>
+                  <span className="text-right text-[14px] tabular-nums text-ink">
+                    {hobby.records}개 · {formatDurationMinutes(hobby.minutes)}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -330,12 +337,18 @@ function FeelingTab({ growth, minSlot }: { growth: Growth; minSlot: number }) {
     id: bucket.start,
     tick: ticks[index],
     parts: [
-      { value: bucket.good, color: CHART_COLORS.base },
+      { value: bucket.good, color: CHART_COLORS.good },
       { value: bucket.neutral, color: CHART_COLORS.neutral },
       { value: bucket.hard, color: CHART_COLORS.hard },
     ],
     valueText: String(bucket.good + bucket.neutral + bucket.hard),
     tooltip: `${daily ? formatMonthDay(bucket.start) : weekLabel(bucket.start)} · ${GOOD_LABEL} ${bucket.good} · ${NEUTRAL_LABEL} ${bucket.neutral} · ${HARD_LABEL} ${bucket.hard}${!daily && bucket.start === thisWeek ? ' · 이번 주' : ''}`,
+    tooltipTitle: `${daily ? formatMonthDay(bucket.start) : weekLabel(bucket.start)}${!daily && bucket.start === thisWeek ? ' · 이번 주' : ''}`,
+    tooltipRows: [
+      { label: GOOD_LABEL, value: bucket.good, color: CHART_COLORS.good },
+      { label: NEUTRAL_LABEL, value: bucket.neutral, color: CHART_COLORS.neutral },
+      { label: HARD_LABEL, value: bucket.hard, color: CHART_COLORS.hard },
+    ],
     current: !daily && bucket.start === thisWeek,
   }))
   const axis = countAxis(Math.max(0, ...buckets.map((bucket) => bucket.good + bucket.neutral + bucket.hard)))
@@ -358,6 +371,7 @@ function FeelingTab({ growth, minSlot }: { growth: Growth; minSlot: number }) {
             ? {
                 headers: [daily ? '날짜' : '주', GOOD_LABEL, NEUTRAL_LABEL, HARD_LABEL, '고르지 않음'],
                 numeric: [1, 2, 3, 4],
+                headerDots: { 1: CHART_COLORS.good, 2: CHART_COLORS.neutral, 3: CHART_COLORS.hard },
                 rows: buckets.map((bucket) => [
                   daily ? formatMonthDay(bucket.start) : weekLabel(bucket.start),
                   String(bucket.good),
@@ -373,7 +387,7 @@ function FeelingTab({ growth, minSlot }: { growth: Growth; minSlot: number }) {
             <>
               <Legend
                 items={[
-                  { label: GOOD_LABEL, color: CHART_COLORS.base },
+                  { label: GOOD_LABEL, color: CHART_COLORS.good },
                   { label: NEUTRAL_LABEL, color: CHART_COLORS.neutral },
                   { label: HARD_LABEL, color: CHART_COLORS.hard },
                 ]}
@@ -520,38 +534,6 @@ function RhythmTab({ growth, minSlot }: { growth: Growth; minSlot: number }) {
   )
 }
 
-/** 네이티브 select를 꾸민 드롭다운. 높이 40px(모바일 44px), 오른쪽에 화살표 아이콘. */
-function FilterSelect({
-  label,
-  value,
-  onChange,
-  children,
-}: {
-  label: string
-  value: string
-  onChange: (value: string) => void
-  children: ReactNode
-}) {
-  return (
-    <div className="relative min-w-0">
-      <select
-        aria-label={label}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-11 w-full min-w-0 appearance-none rounded-lg border border-line-2 bg-white pl-3 pr-9 text-sm font-medium text-ink lg:h-10 lg:w-44"
-      >
-        {children}
-      </select>
-      <ChevronDownIcon
-        width={16}
-        height={16}
-        aria-hidden="true"
-        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink-2"
-      />
-    </div>
-  )
-}
-
 export function GrowthPage() {
   const { data: hobbies } = useHobbies(true)
   const [filter, setFilter] = useState<GrowthFilter>(readGrowthFilter)
@@ -603,59 +585,54 @@ export function GrowthPage() {
 
   return (
     <div className="flex flex-col gap-3 lg:min-h-0 lg:flex-1">
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-        <h1 className="text-page-title">성장</h1>
-        <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-none">
-          <FilterSelect
-            label="분야"
-            value={hobbyId == null ? 'ALL' : String(hobbyId)}
-            onChange={(value) => update({ ...filter, hobbyId: value === 'ALL' ? null : Number(value) })}
-          >
-            <option value="ALL">전체 분야</option>
-            {activeHobbies.map((hobby) => (
-              <option key={hobby.id} value={hobby.id}>
-                {hobby.name}
-              </option>
-            ))}
-          </FilterSelect>
-          <FilterSelect
-            label="기간"
-            value={filter.period}
-            onChange={(value) => update({ ...filter, period: value as GrowthPeriod })}
-          >
-            {PERIOD_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </FilterSelect>
-        </div>
-      </div>
+      <h1 className="text-page-title">성장</h1>
 
-      <div
-        role="tablist"
-        aria-label="성장 보기"
-        onKeyDown={onTabKey}
-        className="scrollbar-none flex flex-none gap-1 overflow-x-auto border-b border-line"
-      >
-        {TABS.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            role="tab"
-            id={`growth-tab-${item.key}`}
-            aria-selected={tab === item.key}
-            aria-controls="growth-panel"
-            tabIndex={tab === item.key ? 0 : -1}
-            onClick={() => setTab(item.key)}
-            className={[
-              '-mb-px inline-flex min-h-11 flex-none items-center justify-center whitespace-nowrap border-b-2 px-4 text-[15px] lg:min-h-10',
-              tab === item.key ? 'border-base font-bold text-ink' : 'border-transparent font-medium text-ink-2',
-            ].join(' ')}
-          >
-            {item.label}
-          </button>
-        ))}
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+        <div
+          role="tablist"
+          aria-label="성장 보기"
+          onKeyDown={onTabKey}
+          className="scrollbar-none flex min-w-0 flex-none gap-2 overflow-x-auto"
+        >
+          {TABS.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              role="tab"
+              id={`growth-tab-${item.key}`}
+              aria-selected={tab === item.key}
+              aria-controls="growth-panel"
+              tabIndex={tab === item.key ? 0 : -1}
+              onClick={() => setTab(item.key)}
+              className={[
+                'inline-flex h-11 flex-none items-center justify-center whitespace-nowrap rounded-full border px-4 text-sm lg:h-10',
+                tab === item.key
+                  ? 'border-[#2F6B57] bg-[#E4F0EA] font-bold text-[#2F6B57]'
+                  : 'border-line-2 bg-white font-medium text-ink-2',
+              ].join(' ')}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+        {/* 돌아보기와 같은 공용 Dropdown(커스텀 팝오버)을 그대로 쓴다. */}
+        <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-none lg:items-center">
+          <Dropdown
+            aria-label="분야"
+            value={hobbyId == null ? 'ALL' : String(hobbyId)}
+            options={[
+              { value: 'ALL', label: '전체 분야' },
+              ...activeHobbies.map((hobby) => ({ value: String(hobby.id), label: hobby.name })),
+            ]}
+            onChange={(value) => update({ ...filter, hobbyId: value === 'ALL' ? null : Number(value) })}
+          />
+          <Dropdown
+            aria-label="기간"
+            value={filter.period}
+            options={PERIOD_OPTIONS}
+            onChange={(value) => update({ ...filter, period: value as GrowthPeriod })}
+          />
+        </div>
       </div>
 
       <div
