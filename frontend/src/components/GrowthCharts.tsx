@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useElementSize } from '../hooks/useElementSize'
-import { CHART_COLORS, edgeOf, strongOf } from '../lib/chartColors'
+import { CHART_COLORS, strongOf } from '../lib/chartColors'
 
 /**
  * 성장 화면의 차트 부품(SVG 직접). 컨테이너의 실제 폭·높이를 재서 그리고, 글자는 스케일되지 않게 고정 px(12 이상)로 둔다.
@@ -31,8 +31,8 @@ function topRoundedPath(x: number, y: number, w: number, h: number, radius: numb
 
 const BAR_RADIUS = 4
 const SEGMENT_GAP = 1
-/** 막대 테두리 두께. 선이 막대 안쪽에 놓이게 반만큼 안으로 줄여 그린다. */
-const EDGE = 1.5
+/** 막대에는 테두리를 두지 않는다(0). */
+const EDGE = 0
 const HALF = EDGE / 2
 
 export type BarItem = {
@@ -178,9 +178,6 @@ export function BarChart({
                             const paint = (fill: string) => ({
                               fill: active === index ? strongOf(fill) : fill,
                               fillOpacity: item.current ? 0.45 : 1,
-                              stroke: edgeOf(fill),
-                              strokeWidth: EDGE,
-                              strokeDasharray: item.current ? '4 3' : undefined,
                             })
                             const visible = item.parts.filter((part) => part.value > 0)
                             return visible.map((part, partIndex) => {
@@ -286,7 +283,7 @@ export function HBarChart({
                 <text x={0} y={y + 22} fontSize={VALUE_FONT} fill={CHART_COLORS.strong}>
                   {label}
                 </text>
-                <rect x={labelW} y={y + 7} width={w} height={rowH - 14} rx={3} fill={color} stroke={edgeOf(color)} strokeWidth={EDGE} />
+                <rect x={labelW} y={y + 7} width={w} height={rowH - 14} rx={3} fill={color} />
                 {item.value > 0 ? (
                   <text x={labelW + w + 6} y={y + 22} fontSize={VALUE_FONT} fill={CHART_COLORS.text}>
                     {item.valueText}
@@ -306,8 +303,8 @@ export function Swatch({ fill, round = true, faded = false }: { fill: string; ro
   return (
     <span
       aria-hidden="true"
-      className={['inline-block h-3 w-3 flex-none border', round ? 'rounded-full' : 'rounded-sm'].join(' ')}
-      style={{ background: fill, borderColor: edgeOf(fill), opacity: faded ? 0.55 : 1 }}
+      className={['inline-block h-3 w-3 flex-none', round ? 'rounded-full' : 'rounded-sm'].join(' ')}
+      style={{ background: fill, opacity: faded ? 0.55 : 1 }}
     />
   )
 }

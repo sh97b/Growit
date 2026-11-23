@@ -7,7 +7,7 @@ import { Note } from '../components/Note'
 import { useGrowth } from '../hooks/useGrowth'
 import { useHobbies } from '../hooks/useHobbies'
 import { useIsDesktop, useMediaQuery } from '../hooks/useIsDesktop'
-import { CHART_COLORS, edgeOf } from '../lib/chartColors'
+import { CHART_COLORS } from '../lib/chartColors'
 import { countAxis, currentWeekStart, dayTicks, minutesAxis, trimWeeks, weekTicks } from '../lib/chartAxis'
 import { formatDurationMinutes, formatMonthDay, formatYearMonthDay } from '../lib/date'
 import {
@@ -298,11 +298,10 @@ function HobbyTab({ growth }: { growth: Growth }) {
                   </div>
                   <span className="block h-3 overflow-hidden rounded-full bg-[var(--track)]" aria-hidden="true">
                     <span
-                      className="block h-3 rounded-full border-[1.5px]"
+                      className="block h-3 rounded-full"
                       style={{
                         width: `${hobby[metric] > 0 ? Math.max(4, (hobby[metric] / max) * 100) : 0}%`,
                         background: metric === 'records' ? CHART_COLORS.base : CHART_COLORS.time,
-                        borderColor: edgeOf(metric === 'records' ? CHART_COLORS.base : CHART_COLORS.time),
                         visibility: hobby[metric] > 0 ? 'visible' : 'hidden',
                       }}
                     />
