@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useElementSize } from '../hooks/useElementSize'
-import { CHART_COLORS } from '../lib/chartColors'
+import { CHART_COLORS, edgeOf, strongOf } from '../lib/chartColors'
 
 /**
  * 성장 화면의 차트 부품(SVG 직접). 컨테이너의 실제 폭·높이를 재서 그리고, 글자는 스케일되지 않게 고정 px(12 이상)로 둔다.
@@ -31,6 +31,9 @@ function topRoundedPath(x: number, y: number, w: number, h: number, radius: numb
 
 const BAR_RADIUS = 4
 const SEGMENT_GAP = 1
+/** 막대 테두리 두께. 선이 막대 안쪽에 놓이게 반만큼 안으로 줄여 그린다. */
+const EDGE = 1.5
+const HALF = EDGE / 2
 
 export type BarItem = {
   id: string
@@ -95,7 +98,7 @@ export function BarChart({
   return (
     <div
       ref={ref}
-      className="flex h-[240px] min-h-0 w-full flex-none overflow-hidden lg:h-auto lg:flex-1"
+      className="flex h-[240px] min-h-0 w-full flex-none overflow-hidden rounded-lg bg-[var(--chart-bg)] lg:h-auto lg:flex-1"
       onMouseLeave={() => setActive(null)}
     >
       {width > 0 ? (
@@ -155,7 +158,7 @@ export function BarChart({
                         width={slot}
                         height={plotH + 4}
                         rx={4}
-                        fill={active === index ? 'var(--color-surface)' : 'transparent'}
+                        fill={active === index ? 'var(--chart-hover)' : 'transparent'}
                       />
                       {total === 0 ? (
                         <rect
@@ -169,11 +172,16 @@ export function BarChart({
                           strokeDasharray="3 2"
                         />
                       ) : (
-                        <g
-                          opacity={item.current ? 0.55 : 1}
-                          style={active === index ? { filter: 'brightness(1.12)' } : undefined}
-                        >
+                        <g>
                           {(() => {
+                            // 채움 + 1.5px 같은 계열 테두리. hover·포커스는 한 단계 진한 채움, 이번 주는 연한 채움 + 점선 테두리.
+                            const paint = (fill: string) => ({
+                              fill: active === index ? strongOf(fill) : fill,
+                              fillOpacity: item.current ? 0.45 : 1,
+                              stroke: edgeOf(fill),
+                              strokeWidth: EDGE,
+                              strokeDasharray: item.current ? '4 3' : undefined,
+                            })
                             const visible = item.parts.filter((part) => part.value > 0)
                             return visible.map((part, partIndex) => {
                               const full = Math.max(3, (part.value / yMax) * plotH)
@@ -182,9 +190,9 @@ export function BarChart({
                               y -= full
                               const isTop = partIndex === visible.length - 1
                               return isTop ? (
-                                <path key={partIndex} d={topRoundedPath(x, y, barW, h, BAR_RADIUS)} fill={part.color} />
+                <path key={partIndex} d={topRoundedPath(x + HALF, y + HALF, barW - EDGE, h - EDGE, BAR_RADIUS)} {...paint(part.color)} />
                               ) : (
-                                <rect key={partIndex} x={x} y={y} width={barW} height={h} fill={part.color} />
+                                <rect key={partIndex} x={x + HALF} y={y + HALF} width={barW - EDGE} height={Math.max(0, h - EDGE)} {...paint(part.color)} />
                               )
                             })
                           })()}
@@ -228,7 +236,7 @@ export function BarChart({
                       <div>{activeItem.tooltipTitle ?? activeItem.tooltip}</div>
                       {activeItem.tooltipRows.map((row) => (
                         <div key={row.label} className="flex items-center gap-1.5">
-                          <span aria-hidden="true" className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: row.color }} />
+                          <Swatch fill={row.color} />
                           {row.label} {row.value}
                         </div>
                       ))}
@@ -263,12 +271,12 @@ export function HBarChart({
   const labelW = 116
   const valueW = 84
   const max = Math.max(1, ...items.map((item) => item.value))
-  const barMax = Math.max(20, width - labelW - valueW)
+  const barMax = Math.max(20, width - 16 - labelW - valueW)
 
   return (
-    <div ref={ref} className="w-full flex-none">
+    <div ref={ref} className="w-full flex-none rounded-lg bg-[var(--chart-bg)] p-2">
       {width > 0 ? (
-        <svg width={width} height={Math.max(1, items.length) * rowH} role="img" aria-label={ariaLabel} className="block">
+        <svg width={Math.max(0, width - 16)} height={Math.max(1, items.length) * rowH} role="img" aria-label={ariaLabel} className="block">
           {items.map((item, index) => {
             const y = index * rowH
             const w = item.value === 0 ? 0 : Math.max(MIN_BAR, (item.value / max) * barMax)
@@ -278,7 +286,7 @@ export function HBarChart({
                 <text x={0} y={y + 22} fontSize={VALUE_FONT} fill={CHART_COLORS.strong}>
                   {label}
                 </text>
-                <rect x={labelW} y={y + 7} width={w} height={rowH - 14} rx={3} fill={color} />
+                <rect x={labelW} y={y + 7} width={w} height={rowH - 14} rx={3} fill={color} stroke={edgeOf(color)} strokeWidth={EDGE} />
                 {item.value > 0 ? (
                   <text x={labelW + w + 6} y={y + 22} fontSize={VALUE_FONT} fill={CHART_COLORS.text}>
                     {item.valueText}
@@ -293,17 +301,24 @@ export function HBarChart({
   )
 }
 
+/** 색점: 파스텔 채움 + 진한 가는 테두리(차트 막대와 같은 모양). */
+export function Swatch({ fill, round = true, faded = false }: { fill: string; round?: boolean; faded?: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={['inline-block h-3 w-3 flex-none border', round ? 'rounded-full' : 'rounded-sm'].join(' ')}
+      style={{ background: fill, borderColor: edgeOf(fill), opacity: faded ? 0.55 : 1 }}
+    />
+  )
+}
+
 /** 범례: 색 칸 옆에 이름을 적어 색만으로 구분하지 않게 한다. */
 export function Legend({ items }: { items: { label: string; color: string; faded?: boolean }[] }) {
   return (
     <ul className="flex flex-wrap gap-x-4 gap-y-1 text-caption-min text-ink-2" aria-label="범례">
       {items.map((item) => (
         <li key={item.label} className="inline-flex items-center gap-1.5">
-          <span
-            aria-hidden="true"
-            className="inline-block h-3 w-3 rounded-sm"
-            style={{ background: item.color, opacity: item.faded ? 0.55 : 1 }}
-          />
+          <Swatch fill={item.color} round={false} faded={item.faded} />
           {item.label}
         </li>
       ))}
@@ -342,11 +357,9 @@ function DataTable({ caption, data }: { caption: string; data: TableData }) {
                 ].join(' ')}
               >
                 {data.headerDots?.[column] ? (
-                  <span
-                    aria-hidden="true"
-                    className="mr-1.5 inline-block h-2.5 w-2.5 rounded-full align-baseline"
-                    style={{ background: data.headerDots[column] }}
-                  />
+                  <span className="mr-1.5 inline-flex align-middle">
+                    <Swatch fill={data.headerDots[column]} />
+                  </span>
                 ) : null}
                 {header}
               </th>

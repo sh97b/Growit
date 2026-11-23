@@ -1,18 +1,28 @@
-/** 성장 차트 색. 힘들어요는 빨강 대신 차분한 따뜻한 색을 쓴다. */
+/**
+ * 성장 차트 색. 값은 모두 index.css의 CSS 변수(한 곳에서 관리)다.
+ * 같은 이름에 -edge(진한 가는 테두리)와 -strong(hover·포커스용 한 단계 진한 채움)이 짝으로 있다.
+ */
 export const CHART_COLORS = {
-  /** 기록한 날(앱 초록). */
-  base: '#3E7C68',
-  /** 쌓인 시간(같은 계열의 맑은 초록, 흰 배경 대비 3:1 이상). */
-  time: '#4FA383',
-  /** 보통이에요. */
-  neutral: 'var(--feel-neutral)',
-  /** 힘들어요: 빨강 대신 차분한 따뜻한 색. */
-  hard: 'var(--feel-hard)',
-  /** 좋아요. 기록한 날(base)과 달리 감정 전용 색이다. */
+  /** 기록 수·기록한 날. */
+  base: 'var(--bar-count)',
+  /** 쌓인 시간. */
+  time: 'var(--bar-time)',
   good: 'var(--feel-good)',
-  grid: '#E7E1D6',
-  axis: '#CFC7B8',
-  /** 축 눈금·라벨 글자(흰 배경 대비 4.5:1 이상). */
-  text: '#57524A',
-  strong: '#2B2823',
+  neutral: 'var(--feel-neutral)',
+  hard: 'var(--feel-hard)',
+  grid: 'var(--chart-grid)',
+  axis: 'var(--chart-grid)',
+  /** 축·라벨·값 글자. */
+  text: 'var(--chart-ink)',
+  strong: 'var(--chart-ink)',
 } as const
+
+/** 채움 변수에 짝지어진 테두리 변수. */
+export function edgeOf(fill: string): string {
+  return fill.replace(/\)$/, '-edge)')
+}
+
+/** 채움 변수에 짝지어진 hover 채움 변수. */
+export function strongOf(fill: string): string {
+  return fill.replace(/\)$/, '-strong)')
+}

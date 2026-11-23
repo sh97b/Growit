@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { CheckIcon, ChevronDownIcon } from './icons'
 
 export type DropdownOption<T extends string> = { value: T; label: string }
@@ -22,6 +22,9 @@ type DropdownProps<T extends string> = {
 export function Dropdown<T extends string>({ value, options, onChange, extra, pill, ...aria }: DropdownProps<T>) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
+  // 화면 오른쪽 가장자리에 붙은 트리거는 팝업이 여백 밖으로 넘치지 않게 오른쪽 정렬로 연다(기본은 왼쪽 정렬).
+  const [alignRight, setAlignRight] = useState(false)
   const listId = useId()
   const current = options.find((option) => option.value === value)
 
@@ -40,6 +43,18 @@ export function Dropdown<T extends string>({ value, options, onChange, extra, pi
       document.removeEventListener('keydown', handleKey)
     }
   }, [open])
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setAlignRight(false)
+      return
+    }
+    const pop = popoverRef.current
+    if (!pop) return
+    const rect = pop.getBoundingClientRect()
+    // 팝업이 왼쪽 정렬일 때 오른쪽 가장자리 8px 안쪽을 넘으면 오른쪽 정렬로 바꾼다.
+    if (!alignRight && rect.right > window.innerWidth - 8) setAlignRight(true)
+  }, [open, alignRight])
 
   function moveFocus(delta: number) {
     const index = options.findIndex((option) => option.value === value)
@@ -76,7 +91,13 @@ export function Dropdown<T extends string>({ value, options, onChange, extra, pi
       </button>
 
       {open ? (
-        <div className="absolute left-0 top-full z-20 mt-1.5 min-w-[9.5rem] rounded-lg border border-line-2 bg-white p-1.5 shadow-sm">
+        <div
+          ref={popoverRef}
+          className={[
+            'absolute top-full z-20 mt-1.5 min-w-[9.5rem] rounded-lg border border-line-2 bg-white p-1.5 shadow-sm',
+            alignRight ? 'right-0' : 'left-0',
+          ].join(' ')}
+        >
           <ul id={listId} role="listbox" aria-label={aria['aria-label']} className="flex flex-col">
             {options.map((option) => (
               <li key={option.value} role="presentation">

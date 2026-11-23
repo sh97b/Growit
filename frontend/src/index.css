@@ -48,10 +48,30 @@
  * CLAUDE.md에 기록).
  */
 :root {
-  /* 성장 화면 감정 색(흰 배경 대비 3.1:1 이상). 힘들어요는 빨강 대신 주황. */
-  --feel-good: #3FA27A;
-  --feel-neutral: #4F93CE;
-  --feel-hard: #D9792B;
+  /*
+   * 성장 화면 차트 색: 한지에 물들인 듯한 파스텔 채움(-) + 같은 계열의 진한 테두리(-edge) + 한 단계 진한 hover 채움(-strong).
+   * 테두리는 흰 배경·차트 배경에서 3:1 이상. 힘들어요는 빨강 대신 연한 주황.
+   */
+  --feel-good: #A8CDB4;
+  --feel-good-edge: #5E8F72;
+  --feel-good-strong: #93BFA2;
+  --feel-neutral: #A9C3D8;
+  --feel-neutral-edge: #6A8CAB;
+  --feel-neutral-strong: #92B2CB;
+  --feel-hard: #EBB98F;
+  --feel-hard-edge: #BB7E49;
+  --feel-hard-strong: #E3A574;
+  --bar-count: #A8CDB4;
+  --bar-count-edge: #5E8F72;
+  --bar-count-strong: #93BFA2;
+  --bar-time: #B9D8CF;
+  --bar-time-edge: #5A9888;
+  --bar-time-strong: #9DCBBE;
+  --track: #EFE8D8;
+  --chart-bg: #FAF6EC;
+  --chart-grid: #E6DCCB;
+  --chart-hover: #F3EBDA;
+  --chart-ink: #3A352E;
   --fs-caption: max(14px, 0.875rem);
   --fs-body: max(16px, 1rem);
   --fs-card-title: max(17px, 1.0625rem);

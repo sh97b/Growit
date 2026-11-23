@@ -1,13 +1,13 @@
 import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { BarChart, ChartCard, HBarChart, Legend, type BarItem } from '../components/GrowthCharts'
+import { BarChart, ChartCard, HBarChart, Legend, Swatch, type BarItem } from '../components/GrowthCharts'
 import { Dropdown } from '../components/Dropdown'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
 import { useGrowth } from '../hooks/useGrowth'
 import { useHobbies } from '../hooks/useHobbies'
 import { useIsDesktop, useMediaQuery } from '../hooks/useIsDesktop'
-import { CHART_COLORS } from '../lib/chartColors'
+import { CHART_COLORS, edgeOf } from '../lib/chartColors'
 import { countAxis, currentWeekStart, dayTicks, minutesAxis, trimWeeks, weekTicks } from '../lib/chartAxis'
 import { formatDurationMinutes, formatMonthDay, formatYearMonthDay } from '../lib/date'
 import {
@@ -296,12 +296,14 @@ function HobbyTab({ growth }: { growth: Growth }) {
                       <p className="truncate text-[12px] text-ink-2">{firstDateLabel(hobby.firstDate)}</p>
                     ) : null}
                   </div>
-                  <span className="block h-3 overflow-hidden rounded-full bg-surface" aria-hidden="true">
+                  <span className="block h-3 overflow-hidden rounded-full bg-[var(--track)]" aria-hidden="true">
                     <span
-                      className="block h-3 rounded-full"
+                      className="block h-3 rounded-full border-[1.5px]"
                       style={{
                         width: `${hobby[metric] > 0 ? Math.max(4, (hobby[metric] / max) * 100) : 0}%`,
-                        background: CHART_COLORS.base,
+                        background: metric === 'records' ? CHART_COLORS.base : CHART_COLORS.time,
+                        borderColor: edgeOf(metric === 'records' ? CHART_COLORS.base : CHART_COLORS.time),
+                        visibility: hobby[metric] > 0 ? 'visible' : 'hidden',
                       }}
                     />
                   </span>
@@ -399,11 +401,7 @@ function FeelingTab({ growth, minSlot }: { growth: Growth; minSlot: number }) {
                       key={`${feeling.builtIn}-${feeling.label}`}
                       className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-line-2 bg-white px-3 text-[14px]"
                     >
-                      <span
-                        aria-hidden="true"
-                        className="inline-block h-2.5 w-2.5 rounded-full"
-                        style={{ background: DIRECTION_COLOR[feeling.direction] }}
-                      />
+                      <Swatch fill={DIRECTION_COLOR[feeling.direction]} />
                       {feeling.label}
                       <span className="text-ink-2">{feeling.count}번</span>
                       <span className="sr-only">{DIRECTION_LABEL[feeling.direction]} 쪽 감정</span>
@@ -607,7 +605,7 @@ export function GrowthPage() {
               className={[
                 'inline-flex h-11 flex-none items-center justify-center whitespace-nowrap rounded-full border px-4 text-sm lg:h-10',
                 tab === item.key
-                  ? 'border-[#2F6B57] bg-[#E4F0EA] font-bold text-[#2F6B57]'
+                  ? 'border-[#A8CDB4] bg-[#EEF2E2] font-bold text-[#3F6B4F]'
                   : 'border-line-2 bg-white font-medium text-ink-2',
               ].join(' ')}
             >
