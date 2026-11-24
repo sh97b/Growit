@@ -28,7 +28,7 @@ export function WeekStrip({ days, home = false }: { days: WeekStripDay[]; home?:
           return (
             <div key={day.date} aria-label={label} className={['flex flex-col items-center', home ? 'gap-1' : 'gap-1.5', day.isFuture ? 'opacity-40' : ''].join(' ')}>
               <span className={[home ? 'home-week-circle' : 'h-7 w-7', 'rounded-full border-2', circleClass].join(' ')} />
-              <span className={[home ? 'text-xs' : 'text-caption-min', day.isToday ? 'font-bold text-ink' : 'text-ink-2'].join(' ')}>
+              <span className={[home ? 't-sub' : 'text-caption-min', day.isToday ? 'font-bold text-ink' : 'text-ink-2'].join(' ')}>
                 {weekdayLabel(localDate)}
               </span>
             </div>

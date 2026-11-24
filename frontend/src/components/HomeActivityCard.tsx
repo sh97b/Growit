@@ -43,7 +43,7 @@ export function HomeActivityCard({
                   aria-pressed={view === option.value}
                   onClick={() => setView(option.value)}
                   className={[
-                    'h-7 whitespace-nowrap rounded-md px-3 text-xs font-medium',
+                    't-sub h-7 whitespace-nowrap rounded-md px-3 font-medium',
                     view === option.value ? 'bg-ink text-white' : 'bg-transparent text-ink-2',
                   ].join(' ')}
                 >

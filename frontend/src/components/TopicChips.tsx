@@ -28,14 +28,14 @@ export function TopicChips({ dense = false }: { dense?: boolean }) {
       <div className="home-topics">
         <h2 className="flex-none text-card-title">자주 하는 주제</h2>
         {topTags.length === 0 ? (
-          <span className="truncate text-sm text-ink-2">기록이 쌓이면 자주 하는 주제가 보여요</span>
+          <span className="t-sub truncate text-ink-2">기록이 쌓이면 자주 하는 주제가 보여요</span>
         ) : (
           <div className="flex min-w-0 flex-wrap gap-2 overflow-hidden">
             {topTags.map(([tag]) => (
               <Link
                 key={tag}
                 to={`/records/new?topic=${encodeURIComponent(tag)}`}
-                className="home-chip inline-flex flex-none items-center rounded-md bg-tag-topic-bg px-3 text-sm font-medium text-tag-topic-fg no-underline"
+                className="home-chip t-sub inline-flex flex-none items-center rounded-md bg-tag-topic-bg px-3 font-medium text-tag-topic-fg no-underline"
               >
                 {tag}
               </Link>

@@ -54,7 +54,7 @@ export function HomeNextActionBlock({ action, dense = false }: { action: NextAct
           <Link
             to={`/records/${action.evidence.id}`}
             title={action.evidence.content}
-            className="inline-flex h-8 min-w-0 max-w-full items-center gap-2 rounded-lg border border-line-2 bg-white px-2.5 text-xs text-ink no-underline"
+            className="inline-flex h-8 min-w-0 max-w-full items-center gap-2 rounded-lg border border-line-2 bg-white px-2.5 t-sub text-ink no-underline"
           >
             <span className="flex-none font-semibold text-base-ink">{formatMonthDay(action.evidence.recordDate)}</span>
             <span className="min-w-0 truncate text-ink-2">{action.evidence.content}</span>

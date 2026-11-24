@@ -174,8 +174,8 @@ export function HomePage() {
             <div className="home-fit">
               <div className="flex flex-col gap-1">
                 <div className="flex items-baseline justify-between gap-3">
-                  <h1 className="home-h1 min-w-0 truncate font-serif font-semibold">{titleText}</h1>
-                  <span className="flex-none text-xs text-ink-3">{formatMonthDayWeekday(today)}</span>
+                  <h1 className="t-page min-w-0 truncate">{titleText}</h1>
+                  <span className="t-sub flex-none text-ink-3">{formatMonthDayWeekday(today)}</span>
                 </div>
                 {subLine ? <div className="line-clamp-1">{subLine}</div> : null}
               </div>
@@ -266,7 +266,7 @@ function StatsTiles({ summary, slim = false }: { summary: StatsSummary; slim?: b
       <div className="home-stats">
         {tiles.map(([label, value]) => (
           <div key={label} className="home-stat">
-            <span className="flex-none text-xs text-ink-2">{label}</span>
+            <span className="t-sub flex-none text-ink-2">{label}</span>
             <span className="home-stat-value truncate font-serif text-ink">{value}</span>
           </div>
         ))}
@@ -396,7 +396,7 @@ function HomeCoachCard({ autoStatus, dense = false }: { autoStatus: CoachAutoRes
         </div>
       </div>
       {data.periodSummary ? (
-        <p className={dense ? 'home-sum text-sm text-ink-2' : 'line-clamp-2 text-body-min text-ink-2'}>{data.periodSummary}</p>
+        <p className={dense ? 'home-sum t-body text-ink-2' : 'line-clamp-2 text-body-min text-ink-2'}>{data.periodSummary}</p>
       ) : null}
       {nextActionBlock}
       {dense ? null : reviewLink}
