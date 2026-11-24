@@ -25,6 +25,8 @@ const HALF_WEEKS = 26
 const FULL_WEEKS = 52
 const FULL_CELL_PX = 10
 const MAX_CLAMP_CELL_PX = 16
+const HOME_CELL_MAX_PX = 48
+const HOME_CELL_MIN_PX = 8
 /** 기록 탭 데스크톱 전용 한 줄 모드의 고정 칸 크기(지시문 명시: 14px, 간격 3px). */
 const SCROLL_CELL_PX = 14
 const MONTH_LABEL_ROW_PX = 14
@@ -58,10 +60,26 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false, ho
   const today = todayLocalDate()
   const currentWeekStart = startOfWeekLocal(new Date())
   const [range, setRange] = useState<'half' | 'full'>('half')
-  const weeks = toggle ? (range === 'full' ? FULL_WEEKS : HALF_WEEKS) : fixedWeeks
+  // 웹 홈: 칸은 정사각이고 크기는 가용 높이에서, 보여 줄 주 수는 가용 폭에서 정해 52주까지 채운다(오른쪽이 최신).
+  const [boxEl, setBoxEl] = useState<HTMLDivElement | null>(null)
+  const [box, setBox] = useState({ w: 0, h: 0 })
+  useLayoutEffect(() => {
+    if (!home || !boxEl) return
+    const measure = () => setBox((prev) => (prev.w === boxEl.clientWidth && prev.h === boxEl.clientHeight ? prev : { w: boxEl.clientWidth, h: boxEl.clientHeight }))
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(boxEl)
+    return () => observer.disconnect()
+  }, [home, boxEl])
+  const measured = home && box.w > 0
+  const homeCellRaw = Math.floor((box.h - (MONTH_LABEL_ROW_PX + 2) - 6 * GAP_PX) / 7)
+  const homeCell = Math.min(HOME_CELL_MAX_PX, homeCellRaw)
+  const showHomeGrid = !home || !measured || homeCellRaw >= HOME_CELL_MIN_PX
+  const homeWeeks = Math.max(4, Math.min(FULL_WEEKS, Math.floor((box.w + GAP_PX) / (Math.max(HOME_CELL_MIN_PX, homeCell) + GAP_PX))))
+  const weeks = home ? (measured ? homeWeeks : fixedWeeks) : toggle ? (range === 'full' ? FULL_WEEKS : HALF_WEEKS) : fixedWeeks
   const fixedCell = toggle && range === 'full'
   // 기록 탭 데스크톱(toggle 없는 52주)만 한 줄 고정 칸 + 가로 스크롤 모드를 쓴다.
-  const scrollableSingleRow = weeks === FULL_WEEKS && !toggle
+  const scrollableSingleRow = weeks === FULL_WEEKS && !toggle && !home
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -73,14 +91,16 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false, ho
     [currentWeekStart, weeks],
   )
   const from = weekStarts[0]
+  const queryFrom = home ? addDays(currentWeekStart, -(FULL_WEEKS - 1) * 7) : from
   const columns = useMemo(
     () => weekStarts.map((weekStart) => Array.from({ length: 7 }, (_, dayIndex) => addDays(weekStart, dayIndex))),
     [weekStarts],
   )
 
   const mapQuery = useQuery({
-    queryKey: ['stats', 'activity-map', 'heatmap', from, today, hobbyId ?? null],
-    queryFn: () => fetchActivityMap({ from, to: today, hobbyId: hobbyId ?? undefined }),
+    // 홈은 보이는 주 수가 폭에 따라 바뀌므로 52주를 한 번에 받아 두고 그 안에서 잘라 쓴다.
+    queryKey: ['stats', 'activity-map', 'heatmap', queryFrom, today, hobbyId ?? null],
+    queryFn: () => fetchActivityMap({ from: queryFrom, to: today, hobbyId: hobbyId ?? undefined }),
   })
 
   const countByDate = new Map<string, number>()
@@ -174,10 +194,7 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false, ho
 
   if (mapQuery.isLoading) {
     return home ? (
-      <div
-        className="rounded-lg bg-rest motion-safe:animate-pulse"
-        style={{ height: 'calc(var(--heat-cell-max, 16px) * 7 + 36px)' }}
-      />
+      <div ref={setBoxEl} className="min-h-0 flex-1 rounded-lg bg-rest motion-safe:animate-pulse" />
     ) : (
       <Loading />
     )
@@ -271,13 +288,12 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false, ho
 
   function makeGridVars(weeksForRow: number): CSSProperties {
     // 홈은 칸 크기를 폭과 가용 높이 중 작은 쪽에서 구하고(월 라벨 줄 16px + 간격 18px = 34px를 뺀 일곱 줄), 홈 밀도 변수(--cell-min/--cell-max) 안으로 자른다.
-    const homeCell = `clamp(var(--cell-min, 9px), min(calc(100cqw / var(--weeks) - ${GAP_PX}px), calc((100cqh - 34px) / 7)), var(--cell-max, ${MAX_CLAMP_CELL_PX}px))`
     return {
       '--weeks': weeksForRow,
       '--cell': fixedCell
         ? `${FULL_CELL_PX}px`
         : home
-          ? homeCell
+          ? `${Math.max(HOME_CELL_MIN_PX, homeCell)}px`
           : `clamp(9px, calc(100cqw / var(--weeks) - ${GAP_PX}px), ${MAX_CLAMP_CELL_PX}px)`,
     } as CSSProperties
   }
@@ -287,7 +303,7 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false, ho
   // 래퍼(라벨 열 + 1fr)를 걷어내도 월 라벨의 col 인덱스는 그대로 유효하다.
   function renderClampedRow() {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', rowGap: '2px', width: home ? '100%' : undefined }}>
+      <div style={{ display: 'flex', flexDirection: 'column', rowGap: '2px' }}>
         <div style={{ position: 'relative', height: '14px' }}>
           {monthLabels.map(({ col, label }) => (
             <span
@@ -436,10 +452,10 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false, ho
         renderScrollableRow()
       ) : (
         <div
-          className={home ? 'home-hide-2' : undefined}
+          ref={home ? setBoxEl : undefined}
           style={
             home
-              ? ({ containerType: 'size', flex: '1 1 0', minHeight: 0, display: 'flex', alignItems: 'center', ...makeGridVars(weeks) } as CSSProperties)
+              ? ({ flex: '1 1 0', minHeight: 0, display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', overflow: 'hidden', ...makeGridVars(weeks) } as CSSProperties)
               : ({ containerType: 'inline-size', ...makeGridVars(weeks) } as CSSProperties)
           }
         >
@@ -447,14 +463,14 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false, ho
             ref={fixedCell ? scrollRef : undefined}
             className={fixedCell ? 'scrollbar-none overflow-x-auto overflow-y-hidden' : 'overflow-x-visible overflow-y-hidden'}
           >
-            {renderClampedRow()}
+            {showHomeGrid ? renderClampedRow() : null}
           </div>
         </div>
       )}
 
-      {home ? (
-        <p className="home-summary flex-none text-sm text-ink-2">
-          최근 {weeks}주 중 {Array.from(countByDate.values()).filter((count) => count > 0).length}일 기록했어요
+      {home && !showHomeGrid ? (
+        <p className="flex-none text-sm text-ink-2">
+          최근 {weeks}주 중 {columns.flat().filter((date) => (countByDate.get(date) ?? 0) > 0).length}일 기록했어요
         </p>
       ) : null}
 

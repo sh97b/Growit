@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AiLabel } from '../components/AiLabel'
@@ -19,7 +19,7 @@ import { ChevronRightIcon, PlusIcon } from '../components/icons'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { DotCompletionHost } from '../components/DotCompletionHost'
 import { useHobbies } from '../hooks/useHobbies'
-import { useIsDesktop, useMediaQuery } from '../hooks/useIsDesktop'
+import { useIsDesktop } from '../hooks/useIsDesktop'
 import { fetchLatestCoach, generateAutoCoach, type CoachAutoResponse } from '../lib/ai'
 import { ApiError } from '../lib/api'
 import {
@@ -93,10 +93,9 @@ export function HomePage() {
   const autoStatus = useAutoCoachOncePerDay()
   const isDesktop = useIsDesktop()
   // 도트 그림 높이 상한만 고르는 값이다(요소를 숨기지 않는다). 열 높이 = 뷰포트 − 116px 기준으로 단계와 맞춘다.
-  const dotTight = useMediaQuery('(max-height: 659px)')
-  const dotCompact = useMediaQuery('(max-height: 815px)')
-  const dotRoomy = useMediaQuery('(min-height: 960px)')
-  const pictureMax = dotTight ? 70 : dotCompact ? 110 : dotRoomy ? 240 : 180
+  // 도트 그림 최대 높이는 단계가 아니라 뷰포트 높이에 비례해 연속으로 늘고 줄어든다(헤더·여백 116px 제외 열 높이의 약 28%).
+  const viewportHeight = useSyncExternalStore(subscribeResize, () => window.innerHeight, () => 800)
+  const pictureMax = Math.round(Math.min(260, Math.max(70, (viewportHeight - 116) * 0.28)))
 
   // 아래 훅은 summary가 아직 로딩 중이어도(이 아래 early return보다 먼저) 매 렌더마다 똑같이
   // 호출돼야 한다(Hooks 규칙) — summary 로딩 전에는 잠정 기본값으로 계산해 둔다.
@@ -191,7 +190,7 @@ export function HomePage() {
             </div>
           </div>
           <div className="home-col col-span-5">
-            <div className="home-fit home-fit-right">
+            <div className="home-fit">
               {state !== 'first' ? (
                 <>
                   <RecentWeekStrip home />
@@ -246,6 +245,11 @@ export function HomePage() {
 
 
 /** 디자인에 없는 추가(U3): 연속 일수 같은 쉬면 줄어드는 지표 대신 쌓이기만 하는 지표 3개. */
+function subscribeResize(callback: () => void) {
+  window.addEventListener('resize', callback)
+  return () => window.removeEventListener('resize', callback)
+}
+
 function StatsTiles({ summary, slim = false }: { summary: StatsSummary; slim?: boolean }) {
   const daysSinceStart = summary.firstRecordedDate
     ? daysBetween(summary.firstRecordedDate, summary.today) + 1
@@ -259,7 +263,7 @@ function StatsTiles({ summary, slim = false }: { summary: StatsSummary; slim?: b
       ['시작한 지', daysSinceStart != null ? `${daysSinceStart}일` : '-'],
     ]
     return (
-      <div className="grid grid-cols-3 gap-3">
+      <div className="home-stats">
         {tiles.map(([label, value]) => (
           <div key={label} className="home-stat">
             <span className="flex-none text-xs text-ink-2">{label}</span>
@@ -312,7 +316,7 @@ function HomeCoachCard({ autoStatus, dense = false }: { autoStatus: CoachAutoRes
 
   if (isLoading || nextActionQuery.isLoading) {
     return dense ? (
-      <div className="home-pad home-grow home-grow-cap flex flex-col gap-2 rounded-2xl bg-surface" role="status" aria-label="회고를 불러오는 중이에요">
+      <div className="home-pad home-grow-3 flex flex-col gap-2 rounded-2xl bg-surface" role="status" aria-label="회고를 불러오는 중이에요">
         <div className="h-5 w-1/3 rounded-full bg-rest motion-safe:animate-pulse" />
         <div className="h-4 w-full rounded-full bg-rest motion-safe:animate-pulse" />
         <div className="min-h-[8.5rem] flex-1 rounded-xl bg-rest motion-safe:animate-pulse" />
@@ -325,7 +329,7 @@ function HomeCoachCard({ autoStatus, dense = false }: { autoStatus: CoachAutoRes
   // 회고가 있든 없든, 최신 기록에 반응 전 제안이 있으면 항상 보인다.
   const nextAction = nextActionQuery.data && nextActionQuery.data.state == null ? nextActionQuery.data : null
   const nextActionBlock = nextAction ? <HomeNextActionBlock action={nextAction} dense={dense} /> : null
-  const cardClass = dense ? 'home-pad home-grow home-grow-cap flex flex-col gap-2 rounded-2xl bg-surface' : 'flex flex-col gap-2.5 rounded-2xl bg-surface p-5'
+  const cardClass = dense ? 'home-pad home-grow-3 flex min-h-0 flex-col gap-2 rounded-2xl bg-surface' : 'flex flex-col gap-2.5 rounded-2xl bg-surface p-5'
 
   // 회고가 아예 없으면: 오늘 접속 때 자동 생성 조건을 이미 확인했다면(autoStatus) 정확한 진행 수치를, 아니면 일반 안내만.
   if (!data) {
@@ -392,7 +396,7 @@ function HomeCoachCard({ autoStatus, dense = false }: { autoStatus: CoachAutoRes
         </div>
       </div>
       {data.periodSummary ? (
-        <p className={dense ? 'line-clamp-2 text-sm text-ink-2' : 'line-clamp-2 text-body-min text-ink-2'}>{data.periodSummary}</p>
+        <p className={dense ? 'home-sum text-sm text-ink-2' : 'line-clamp-2 text-body-min text-ink-2'}>{data.periodSummary}</p>
       ) : null}
       {nextActionBlock}
       {dense ? null : reviewLink}

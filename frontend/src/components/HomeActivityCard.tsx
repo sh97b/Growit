@@ -33,9 +33,7 @@ export function HomeActivityCard({
           <h2 className="flex-none text-card-title">활동 지도</h2>
           <div className="flex min-w-0 items-center gap-3">
             {view === 'grass' ? (
-              <span className="home-hide-2">
-                <HeatmapLegend />
-              </span>
+              <HeatmapLegend />
             ) : null}
             <div className="inline-flex flex-none rounded-lg border border-line-2 bg-white p-[0.125rem]" role="group" aria-label="활동 지도 보기 방식">
               {OPTIONS.map((option) => (

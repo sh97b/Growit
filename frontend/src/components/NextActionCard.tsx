@@ -44,10 +44,10 @@ export function HomeNextActionBlock({ action, dense = false }: { action: NextAct
   if (dense) {
     // 웹 홈: 제목 22px(보통·컴팩트 20px) 최대 2줄, 이유 2줄(보통·컴팩트 1줄) 말줄임, 근거 칩 한 줄. 남는 높이를 이 블록이 받아 내용을 가운데에 둔다.
     return (
-      <div className="home-na-block flex min-h-0 flex-none flex-col justify-center gap-2 rounded-xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)]">
+      <div className="home-na-block flex min-h-0 flex-1 flex-col justify-center gap-[clamp(6px,1.4cqh,16px)] overflow-hidden rounded-xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)]">
         <AiLabel>다음에 해 볼 일</AiLabel>
         <p className="home-na-title font-serif font-semibold text-ink">{action.text}</p>
-        <span className="home-na-reason home-na-reason-text leading-[1.5] text-ink-2" title={detail}>
+        <span className="home-na-reason leading-[1.5] text-ink-2" title={detail}>
           {detail}
         </span>
         {action.evidence ? (

@@ -35,7 +35,7 @@ export function TopicChips({ dense = false }: { dense?: boolean }) {
               <Link
                 key={tag}
                 to={`/records/new?topic=${encodeURIComponent(tag)}`}
-                className="inline-flex h-9 flex-none items-center rounded-md bg-tag-topic-bg px-3 text-sm font-medium text-tag-topic-fg no-underline"
+                className="home-chip inline-flex flex-none items-center rounded-md bg-tag-topic-bg px-3 text-sm font-medium text-tag-topic-fg no-underline"
               >
                 {tag}
               </Link>
