@@ -16,11 +16,9 @@ const OPTIONS: { value: ActivityView; label: string }[] = [
  */
 export function HomeActivityCard({
   grass,
-  maxPictureHeight,
   home = false,
 }: {
   grass?: ReactNode
-  maxPictureHeight?: number
   /** 웹 홈: 제목·범례·토글을 한 줄 헤더로 합치고 여백은 홈 밀도 변수(--hpad)를 따른다. */
   home?: boolean
 }) {
@@ -54,7 +52,7 @@ export function HomeActivityCard({
           </div>
         </div>
         <div className="flex min-h-0 flex-1 flex-col">
-          {view === 'dot' ? <DotPanel maxPictureHeight={maxPictureHeight} /> : (grass ?? <ActivityHeatmap weeks={26} home />)}
+          {view === 'dot' ? <DotPanel fit /> : (grass ?? <ActivityHeatmap weeks={26} home />)}
         </div>
       </section>
     )
@@ -80,7 +78,7 @@ export function HomeActivityCard({
           ))}
         </div>
       </div>
-      {view === 'dot' ? <DotPanel maxPictureHeight={maxPictureHeight} /> : (grass ?? <ActivityHeatmap weeks={26} />)}
+      {view === 'dot' ? <DotPanel /> : (grass ?? <ActivityHeatmap weeks={26} />)}
     </div>
   )
 }

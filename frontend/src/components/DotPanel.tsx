@@ -1,23 +1,17 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useDotAlbum, useDotsCurrent, useStopDot } from '../hooks/useDots'
 import type { DotGoal } from '../lib/dots'
 import { Button } from './Button'
 import { Dialog } from './Dialog'
 import { DotGridView } from './DotGridView'
+import { DotPicture } from './DotPicture'
 import { DotStartFlow } from './DotStartFlow'
 import { MoreIcon } from './icons'
 import { Loading } from './Loading'
 import { Note } from './Note'
 
 const STOP_TITLE_ID = 'dot-stop-title'
-
-/** 남는 높이가 정해져 있을 때(웹 홈 사이드) 칸이 6px 미만이 되면 그림은 그리지 않고 아래 요약 문구만 보여 준다. */
-const MIN_PITCH_PX = 8 // 칸 6px + 간격 2px
-function pictureFits(goal: DotGoal, maxPictureHeight: number | undefined): boolean {
-  if (maxPictureHeight == null) return true
-  return Math.floor(maxPictureHeight / goal.height) >= MIN_PITCH_PX
-}
 
 /** 카드 아래의 작은 링크. 완성한 그림이 모여 있는 도감으로 간다. */
 function CollectionLink() {
@@ -131,25 +125,49 @@ function StopMenu({ goal }: { goal: DotGoal }) {
   )
 }
 
+/** 요소의 폭을 재서 돌려준다(카드 폭에 따라 2열/세로 배치를 고르는 용도). 요소가 나중에 생겨도(로딩 뒤) 붙도록 콜백 ref를 쓴다. */
+function useElementWidth() {
+  const [element, setElement] = useState<HTMLDivElement | null>(null)
+  const [width, setWidth] = useState(0)
+  useEffect(() => {
+    if (!element) return
+    const observer = new ResizeObserver((entries) => setWidth(Math.floor(entries[0].contentRect.width)))
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [element])
+  return { ref: setElement, width }
+}
+
+/** 카드(컨테이너) 폭이 이 값 이상이면 왼쪽 그림·오른쪽 글자의 2열, 미만이면 그림 위·글자 아래. */
+const WIDE_MIN_PX = 520
+/** 세로 배치에서 부모가 높이를 정해 주지 않을 때(기록 탭 등) 그림 영역의 고정 높이. */
+const STACK_PICTURE_AREA_PX = 240
+
+/** 시작 전 안내에 쓰는 연한 윤곽 그림(8×8). */
+const GHOST_CELLS = Array.from({ length: 64 }, (_, index) => ({ x: index % 8, y: Math.floor(index / 8), color: 0 }))
+
 /**
- * 홈 활동 지도 카드의 "도트" 보기. 시작 흐름은 화면 상태(없음·진행 중·완성)와 상관없이 여기서 열어 둔다 —
+ * 홈·기록 탭 활동 지도 카드의 "도트" 보기. 시작 흐름은 화면 상태(없음·진행 중·완성)와 상관없이 여기서 열어 둔다 —
  * 다른 기기에서 먼저 시작해 화면 상태가 바뀌어도(409 안내를 보여 주는 동안) 모달이 사라지지 않게 하려는 것이다.
+ * fit이면 부모가 정해 준 높이를 그대로 쓰고(홈), 아니면 그림 영역이 고정 높이를 쓴다.
  */
-export function DotPanel({ maxPictureHeight }: { maxPictureHeight?: number }) {
+export function DotPanel({ fit = false }: { fit?: boolean }) {
   const [starting, setStarting] = useState(false)
   return (
     <>
-      <DotPanelBody onStart={() => setStarting(true)} maxPictureHeight={maxPictureHeight} />
+      <DotPanelBody onStart={() => setStarting(true)} fit={fit} />
       {starting ? <DotStartFlow onClose={() => setStarting(false)} /> : null}
     </>
   )
 }
 
 /** 진행 중인 그림, 방금 완성한 그림, 아직 없는 상태를 차분하게 보여 준다. */
-function DotPanelBody({ onStart, maxPictureHeight }: { onStart: () => void; maxPictureHeight?: number }) {
+function DotPanelBody({ onStart, fit }: { onStart: () => void; fit: boolean }) {
   const query = useDotsCurrent()
   const albumQuery = useDotAlbum()
   const hasAlbum = (albumQuery.data ?? []).length > 0
+  const { ref, width } = useElementWidth()
+  const wide = width >= WIDE_MIN_PX
 
   if (query.isLoading) {
     return <Loading />
@@ -158,11 +176,11 @@ function DotPanelBody({ onStart, maxPictureHeight }: { onStart: () => void; maxP
   if (query.isError || !query.data) {
     return (
       <div className="flex flex-col items-start gap-2">
-        <p className="text-body-min text-ink-2">도트 그림을 지금은 불러오지 못했어요. 기록은 그대로 안전해요.</p>
+        <p className="t-body text-ink-2">도트 그림을 지금은 불러오지 못했어요. 기록은 그대로 안전해요.</p>
         <button
           type="button"
           onClick={() => query.refetch()}
-          className="inline-flex min-h-11 items-center rounded-full px-2 -mx-2 text-caption-min font-medium text-base-ink hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+          className="t-sub inline-flex min-h-11 items-center rounded-full px-2 -mx-2 font-medium text-base-ink hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
         >
           다시 불러오기
         </button>
@@ -173,38 +191,56 @@ function DotPanelBody({ onStart, maxPictureHeight }: { onStart: () => void; maxP
   const { goal, justCompleted } = query.data
   const shown = goal ?? justCompleted
 
+  // 그림 영역: 부모가 높이를 정해 주면(fit) 그 높이를 다 쓰고, 아니면 고정 높이. 2열이면 왼쪽 칸 전체 높이.
+  const pictureArea = (picture: ReactNode) => (
+    <div
+      className="min-h-0 min-w-0"
+      style={wide || fit ? { flex: '1 1 0' } : { height: STACK_PICTURE_AREA_PX, flex: 'none' }}
+    >
+      {picture}
+    </div>
+  )
+  const layout = (picture: ReactNode, text: ReactNode) => (
+    <div
+      ref={ref}
+      className={[
+        'flex min-h-0 w-full flex-1',
+        wide ? 'flex-row items-stretch gap-6' : 'flex-col gap-3',
+        fit ? 'h-full' : '',
+      ].join(' ')}
+    >
+      {pictureArea(picture)}
+      <div className={wide ? 'flex min-w-0 flex-1 flex-col justify-center' : 'flex-none'}>{text}</div>
+    </div>
+  )
+
   if (shown) {
     const done = goal == null
     const remaining = shown.goalDays - shown.filledCount
-    return (
-      <div className="flex flex-col gap-3">
-        {pictureFits(shown, maxPictureHeight) ? <DotGridView key={shown.id} goal={shown} maxHeight={maxPictureHeight} /> : null}
-        <div className="relative flex flex-col gap-0.5 text-center">
-          {goal ? (
-            <div className="absolute right-0 top-0 -mt-1">
-              <StopMenu goal={goal} />
-            </div>
-          ) : null}
-          <p className="text-body-min font-medium text-ink">{done ? `${shown.title} 그림이 완성됐어요` : shown.title}</p>
-          <p className="text-body-min text-ink-2">
-            {done ? `${shown.goalDays}칸을 모두 채웠어요` : `${shown.goalDays}칸 중 ${shown.filledCount}칸`}
-          </p>
-          {!done ? (
-            <p className="text-caption-min text-ink-3">
-              {shown.filledCount === 0 ? '기록한 날마다 한 칸씩 채워져요' : `완성까지 ${remaining}칸 남았어요`}
-            </p>
-          ) : null}
-        </div>
+    return layout(
+      <DotGridView key={shown.id} goal={shown} fit />,
+      <div className={['relative flex flex-col gap-1', wide ? 'items-start text-left' : 'items-center text-center'].join(' ')}>
+        {goal ? (
+          <div className="absolute right-0 top-0 -mt-1">
+            <StopMenu goal={goal} />
+          </div>
+        ) : null}
+        <p className="t-key pr-11 text-ink">{done ? `${shown.title} 그림이 완성됐어요` : shown.title}</p>
+        <p className="t-stat text-ink">{done ? `${shown.goalDays}칸을 모두 채웠어요` : `${shown.goalDays}칸 중 ${shown.filledCount}칸`}</p>
+        {!done ? (
+          <p className="t-body text-ink-2">{shown.filledCount === 0 ? '기록한 날마다 한 칸씩 채워져요' : `완성까지 ${remaining}칸 남았어요`}</p>
+        ) : null}
         <CollectionLink />
-      </div>
+      </div>,
     )
   }
 
-  return (
-    <div className="flex flex-col items-start gap-3">
+  return layout(
+    <DotPicture width={8} height={8} palette={[]} cells={GHOST_CELLS} filledCount={0} ariaLabel="아직 시작하지 않은 도트 그림" fit ghost />,
+    <div className={['flex flex-col gap-3', wide ? 'items-start' : 'items-center text-center'].join(' ')}>
       <div className="flex flex-col gap-1">
-        <p className="text-body-min font-medium text-ink">도트 그림으로 기록을 쌓아 볼까요?</p>
-        <p className="text-caption-min text-ink-3">기록한 날마다 그림이 한 칸씩 채워져요. 쉬는 날은 그대로 두면 돼요.</p>
+        <p className="t-key text-ink">도트 그림으로 기록을 쌓아 볼까요?</p>
+        <p className="t-body text-ink-2">기록한 날마다 그림이 한 칸씩 채워져요. 쉬는 날은 그대로 두면 돼요.</p>
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <Button type="button" onClick={onStart}>
@@ -212,6 +248,6 @@ function DotPanelBody({ onStart, maxPictureHeight }: { onStart: () => void; maxP
         </Button>
         {hasAlbum ? <CollectionLink /> : null}
       </div>
-    </div>
+    </div>,
   )
 }

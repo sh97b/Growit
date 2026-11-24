@@ -6,19 +6,20 @@ const MAX_PITCH_PX = 26
 const FALLBACK_PITCH_PX = 10
 const gapFor = (pitch: number) => (pitch >= 14 ? 3 : pitch >= 8 ? 2 : 1)
 
-function useElementWidth() {
+function useElementSize() {
   const ref = useRef<HTMLDivElement>(null)
-  const [width, setWidth] = useState(0)
+  const [size, setSize] = useState({ width: 0, height: 0 })
   useEffect(() => {
     const element = ref.current
     if (!element) return
     const observer = new ResizeObserver((entries) => {
-      setWidth(Math.floor(entries[0].contentRect.width))
+      const rect = entries[0].contentRect
+      setSize({ width: Math.floor(rect.width), height: Math.floor(rect.height) })
     })
     observer.observe(element)
     return () => observer.disconnect()
   }, [])
-  return { ref, width }
+  return { ref, width: size.width, height: size.height }
 }
 
 type Props = {
@@ -33,6 +34,10 @@ type Props = {
   maxHeight?: number
   /** 정해진 정사각형 상자(px) 안에 맞춘다. 미리보기 작은 그림처럼 자리를 고정해야 할 때 쓴다. */
   box?: number
+  /** 부모 영역(폭·높이) 안에 완전히 들어가게 칸 크기를 floor(min(영역폭/가로 칸 수, 영역높이/세로 칸 수))로 정하고 세로 가운데에 둔다. */
+  fit?: boolean
+  /** 아주 연한 윤곽만 그린다(시작 전 안내 상태). */
+  ghost?: boolean
   /** 이 번호부터 칠해진 칸은 한 번 살짝 반짝인다. */
   sparkleFrom?: number
 }
@@ -47,15 +52,19 @@ export function DotPicture({
   ariaLabel,
   maxHeight = 220,
   box,
+  fit = false,
+  ghost = false,
   sparkleFrom,
 }: Props) {
-  const { ref, width } = useElementWidth()
+  const { ref, width, height: areaHeight } = useElementSize()
   const sparkleStart = sparkleFrom ?? filledCount
 
   // 칸 하나의 폭(pitch) = min(가로 ÷ W, 세로 ÷ H)를 내림한 값이라, W×H 어떤 비율이어도 가로·세로 둘 다 컨테이너 안에 들어온다.
   let pitch: number
   if (box != null) {
     pitch = Math.floor(box / Math.max(cols, rows))
+  } else if (fit) {
+    pitch = width > 0 && areaHeight > 0 ? Math.floor(Math.min(width / cols, areaHeight / rows)) : 2
   } else {
     const byWidth = width > 0 ? Math.floor(width / cols) : FALLBACK_PITCH_PX
     const byHeight = Math.floor(maxHeight / rows)
@@ -66,7 +75,7 @@ export function DotPicture({
   const cell = Math.max(1, pitch - gap)
 
   return (
-    <div ref={ref} className="flex w-full justify-center overflow-hidden">
+    <div ref={ref} className={fit ? 'flex h-full w-full items-center justify-center overflow-hidden' : 'flex w-full justify-center overflow-hidden'}>
       <div
         role="img"
         aria-label={ariaLabel}
@@ -96,7 +105,7 @@ export function DotPicture({
                       boxShadow: 'inset 0 0 0 1px rgba(43, 40, 35, 0.22)',
                       animationDelay: sparkle ? `${Math.min((index - sparkleStart) * 70, 700)}ms` : undefined,
                     }
-                  : { border: '1px solid var(--color-line-2)' }),
+                  : { border: ghost ? '1px solid var(--color-line)' : '1px solid var(--color-line-2)' }),
               }}
             />
           )

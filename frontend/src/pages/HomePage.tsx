@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AiLabel } from '../components/AiLabel'
@@ -93,9 +93,6 @@ export function HomePage() {
   const autoStatus = useAutoCoachOncePerDay()
   const isDesktop = useIsDesktop()
   // 도트 그림 높이 상한만 고르는 값이다(요소를 숨기지 않는다). 열 높이 = 뷰포트 − 116px 기준으로 단계와 맞춘다.
-  // 도트 그림 최대 높이는 단계가 아니라 뷰포트 높이에 비례해 연속으로 늘고 줄어든다(헤더·여백 116px 제외 열 높이의 약 28%).
-  const viewportHeight = useSyncExternalStore(subscribeResize, () => window.innerHeight, () => 800)
-  const pictureMax = Math.round(Math.min(260, Math.max(70, (viewportHeight - 116) * 0.28)))
 
   // 아래 훅은 summary가 아직 로딩 중이어도(이 아래 early return보다 먼저) 매 렌더마다 똑같이
   // 호출돼야 한다(Hooks 규칙) — summary 로딩 전에는 잠정 기본값으로 계산해 둔다.
@@ -184,7 +181,7 @@ export function HomePage() {
               {state !== 'first' ? (
                 <>
                   <HomeRecentCompact />
-                  <HomeActivityCard home maxPictureHeight={pictureMax} />
+                  <HomeActivityCard home />
                 </>
               ) : null}
             </div>
@@ -245,11 +242,6 @@ export function HomePage() {
 
 
 /** 디자인에 없는 추가(U3): 연속 일수 같은 쉬면 줄어드는 지표 대신 쌓이기만 하는 지표 3개. */
-function subscribeResize(callback: () => void) {
-  window.addEventListener('resize', callback)
-  return () => window.removeEventListener('resize', callback)
-}
-
 function StatsTiles({ summary, slim = false }: { summary: StatsSummary; slim?: boolean }) {
   const daysSinceStart = summary.firstRecordedDate
     ? daysBetween(summary.firstRecordedDate, summary.today) + 1
