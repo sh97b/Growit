@@ -240,7 +240,8 @@ public class RoadmapService {
 			stepResponses.add(new RoadmapStepResponse(step.getId(), i + 1, step.getTitle(), step.getPeriodHint(),
 					itemResponses));
 		}
-		return new RoadmapResponse(roadmap.getId(), roadmap.getHobbyId(), roadmap.getGoalText(),
+		return new RoadmapResponse(roadmap.getId(), roadmap.getHobbyId(), roadmap.getState().name(),
+				roadmap.getGoalText(),
 				roadmap.getTargetDate(), stepResponses, completedStepMessage);
 	}
 

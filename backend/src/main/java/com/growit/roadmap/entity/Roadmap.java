@@ -96,11 +96,20 @@ public class Roadmap {
 		this.state = RoadmapState.ARCHIVED;
 	}
 
+	public void restore() {
+		this.state = RoadmapState.ACTIVE;
+	}
+
 	public int getPromptVersion() {
 		return promptVersion;
 	}
 
 	public LocalDateTime getCreatedAt() {
 		return createdAt;
+	}
+
+	/** 보관된 로드맵은 수정할 수 없어서 마지막 수정 시각이 곧 보관한 시각이다(별도 칸 없이 쓴다). */
+	public LocalDateTime getUpdatedAt() {
+		return updatedAt;
 	}
 }

@@ -6,10 +6,13 @@ import com.growit.roadmap.dto.request.RoadmapCreateRequest;
 import com.growit.roadmap.dto.request.RoadmapItemCreateRequest;
 import com.growit.roadmap.dto.request.RoadmapItemDoneRequest;
 import com.growit.roadmap.dto.request.RoadmapItemUpdateRequest;
+import com.growit.roadmap.dto.request.RoadmapRestoreRequest;
 import com.growit.roadmap.dto.request.RoadmapStepCreateRequest;
 import com.growit.roadmap.dto.request.RoadmapStepUpdateRequest;
 import com.growit.roadmap.dto.request.RoadmapUpdateRequest;
 import com.growit.roadmap.dto.response.RoadmapResponse;
+import com.growit.roadmap.dto.response.RoadmapSummaryResponse;
+import com.growit.roadmap.service.RoadmapArchiveService;
 import com.growit.roadmap.service.RoadmapGenerationService;
 import com.growit.roadmap.service.RoadmapService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -19,6 +22,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +34,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "로드맵", description = "분야 목표를 이루기까지의 단계별 로드맵(날짜별 일정 없음)")
@@ -39,12 +44,14 @@ public class RoadmapController {
 
 	private final RoadmapService roadmapService;
 	private final RoadmapGenerationService generationService;
+	private final RoadmapArchiveService archiveService;
 	private final CurrentUserProvider currentUserProvider;
 
 	public RoadmapController(RoadmapService roadmapService, RoadmapGenerationService generationService,
-			CurrentUserProvider currentUserProvider) {
+			RoadmapArchiveService archiveService, CurrentUserProvider currentUserProvider) {
 		this.roadmapService = roadmapService;
 		this.generationService = generationService;
+		this.archiveService = archiveService;
 		this.currentUserProvider = currentUserProvider;
 	}
 
@@ -76,6 +83,38 @@ public class RoadmapController {
 				? generationService.createManual(userId, hobbyId, targetDate)
 				: generationService.create(userId, hobbyId, targetDate);
 		return ResponseEntity.status(HttpStatus.CREATED).body(response);
+	}
+
+	@Operation(summary = "분야의 보관된 로드맵 목록 (최근 보관 순, 최대 20개)")
+	@GetMapping("/hobbies/{hobbyId}/roadmaps")
+	public List<RoadmapSummaryResponse> listArchived(@PathVariable Long hobbyId,
+			@RequestParam(defaultValue = "ARCHIVED") String state) {
+		if (!"ARCHIVED".equals(state)) {
+			throw new com.growit.common.exception.ApiException(com.growit.common.exception.ErrorCode.VALIDATION_ERROR,
+					"state는 ARCHIVED만 쓸 수 있어요");
+		}
+		return archiveService.listArchived(currentUserProvider.getCurrentUserId(), hobbyId);
+	}
+
+	@Operation(summary = "로드맵 한 개 조회 (진행 중·보관된 것 모두, 본인 것만)")
+	@GetMapping("/roadmaps/{id}")
+	public RoadmapResponse getOne(@PathVariable Long id) {
+		return archiveService.get(currentUserProvider.getCurrentUserId(), id);
+	}
+
+	@Operation(summary = "보관된 로드맵 복원 (진행 중이 있으면 swap=true일 때만 맞바꿈, 아니면 409)")
+	@ApiResponse(responseCode = "409", description = "ROADMAP_ACTIVE_EXISTS: 같은 분야에 진행 중인 로드맵이 있음",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@PostMapping("/roadmaps/{id}/restore")
+	public RoadmapResponse restore(@PathVariable Long id, @RequestBody(required = false) RoadmapRestoreRequest request) {
+		return archiveService.restore(currentUserProvider.getCurrentUserId(), id, request != null && request.isSwap());
+	}
+
+	@Operation(summary = "보관된 로드맵 삭제 (진행 중이면 409, 단계·항목도 함께)")
+	@DeleteMapping("/roadmaps/{id}")
+	public ResponseEntity<Void> deleteArchived(@PathVariable Long id) {
+		archiveService.delete(currentUserProvider.getCurrentUserId(), id);
+		return ResponseEntity.noContent().build();
 	}
 
 	@Operation(summary = "로드맵 목표일 수정 (null로 보내면 비움)")

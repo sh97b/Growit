@@ -17,6 +17,10 @@ public interface RoadmapItemRepository extends JpaRepository<RoadmapItem, Long> 
 	long countByStepId(Long stepId);
 
 	@Modifying(flushAutomatically = true)
+	@Query("delete from RoadmapItem i where i.stepId in (select s.id from RoadmapStep s where s.roadmapId = :roadmapId)")
+	void deleteByRoadmapId(@Param("roadmapId") Long roadmapId);
+
+	@Modifying(flushAutomatically = true)
 	@Query("delete from RoadmapItem i where i.stepId in (select s.id from RoadmapStep s where s.roadmapId in "
 			+ "(select r.id from Roadmap r where r.userId = :userId))")
 	void deleteByUserId(@Param("userId") Long userId);
