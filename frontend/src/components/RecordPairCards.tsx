@@ -11,11 +11,13 @@ function truncate(text: string, maxLength: number): string {
   return text.length > maxLength ? `${text.slice(0, maxLength)}…` : text
 }
 
-function CardBody({ card }: { card: RecordPairCard }) {
+function CardBody({ card, lines }: { card: RecordPairCard; lines?: number }) {
   return (
     <>
       <span className="text-caption-min font-semibold text-ink-2">{card.label}</span>
-      <p className="font-serif text-lg text-ink">{truncate(card.content, card.maxLength ?? 300)}</p>
+      <p className={['break-words font-serif text-lg text-ink', lines === 3 ? 'line-clamp-3' : ''].join(' ')}>
+        {truncate(card.content, card.maxLength ?? 300)}
+      </p>
     </>
   )
 }
@@ -30,16 +32,19 @@ export function RecordPairCards({
   left,
   right,
   rightBadge = '오늘',
+  lines,
 }: {
   left: RecordPairCard | null
   right: RecordPairCard | null
   rightBadge?: string
+  /** 3이면 본문을 최대 3줄로 말줄임하고 두 카드를 같은 높이로 맞춘다(나의 변화 웹). */
+  lines?: number
 }) {
   if (!left && !right) return null
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      {left ? <RecordPairCardItem card={left} /> : null}
-      {right ? <RecordPairCardItem card={right} emphasized badge={rightBadge} /> : null}
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
+      {left ? <RecordPairCardItem card={left} lines={lines} /> : null}
+      {right ? <RecordPairCardItem card={right} emphasized badge={rightBadge} lines={lines} /> : null}
     </div>
   )
 }
@@ -48,13 +53,15 @@ function RecordPairCardItem({
   card,
   emphasized = false,
   badge,
+  lines,
 }: {
   card: RecordPairCard
   emphasized?: boolean
   badge?: string
+  lines?: number
 }) {
   const className = [
-    'flex flex-col gap-2 rounded-xl border p-4 text-ink no-underline',
+    'flex min-w-0 flex-1 flex-col gap-2 rounded-xl border p-4 text-ink no-underline',
     emphasized
       ? 'border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)]'
       : 'border-line bg-white',
@@ -62,16 +69,16 @@ function RecordPairCardItem({
   const cardElement =
     card.id == null ? (
       <div className={className}>
-        <CardBody card={card} />
+        <CardBody card={card} lines={lines} />
       </div>
     ) : (
       <Link to={`/records/${card.id}`} className={className}>
-        <CardBody card={card} />
+        <CardBody card={card} lines={lines} />
       </Link>
     )
   if (!emphasized || !badge) return cardElement
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex min-w-0 flex-col gap-1.5">
       <span className="w-fit rounded-full bg-[color-mix(in_srgb,var(--color-base)_18%,white)] px-2 py-0.5 text-caption-min font-medium text-base-ink">
         {badge}
       </span>

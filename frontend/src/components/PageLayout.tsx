@@ -28,7 +28,8 @@ export function PageHeader({ title, subtitle, action }: PageHeaderProps) {
 // min-height:0)를 갖고 필요할 때만 스스로 overflow-y:auto 한다 — 두 열이 같은 그리드 행에서
 // items-stretch로 똑같은 높이를 받으므로, 바깥 페이지가 길어질 일 자체가 없다(sticky 불필요).
 const GRID_BASE = 'lg:grid lg:grid-cols-12 lg:items-stretch lg:gap-8'
-const COLUMN_SCROLL = 'lg:h-full lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain scrollbar-thin-fade'
+// overflow-y:auto는 overflow-x도 auto로 만들어 넓은 자식이 가로 스크롤을 만들었다. 가로는 항상 잘라 막는다.
+const COLUMN_SCROLL = 'lg:h-full lg:min-h-0 lg:overflow-y-auto lg:overflow-x-hidden lg:overscroll-contain scrollbar-thin-fade'
 
 type SplitProps = { main: ReactNode; side: ReactNode; className?: string }
 

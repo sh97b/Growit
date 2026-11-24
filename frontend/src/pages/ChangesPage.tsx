@@ -1,14 +1,17 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AiLabel } from '../components/AiLabel'
 import { AiViewCard } from '../components/AiViewCard'
+import { Button } from '../components/Button'
 import { ChevronRightIcon } from '../components/icons'
+import { Dialog } from '../components/Dialog'
 import { Dropdown } from '../components/Dropdown'
 import { FeedbackRow } from '../components/FeedbackRow'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
 import { ReviewHeaderRow } from '../components/ReviewHeaderRow'
+import { ReviewTabs } from '../components/ReviewTabs'
 import { ReviewToolbar } from '../components/ReviewToolbar'
 import { Split } from '../components/PageLayout'
 import { RecordPairCards } from '../components/RecordPairCards'
@@ -74,6 +77,8 @@ export function ChangesPage() {
   const [metric, setMetric] = useState<Metric>('days')
   const [selectedWeekStart, setSelectedWeekStart] = useState<string | null>(null)
   const [metricsOpen, setMetricsOpen] = useState(false)
+  // 웹: 긴 내용(변화 해석 전체·주 요약·지표 해석)은 인라인으로 펼치지 않고 Dialog로 보여 준다.
+  const [dialog, setDialog] = useState<null | 'interpretation' | 'week' | 'metrics'>(null)
   // S1 D-4단계: 모바일에서는 "주별 흐름"이 기본 접힘이다(데스크톱 사이드는 항상 펼쳐짐).
   const [weeklyFlowOpenMobile, setWeeklyFlowOpenMobile] = useState(false)
   const isDesktop = useIsDesktop()
@@ -248,7 +253,7 @@ export function ChangesPage() {
         ? `${formatDurationMinutes(m.totalMinutes.current)} (변동 없음)`
         : `${m.totalMinutes.past === 0 ? '기록 안 함' : formatDurationMinutes(m.totalMinutes.past)} → ${m.totalMinutes.current === 0 ? '기록 안 함' : formatDurationMinutes(m.totalMinutes.current)}`
     return (
-      <div className="flex flex-col gap-2 rounded-xl bg-surface p-4">
+      <div className="flex min-w-0 flex-col gap-2 rounded-xl bg-surface p-4 lg:gap-1 lg:px-4 lg:py-2.5">
         <div className="flex items-center justify-between gap-3 text-sm">
           <span className="text-ink-2">기록한 날</span>
           <span className="font-medium text-ink">{m.recordedDays.past}일 → {m.recordedDays.current}일</span>
@@ -260,7 +265,7 @@ export function ChangesPage() {
           </div>
         ) : null}
         {m.topTags && m.topTags.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5 pt-1">
+          <div className="flex flex-wrap gap-1.5 pt-1 lg:pt-0">
             {m.topTags.slice(0, 3).map((topic) => (
               <Tag key={topic.tag} variant="topic">
                 {topic.tag} · {topic.count}
@@ -275,7 +280,7 @@ export function ChangesPage() {
   // O1(B.1): [변화 보기] 버튼 없이 페이지 진입·분야·기간 변경 즉시 자동으로 부른다. 불러오는 동안은
   // 카드 모양 스켈레톤을 보여주고(isFetching, 초기 로딩·분야/기간 변경 둘 다 포함) 왼쪽을 비워 두지 않는다.
   const comparison = (
-    <div className="flex flex-col gap-5">
+    <div className="flex min-w-0 flex-col gap-5 lg:gap-2">
       {compareQuery.isFetching ? (
         <div className="flex flex-col gap-3.5 rounded-2xl bg-surface p-7">
           <AiLabel>기록을 천천히 읽고 있어요</AiLabel>
@@ -324,7 +329,7 @@ export function ChangesPage() {
       ) : null}
 
       {!compareQuery.isFetching && result && !result.locked ? (
-        <div className="flex flex-col gap-5">
+        <div className="flex min-w-0 flex-col gap-5 lg:gap-2">
           {/* S1 D-4단계: 모바일은 변화 해석 카드를 맨 위(강조)로, 과거·현재 카드를 그 아래로 둔다.
               DOM 순서(데스크톱 원래 순서: 과거·현재 → 해석 → 지표)는 그대로 두고 CSS order만
               모바일에서 바꾼다(lg: 접두사에서는 숫자를 원래 DOM 순서와 같게 둬 데스크톱은 그대로). */}
@@ -341,12 +346,26 @@ export function ChangesPage() {
                   : null
               }
               rightBadge="최근"
+              lines={isDesktop ? 3 : undefined}
             />
           </div>
 
-          <div className="order-1 flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-7 lg:order-2">
-            <AiLabel>변화 해석</AiLabel>
-            <p className="font-serif text-lg leading-[1.55]">{result.interpretation}</p>
+          <div className="order-1 flex min-w-0 flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-7 lg:order-2 lg:gap-2 lg:p-4">
+            <div className="flex items-center justify-between gap-2">
+              <AiLabel>변화 해석</AiLabel>
+              {isDesktop ? (
+                <button
+                  type="button"
+                  onClick={() => setDialog('interpretation')}
+                  className="inline-flex h-8 flex-none items-center rounded-full px-2 text-sm font-medium text-base-ink hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+                >
+                  전체 보기
+                </button>
+              ) : null}
+            </div>
+            <p className={['break-words font-serif leading-[1.55]', isDesktop ? 'line-clamp-4 text-base' : 'text-lg'].join(' ')}>
+              {result.interpretation}
+            </p>
             {/* 근거 칩은 원래 두지 않는다 — compare의 근거는 항상 pastRecord·currentRecord뿐이라
                 바로 위 RecordPairCards와 완전히 같은 기록이라서(지시문 3), 중복으로 다시 보여주지 않는다. */}
             <FeedbackRow
@@ -360,7 +379,7 @@ export function ChangesPage() {
             />
           </div>
 
-          <div className="order-3">{metricsCard}</div>
+          <div className="order-3 min-w-0">{metricsCard}</div>
         </div>
       ) : null}
     </div>
@@ -408,10 +427,10 @@ export function ChangesPage() {
         <button
           type="button"
           onClick={() => setMetricsOpen(true)}
-          className="flex w-full flex-col items-start gap-1 rounded-xl bg-surface p-4 text-left"
+          className="flex w-full min-w-0 flex-col items-start gap-1 rounded-xl bg-surface p-4 text-left"
         >
           <span className="text-sm font-medium text-ink">지표 해석 보기 ▾</span>
-          <span className="truncate text-sm text-ink-2">{firstSentence(metricsQuery.data.displayText)}</span>
+          <span className="w-full min-w-0 truncate text-sm text-ink-2">{firstSentence(metricsQuery.data.displayText)}</span>
         </button>
       )
     }
@@ -589,11 +608,286 @@ export function ChangesPage() {
     </div>
   )
 
+  // ---- 웹(폭 1024 이상): 탭 줄·분야·기간·남은 횟수를 한 줄로 합치고, 두 열은 스크롤 없이 밀도로 맞춘다 ----
+  const desktopHeader = (
+    <div className="flex flex-none items-center gap-3">
+      <h1 className="sr-only">나의 변화</h1>
+      <ReviewTabs />
+      <Dropdown
+        aria-label="분야"
+        value={String(effectiveHobbyId ?? activeHobbies[0]?.id ?? '')}
+        options={hobbyOptions}
+        onChange={(value) => setHobbyId(Number(value))}
+      />
+      <Dropdown aria-label="비교 기간" value={compareTo} options={periodOptions} onChange={(value) => setCompareTo(value)} />
+      {usageQuery.data ? (
+        <span className="ml-auto flex-none whitespace-nowrap text-sm text-ink-2">오늘 {usageQuery.data.remaining}회 남음</span>
+      ) : null}
+    </div>
+  )
+
+  const infoCaption = infoLine ? (
+    <p className="flex min-w-0 flex-none items-center gap-1 text-xs text-ink-3">
+      <span className="min-w-0 flex-1 truncate" title={infoLine}>
+        {infoLine}
+      </span>
+      <span
+        role="img"
+        tabIndex={0}
+        aria-label={infoLine}
+        title={infoLine}
+        className="inline-flex h-5 w-5 flex-none cursor-help items-center justify-center rounded-full border border-line-2 text-[11px]"
+      >
+        i
+      </span>
+    </p>
+  ) : null
+
+  /** 접힌 한 줄(제목 + 요약 1줄). 누르면 Dialog가 열린다. */
+  function collapsedRow({ title, summary, onOpen }: { title: string; summary: string; onOpen: () => void }) {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        className="flex w-full min-w-0 items-center gap-3 rounded-xl bg-surface px-4 py-2.5 text-left"
+      >
+        <span className="flex-none text-sm font-semibold text-ink">{title}</span>
+        <span className="min-w-0 flex-1 truncate text-sm text-ink-2">{summary}</span>
+        <ChevronRightIcon width={16} height={16} className="flex-none text-ink-2" />
+      </button>
+    )
+  }
+
+  const weekSummaryLine = selectedWeek
+    ? `${formatMonthDay(selectedWeek.weekStart)} – ${formatMonthDay(addDays(selectedWeek.weekStart, 6))} · ${
+        selectedWeek.recordedDays > 0 ? `${selectedWeek.recordedDays}일 · ${formatDurationMinutes(selectedWeek.totalMinutes)}` : '기록 없음'
+      }`
+    : ''
+
+  const metricsRowDesktop = (() => {
+    const quietRow = (text: string, action?: ReactNode) => (
+      <div className="flex w-full min-w-0 items-center gap-3 rounded-xl bg-surface px-4 py-2.5 text-sm text-ink-2">
+        <span className="flex-none font-semibold text-ink">지표 해석</span>
+        <span className="min-w-0 flex-1 truncate">{text}</span>
+        {action}
+      </div>
+    )
+    if (metricsQuery.isLoading || weeksQuery.isLoading) return quietRow('기록을 천천히 읽고 있어요')
+    if (metricsQuery.isError) {
+      return quietRow(
+        '지금은 불러오지 못했어요',
+        <button type="button" onClick={() => metricsQuery.refetch()} className="flex-none text-sm font-medium text-base-ink">
+          다시 받기
+        </button>,
+      )
+    }
+    if (!metricsQuery.data) return null
+    if (metricsQuery.data.locked) {
+      return quietRow(
+        `기록이 있는 주가 ${metricsQuery.data.requiredWeeks ?? 2}주 모이면 해석이 열려요 (${metricsQuery.data.currentWeeks ?? 0}/${metricsQuery.data.requiredWeeks ?? 2})`,
+      )
+    }
+    if (metricsQuery.data.empty) return quietRow('이번 주는 쉬어 간 주예요.')
+    return collapsedRow({ title: '지표 해석', summary: firstSentence(metricsQuery.data.displayText), onOpen: () => setDialog('metrics') })
+  })()
+
+  const weeklyFlowDesktop = (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
+      <div className="flex flex-none items-center justify-between gap-3">
+        <h2 className="text-card-title">주별 흐름</h2>
+        <div className="inline-flex rounded-lg border border-line-2 bg-white p-[0.1875rem]" role="group" aria-label="지표">
+          {METRIC_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              aria-pressed={metric === tab.value}
+              onClick={() => setMetric(tab.value)}
+              className={[
+                'h-8 whitespace-nowrap rounded-md px-3.5 text-sm font-medium',
+                metric === tab.value ? 'bg-ink text-white' : 'bg-transparent text-ink-2',
+              ].join(' ')}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {weeksQuery.isError ? (
+        <Note variant="sand">
+          {weeksQuery.error instanceof ApiError ? weeksQuery.error.message : '잠시 후 다시 시도해 주세요'}
+        </Note>
+      ) : null}
+
+      {weeksQuery.isLoading ? (
+        <div className="min-h-[112px] flex-1 rounded-xl bg-surface motion-safe:animate-pulse" role="status" aria-label="불러오는 중이에요" />
+      ) : null}
+
+      {weeks.length > 0 ? (
+        <>
+          {metric === 'tags' ? (
+            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
+              <span className="text-sm text-ink-2">최근 {WEEK_COUNT}주 자주 나온 주제</span>
+              {topTags.length === 0 ? (
+                <p className="text-sm text-ink-2">아직 모을 수 있는 태그가 없어요.</p>
+              ) : (
+                <div className="flex flex-wrap content-start gap-2 overflow-hidden">
+                  {topTags.slice(0, 12).map(([tag, count]) => (
+                    <Tag key={tag} variant="topic">
+                      {tag} · {count}
+                    </Tag>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex min-h-0 flex-1 flex-col gap-1.5">
+              <span className="flex-none text-sm text-ink-2">
+                {metric === 'days' ? '한 주에 기록한 날 수 (0–7일)' : '한 주에 쌓인 시간'}
+              </span>
+              {/* 남는 높이를 차트가 채운다. 막대 높이는 퍼센트라 열 높이에 맞춰 늘고 줄어든다. */}
+              <div
+                role="img"
+                aria-label={`최근 ${WEEK_COUNT}주 ${metric === 'days' ? '한 주에 기록한 날 수' : '한 주에 쌓인 시간'}`}
+                className="flex min-h-[112px] min-w-0 flex-1 items-end gap-1.5 overflow-visible pt-5"
+              >
+                {weeks.map((week) => {
+                  const value = metric === 'days' ? week.recordedDays : week.totalMinutes
+                  const ratio = metric === 'days' ? week.recordedDays / maxDays : week.totalMinutes / maxMinutes
+                  const isSelected = week.weekStart === effectiveWeekStart
+                  const valueLabel = metric === 'days' ? String(week.recordedDays) : formatDurationMinutes(week.totalMinutes)
+                  const accessibleLabel = value > 0 ? valueLabel : '기록 없음'
+                  return (
+                    <button
+                      key={week.weekStart}
+                      type="button"
+                      onClick={() => setSelectedWeekStart(week.weekStart)}
+                      aria-label={`${formatMonthDay(week.weekStart)} 주, ${accessibleLabel}`}
+                      aria-pressed={isSelected}
+                      className="relative flex h-full min-w-0 flex-1 flex-col items-center justify-end bg-transparent p-0"
+                    >
+                      {value > 0 ? (
+                        <b className="absolute -top-5 whitespace-nowrap font-sans text-xs font-semibold text-ink">{valueLabel}</b>
+                      ) : null}
+                      {value > 0 ? (
+                        <i
+                          style={{ height: `${Math.max(2, Math.round(ratio * 100))}%`, minHeight: 3 }}
+                          className={['block w-full rounded-t', isSelected ? 'bg-base' : 'bg-[color-mix(in_srgb,var(--color-base)_58%,var(--color-paper))]'].join(' ')}
+                        />
+                      ) : (
+                        <i className="block h-px w-full bg-line-2" />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="flex h-5 flex-none gap-1.5">
+                {weeks.map((week, index) => {
+                  const isSelected = index === selectedWeekIndex
+                  const showLabel = isSelected || (weeks.length - 1 - index) % LABEL_STEP === 0
+                  return (
+                    <span key={week.weekStart} className="min-w-0 flex-1 text-center text-xs text-ink-2">
+                      {showLabel ? formatSlashDate(week.weekStart) : ''}
+                    </span>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-none flex-col gap-2">
+            {selectedWeek ? collapsedRow({ title: '주 요약', summary: weekSummaryLine, onOpen: () => setDialog('week') }) : null}
+            {metricsRowDesktop}
+          </div>
+        </>
+      ) : null}
+    </div>
+  )
+
+  const dialogs =
+    dialog === 'interpretation' && result ? (
+      <Dialog onClose={() => setDialog(null)} labelledBy="changes-dialog-title">
+        <h2 id="changes-dialog-title" className="font-serif text-xl font-semibold">
+          변화 해석
+        </h2>
+        <p className="mt-3 break-words font-serif text-lg leading-[1.7]">{result.interpretation}</p>
+        <div className="mt-5 flex justify-end">
+          <Button type="button" variant="secondary" onClick={() => setDialog(null)}>
+            닫기
+          </Button>
+        </div>
+      </Dialog>
+    ) : dialog === 'week' && selectedWeek ? (
+      <Dialog onClose={() => setDialog(null)} labelledBy="changes-dialog-title">
+        <h2 id="changes-dialog-title" className="font-serif text-xl font-semibold">
+          주 요약
+        </h2>
+        <div className="mt-3 flex flex-col gap-3">
+          {selectedWeekSummary}
+          {recordedWeeks.length > 0 ? (
+            <div className="flex flex-col">
+              {[...recordedWeeks].reverse().map((week) => (
+                <div key={week.weekStart} className="flex items-center justify-between gap-3 border-t border-line py-2.5 last:border-b">
+                  <span>{formatMonthDay(week.weekStart)} 주</span>
+                  <span className="tabular-nums font-semibold">
+                    {metric === 'minutes' ? formatDurationMinutes(week.totalMinutes) : `${week.recordedDays}일`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <div className="mt-5 flex justify-end">
+          <Button type="button" variant="secondary" onClick={() => setDialog(null)}>
+            닫기
+          </Button>
+        </div>
+      </Dialog>
+    ) : dialog === 'metrics' && metricsQuery.data ? (
+      <Dialog onClose={() => setDialog(null)} labelledBy="changes-dialog-title">
+        <h2 id="changes-dialog-title" className="sr-only">
+          지표 해석
+        </h2>
+        <AiViewCard
+          label="지표 해석"
+          question="해석이 맞나요?"
+          isLoading={metricsQuery.isLoading}
+          isError={metricsQuery.isError}
+          error={metricsQuery.error}
+          data={metricsQuery.data}
+          onRetry={() => metricsQuery.refetch()}
+          onChange={(updated: AiViewResult) => queryClient.setQueryData(metricsKey, updated)}
+        />
+        <div className="mt-4 flex justify-end">
+          <Button type="button" variant="secondary" onClick={() => setDialog(null)}>
+            닫기
+          </Button>
+        </div>
+      </Dialog>
+    ) : null
+
+  if (isDesktop) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
+        {desktopHeader}
+        <div className="grid min-h-0 flex-1 grid-cols-12 grid-rows-[minmax(0,1fr)] gap-8">
+          {/* 두 열 모두 min-w-0·break-words로 가로 넘침을 막는다. 평소엔 내용이 열 높이 안에 들어가고, 아주 낮은 화면에서만 안쪽 한 겹이 스크롤된다. */}
+          <div className="scrollbar-thin-fade col-span-7 flex min-h-0 min-w-0 flex-col gap-2 overflow-y-auto overflow-x-hidden whitespace-normal break-words">
+            {infoCaption}
+            {comparison}
+          </div>
+          <div className="col-span-5 flex min-h-0 min-w-0 flex-col overflow-hidden whitespace-normal break-words">{weeklyFlowDesktop}</div>
+        </div>
+        {dialogs}
+      </div>
+    )
+  }
+
   return (
-    <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
+    <div className="flex flex-col gap-4">
       <ReviewHeaderRow title="나의 변화" action={headerAction} />
       {toolbarRow}
-      <Split main={comparison} side={weeklyFlow} className="lg:min-h-0 lg:flex-1" />
+      <Split main={comparison} side={weeklyFlow} />
     </div>
   )
 }
