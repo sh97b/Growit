@@ -35,7 +35,7 @@ import {
   useUpdateStep,
 } from '../hooks/useRoadmap'
 import { useHobbies, useUpdateHobby, type Hobby } from '../hooks/useHobbies'
-import { useDragSort } from '../hooks/useDragSort'
+import { useDragSort, type KeyboardSortProps } from '../hooks/useDragSort'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import { fetchRecords } from '../lib/records'
 import { ApiError } from '../lib/api'
@@ -802,23 +802,18 @@ function StepRail({
   selectedId: number | null
   currentId: number | null
   onSelect: (id: number) => void
-  /** 끌어 놓아 순서를 바꾼다. Alt+↑/↓는 키보드용. 보관한 로드맵(읽기 전용)은 넘기지 않는다. */
+  /** 끌어 놓아 순서를 바꾼다(키보드: 스페이스로 집기 → 방향키 → 스페이스로 놓기). 보관한 로드맵(읽기 전용)은 넘기지 않는다. */
   onReorder?: (id: number, position: number) => void
   adder: ReactNode | null
 }) {
-  const { itemProps } = useDragSort(
+  const { itemProps, keyboardProps, message, heldId } = useDragSort(
     steps.map((step) => step.id),
     (id, position) => onReorder?.(id, position),
     !onReorder,
   )
   function onKeyDown(event: KeyboardEvent<HTMLUListElement>) {
     const index = steps.findIndex((step) => step.id === selectedId)
-    if (event.altKey && onReorder && (event.key === 'ArrowDown' || event.key === 'ArrowUp') && index >= 0) {
-      event.preventDefault()
-      const to = event.key === 'ArrowDown' ? index + 1 : index - 1
-      if (to >= 0 && to < steps.length) onReorder(steps[index].id, to)
-      return
-    }
+    if (heldId != null) return // 순서를 옮기는 중에는 방향키가 선택 이동이 아니라 자리 이동이다.
     let next = -1
     if (event.key === 'ArrowDown') next = Math.min(steps.length - 1, index + 1)
     else if (event.key === 'ArrowUp') next = Math.max(0, index - 1)
@@ -836,6 +831,7 @@ function StepRail({
       <ul
         role="listbox"
         aria-label="단계"
+        aria-describedby={onReorder ? 'roadmap-rail-hint' : undefined}
         onKeyDown={onKeyDown}
         className="scrollbar-thin-fade flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain p-1.5"
       >
@@ -851,6 +847,8 @@ function StepRail({
               tabIndex={isSelected ? 0 : -1}
               onClick={() => onSelect(step.id)}
               {...itemProps(step.id)}
+              onKeyDown={keyboardProps(step.id, step.title).onKeyDown}
+              onBlur={keyboardProps(step.id, step.title).onBlur}
               className={[
                 'flex min-h-11 cursor-pointer items-center gap-2.5 rounded-xl border px-2.5 py-1.5 outline-offset-0 data-[dragging]:opacity-40 data-[drop=after]:shadow-[0_2px_0_0_var(--color-base)] data-[drop=before]:shadow-[0_-2px_0_0_var(--color-base)]',
                 isSelected ? 'border-[color-mix(in_srgb,var(--color-base)_40%,white)]' : 'border-transparent hover:bg-surface',
@@ -877,6 +875,16 @@ function StepRail({
           )
         })}
       </ul>
+      {onReorder ? (
+        <>
+          <span id="roadmap-rail-hint" className="sr-only">
+            순서를 바꾸려면 스페이스로 집고, 방향키로 옮긴 뒤, 스페이스로 놓아요. Esc로 취소해요.
+          </span>
+          <span role="status" aria-live="polite" className="sr-only">
+            {message}
+          </span>
+        </>
+      ) : null}
       {adder ? <div className="flex-none border-t border-line p-1.5">{adder}</div> : null}
     </div>
   )
@@ -1027,7 +1035,7 @@ function StepCard({
       </div>
     ) : null
 
-  const { itemProps: dragItemProps } = useDragSort(
+  const { itemProps: dragItemProps, keyboardProps: dragKeyboardProps, message: dragMessage } = useDragSort(
     step.items.map((entry) => entry.id),
     (id, position) => {
       onError(null)
@@ -1056,16 +1064,14 @@ function StepCard({
           isFirst={index === 0}
           isLast={index === step.items.length - 1}
           dragProps={dragItemProps(item.id)}
-          onMoveTo={(position) => {
-            onError(null)
-            updateItem.mutate({ id: item.id, patch: { position } }, { onError: (error) => onError(errorMessageOf(error)) })
-          }}
-          itemCount={step.items.length}
-          index={index}
+          keyProps={dragKeyboardProps(item.id, item.text)}
           onError={onError}
           onNotice={onNotice}
         />
       ))}
+      <li className="sr-only" aria-live="polite" role="status">
+        {dragMessage}
+      </li>
     </ul>
   )
 
@@ -1163,9 +1169,7 @@ function ItemRow({
   isFirst,
   isLast,
   dragProps,
-  onMoveTo,
-  itemCount,
-  index,
+  keyProps,
   onError,
   onNotice,
 }: {
@@ -1177,11 +1181,9 @@ function ItemRow({
   compact: boolean
   isFirst: boolean
   isLast: boolean
-  /** 웹: 끌어 놓기 속성(useDragSort). Alt+↑/↓는 키보드용. */
+  /** 웹: 끌어 놓기 속성(useDragSort)과 손잡이 버튼의 키보드 속성(스페이스로 집기 → 방향키 → 스페이스로 놓기). */
   dragProps?: Record<string, unknown>
-  onMoveTo?: (position: number) => void
-  itemCount?: number
-  index?: number
+  keyProps?: KeyboardSortProps
   onError: (message: string | null) => void
   onNotice: (message: string | null) => void
 }) {
@@ -1304,15 +1306,17 @@ function ItemRow({
   return (
     <li
       {...dragProps}
-      onKeyDown={(event) => {
-        if (!event.altKey || !onMoveTo || index == null || itemCount == null) return
-        if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
-        event.preventDefault()
-        const to = event.key === 'ArrowDown' ? index + 1 : index - 1
-        if (to >= 0 && to < itemCount) onMoveTo(to)
-      }}
       className="group flex cursor-grab items-center gap-1 border-t border-line first:border-t-0 data-[dragging]:opacity-40 data-[drop=after]:shadow-[0_2px_0_0_var(--color-base)] data-[drop=before]:shadow-[0_-2px_0_0_var(--color-base)]"
     >
+      <button
+        type="button"
+        {...keyProps}
+        className={`${rowIconButton} ${reveal}`}
+        aria-label={`${item.text} 순서 옮기기. 스페이스로 집고 방향키로 옮긴 뒤 스페이스로 놓아요`}
+        title="끌어서 옮기거나, 스페이스로 집어 방향키로 옮겨요"
+      >
+        <span aria-hidden="true" className="text-base leading-none tracking-[-0.2em]">⋮⋮</span>
+      </button>
       {checkbox}
       <div className="flex flex-none items-center">
         <button type="button" className={`${rowIconButton} ${reveal}`} aria-label={`${item.text} 항목 고치기`} onClick={startEdit}>
