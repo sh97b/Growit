@@ -270,11 +270,15 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false, ho
   }
 
   function makeGridVars(weeksForRow: number): CSSProperties {
+    // 홈은 칸 크기를 폭과 가용 높이 중 작은 쪽에서 구하고(월 라벨 줄 16px + 간격 18px = 34px를 뺀 일곱 줄), 홈 밀도 변수(--cell-min/--cell-max) 안으로 자른다.
+    const homeCell = `clamp(var(--cell-min, 9px), min(calc(100cqw / var(--weeks) - ${GAP_PX}px), calc((100cqh - 34px) / 7)), var(--cell-max, ${MAX_CLAMP_CELL_PX}px))`
     return {
       '--weeks': weeksForRow,
       '--cell': fixedCell
         ? `${FULL_CELL_PX}px`
-        : `clamp(9px, calc(100cqw / var(--weeks) - ${GAP_PX}px), var(--heat-cell-max, ${MAX_CLAMP_CELL_PX}px))`,
+        : home
+          ? homeCell
+          : `clamp(9px, calc(100cqw / var(--weeks) - ${GAP_PX}px), ${MAX_CLAMP_CELL_PX}px)`,
     } as CSSProperties
   }
 
@@ -283,7 +287,7 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false, ho
   // 래퍼(라벨 열 + 1fr)를 걷어내도 월 라벨의 col 인덱스는 그대로 유효하다.
   function renderClampedRow() {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', rowGap: '2px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', rowGap: '2px', width: home ? '100%' : undefined }}>
         <div style={{ position: 'relative', height: '14px' }}>
           {monthLabels.map(({ col, label }) => (
             <span
@@ -398,7 +402,7 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false, ho
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className={home ? 'flex h-full min-h-0 flex-col gap-2' : 'flex flex-col gap-2'}>
       {toggle ? (
         <div className="flex justify-end">
           <div className="inline-flex rounded-lg border border-line-2 bg-white p-[0.1875rem]" role="group" aria-label="활동 지도 기간">
@@ -428,16 +432,17 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false, ho
         </div>
       ) : null}
 
-      {home ? (
-        <p className="home-show-2 text-sm text-ink-2">
-          최근 {weeks}주 중 {Array.from(countByDate.values()).filter((count) => count > 0).length}일 기록했어요
-        </p>
-      ) : null}
-
       {scrollableSingleRow ? (
         renderScrollableRow()
       ) : (
-        <div className={home ? 'home-hide-2' : undefined} style={{ containerType: 'inline-size', ...makeGridVars(weeks) } as CSSProperties}>
+        <div
+          className={home ? 'home-hide-2' : undefined}
+          style={
+            home
+              ? ({ containerType: 'size', flex: '1 1 0', minHeight: 0, display: 'flex', alignItems: 'center', ...makeGridVars(weeks) } as CSSProperties)
+              : ({ containerType: 'inline-size', ...makeGridVars(weeks) } as CSSProperties)
+          }
+        >
           <div
             ref={fixedCell ? scrollRef : undefined}
             className={fixedCell ? 'scrollbar-none overflow-x-auto overflow-y-hidden' : 'overflow-x-visible overflow-y-hidden'}
@@ -446,6 +451,12 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false, ho
           </div>
         </div>
       )}
+
+      {home ? (
+        <p className="home-summary flex-none text-sm text-ink-2">
+          최근 {weeks}주 중 {Array.from(countByDate.values()).filter((count) => count > 0).length}일 기록했어요
+        </p>
+      ) : null}
 
       {home ? null : (
       <div className="flex items-center justify-between gap-3">

@@ -330,10 +330,11 @@ select:focus-visible {
 
 /*
  * 웹 홈(폭 1024 이상) 높이 밀도. JS로 높이를 재서 숨기지 않고, 열을 "뷰포트 − 헤더" 높이로 고정한 뒤
- * container-type:size 로 만들어 @container 높이 쿼리로 변수만 바꾼다. 요소는 숨기지 않는다.
- * 숨김은 가장 낮은 두 단계에서만(1: 자주 하는 주제, 2: 활동 지도 → 한 줄 요약).
- * 단계(열 높이 H): 넉넉함 H≥760 · 컴팩트 H<760 · 촘촘 H<544 · 숨김1 H<470 · 숨김2 H<430.
- * 열 높이는 뷰포트 높이 − 116px(헤더 68 + 위아래 여백 48)이므로 뷰포트 720은 H=604(컴팩트)다.
+ * container-type:size 로 만들어 @container 높이 쿼리로 변수만 바꾼다. 세 단계: 넉넉함(기본) → 보통 → 컴팩트.
+ * 압축 순서: 간격 → 활동 지도 칸 → 통계 카드 → 최근 기록 행 → 마지막에 자주 하는 주제 숨김(활동 지도는 한 줄 요약).
+ * 단계 기준(열 높이 H, 최악 내용으로 측정한 필요 높이): 넉넉함 H≥HF_ROOMY · 보통 H<HF_ROOMY · 컴팩트 H<HF_MEDIUM.
+ * 열 높이는 뷰포트 높이 − 헤더(68px) − 위아래 여백(48px)이다.
+ * 남는 높이는 왼쪽은 활동 지도 카드, 오른쪽은 회고 카드(.home-grow)가 채워 두 열의 아래 끝이 같은 줄에 온다.
  */
 @media (min-width: 1024px) {
   .home-col {
@@ -343,10 +344,23 @@ select:focus-visible {
   }
   .home-fit {
     --hg: 20px;
-    --hrow: 52px;
-    --hpad: 20px;
     --hh1: 28px;
-    --heat-cell-max: 22px;
+    --hpad: 20px;
+    --rec-row: 64px;
+    --rec-lines: 2;
+    --rec-cols: minmax(0, 1fr) auto;
+    --rec-areas: 'cap tag' 'body tag';
+    --stat-h: 76px;
+    --stat-dir: column;
+    --stat-fs: 24px;
+    --wk-dir: column;
+    --wk-circle: 28px;
+    --tp-dir: column;
+    --na-fs: 22px;
+    --na-lines: 2;
+    --na-pad: 16px;
+    --cell-max: 24px;
+    --cell-min: 12px;
     display: flex;
     flex-direction: column;
     gap: var(--hg);
@@ -357,35 +371,130 @@ select:focus-visible {
   .home-fit > * {
     flex: none;
   }
+  .home-fit > .home-grow {
+    flex: 1 1 0;
+    min-height: 0;
+  }
   .home-pad {
     padding: var(--hpad);
-  }
-  .home-row {
-    height: var(--hrow);
   }
   .home-h1 {
     font-size: var(--hh1);
     line-height: 1.3;
   }
-  .home-show-2 {
+  .home-rec {
+    display: grid;
+    grid-template-columns: var(--rec-cols);
+    grid-template-areas: var(--rec-areas);
+    align-items: center;
+    column-gap: 12px;
+    row-gap: 2px;
+    min-height: var(--rec-row);
+    padding-block: 8px;
+  }
+  .home-rec-cap {
+    grid-area: cap;
+  }
+  .home-rec-body {
+    grid-area: body;
+    display: -webkit-box;
+    -webkit-line-clamp: var(--rec-lines);
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .home-rec-tag {
+    grid-area: tag;
+  }
+  .home-stat {
+    display: flex;
+    flex-direction: var(--stat-dir);
+    align-items: center;
+    justify-content: center;
+    gap: 2px 8px;
+    height: var(--stat-h);
+    min-width: 0;
+    border-radius: 0.75rem;
+    background: var(--color-surface);
+    padding-inline: 8px;
+  }
+  .home-stat-value {
+    font-size: var(--stat-fs);
+    line-height: 1.2;
+  }
+  .home-week {
+    display: flex;
+    flex-direction: var(--wk-dir);
+    align-items: stretch;
+    gap: 8px 16px;
+  }
+  .home-week-days {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .home-week-circle {
+    width: var(--wk-circle);
+    height: var(--wk-circle);
+  }
+  .home-topics {
+    display: flex;
+    flex-direction: var(--tp-dir);
+    gap: 8px 12px;
+    align-items: var(--tp-align, flex-start);
+    overflow: hidden;
+  }
+  .home-na-title {
+    font-size: var(--na-fs);
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .home-na-reason {
+    display: -webkit-box;
+    -webkit-line-clamp: var(--na-lines);
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .home-na-block {
+    padding: var(--na-pad);
+  }
+}
+@container homecol (max-height: 729px) {
+  .home-fit {
+    --hg: 16px;
+    --hh1: 26px;
+    --hpad: 16px;
+    --rec-row: 52px;
+    --rec-lines: 1;
+    --stat-h: 64px;
+    --stat-fs: 20px;
+    --wk-circle: 24px;
+    --na-fs: 20px;
+    --na-lines: 1;
+    --na-pad: 12px;
+    --cell-max: 18px;
+  }
+  .home-summary {
     display: none;
   }
 }
-@container homecol (max-height: 759px) {
+@container homecol (max-height: 579px) {
   .home-fit {
     --hg: 12px;
-    --hrow: 40px;
-    --hpad: 12px;
     --hh1: 24px;
-    --heat-cell-max: 16px;
-  }
-}
-@container homecol (max-height: 543px) {
-  .home-fit {
-    --hg: 8px;
-    --hrow: 32px;
-    --hpad: 10px;
-    --heat-cell-max: 12px;
+    --hpad: 12px;
+    --rec-row: 36px;
+    --rec-cols: 7.5rem minmax(0, 1fr) auto;
+    --rec-areas: 'cap body tag';
+    --stat-h: 52px;
+    --stat-dir: row;
+    --stat-fs: 16px;
+    --wk-dir: row;
+    --wk-circle: 20px;
+    --tp-dir: row;
+    --tp-align: center;
+    --cell-max: 14px;
   }
 }
 @container homecol (max-height: 469px) {
@@ -397,7 +506,7 @@ select:focus-visible {
   .home-hide-2 {
     display: none;
   }
-  .home-show-2 {
+  .home-summary {
     display: block;
   }
 }

@@ -42,19 +42,19 @@ export function NextActionCard({ action, footer }: { action: NextAction; footer?
 export function HomeNextActionBlock({ action, dense = false }: { action: NextAction; dense?: boolean }) {
   const detail = action.reason ? `${action.minutes}분 · ${action.reason}` : `${action.minutes}분`
   if (dense) {
-    // 웹 홈: 제목 20px 최대 2줄, 이유 1줄, 근거 칩 한 줄(날짜+내용 말줄임), 안쪽 여백 축소.
+    // 웹 홈: 제목 22px(보통·컴팩트 20px) 최대 2줄, 이유 2줄(보통·컴팩트 1줄) 말줄임, 근거 칩 한 줄. 남는 높이를 이 블록이 받아 내용을 가운데에 둔다.
     return (
-      <div className="flex flex-col gap-1 rounded-xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-3">
+      <div className="home-na-block flex min-h-0 flex-1 flex-col justify-center gap-1.5 rounded-xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)]">
         <AiLabel>다음에 해 볼 일</AiLabel>
-        <p className="line-clamp-2 font-serif text-[20px] font-semibold leading-[1.3]">{action.text}</p>
-        <span className="truncate text-xs text-ink-2" title={detail}>
+        <p className="home-na-title font-serif font-semibold text-ink">{action.text}</p>
+        <span className="home-na-reason text-xs leading-[1.5] text-ink-2" title={detail}>
           {detail}
         </span>
         {action.evidence ? (
           <Link
             to={`/records/${action.evidence.id}`}
             title={action.evidence.content}
-            className="inline-flex h-7 min-w-0 max-w-full items-center gap-2 rounded-lg border border-line-2 bg-white px-2.5 text-xs text-ink no-underline"
+            className="inline-flex h-8 min-w-0 max-w-full items-center gap-2 rounded-lg border border-line-2 bg-white px-2.5 text-xs text-ink no-underline"
           >
             <span className="flex-none font-semibold text-base-ink">{formatMonthDay(action.evidence.recordDate)}</span>
             <span className="min-w-0 truncate text-ink-2">{action.evidence.content}</span>

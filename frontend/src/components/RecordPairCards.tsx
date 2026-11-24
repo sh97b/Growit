@@ -15,7 +15,7 @@ function CardBody({ card, lines }: { card: RecordPairCard; lines?: number }) {
   return (
     <>
       <span className="text-caption-min font-semibold text-ink-2">{card.label}</span>
-      <p className={['break-words font-serif text-lg text-ink', lines === 3 ? 'line-clamp-3' : ''].join(' ')}>
+      <p className={['break-words font-serif text-ink', lines === 3 ? 'line-clamp-3 text-[18px] leading-[1.5]' : 'text-lg'].join(' ')}>
         {truncate(card.content, card.maxLength ?? 300)}
       </p>
     </>
@@ -62,6 +62,7 @@ function RecordPairCardItem({
 }) {
   const className = [
     'flex min-w-0 flex-1 flex-col gap-2 rounded-xl border p-4 text-ink no-underline',
+    lines === 3 ? 'max-h-[170px] overflow-hidden' : '',
     emphasized
       ? 'border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)]'
       : 'border-line bg-white',
@@ -76,7 +77,7 @@ function RecordPairCardItem({
         <CardBody card={card} lines={lines} />
       </Link>
     )
-  if (!emphasized || !badge) return cardElement
+  if (!emphasized || !badge || lines === 3) return cardElement
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       <span className="w-fit rounded-full bg-[color-mix(in_srgb,var(--color-base)_18%,white)] px-2 py-0.5 text-caption-min font-medium text-base-ink">

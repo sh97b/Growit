@@ -11,7 +11,7 @@ export function TopicChips({ dense = false }: { dense?: boolean }) {
   const query = useQuery({ queryKey: ['records', 'topic-chips'], queryFn: () => fetchRecords({ size: 30 }) })
 
   if (dense && (query.isLoading || !query.data)) {
-    return <div className="h-8 rounded-lg bg-surface motion-safe:animate-pulse" />
+    return <div className="h-12 rounded-lg bg-surface motion-safe:animate-pulse" />
   }
   if (query.isLoading || !query.data) return null
 
@@ -23,18 +23,19 @@ export function TopicChips({ dense = false }: { dense?: boolean }) {
   const topTags = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4)
 
   if (dense) {
+    // 넉넉함·보통: 제목 위·칩 아래, 컴팩트: 제목과 칩이 한 줄(CSS 변수 --tp-dir).
     return (
-      <div className="flex h-8 items-center gap-3 overflow-hidden">
+      <div className="home-topics">
         <h2 className="flex-none text-card-title">자주 하는 주제</h2>
         {topTags.length === 0 ? (
           <span className="truncate text-sm text-ink-2">기록이 쌓이면 자주 하는 주제가 보여요</span>
         ) : (
-          <div className="flex min-w-0 flex-nowrap gap-2 overflow-hidden">
+          <div className="flex min-w-0 flex-wrap gap-2 overflow-hidden">
             {topTags.map(([tag]) => (
               <Link
                 key={tag}
                 to={`/records/new?topic=${encodeURIComponent(tag)}`}
-                className="inline-flex h-8 flex-none items-center rounded-md bg-tag-topic-bg px-3 text-sm font-medium text-tag-topic-fg no-underline"
+                className="inline-flex h-9 flex-none items-center rounded-md bg-tag-topic-bg px-3 text-sm font-medium text-tag-topic-fg no-underline"
               >
                 {tag}
               </Link>

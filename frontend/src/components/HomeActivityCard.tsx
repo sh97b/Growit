@@ -28,7 +28,7 @@ export function HomeActivityCard({
 
   if (home) {
     return (
-      <section aria-label="활동 지도" className="home-pad flex min-h-0 flex-col gap-2 rounded-2xl bg-surface">
+      <section aria-label="활동 지도" className="home-pad home-grow flex flex-col gap-2 rounded-2xl bg-surface">
         <div className="flex h-8 items-center justify-between gap-3">
           <h2 className="flex-none text-card-title">활동 지도</h2>
           <div className="flex min-w-0 items-center gap-3">
@@ -55,7 +55,9 @@ export function HomeActivityCard({
             </div>
           </div>
         </div>
-        {view === 'dot' ? <DotPanel maxPictureHeight={maxPictureHeight} /> : (grass ?? <ActivityHeatmap weeks={26} home />)}
+        <div className="flex min-h-0 flex-1 flex-col">
+          {view === 'dot' ? <DotPanel maxPictureHeight={maxPictureHeight} /> : (grass ?? <ActivityHeatmap weeks={26} home />)}
+        </div>
       </section>
     )
   }

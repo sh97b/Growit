@@ -363,7 +363,7 @@ export function ChangesPage() {
                 </button>
               ) : null}
             </div>
-            <p className={['break-words font-serif leading-[1.55]', isDesktop ? 'line-clamp-4 text-base' : 'text-lg'].join(' ')}>
+            <p className={['break-words font-serif leading-[1.55]', isDesktop ? 'line-clamp-3 text-[1.0625rem] text-ink' : 'text-lg'].join(' ')}>
               {result.interpretation}
             </p>
             {/* 근거 칩은 원래 두지 않는다 — compare의 근거는 항상 pastRecord·currentRecord뿐이라
@@ -643,53 +643,86 @@ export function ChangesPage() {
     </p>
   ) : null
 
-  /** 접힌 한 줄(제목 + 요약 1줄). 누르면 Dialog가 열린다. */
-  function collapsedRow({ title, summary, onOpen }: { title: string; summary: string; onOpen: () => void }) {
-    return (
-      <button
-        type="button"
-        onClick={onOpen}
-        className="flex w-full min-w-0 items-center gap-3 rounded-xl bg-surface px-4 py-2.5 text-left"
-      >
-        <span className="flex-none text-sm font-semibold text-ink">{title}</span>
-        <span className="min-w-0 flex-1 truncate text-sm text-ink-2">{summary}</span>
-        <ChevronRightIcon width={16} height={16} className="flex-none text-ink-2" />
-      </button>
-    )
-  }
-
   const weekSummaryLine = selectedWeek
     ? `${formatMonthDay(selectedWeek.weekStart)} – ${formatMonthDay(addDays(selectedWeek.weekStart, 6))} · ${
         selectedWeek.recordedDays > 0 ? `${selectedWeek.recordedDays}일 · ${formatDurationMinutes(selectedWeek.totalMinutes)}` : '기록 없음'
       }`
     : ''
 
-  const metricsRowDesktop = (() => {
-    const quietRow = (text: string, action?: ReactNode) => (
-      <div className="flex w-full min-w-0 items-center gap-3 rounded-xl bg-surface px-4 py-2.5 text-sm text-ink-2">
-        <span className="flex-none font-semibold text-ink">지표 해석</span>
-        <span className="min-w-0 flex-1 truncate">{text}</span>
-        {action}
-      </div>
+  /** 카드 머리줄: 제목(또는 라벨) 왼쪽, [전체 보기] 오른쪽. */
+  const cardHead = (title: ReactNode, onOpen?: () => void) => (
+    <div className="flex flex-none items-center justify-between gap-2">
+      {title}
+      {onOpen ? (
+        <button
+          type="button"
+          onClick={onOpen}
+          className="inline-flex h-8 flex-none items-center rounded-full px-2 text-sm font-medium text-base-ink hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+        >
+          전체 보기
+        </button>
+      ) : null}
+    </div>
+  )
+
+  // 주 요약 카드: 제목, 기간·일수·시간 한 줄, 그 주의 주제 칩(2줄 말줄임). 전체는 Dialog.
+  const weekCardDesktop = selectedWeek ? (
+    <section aria-label="주 요약" className="flex min-h-0 min-w-0 flex-1 flex-col gap-1.5 overflow-hidden rounded-2xl bg-surface p-4">
+      {cardHead(<h3 className="text-card-title">주 요약</h3>, () => setDialog('week'))}
+      <p className="line-clamp-2 break-words text-sm text-ink">{weekSummaryLine}</p>
+      {selectedWeek.tags.length > 0 ? (
+        <div className="flex max-h-[4.75rem] flex-wrap gap-1.5 overflow-hidden">
+          {selectedWeek.tags.slice(0, 6).map((entry) => (
+            <Tag key={entry.tag} variant="topic">
+              {entry.tag} · {entry.count}
+            </Tag>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-ink-2">이 주에는 주제로 묶인 기록이 없어요.</p>
+      )}
+    </section>
+  ) : null
+
+  // 지표 해석 카드: AI 글이라 산세리프가 아니라 해석 카드와 같은 세리프 본문색(text-ink), 3줄 말줄임 + [전체 보기].
+  const metricsCardDesktop = (() => {
+    const shell = (body: ReactNode, onOpen?: () => void) => (
+      <section aria-label="지표 해석" className="flex min-h-0 min-w-0 flex-1 flex-col gap-1.5 overflow-hidden rounded-2xl bg-surface p-4">
+        {cardHead(<h3 className="text-card-title">지표 해석</h3>, onOpen)}
+        {body}
+      </section>
     )
-    if (metricsQuery.isLoading || weeksQuery.isLoading) return quietRow('기록을 천천히 읽고 있어요')
+    if (metricsQuery.isLoading || weeksQuery.isLoading) {
+      return shell(<p className="text-sm text-ink-2">기록을 천천히 읽고 있어요</p>)
+    }
     if (metricsQuery.isError) {
-      return quietRow(
-        '지금은 불러오지 못했어요',
-        <button type="button" onClick={() => metricsQuery.refetch()} className="flex-none text-sm font-medium text-base-ink">
-          다시 받기
-        </button>,
+      return shell(
+        <div className="flex items-center gap-3 text-sm text-ink-2">
+          <span>지금은 불러오지 못했어요</span>
+          <button type="button" onClick={() => metricsQuery.refetch()} className="font-medium text-base-ink">
+            다시 받기
+          </button>
+        </div>,
       )
     }
     if (!metricsQuery.data) return null
     if (metricsQuery.data.locked) {
-      return quietRow(
-        `기록이 있는 주가 ${metricsQuery.data.requiredWeeks ?? 2}주 모이면 해석이 열려요 (${metricsQuery.data.currentWeeks ?? 0}/${metricsQuery.data.requiredWeeks ?? 2})`,
+      return shell(
+        <p className="text-sm text-ink-2">
+          기록이 있는 주가 {metricsQuery.data.requiredWeeks ?? 2}주 모이면 해석이 열려요 ({metricsQuery.data.currentWeeks ?? 0}/
+          {metricsQuery.data.requiredWeeks ?? 2})
+        </p>,
       )
     }
-    if (metricsQuery.data.empty) return quietRow('이번 주는 쉬어 간 주예요.')
-    return collapsedRow({ title: '지표 해석', summary: firstSentence(metricsQuery.data.displayText), onOpen: () => setDialog('metrics') })
+    if (metricsQuery.data.empty) return shell(<p className="text-sm text-ink-2">이번 주는 쉬어 간 주예요.</p>)
+    return shell(
+      <p className="line-clamp-3 break-words font-serif text-[1rem] leading-[1.55] text-ink">{metricsQuery.data.displayText}</p>,
+      () => setDialog('metrics'),
+    )
   })()
+
+  // 차트 y축은 데이터 최댓값 기준(최소 4)이고, 높이는 180~240px로 제한한다. 값 라벨은 각 막대 바로 위에 붙는다.
+  const axisMax = Math.max(4, ...weeks.map((w) => (metric === 'days' ? w.recordedDays : 0)))
 
   const weeklyFlowDesktop = (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
@@ -720,13 +753,13 @@ export function ChangesPage() {
       ) : null}
 
       {weeksQuery.isLoading ? (
-        <div className="min-h-[112px] flex-1 rounded-xl bg-surface motion-safe:animate-pulse" role="status" aria-label="불러오는 중이에요" />
+        <div className="h-[200px] flex-none rounded-xl bg-surface motion-safe:animate-pulse" role="status" aria-label="불러오는 중이에요" />
       ) : null}
 
       {weeks.length > 0 ? (
         <>
           {metric === 'tags' ? (
-            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
+            <div className="flex h-[200px] flex-none flex-col gap-2 overflow-hidden">
               <span className="text-sm text-ink-2">최근 {WEEK_COUNT}주 자주 나온 주제</span>
               {topTags.length === 0 ? (
                 <p className="text-sm text-ink-2">아직 모을 수 있는 태그가 없어요.</p>
@@ -741,19 +774,17 @@ export function ChangesPage() {
               )}
             </div>
           ) : (
-            <div className="flex min-h-0 flex-1 flex-col gap-1.5">
-              <span className="flex-none text-sm text-ink-2">
-                {metric === 'days' ? '한 주에 기록한 날 수 (0–7일)' : '한 주에 쌓인 시간'}
-              </span>
-              {/* 남는 높이를 차트가 채운다. 막대 높이는 퍼센트라 열 높이에 맞춰 늘고 줄어든다. */}
+            <div className="flex flex-none flex-col gap-1.5">
+              <span className="text-sm text-ink-2">{metric === 'days' ? '한 주에 기록한 날 수' : '한 주에 쌓인 시간'}</span>
               <div
                 role="img"
                 aria-label={`최근 ${WEEK_COUNT}주 ${metric === 'days' ? '한 주에 기록한 날 수' : '한 주에 쌓인 시간'}`}
-                className="flex min-h-[112px] min-w-0 flex-1 items-end gap-1.5 overflow-visible pt-5"
+                className="flex min-w-0 items-end gap-1.5"
+                style={{ height: 'clamp(180px, 26vh, 240px)' }}
               >
                 {weeks.map((week) => {
                   const value = metric === 'days' ? week.recordedDays : week.totalMinutes
-                  const ratio = metric === 'days' ? week.recordedDays / maxDays : week.totalMinutes / maxMinutes
+                  const ratio = metric === 'days' ? week.recordedDays / axisMax : week.totalMinutes / maxMinutes
                   const isSelected = week.weekStart === effectiveWeekStart
                   const valueLabel = metric === 'days' ? String(week.recordedDays) : formatDurationMinutes(week.totalMinutes)
                   const accessibleLabel = value > 0 ? valueLabel : '기록 없음'
@@ -764,18 +795,20 @@ export function ChangesPage() {
                       onClick={() => setSelectedWeekStart(week.weekStart)}
                       aria-label={`${formatMonthDay(week.weekStart)} 주, ${accessibleLabel}`}
                       aria-pressed={isSelected}
-                      className="relative flex h-full min-w-0 flex-1 flex-col items-center justify-end bg-transparent p-0"
+                      className="flex h-full min-w-0 flex-1 flex-col items-center justify-end bg-transparent p-0"
                     >
                       {value > 0 ? (
-                        <b className="absolute -top-5 whitespace-nowrap font-sans text-xs font-semibold text-ink">{valueLabel}</b>
-                      ) : null}
-                      {value > 0 ? (
-                        <i
-                          style={{ height: `${Math.max(2, Math.round(ratio * 100))}%`, minHeight: 3 }}
-                          className={['block w-full rounded-t', isSelected ? 'bg-base' : 'bg-[color-mix(in_srgb,var(--color-base)_58%,var(--color-paper))]'].join(' ')}
-                        />
+                        <>
+                          <b className="mb-0.5 h-[18px] flex-none whitespace-nowrap font-sans text-xs font-semibold leading-[18px] text-ink">
+                            {valueLabel}
+                          </b>
+                          <i
+                            style={{ height: `calc((100% - 20px) * ${Math.min(1, ratio)})`, minHeight: 3 }}
+                            className={['block w-full flex-none rounded-t', isSelected ? 'bg-base' : 'bg-[color-mix(in_srgb,var(--color-base)_58%,var(--color-paper))]'].join(' ')}
+                          />
+                        </>
                       ) : (
-                        <i className="block h-px w-full bg-line-2" />
+                        <i className="block h-px w-full flex-none bg-line-2" />
                       )}
                     </button>
                   )
@@ -795,9 +828,10 @@ export function ChangesPage() {
             </div>
           )}
 
-          <div className="flex flex-none flex-col gap-2">
-            {selectedWeek ? collapsedRow({ title: '주 요약', summary: weekSummaryLine, onOpen: () => setDialog('week') }) : null}
-            {metricsRowDesktop}
+          {/* 차트 아래 남는 높이는 두 카드가 나눠 쓴다. */}
+          <div className="flex min-h-0 flex-1 flex-col gap-2">
+            {weekCardDesktop}
+            {metricsCardDesktop}
           </div>
         </>
       ) : null}

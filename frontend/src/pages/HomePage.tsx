@@ -94,8 +94,9 @@ export function HomePage() {
   const isDesktop = useIsDesktop()
   // 도트 그림 높이 상한만 고르는 값이다(요소를 숨기지 않는다). 열 높이 = 뷰포트 − 116px 기준으로 단계와 맞춘다.
   const dotTight = useMediaQuery('(max-height: 659px)')
-  const dotCompact = useMediaQuery('(max-height: 875px)')
-  const pictureMax = dotTight ? 70 : dotCompact ? 110 : 200
+  const dotCompact = useMediaQuery('(max-height: 815px)')
+  const dotRoomy = useMediaQuery('(min-height: 960px)')
+  const pictureMax = dotTight ? 70 : dotCompact ? 110 : dotRoomy ? 240 : 180
 
   // 아래 훅은 summary가 아직 로딩 중이어도(이 아래 early return보다 먼저) 매 렌더마다 똑같이
   // 호출돼야 한다(Hooks 규칙) — summary 로딩 전에는 잠정 기본값으로 계산해 둔다.
@@ -193,7 +194,7 @@ export function HomePage() {
             <div className="home-fit">
               {state !== 'first' ? (
                 <>
-                  <RecentWeekStrip compact />
+                  <RecentWeekStrip home />
                   <HomeCoachCard autoStatus={autoStatus} dense />
                   <StatsTiles summary={summary} slim />
                   <div className="home-hide-1">
@@ -251,18 +252,18 @@ function StatsTiles({ summary, slim = false }: { summary: StatsSummary; slim?: b
     : null
 
   if (slim) {
-    // 웹 홈: 세 칸이 한 줄(높이 56px 안팎)이고 칸마다 라벨과 값이 한 줄이다.
+    // 웹 홈: 넉넉함·보통은 라벨 위·값 아래 카드, 컴팩트는 한 줄(CSS 변수 --stat-dir).
     const tiles = [
       ['기록한 날', `${summary.recordedDays}일`],
       ['쌓인 시간', summary.totalMinutes === 0 ? '기록 안 함' : formatDurationMinutes(summary.totalMinutes)],
       ['시작한 지', daysSinceStart != null ? `${daysSinceStart}일` : '-'],
     ]
     return (
-      <div className="grid h-14 grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-3">
         {tiles.map(([label, value]) => (
-          <div key={label} className="flex min-w-0 items-center justify-center gap-1.5 rounded-xl bg-surface px-2">
+          <div key={label} className="home-stat">
             <span className="flex-none text-xs text-ink-2">{label}</span>
-            <span className="truncate font-serif text-base text-ink">{value}</span>
+            <span className="home-stat-value truncate font-serif text-ink">{value}</span>
           </div>
         ))}
       </div>
@@ -311,10 +312,10 @@ function HomeCoachCard({ autoStatus, dense = false }: { autoStatus: CoachAutoRes
 
   if (isLoading || nextActionQuery.isLoading) {
     return dense ? (
-      <div className="home-pad flex flex-col gap-2 rounded-2xl bg-surface" role="status" aria-label="회고를 불러오는 중이에요">
+      <div className="home-pad home-grow flex flex-col gap-2 rounded-2xl bg-surface" role="status" aria-label="회고를 불러오는 중이에요">
         <div className="h-5 w-1/3 rounded-full bg-rest motion-safe:animate-pulse" />
         <div className="h-4 w-full rounded-full bg-rest motion-safe:animate-pulse" />
-        <div className="h-[8.5rem] rounded-xl bg-rest motion-safe:animate-pulse" />
+        <div className="min-h-[8.5rem] flex-1 rounded-xl bg-rest motion-safe:animate-pulse" />
       </div>
     ) : (
       <Loading />
@@ -324,7 +325,7 @@ function HomeCoachCard({ autoStatus, dense = false }: { autoStatus: CoachAutoRes
   // 회고가 있든 없든, 최신 기록에 반응 전 제안이 있으면 항상 보인다.
   const nextAction = nextActionQuery.data && nextActionQuery.data.state == null ? nextActionQuery.data : null
   const nextActionBlock = nextAction ? <HomeNextActionBlock action={nextAction} dense={dense} /> : null
-  const cardClass = dense ? 'home-pad flex flex-col gap-2 rounded-2xl bg-surface' : 'flex flex-col gap-2.5 rounded-2xl bg-surface p-5'
+  const cardClass = dense ? 'home-pad home-grow flex flex-col gap-2 rounded-2xl bg-surface' : 'flex flex-col gap-2.5 rounded-2xl bg-surface p-5'
 
   // 회고가 아예 없으면: 오늘 접속 때 자동 생성 조건을 이미 확인했다면(autoStatus) 정확한 진행 수치를, 아니면 일반 안내만.
   if (!data) {
