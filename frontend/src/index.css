@@ -72,11 +72,29 @@
   --chart-grid: #E6DCCB;
   --chart-hover: #F3EBDA;
   --chart-ink: #3A352E;
-  --fs-caption: max(14px, 0.875rem);
-  --fs-body: max(16px, 1rem);
-  --fs-card-title: max(17px, 1.0625rem);
-  --fs-section-title: max(20px, 1.25rem);
-  --fs-page-title: max(28px, 1.75rem);
+
+  /*
+   * 글자 크기 체계(UX3). 글자는 이 토큰만 쓴다(text-[Npx] 임의값 금지). 크기는 화면 폭에 따라서만 바뀌고(아래 모바일 블록),
+   * 화면 높이·cqh·vh·flex 비율로는 절대 바뀌지 않는다. 늘고 줄어드는 것은 카드 높이·간격·그림 크기뿐이다.
+   * 주의: 이 프로젝트에서 Tailwind의 text-base는 글자 크기가 아니라 브랜드 초록색(--color-base)이다. 크기는 .t-* 클래스로 쓴다.
+   *   page 32 세리프(페이지 제목) · section 20 세리프(카드·섹션 제목) · key 22 세리프(핵심 문장)
+   *   body-lg 18(기록 내용·비교·해석 문장) · body 16 · sub 14 · cap 13(최소 12) · stat 28 세리프(숫자 강조)
+   */
+  --fs-page: 32px;
+  --fs-section: 20px;
+  --fs-key: 22px;
+  --fs-body-lg: 18px;
+  --fs-body: 16px;
+  --fs-sub: 14px;
+  --fs-cap: 13px;
+  --fs-stat: 28px;
+  --lh-body: 1.6;
+  --lh-title: 1.3;
+  /* 예전 이름(text-card-title·text-caption-min 등)은 새 토큰의 별칭이다. */
+  --fs-caption: var(--fs-sub);
+  --fs-card-title: var(--fs-section);
+  --fs-section-title: var(--fs-section);
+  --fs-page-title: var(--fs-page);
 }
 
 @media (min-width: 1024px) {
@@ -106,10 +124,15 @@
  */
 @media (max-width: 1023px) {
   :root {
-    --fs-caption: 13px;
-    --fs-body: 15px;
-    --fs-card-title: 16px;
-    --fs-page-title: 22px;
+    /* 모바일은 각 토큰이 1~2px 작다(본문은 16px 이상 유지). */
+    --fs-page: 30px;
+    --fs-section: 18px;
+    --fs-key: 20px;
+    --fs-body-lg: 17px;
+    --fs-body: 16px;
+    --fs-sub: 13px;
+    --fs-cap: 12px;
+    --fs-stat: 26px;
   }
   .app-shell-container {
     padding-inline: 16px;
@@ -241,23 +264,47 @@ select:focus-visible {
  * 통일. LAYOUT-V2: 하한을 더 올리고 페이지 제목을 모바일·데스크톱 공통 28px 하한으로 맞춘다).
  * 루트 글자 크기가 화면에 맞춰 줄어들어도 디자인이 정한 하한 아래로는 내려가지 않게 max()로 고정한다.
  */
-.text-page-title {
+.text-page-title,
+.t-page {
   font-family: var(--font-serif);
   font-weight: 600;
-  font-size: var(--fs-page-title);
-  line-height: 1.3;
+  font-size: var(--fs-page);
+  line-height: var(--lh-title);
 }
-.text-section-title {
+.text-section-title,
+.text-card-title,
+.t-section {
   font-family: var(--font-serif);
   font-weight: 600;
-  font-size: var(--fs-section-title);
-  line-height: 1.35;
+  font-size: var(--fs-section);
+  line-height: var(--lh-title);
 }
-.text-card-title {
+.t-key {
   font-family: var(--font-serif);
   font-weight: 600;
-  font-size: var(--fs-card-title);
-  line-height: 1.4;
+  font-size: var(--fs-key);
+  line-height: var(--lh-title);
+}
+.t-body-lg {
+  font-size: var(--fs-body-lg);
+  line-height: var(--lh-body);
+}
+.t-body {
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+}
+.t-sub {
+  font-size: var(--fs-sub);
+  line-height: var(--lh-body);
+}
+.t-cap {
+  font-size: var(--fs-cap);
+  line-height: var(--lh-body);
+}
+.t-stat {
+  font-family: var(--font-serif);
+  font-size: var(--fs-stat);
+  line-height: var(--lh-title);
 }
 
 /* 보조 글자(14px 하한)·본문 글자(16px 하한) 공용 토큰. 기존 text-[13px]/text-[15px]/text-xs 자리를 대신한다. */
