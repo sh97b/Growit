@@ -72,8 +72,11 @@ export function RecordNewPage() {
     const activeIds = new Set(activeHobbies.map((hobby) => hobby.id))
     const recentHobbyId = recentQuery.data?.items[0]?.hobbyId ?? null
 
+    const requestedHobbyId = Number(searchParams.get('hobbyId'))
     const defaultHobbyId =
-      draft?.hobbyId != null && activeIds.has(draft.hobbyId)
+      Number.isFinite(requestedHobbyId) && activeIds.has(requestedHobbyId)
+        ? requestedHobbyId
+        : draft?.hobbyId != null && activeIds.has(draft.hobbyId)
         ? draft.hobbyId
         : recentHobbyId != null && activeIds.has(recentHobbyId)
           ? recentHobbyId

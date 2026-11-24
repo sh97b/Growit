@@ -35,6 +35,7 @@ import {
   useUpdateStep,
 } from '../hooks/useRoadmap'
 import { useHobbies, useUpdateHobby, type Hobby } from '../hooks/useHobbies'
+import { RoadmapItemBlocks } from '../components/RoadmapItemBlocks'
 import { useDragSort, type KeyboardSortProps } from '../hooks/useDragSort'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import { fetchRecords } from '../lib/records'
@@ -925,6 +926,8 @@ function StepCard({
   const deleteStep = useDeleteStep(hobbyId)
   const addItem = useAddItem(hobbyId)
   const updateItem = useUpdateItem(hobbyId)
+  // 항목을 누르면 그 아래로 블록이 펼쳐진다(한 번에 하나).
+  const [expandedItemId, setExpandedItemId] = useState<number | null>(null)
   const [mode, setMode] = useState<'view' | 'edit' | 'confirm'>('view')
   const [titleDraft, setTitleDraft] = useState(step.title)
   const [hintDraft, setHintDraft] = useState(step.periodHint ?? '')
@@ -1065,6 +1068,8 @@ function StepCard({
           isLast={index === step.items.length - 1}
           dragProps={dragItemProps(item.id)}
           keyProps={dragKeyboardProps(item.id, item.text)}
+          expanded={expandedItemId === item.id}
+          onToggleExpand={() => setExpandedItemId((prev) => (prev === item.id ? null : item.id))}
           onError={onError}
           onNotice={onNotice}
         />
@@ -1170,6 +1175,8 @@ function ItemRow({
   isLast,
   dragProps,
   keyProps,
+  expanded,
+  onToggleExpand,
   onError,
   onNotice,
 }: {
@@ -1184,6 +1191,9 @@ function ItemRow({
   /** 웹: 끌어 놓기 속성(useDragSort)과 손잡이 버튼의 키보드 속성(스페이스로 집기 → 방향키 → 스페이스로 놓기). */
   dragProps?: Record<string, unknown>
   keyProps?: KeyboardSortProps
+  /** 이 항목 아래로 블록이 펼쳐져 있는지, 누르면 펼치고 접는다. */
+  expanded: boolean
+  onToggleExpand: () => void
   onError: (message: string | null) => void
   onNotice: (message: string | null) => void
 }) {
@@ -1255,9 +1265,10 @@ function ItemRow({
   }
 
   const checkbox = (
-    <label className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 py-1 lg:min-h-10">
+    <label className="flex min-h-11 w-9 flex-none cursor-pointer items-center justify-center lg:min-h-10">
       <input
         type="checkbox"
+        aria-label={`${item.text} 체크`}
         checked={item.done}
         disabled={setDone.isPending || readOnly}
         onChange={(event) => {
@@ -1273,31 +1284,65 @@ function ItemRow({
         }}
         className="h-5 w-5 flex-none accent-[var(--color-base)]"
       />
+    </label>
+  )
+
+  // 항목 문장을 누르면 블록이 펼쳐진다. "블록 N"은 붙은 블록 수.
+  const expandButton = (
+    <button
+      type="button"
+      aria-expanded={expanded}
+      aria-controls={`roadmap-item-blocks-${item.id}`}
+      onClick={onToggleExpand}
+      className="flex min-h-11 min-w-0 flex-1 items-center gap-2 py-1 text-left lg:min-h-10"
+    >
       <span
         className={['line-clamp-2 min-w-0 break-words text-body-min leading-[1.45]', item.done ? 'text-ink-2 line-through' : ''].join(' ')}
       >
         {item.text}
       </span>
-    </label>
+      {item.blockCount ? (
+        <span className="flex-none rounded-md bg-surface px-1.5 py-0.5 text-xs text-ink-2">블록 {item.blockCount}</span>
+      ) : null}
+      <ChevronDownIcon width={16} height={16} className={['flex-none text-ink-3', expanded ? 'rotate-180' : ''].join(' ')} />
+    </button>
   )
 
+  const blocks = expanded ? (
+    <div id={`roadmap-item-blocks-${item.id}`} className="pb-2 pl-9">
+      <RoadmapItemBlocks itemId={item.id} hobbyId={hobbyId} readOnly={readOnly} />
+    </div>
+  ) : null
+
   if (readOnly) {
-    return <li className="flex items-center border-t border-line first:border-t-0">{checkbox}</li>
+    return (
+      <li className="border-t border-line first:border-t-0">
+        <div className="flex items-center">
+          {checkbox}
+          {expandButton}
+        </div>
+        {blocks}
+      </li>
+    )
   }
 
   if (!compact) {
     return (
-      <li className="flex items-center gap-1 border-t border-line first:border-t-0">
-        {checkbox}
-        <ActionMenu
-          label={`${item.text} 항목 메뉴`}
-          items={[
-            { label: '고치기', onSelect: startEdit },
-            { label: '위로 이동', onSelect: () => move('UP'), disabled: isFirst || updateItem.isPending },
-            { label: '아래로 이동', onSelect: () => move('DOWN'), disabled: isLast || updateItem.isPending },
-            { label: '지우기', onSelect: () => setMode('confirm') },
-          ]}
-        />
+      <li className="border-t border-line first:border-t-0">
+        <div className="flex items-center gap-1">
+          {checkbox}
+          {expandButton}
+          <ActionMenu
+            label={`${item.text} 항목 메뉴`}
+            items={[
+              { label: '고치기', onSelect: startEdit },
+              { label: '위로 이동', onSelect: () => move('UP'), disabled: isFirst || updateItem.isPending },
+              { label: '아래로 이동', onSelect: () => move('DOWN'), disabled: isLast || updateItem.isPending },
+              { label: '지우기', onSelect: () => setMode('confirm') },
+            ]}
+          />
+        </div>
+        {blocks}
       </li>
     )
   }
@@ -1306,31 +1351,35 @@ function ItemRow({
   return (
     <li
       {...dragProps}
-      className="group flex cursor-grab items-center gap-1 border-t border-line first:border-t-0 data-[dragging]:opacity-40 data-[drop=after]:shadow-[0_2px_0_0_var(--color-base)] data-[drop=before]:shadow-[0_-2px_0_0_var(--color-base)]"
+      className="group border-t border-line first:border-t-0 data-[dragging]:opacity-40 data-[drop=after]:shadow-[0_2px_0_0_var(--color-base)] data-[drop=before]:shadow-[0_-2px_0_0_var(--color-base)]"
     >
-      <button
-        type="button"
-        {...keyProps}
-        className={`${rowIconButton} ${reveal}`}
-        aria-label={`${item.text} 순서 옮기기. 스페이스로 집고 방향키로 옮긴 뒤 스페이스로 놓아요`}
-        title="끌어서 옮기거나, 스페이스로 집어 방향키로 옮겨요"
-      >
-        <span aria-hidden="true" className="text-base leading-none tracking-[-0.2em]">⋮⋮</span>
-      </button>
-      {checkbox}
-      <div className="flex flex-none items-center">
-        <button type="button" className={`${rowIconButton} ${reveal}`} aria-label={`${item.text} 항목 고치기`} onClick={startEdit}>
-          <PencilIcon width={15} height={15} />
-        </button>
+      <div className="flex items-center gap-1">
         <button
           type="button"
-          className={`${rowIconButton} ${reveal}`}
-          aria-label={`${item.text} 항목 지우기`}
-          onClick={() => setMode('confirm')}
+          {...keyProps}
+          className={`${rowIconButton} ${reveal} cursor-grab`}
+          aria-label={`${item.text} 순서 옮기기. 스페이스로 집고 방향키로 옮긴 뒤 스페이스로 놓아요`}
+          title="끌어서 옮기거나, 스페이스로 집어 방향키로 옮겨요"
         >
-          <TrashIcon width={15} height={15} />
+          <span aria-hidden="true" className="text-base leading-none tracking-[-0.2em]">⋮⋮</span>
         </button>
+        {checkbox}
+        {expandButton}
+        <div className="flex flex-none items-center">
+          <button type="button" className={`${rowIconButton} ${reveal}`} aria-label={`${item.text} 항목 고치기`} onClick={startEdit}>
+            <PencilIcon width={15} height={15} />
+          </button>
+          <button
+            type="button"
+            className={`${rowIconButton} ${reveal}`}
+            aria-label={`${item.text} 항목 지우기`}
+            onClick={() => setMode('confirm')}
+          >
+            <TrashIcon width={15} height={15} />
+          </button>
+        </div>
       </div>
+      {blocks}
     </li>
   )
 }

@@ -7,6 +7,8 @@ export type RoadmapItem = {
   done: boolean
   doneAt: string | null
   source: 'AI' | 'USER'
+  /** 그 항목에 붙은 블록 수. */
+  blockCount?: number
 }
 
 export type RoadmapStep = {
@@ -112,4 +114,63 @@ export function deleteRoadmapItem(id: number) {
 
 export function setRoadmapItemDone(id: number, done: boolean) {
   return apiRequest<Roadmap>(`/api/roadmap-items/${id}/done`, { method: 'PUT', body: { done } })
+}
+
+// ---- 항목 블록 ----
+
+export type BlockKind = 'MEMO' | 'LINK' | 'TIMER' | 'AI_HOWTO' | 'SEARCH' | 'SUBLIST'
+export type LinkCategory = 'VIDEO' | 'SHEET' | 'MATERIAL' | 'OTHER'
+
+export const LINK_CATEGORY_LABELS: Record<LinkCategory, string> = {
+  VIDEO: '영상',
+  SHEET: '악보',
+  MATERIAL: '자료',
+  OTHER: '기타',
+}
+
+export type BlockPayload = Record<string, unknown>
+
+export type RoadmapBlock = {
+  id: number
+  itemId: number
+  kind: BlockKind
+  position: number
+  payload: BlockPayload
+  createdAt: string
+  updatedAt: string
+}
+
+export type AiHowtoResult = { block: RoadmapBlock; suggestedSearchQuery: string }
+
+export function fetchBlocks(itemId: number) {
+  return apiRequest<RoadmapBlock[]>(`/api/roadmap-items/${itemId}/blocks`)
+}
+
+export function createBlock(itemId: number, kind: Exclude<BlockKind, 'AI_HOWTO'>, payload: BlockPayload) {
+  return apiRequest<RoadmapBlock>(`/api/roadmap-items/${itemId}/blocks`, { method: 'POST', body: { kind, payload } })
+}
+
+export function updateBlock(id: number, payload: BlockPayload) {
+  return apiRequest<RoadmapBlock>(`/api/blocks/${id}`, { method: 'PATCH', body: { payload } })
+}
+
+export function deleteBlock(id: number) {
+  return apiRequest<void>(`/api/blocks/${id}`, { method: 'DELETE' })
+}
+
+export function reorderBlocks(itemId: number, ids: number[]) {
+  return apiRequest<RoadmapBlock[]>(`/api/roadmap-items/${itemId}/blocks/order`, { method: 'PUT', body: { ids } })
+}
+
+export function generateHowto(itemId: number) {
+  return apiRequest<AiHowtoResult>(`/api/roadmap-items/${itemId}/blocks/ai-howto`, { method: 'POST' })
+}
+
+/** 검색 블록의 링크는 앱이 만든다(AI가 URL을 만들지 않는다). */
+export function youtubeSearchUrl(query: string): string {
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`
+}
+
+export function googleSearchUrl(query: string): string {
+  return `https://www.google.com/search?q=${encodeURIComponent(query)}`
 }

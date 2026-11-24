@@ -1,5 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  createBlock,
+  deleteBlock,
+  fetchBlocks,
+  generateHowto,
+  reorderBlocks,
+  updateBlock,
+  type BlockPayload,
+  type RoadmapBlock,
   addRoadmapItem,
   addRoadmapStep,
   archiveRoadmap,
@@ -146,4 +154,66 @@ export function useDeleteItem(hobbyId: number) {
 
 export function useSetItemDone(hobbyId: number) {
   return useRoadmapMutation(hobbyId, ({ id, done }: { id: number; done: boolean }) => setRoadmapItemDone(id, done))
+}
+
+// ---- 항목 블록 ----
+
+export function blocksKey(itemId: number) {
+  return ['roadmap', 'blocks', itemId] as const
+}
+
+/** 펼친 항목의 블록 목록. 보관된 로드맵에서도 읽을 수 있다. */
+export function useBlocks(itemId: number, enabled: boolean) {
+  return useQuery({ queryKey: blocksKey(itemId), queryFn: () => fetchBlocks(itemId), enabled })
+}
+
+/** 블록을 바꾸면 그 항목의 목록을 다시 받고, 목록의 "블록 N" 배지를 위해 로드맵도 다시 받는다. */
+function useBlockMutation<TVariables, TResult>(
+  hobbyId: number,
+  itemId: number,
+  mutationFn: (variables: TVariables) => Promise<TResult>,
+) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: blocksKey(itemId) })
+      queryClient.invalidateQueries({ queryKey: roadmapKey(hobbyId) })
+    },
+  })
+}
+
+export function useCreateBlock(hobbyId: number, itemId: number) {
+  return useBlockMutation(
+    hobbyId,
+    itemId,
+    ({ kind, payload }: { kind: Parameters<typeof createBlock>[1]; payload: BlockPayload }) =>
+      createBlock(itemId, kind, payload),
+  )
+}
+
+export function useUpdateBlock(hobbyId: number, itemId: number) {
+  return useBlockMutation(hobbyId, itemId, ({ id, payload }: { id: number; payload: BlockPayload }) =>
+    updateBlock(id, payload),
+  )
+}
+
+export function useDeleteBlock(hobbyId: number, itemId: number) {
+  return useBlockMutation(hobbyId, itemId, (id: number) => deleteBlock(id))
+}
+
+/** 순서는 저장이 끝나기 전에 서버 응답으로 목록 캐시를 바꾼다(실패하면 그대로). */
+export function useReorderBlocks(hobbyId: number, itemId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (ids: number[]) => reorderBlocks(itemId, ids),
+    onSuccess: (blocks: RoadmapBlock[]) => {
+      queryClient.setQueryData(blocksKey(itemId), blocks)
+      queryClient.invalidateQueries({ queryKey: roadmapKey(hobbyId) })
+    },
+  })
+}
+
+export function useGenerateHowto(hobbyId: number, itemId: number) {
+  return useBlockMutation(hobbyId, itemId, () => generateHowto(itemId))
 }
