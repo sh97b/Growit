@@ -484,3 +484,80 @@ select:focus-visible {
     display: none;
   }
 }
+
+/*
+ * 변화 탭(웹): 두 열을 "뷰포트 − 헤더" 높이에 고정하고 container-type:size 로 만든 뒤, 간격·글자·카드 높이를 열 높이에 비례해(clamp + flex 비율) 연속으로 늘이고 줄인다.
+ * 넘치는 글은 줄 수 대신 아래쪽을 흐리게 가린다(.ch-fade) — 전체는 [전체 보기]에서 본다.
+ */
+@media (min-width: 1024px) {
+  .ch-col {
+    container-type: size;
+    container-name: chcol;
+    min-width: 0;
+  }
+  .ch-fit {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(8px, 1.6cqh, 16px);
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .ch-fit > * {
+    flex: none;
+  }
+  .ch-fit > .ch-grow3 {
+    flex: 3 1 0;
+    min-height: 0;
+  }
+  .ch-fit > .ch-grow2 {
+    flex: 2 1 0;
+    min-height: 0;
+  }
+  .ch-fit > .ch-grow1 {
+    flex: 1 1 0;
+    min-height: 0;
+  }
+  .ch-fit > .ch-chips {
+    flex: 1 1 0;
+    min-height: 64px;
+    max-height: 112px;
+  }
+  .ch-pair {
+    flex: 1 1 0;
+    gap: clamp(8px, 1.6cqh, 16px);
+  }
+  .ch-pair-card {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+    padding: clamp(10px, 1.8cqh, 20px);
+  }
+  .ch-pair-text {
+    font-size: clamp(15px, 3cqh, 28px);
+    flex: 1 1 0;
+    line-height: 1.5;
+    min-height: 0;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
+  }
+  .ch-pad {
+    padding: clamp(12px, 2.2cqh, 24px);
+  }
+  .ch-text {
+    font-size: clamp(15px, 3.2cqh, 30px);
+    line-height: 1.55;
+  }
+  .ch-text-sm {
+    font-size: clamp(14px, 2cqh, 18px);
+    line-height: 1.55;
+  }
+  .ch-fade {
+    min-height: 0;
+    flex: 1 1 0;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent);
+  }
+}
