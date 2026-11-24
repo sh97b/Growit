@@ -119,7 +119,7 @@ export function useAddStep(hobbyId: number) {
 export function useUpdateStep(hobbyId: number) {
   return useRoadmapMutation(
     hobbyId,
-    ({ id, patch }: { id: number; patch: { title?: string; periodHint?: string | null; move?: MoveDirection } }) =>
+    ({ id, patch }: { id: number; patch: { title?: string; periodHint?: string | null; move?: MoveDirection; position?: number } }) =>
       updateRoadmapStep(id, patch),
   )
 }
@@ -135,7 +135,7 @@ export function useAddItem(hobbyId: number) {
 }
 
 export function useUpdateItem(hobbyId: number) {
-  return useRoadmapMutation(hobbyId, ({ id, patch }: { id: number; patch: { text?: string; move?: MoveDirection } }) =>
+  return useRoadmapMutation(hobbyId, ({ id, patch }: { id: number; patch: { text?: string; move?: MoveDirection; position?: number } }) =>
     updateRoadmapItem(id, patch),
   )
 }

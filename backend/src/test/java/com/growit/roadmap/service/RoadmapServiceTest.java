@@ -140,9 +140,9 @@ class RoadmapServiceTest {
 		RoadmapResponse before = service().getActive(1L, hobby.getId());
 
 		service().updateStep(1L, before.steps().get(0).id(),
-				new RoadmapStepUpdateRequest("고친 단계", JsonNullable.of(null), null));
+				new RoadmapStepUpdateRequest("고친 단계", JsonNullable.of(null), null, null));
 		RoadmapResponse after = service().updateItem(1L, before.steps().get(0).items().get(0).id(),
-				new RoadmapItemUpdateRequest("고친 항목", null));
+				new RoadmapItemUpdateRequest("고친 항목", null, null));
 
 		assertThat(after.steps().get(0).title()).isEqualTo("고친 단계");
 		assertThat(after.steps().get(0).periodHint()).isNull();
@@ -158,17 +158,37 @@ class RoadmapServiceTest {
 		Long firstStep = before.steps().get(0).id();
 
 		RoadmapResponse movedDown = service().updateStep(1L, firstStep,
-				new RoadmapStepUpdateRequest(null, null, "DOWN"));
+				new RoadmapStepUpdateRequest(null, null, "DOWN", null));
 		assertThat(movedDown.steps()).extracting("title").containsExactly("단계 2", "단계 1");
 
-		RoadmapResponse atEnd = service().updateStep(1L, firstStep, new RoadmapStepUpdateRequest(null, null, "DOWN"));
+		RoadmapResponse atEnd = service().updateStep(1L, firstStep, new RoadmapStepUpdateRequest(null, null, "DOWN", null));
 		assertThat(atEnd.steps()).extracting("title").containsExactly("단계 2", "단계 1");
 
 		Long item = before.steps().get(0).items().get(0).id();
-		RoadmapResponse itemDown = service().updateItem(1L, item, new RoadmapItemUpdateRequest(null, "DOWN"));
+		RoadmapResponse itemDown = service().updateItem(1L, item, new RoadmapItemUpdateRequest(null, "DOWN", null));
 		assertThat(itemDown.steps().get(1).items()).extracting("text").containsExactly("항목 1-2", "항목 1-1");
-		RoadmapResponse itemUp = service().updateItem(1L, item, new RoadmapItemUpdateRequest(null, "UP"));
+		RoadmapResponse itemUp = service().updateItem(1L, item, new RoadmapItemUpdateRequest(null, "UP", null));
 		assertThat(itemUp.steps().get(1).items()).extracting("text").containsExactly("항목 1-1", "항목 1-2");
+	}
+
+	@Test
+	void position_dropsTargetAtIndex_forStepsAndItems() {
+		Hobby hobby = hobby(1L);
+		seed(1L, hobby.getId());
+		RoadmapResponse before = service().getActive(1L, hobby.getId());
+		Long firstStep = before.steps().get(0).id();
+
+		// 단계 1을 맨 끝(범위 밖 값은 끝으로 보정)으로 끌어 놓는다.
+		RoadmapResponse stepMoved = service().updateStep(1L, firstStep,
+				new RoadmapStepUpdateRequest(null, null, null, 99));
+		assertThat(stepMoved.steps()).extracting("title").containsExactly("단계 2", "단계 1");
+		RoadmapResponse stepBack = service().updateStep(1L, firstStep,
+				new RoadmapStepUpdateRequest(null, null, null, 0));
+		assertThat(stepBack.steps()).extracting("title").containsExactly("단계 1", "단계 2");
+
+		Long item = before.steps().get(0).items().get(0).id();
+		RoadmapResponse itemMoved = service().updateItem(1L, item, new RoadmapItemUpdateRequest(null, null, 1));
+		assertThat(itemMoved.steps().get(0).items()).extracting("text").containsExactly("항목 1-2", "항목 1-1");
 	}
 
 	@Test
@@ -177,7 +197,7 @@ class RoadmapServiceTest {
 		seed(1L, hobby.getId());
 		Long step = service().getActive(1L, hobby.getId()).steps().get(0).id();
 
-		assertThatThrownBy(() -> service().updateStep(1L, step, new RoadmapStepUpdateRequest(null, null, "LEFT")))
+		assertThatThrownBy(() -> service().updateStep(1L, step, new RoadmapStepUpdateRequest(null, null, "LEFT", null)))
 				.isInstanceOf(ApiException.class);
 	}
 
@@ -298,10 +318,10 @@ class RoadmapServiceTest {
 		assertNotFound(() -> service().updateTarget(2L, roadmap.getId(), new RoadmapUpdateRequest(null)));
 		assertNotFound(() -> service().archive(2L, roadmap.getId()));
 		assertNotFound(() -> service().addStep(2L, roadmap.getId(), new RoadmapStepCreateRequest("x", null)));
-		assertNotFound(() -> service().updateStep(2L, step, new RoadmapStepUpdateRequest("x", null, null)));
+		assertNotFound(() -> service().updateStep(2L, step, new RoadmapStepUpdateRequest("x", null, null, null)));
 		assertNotFound(() -> service().deleteStep(2L, step));
 		assertNotFound(() -> service().addItem(2L, step, new RoadmapItemCreateRequest("x")));
-		assertNotFound(() -> service().updateItem(2L, item, new RoadmapItemUpdateRequest("x", null)));
+		assertNotFound(() -> service().updateItem(2L, item, new RoadmapItemUpdateRequest("x", null, null)));
 		assertNotFound(() -> service().deleteItem(2L, item));
 		assertNotFound(() -> service().setItemDone(2L, item, new RoadmapItemDoneRequest(true)));
 	}

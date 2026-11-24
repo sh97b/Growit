@@ -110,7 +110,10 @@ public class RoadmapService {
 		if (request.periodHint() != null && request.periodHint().isPresent()) {
 			step.setPeriodHint(blankToNull(request.periodHint().get(), PERIOD_HINT_MAX));
 		}
-		if (request.move() != null) {
+		if (request.position() != null) {
+			List<RoadmapStep> steps = stepRepository.findByRoadmapIdOrderBySortOrderAscIdAsc(step.getRoadmapId());
+			reorder(steps, step.getId(), request.position(), RoadmapStep::getId, RoadmapStep::setSortOrder);
+		} else if (request.move() != null) {
 			List<RoadmapStep> steps = stepRepository.findByRoadmapIdOrderBySortOrderAscIdAsc(step.getRoadmapId());
 			int index = indexOf(steps, step.getId(), RoadmapStep::getId);
 			int other = neighbor(index, steps.size(), request.move());
@@ -150,7 +153,10 @@ public class RoadmapService {
 		if (request.text() != null) {
 			item.setContent(requireItem(request.text()));
 		}
-		if (request.move() != null) {
+		if (request.position() != null) {
+			List<RoadmapItem> items = itemRepository.findByStepIdOrderBySortOrderAscIdAsc(item.getStepId());
+			reorder(items, item.getId(), request.position(), RoadmapItem::getId, RoadmapItem::setSortOrder);
+		} else if (request.move() != null) {
 			List<RoadmapItem> items = itemRepository.findByStepIdOrderBySortOrderAscIdAsc(item.getStepId());
 			int index = indexOf(items, item.getId(), RoadmapItem::getId);
 			int other = neighbor(index, items.size(), request.move());
@@ -312,6 +318,17 @@ public class RoadmapService {
 			}
 		}
 		throw new ApiException(ErrorCode.NOT_FOUND, "찾을 수 없어요");
+	}
+
+	/** 드래그 앤 드롭: 대상을 목록에서 빼 position(범위 밖이면 끝으로 보정) 자리에 끼우고 1부터 다시 번호를 매긴다. */
+	private static <T> void reorder(List<T> list, Long id, int position, java.util.function.Function<T, Long> idOf,
+			java.util.function.ObjIntConsumer<T> setOrder) {
+		List<T> ordered = new java.util.ArrayList<>(list);
+		T target = ordered.remove(indexOf(list, id, idOf));
+		ordered.add(Math.max(0, Math.min(position, ordered.size())), target);
+		for (int i = 0; i < ordered.size(); i++) {
+			setOrder.accept(ordered.get(i), i + 1);
+		}
 	}
 
 	/** 옮길 수 없는 끝이면 자기 자리를 그대로 돌려준다(오류로 보지 않는다). */

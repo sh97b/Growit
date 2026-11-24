@@ -35,6 +35,7 @@ import {
   useUpdateStep,
 } from '../hooks/useRoadmap'
 import { useHobbies, useUpdateHobby, type Hobby } from '../hooks/useHobbies'
+import { useDragSort } from '../hooks/useDragSort'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import { fetchRecords } from '../lib/records'
 import { ApiError } from '../lib/api'
@@ -531,6 +532,7 @@ function RoadmapBody({
   const hobbyId = hobby.id
   const desktop = useIsDesktop()
   const updateTarget = useUpdateRoadmapTarget(hobbyId)
+  const reorderStep = useUpdateStep(hobbyId)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [open, setOpen] = useState<Record<number, boolean>>({})
   const [adding, setAdding] = useState(false)
@@ -628,6 +630,14 @@ function RoadmapBody({
             selectedId={selected?.id ?? null}
             currentId={currentId}
             onSelect={setSelectedId}
+            onReorder={
+              readOnly
+                ? undefined
+                : (id, position) => {
+                    onError(null)
+                    reorderStep.mutate({ id, patch: { position } }, { onError: (error) => onError(errorMessageOf(error)) })
+                  }
+            }
             adder={adder}
           />
           {selected ? (
@@ -785,16 +795,30 @@ function StepRail({
   selectedId,
   currentId,
   onSelect,
+  onReorder,
   adder,
 }: {
   steps: RoadmapStep[]
   selectedId: number | null
   currentId: number | null
   onSelect: (id: number) => void
+  /** 끌어 놓아 순서를 바꾼다. Alt+↑/↓는 키보드용. 보관한 로드맵(읽기 전용)은 넘기지 않는다. */
+  onReorder?: (id: number, position: number) => void
   adder: ReactNode | null
 }) {
+  const { itemProps } = useDragSort(
+    steps.map((step) => step.id),
+    (id, position) => onReorder?.(id, position),
+    !onReorder,
+  )
   function onKeyDown(event: KeyboardEvent<HTMLUListElement>) {
     const index = steps.findIndex((step) => step.id === selectedId)
+    if (event.altKey && onReorder && (event.key === 'ArrowDown' || event.key === 'ArrowUp') && index >= 0) {
+      event.preventDefault()
+      const to = event.key === 'ArrowDown' ? index + 1 : index - 1
+      if (to >= 0 && to < steps.length) onReorder(steps[index].id, to)
+      return
+    }
     let next = -1
     if (event.key === 'ArrowDown') next = Math.min(steps.length - 1, index + 1)
     else if (event.key === 'ArrowUp') next = Math.max(0, index - 1)
@@ -826,8 +850,9 @@ function StepRail({
               aria-selected={isSelected}
               tabIndex={isSelected ? 0 : -1}
               onClick={() => onSelect(step.id)}
+              {...itemProps(step.id)}
               className={[
-                'flex min-h-11 cursor-pointer items-center gap-2.5 rounded-xl border px-2.5 py-1.5 outline-offset-0',
+                'flex min-h-11 cursor-pointer items-center gap-2.5 rounded-xl border px-2.5 py-1.5 outline-offset-0 data-[dragging]:opacity-40 data-[drop=after]:shadow-[0_2px_0_0_var(--color-base)] data-[drop=before]:shadow-[0_-2px_0_0_var(--color-base)]',
                 isSelected ? 'border-[color-mix(in_srgb,var(--color-base)_40%,white)]' : 'border-transparent hover:bg-surface',
               ].join(' ')}
               style={isSelected ? { background: BASE_TINT.replace(/_/g, ' ') } : undefined}
@@ -891,6 +916,7 @@ function StepCard({
   const updateStep = useUpdateStep(hobbyId)
   const deleteStep = useDeleteStep(hobbyId)
   const addItem = useAddItem(hobbyId)
+  const updateItem = useUpdateItem(hobbyId)
   const [mode, setMode] = useState<'view' | 'edit' | 'confirm'>('view')
   const [titleDraft, setTitleDraft] = useState(step.title)
   const [hintDraft, setHintDraft] = useState(step.periodHint ?? '')
@@ -933,8 +959,12 @@ function StepCard({
     <ActionMenu
       label={`${step.title} 단계 메뉴`}
       items={[
-        { label: '위로 이동', onSelect: () => move('UP'), disabled: isFirst || updateStep.isPending },
-        { label: '아래로 이동', onSelect: () => move('DOWN'), disabled: isLast || updateStep.isPending },
+        ...(detail
+          ? []
+          : [
+              { label: '위로 이동', onSelect: () => move('UP'), disabled: isFirst || updateStep.isPending },
+              { label: '아래로 이동', onSelect: () => move('DOWN'), disabled: isLast || updateStep.isPending },
+            ]),
         {
           label: '이름 바꾸기',
           onSelect: () => {
@@ -997,6 +1027,15 @@ function StepCard({
       </div>
     ) : null
 
+  const { itemProps: dragItemProps } = useDragSort(
+    step.items.map((entry) => entry.id),
+    (id, position) => {
+      onError(null)
+      updateItem.mutate({ id, patch: { position } }, { onError: (error) => onError(errorMessageOf(error)) })
+    },
+    !detail || readOnly,
+  )
+
   const list = (
     <ul
       className={[
@@ -1016,6 +1055,13 @@ function StepCard({
           readOnly={readOnly}
           isFirst={index === 0}
           isLast={index === step.items.length - 1}
+          dragProps={dragItemProps(item.id)}
+          onMoveTo={(position) => {
+            onError(null)
+            updateItem.mutate({ id: item.id, patch: { position } }, { onError: (error) => onError(errorMessageOf(error)) })
+          }}
+          itemCount={step.items.length}
+          index={index}
           onError={onError}
           onNotice={onNotice}
         />
@@ -1116,6 +1162,10 @@ function ItemRow({
   readOnly = false,
   isFirst,
   isLast,
+  dragProps,
+  onMoveTo,
+  itemCount,
+  index,
   onError,
   onNotice,
 }: {
@@ -1127,6 +1177,11 @@ function ItemRow({
   compact: boolean
   isFirst: boolean
   isLast: boolean
+  /** 웹: 끌어 놓기 속성(useDragSort). Alt+↑/↓는 키보드용. */
+  dragProps?: Record<string, unknown>
+  onMoveTo?: (position: number) => void
+  itemCount?: number
+  index?: number
   onError: (message: string | null) => void
   onNotice: (message: string | null) => void
 }) {
@@ -1247,29 +1302,21 @@ function ItemRow({
 
   const reveal = 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100'
   return (
-    <li className="group flex items-center gap-1 border-t border-line first:border-t-0">
+    <li
+      {...dragProps}
+      onKeyDown={(event) => {
+        if (!event.altKey || !onMoveTo || index == null || itemCount == null) return
+        if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+        event.preventDefault()
+        const to = event.key === 'ArrowDown' ? index + 1 : index - 1
+        if (to >= 0 && to < itemCount) onMoveTo(to)
+      }}
+      className="group flex cursor-grab items-center gap-1 border-t border-line first:border-t-0 data-[dragging]:opacity-40 data-[drop=after]:shadow-[0_2px_0_0_var(--color-base)] data-[drop=before]:shadow-[0_-2px_0_0_var(--color-base)]"
+    >
       {checkbox}
       <div className="flex flex-none items-center">
         <button type="button" className={`${rowIconButton} ${reveal}`} aria-label={`${item.text} 항목 고치기`} onClick={startEdit}>
           <PencilIcon width={15} height={15} />
-        </button>
-        <button
-          type="button"
-          className={`${rowIconButton} ${reveal}`}
-          aria-label={`${item.text} 항목을 위로`}
-          disabled={isFirst || updateItem.isPending}
-          onClick={() => move('UP')}
-        >
-          <ChevronDownIcon width={15} height={15} className="rotate-180" />
-        </button>
-        <button
-          type="button"
-          className={`${rowIconButton} ${reveal}`}
-          aria-label={`${item.text} 항목을 아래로`}
-          disabled={isLast || updateItem.isPending}
-          onClick={() => move('DOWN')}
-        >
-          <ChevronDownIcon width={15} height={15} />
         </button>
         <button
           type="button"

@@ -89,7 +89,7 @@ export function addRoadmapStep(roadmapId: number, title: string) {
 
 export function updateRoadmapStep(
   id: number,
-  patch: { title?: string; periodHint?: string | null; move?: MoveDirection },
+  patch: { title?: string; periodHint?: string | null; move?: MoveDirection; position?: number },
 ) {
   return apiRequest<Roadmap>(`/api/roadmap-steps/${id}`, { method: 'PATCH', body: patch })
 }
@@ -102,7 +102,7 @@ export function addRoadmapItem(stepId: number, text: string) {
   return apiRequest<Roadmap>(`/api/roadmap-steps/${stepId}/items`, { method: 'POST', body: { text } })
 }
 
-export function updateRoadmapItem(id: number, patch: { text?: string; move?: MoveDirection }) {
+export function updateRoadmapItem(id: number, patch: { text?: string; move?: MoveDirection; position?: number }) {
   return apiRequest<Roadmap>(`/api/roadmap-items/${id}`, { method: 'PATCH', body: patch })
 }
 
