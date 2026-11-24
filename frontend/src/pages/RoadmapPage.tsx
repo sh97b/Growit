@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { Spinner } from '../components/AiProgress'
 import { Button } from '../components/Button'
+import { Dialog } from '../components/Dialog'
 import { Dropdown } from '../components/Dropdown'
 import { Input } from '../components/Input'
 import { Loading } from '../components/Loading'
@@ -20,10 +21,14 @@ import {
   useAddItem,
   useAddStep,
   useArchiveRoadmap,
+  useArchivedRoadmaps,
   useCreateRoadmap,
+  useDeleteArchivedRoadmap,
   useDeleteItem,
   useDeleteStep,
+  useRestoreRoadmap,
   useRoadmap,
+  useRoadmapById,
   useSetItemDone,
   useUpdateItem,
   useUpdateRoadmapTarget,
@@ -34,7 +39,7 @@ import { useIsDesktop } from '../hooks/useIsDesktop'
 import { fetchRecords } from '../lib/records'
 import { ApiError } from '../lib/api'
 import { todayLocalDate } from '../lib/date'
-import type { Roadmap, RoadmapItem, RoadmapStep } from '../lib/roadmap'
+import type { Roadmap, RoadmapItem, RoadmapStep, RoadmapSummary } from '../lib/roadmap'
 
 const MAX_STEPS = 8
 const MAX_ITEMS_PER_STEP = 8
@@ -235,6 +240,7 @@ export function RoadmapPage() {
     const fromUrl = Number(searchParams.get('hobby'))
     return Number.isFinite(fromUrl) && fromUrl > 0 ? fromUrl : readStoredHobbyId()
   })
+  const [view, setView] = useState<'active' | 'archive'>('active')
 
   const list = hobbies ?? []
   const recentHobbyId = recentQuery.data?.items[0]?.hobbyId ?? null
@@ -244,6 +250,9 @@ export function RoadmapPage() {
     list.find((hobby) => hobby.id === recentHobbyId) ??
     list[0] ??
     null
+
+  const archivedQuery = useArchivedRoadmaps(selected?.id ?? 0)
+  const archivedCount = archivedQuery.data?.length ?? 0
 
   function pick(id: number) {
     setPickedId(id)
@@ -265,21 +274,49 @@ export function RoadmapPage() {
         </Link>
       </div>
     )
+  } else if (view === 'archive') {
+    body = <ArchiveView key={selected.id} hobby={selected} onRestored={() => setView('active')} />
   } else {
     body = <HobbyRoadmap key={selected.id} hobby={selected} />
   }
 
   return (
     <div className="flex flex-col gap-3 lg:min-h-0 lg:flex-1">
-      <div className="flex flex-none items-center justify-between gap-3">
+      <div className="flex flex-none flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <h1 className="text-page-title">로드맵</h1>
         {selected ? (
-          <Dropdown
-            aria-label="분야"
-            value={String(selected.id)}
-            options={list.map((hobby) => ({ value: String(hobby.id), label: hobby.name }))}
-            onChange={(value) => pick(Number(value))}
-          />
+          <div className="flex items-center gap-2">
+            <div className="inline-flex rounded-lg border border-line-2 bg-white p-[0.1875rem]" role="group" aria-label="로드맵 보기">
+              {(
+                [
+                  ['active', '진행 중'],
+                  ['archive', `보관함 ${archivedCount}`],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={view === value}
+                  onClick={() => setView(value)}
+                  className={[
+                    'h-10 whitespace-nowrap rounded-md px-3.5 text-sm font-medium lg:h-8',
+                    view === value ? 'bg-ink text-white' : 'bg-transparent text-ink-2',
+                  ].join(' ')}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <Dropdown
+              aria-label="분야"
+              value={String(selected.id)}
+              options={list.map((hobby) => ({ value: String(hobby.id), label: hobby.name }))}
+              onChange={(value) => {
+                setView('active')
+                pick(Number(value))
+              }}
+            />
+          </div>
         ) : null}
       </div>
       {body}
@@ -474,6 +511,8 @@ function RoadmapBody({
   onArchiveOnly,
   onError,
   onNotice,
+  readOnly = false,
+  banner,
 }: {
   roadmap: Roadmap
   hobby: Hobby
@@ -485,6 +524,9 @@ function RoadmapBody({
   onArchiveOnly: () => void
   onError: (message: string | null) => void
   onNotice: (message: string | null) => void
+  /** 보관한 로드맵 보기: 체크·수정·추가·삭제를 모두 막고 머리줄 자리에 banner를 둔다. */
+  readOnly?: boolean
+  banner?: ReactNode
 }) {
   const hobbyId = hobby.id
   const desktop = useIsDesktop()
@@ -506,7 +548,9 @@ function RoadmapBody({
     updateTarget.mutate({ id: roadmap.id, targetDate: value }, { onError: (error) => onError(errorMessageOf(error)) })
   }
 
-  const header = (
+  const header = readOnly ? (
+    banner
+  ) : (
     <div className="flex flex-none flex-wrap items-center gap-x-2 gap-y-1 lg:flex-nowrap lg:gap-3">
       <div className="min-w-0 basis-full lg:flex-1 lg:basis-auto">
         <GoalLine hobby={hobby} onError={onError} />
@@ -525,10 +569,12 @@ function RoadmapBody({
     </div>
   )
 
-  const confirmRow = confirming ? (
+  const confirmRow = !readOnly && confirming ? (
     <div className="flex flex-none flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-surface px-4 py-2">
       <p className="text-sm">
-        {confirming === 'renew' ? '지금 로드맵은 보관하고 새로 만들까요?' : '지금 로드맵을 보관할까요?'}
+        {confirming === 'renew'
+          ? '지금 로드맵은 보관하고 새로 만들까요? 기존 로드맵은 보관함에 남아요.'
+          : '지금 로드맵을 보관할까요? 보관함에서 다시 쓸 수 있어요.'}
       </p>
       <div className="flex flex-wrap gap-2">
         {confirming === 'renew' ? (
@@ -552,13 +598,13 @@ function RoadmapBody({
     </div>
   ) : null
 
-  const goalNote = goalChanged ? (
+  const goalNote = !readOnly && goalChanged ? (
     <p className="flex-none text-xs text-ink-2">
       이 로드맵은 &lsquo;{roadmap.goalText}&rsquo; 목표로 만들었어요. 새로 만들면 지금 목표로 다시 제안해요.
     </p>
   ) : null
 
-  const adder = (
+  const adder = readOnly ? null : (
     <StepAdder
       roadmapId={roadmap.id}
       hobbyId={hobbyId}
@@ -594,15 +640,18 @@ function RoadmapBody({
               isLast={roadmap.steps[roadmap.steps.length - 1].id === selected.id}
               hobbyId={hobbyId}
               current={selected.id === currentId}
+              readOnly={readOnly}
               onError={onError}
               onNotice={onNotice}
             />
           ) : (
             <div className="flex min-h-0 flex-col items-start justify-center gap-3 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-5">
-              <p className="text-body-min">아직 단계가 없어요. 목표까지 가는 첫 단계를 적어 보세요.</p>
-              <Button type="button" onClick={() => setAdding(true)}>
-                첫 단계 추가하기
-              </Button>
+              <p className="text-body-min">{readOnly ? '이 로드맵에는 단계가 없어요.' : '아직 단계가 없어요. 목표까지 가는 첫 단계를 적어 보세요.'}</p>
+              {readOnly ? null : (
+                <Button type="button" onClick={() => setAdding(true)}>
+                  첫 단계 추가하기
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -617,10 +666,12 @@ function RoadmapBody({
       {goalNote}
       {roadmap.steps.length === 0 ? (
         <div className="flex flex-col items-start gap-3 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-5">
-          <p className="text-body-min">아직 단계가 없어요. 목표까지 가는 첫 단계를 적어 보세요.</p>
-          <Button type="button" onClick={() => setAdding(true)}>
-            첫 단계 추가하기
-          </Button>
+          <p className="text-body-min">{readOnly ? '이 로드맵에는 단계가 없어요.' : '아직 단계가 없어요. 목표까지 가는 첫 단계를 적어 보세요.'}</p>
+          {readOnly ? null : (
+            <Button type="button" onClick={() => setAdding(true)}>
+              첫 단계 추가하기
+            </Button>
+          )}
         </div>
       ) : null}
       <ol className="flex flex-col gap-3">
@@ -636,6 +687,7 @@ function RoadmapBody({
             current={step.id === currentId}
             expanded={open[step.id] ?? step.id === currentId}
             onToggle={() => setOpen((prev) => ({ ...prev, [step.id]: !(prev[step.id] ?? step.id === currentId) }))}
+            readOnly={readOnly}
             onError={onError}
             onNotice={onNotice}
           />
@@ -739,7 +791,7 @@ function StepRail({
   selectedId: number | null
   currentId: number | null
   onSelect: (id: number) => void
-  adder: ReactNode
+  adder: ReactNode | null
 }) {
   function onKeyDown(event: KeyboardEvent<HTMLUListElement>) {
     const index = steps.findIndex((step) => step.id === selectedId)
@@ -800,7 +852,7 @@ function StepRail({
           )
         })}
       </ul>
-      <div className="flex-none border-t border-line p-1.5">{adder}</div>
+      {adder ? <div className="flex-none border-t border-line p-1.5">{adder}</div> : null}
     </div>
   )
 }
@@ -819,6 +871,7 @@ function StepCard({
   current,
   expanded = true,
   onToggle,
+  readOnly = false,
   onError,
   onNotice,
 }: {
@@ -831,6 +884,7 @@ function StepCard({
   current: boolean
   expanded?: boolean
   onToggle?: () => void
+  readOnly?: boolean
   onError: (message: string | null) => void
   onNotice: (message: string | null) => void
 }) {
@@ -875,7 +929,7 @@ function StepCard({
     )
   }
 
-  const menu = (
+  const menu = readOnly ? null : (
     <ActionMenu
       label={`${step.title} 단계 메뉴`}
       items={[
@@ -895,7 +949,7 @@ function StepCard({
   )
 
   const editForm =
-    mode === 'edit' ? (
+    !readOnly && mode === 'edit' ? (
       <form className="flex flex-none flex-col gap-2 lg:flex-row lg:items-center" onSubmit={saveStep}>
         <Input
           value={titleDraft}
@@ -924,7 +978,7 @@ function StepCard({
     ) : null
 
   const confirmRow =
-    mode === 'confirm' ? (
+    !readOnly && mode === 'confirm' ? (
       <div className="flex flex-none flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-surface px-3 py-2">
         <p className="text-sm">이 단계와 안의 항목을 지울까요?</p>
         <div className="flex gap-2">
@@ -950,13 +1004,16 @@ function StepCard({
         detail ? 'scrollbar-thin-fade min-h-0 flex-1 overflow-y-auto overscroll-contain' : '',
       ].join(' ')}
     >
-      {step.items.length === 0 ? <li className="py-2 text-sm text-ink-2">아직 항목이 없어요. 아래에서 추가해 보세요.</li> : null}
+      {step.items.length === 0 ? (
+        <li className="py-2 text-sm text-ink-2">{readOnly ? '항목이 없어요.' : '아직 항목이 없어요. 아래에서 추가해 보세요.'}</li>
+      ) : null}
       {step.items.map((item, index) => (
         <ItemRow
           key={item.id}
           item={item}
           hobbyId={hobbyId}
           compact={detail}
+          readOnly={readOnly}
           isFirst={index === 0}
           isLast={index === step.items.length - 1}
           onError={onError}
@@ -966,8 +1023,7 @@ function StepCard({
     </ul>
   )
 
-  const addForm =
-    step.items.length < MAX_ITEMS_PER_STEP ? (
+  const addForm = readOnly ? null : step.items.length < MAX_ITEMS_PER_STEP ? (
       <form className="flex flex-none items-center gap-2" onSubmit={submitItem}>
         <Input
           value={newItem}
@@ -1003,7 +1059,7 @@ function StepCard({
         {editForm}
         {confirmRow}
         {list}
-        <div className="flex-none border-t border-line pt-3">{addForm}</div>
+        {addForm ? <div className="flex-none border-t border-line pt-3">{addForm}</div> : null}
       </section>
     )
   }
@@ -1057,6 +1113,7 @@ function ItemRow({
   item,
   hobbyId,
   compact,
+  readOnly = false,
   isFirst,
   isLast,
   onError,
@@ -1064,6 +1121,8 @@ function ItemRow({
 }: {
   item: RoadmapItem
   hobbyId: number
+  /** 보관한 로드맵: 체크·수정을 막는다. */
+  readOnly?: boolean
   /** 웹: 아이콘을 hover·포커스에서만 보여 준다. 모바일(false)은 ⋯ 메뉴. */
   compact: boolean
   isFirst: boolean
@@ -1143,7 +1202,7 @@ function ItemRow({
       <input
         type="checkbox"
         checked={item.done}
-        disabled={setDone.isPending}
+        disabled={setDone.isPending || readOnly}
         onChange={(event) => {
           onError(null)
           onNotice(null)
@@ -1164,6 +1223,10 @@ function ItemRow({
       </span>
     </label>
   )
+
+  if (readOnly) {
+    return <li className="flex items-center border-t border-line first:border-t-0">{checkbox}</li>
+  }
 
   if (!compact) {
     return (
@@ -1218,5 +1281,241 @@ function ItemRow({
         </button>
       </div>
     </li>
+  )
+}
+
+/** "11월 20일"(올해가 아니면 연도 포함). 서버의 날짜-시각 문자열 앞 10자리만 쓴다. */
+function archiveDate(value: string): string {
+  const [year, month, day] = value.slice(0, 10).split('-')
+  const text = `${Number(month)}월 ${Number(day)}일`
+  return Number(year) === new Date().getFullYear() ? text : `${year}년 ${text}`
+}
+
+const cardButton =
+  'inline-flex h-11 items-center justify-center whitespace-nowrap rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink hover:bg-surface disabled:opacity-40 lg:h-9'
+
+type ArchiveConfirm = null | { kind: 'restore' | 'delete'; id: number }
+
+/**
+ * 보관함: 보관한 로드맵 카드 목록과 읽기 전용 보기. 다시 쓰기는 진행 중 로드맵이 있으면 확인 후 맞바꾸고(swap),
+ * 없으면 바로 복원한다. 삭제는 되돌릴 수 없어서 한 번 더 묻는다.
+ */
+function ArchiveView({ hobby, onRestored }: { hobby: Hobby; onRestored: () => void }) {
+  const hobbyId = hobby.id
+  const listQuery = useArchivedRoadmaps(hobbyId)
+  const activeQuery = useRoadmap(hobbyId)
+  const restore = useRestoreRoadmap(hobbyId)
+  const remove = useDeleteArchivedRoadmap(hobbyId)
+  const [viewingId, setViewingId] = useState<number | null>(null)
+  const [confirm, setConfirm] = useState<ArchiveConfirm>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const busy = restore.isPending || remove.isPending
+
+  function doRestore(id: number, swap: boolean) {
+    setErrorMessage(null)
+    restore.mutate(
+      { id, swap },
+      {
+        onSuccess: () => {
+          setConfirm(null)
+          onRestored()
+        },
+        onError: (error) => {
+          if (error instanceof ApiError && error.code === 'ROADMAP_ACTIVE_EXISTS') {
+            // 그 사이 진행 중 로드맵이 생겼다면 확인을 거쳐 맞바꾼다.
+            setConfirm({ kind: 'restore', id })
+          } else {
+            setConfirm(null)
+            setErrorMessage(errorMessageOf(error))
+          }
+        },
+      },
+    )
+  }
+
+  function requestRestore(id: number) {
+    if (activeQuery.data) {
+      setConfirm({ kind: 'restore', id })
+    } else {
+      doRestore(id, false)
+    }
+  }
+
+  function doDelete(id: number) {
+    setErrorMessage(null)
+    remove.mutate(id, {
+      onSuccess: () => {
+        setConfirm(null)
+        if (viewingId === id) setViewingId(null)
+      },
+      onError: (error) => {
+        setConfirm(null)
+        setErrorMessage(errorMessageOf(error))
+      },
+    })
+  }
+
+  const dialog = confirm ? (
+    <Dialog onClose={() => setConfirm(null)} labelledBy="roadmap-archive-confirm">
+      <h2 id="roadmap-archive-confirm" className="font-serif text-xl font-semibold">
+        {confirm.kind === 'restore' ? '이 로드맵을 다시 쓸까요?' : '이 로드맵을 삭제할까요?'}
+      </h2>
+      <p className="mt-3 text-body-min leading-[1.7] text-ink">
+        {confirm.kind === 'restore'
+          ? '지금 로드맵을 보관하고 이 로드맵을 다시 쓸까요?'
+          : '삭제하면 되돌릴 수 없어요. 단계와 할 일도 함께 지워져요.'}
+      </p>
+      <div className="mt-5 flex gap-2 lg:justify-end">
+        <Button type="button" variant="secondary" onClick={() => setConfirm(null)} className="flex-1! lg:flex-none!">
+          그대로 둘게요
+        </Button>
+        <Button
+          type="button"
+          disabled={busy}
+          onClick={() => (confirm.kind === 'restore' ? doRestore(confirm.id, true) : doDelete(confirm.id))}
+          className="flex-1! lg:flex-none!"
+        >
+          {confirm.kind === 'restore' ? '보관하고 다시 쓰기' : '삭제'}
+        </Button>
+      </div>
+    </Dialog>
+  ) : null
+
+  if (viewingId != null) {
+    return (
+      <div className="flex flex-col gap-3 lg:min-h-0 lg:flex-1">
+        {errorMessage ? <Note variant="sand">{errorMessage}</Note> : null}
+        <ArchivedDetail
+          id={viewingId}
+          hobby={hobby}
+          restoreDisabled={busy || activeQuery.isLoading}
+          onBack={() => setViewingId(null)}
+          onRestore={() => requestRestore(viewingId)}
+        />
+        {dialog}
+      </div>
+    )
+  }
+
+  const list: RoadmapSummary[] = listQuery.data ?? []
+  let body: ReactNode
+  if (listQuery.isError) {
+    body = <Note variant="sand">보관함을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</Note>
+  } else if (listQuery.isLoading) {
+    body = <Loading />
+  } else if (list.length === 0) {
+    body = (
+      <div className="flex flex-col gap-1 rounded-2xl bg-surface p-5">
+        <p className="text-body-min">보관한 로드맵이 없어요.</p>
+        <p className="text-sm text-ink-2">새로 만들거나 보관하면 기존 로드맵이 여기에 남아요.</p>
+      </div>
+    )
+  } else {
+    body = (
+      <ul className="scrollbar-thin-fade grid content-start gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-2 lg:overflow-y-auto lg:overscroll-contain">
+        {list.map((item) => (
+          <li key={item.id} className="flex min-w-0 flex-col gap-1.5 rounded-2xl border border-line-2 bg-white p-4">
+            <p className="line-clamp-2 break-words font-serif text-lg leading-[1.45]" title={item.goalText}>
+              {item.goalText}
+            </p>
+            <p className="text-sm text-ink-2">
+              {archiveDate(item.createdAt)} → {archiveDate(item.archivedAt)} 보관
+            </p>
+            <p className="text-sm text-ink-2">
+              {item.itemCount}개 중 {item.doneCount}개 체크했어요
+            </p>
+            <div className="mt-1 flex flex-wrap gap-2">
+              <button type="button" className={cardButton} onClick={() => setViewingId(item.id)}>
+                보기
+              </button>
+              <button
+                type="button"
+                className={cardButton}
+                disabled={busy || activeQuery.isLoading}
+                onClick={() => requestRestore(item.id)}
+              >
+                다시 쓰기
+              </button>
+              <button type="button" className={cardButton} disabled={busy} onClick={() => setConfirm({ kind: 'delete', id: item.id })}>
+                삭제
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3 lg:min-h-0 lg:flex-1">
+      {errorMessage ? <Note variant="sand">{errorMessage}</Note> : null}
+      {body}
+      {dialog}
+    </div>
+  )
+}
+
+/** 보관한 로드맵 한 개를 현재 로드맵과 같은 2열(모바일은 아코디언)로 읽기 전용으로 보여 준다. */
+function ArchivedDetail({
+  id,
+  hobby,
+  restoreDisabled,
+  onBack,
+  onRestore,
+}: {
+  id: number
+  hobby: Hobby
+  restoreDisabled: boolean
+  onBack: () => void
+  onRestore: () => void
+}) {
+  const { data: roadmap, isLoading, isError } = useRoadmapById(id)
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-start gap-3">
+        <Note variant="sand">로드맵을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</Note>
+        <button type="button" className={cardButton} onClick={onBack}>
+          보관함으로
+        </button>
+      </div>
+    )
+  }
+  if (isLoading || !roadmap) return <Loading />
+
+  const counts = countItems(roadmap.steps)
+  const banner = (
+    <div className="flex flex-none flex-wrap items-center gap-x-3 gap-y-2">
+      <button type="button" className={cardButton} onClick={onBack}>
+        ← 보관함
+      </button>
+      <div className="min-w-0 basis-full lg:flex-1 lg:basis-auto">
+        <p title={roadmap.goalText} className="break-words font-serif text-lg leading-[1.5] lg:truncate lg:text-[22px] lg:leading-[1.4]">
+          {roadmap.goalText}
+        </p>
+      </div>
+      <p className="min-w-0 flex-1 text-sm text-ink-2 lg:flex-none">
+        <span className="font-medium text-ink">보관한 로드맵이에요</span> · {counts.total}개 중 {counts.done}개 체크했어요
+      </p>
+      <Button type="button" disabled={restoreDisabled} onClick={onRestore}>
+        다시 쓰기
+      </Button>
+    </div>
+  )
+
+  return (
+    <RoadmapBody
+      roadmap={roadmap}
+      hobby={hobby}
+      goalChanged={false}
+      confirming={null}
+      onAskConfirm={() => {}}
+      onRenew={() => {}}
+      onArchiveOnly={() => {}}
+      onError={() => {}}
+      onNotice={() => {}}
+      readOnly
+      banner={banner}
+    />
   )
 }

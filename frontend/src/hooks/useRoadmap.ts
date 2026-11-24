@@ -3,6 +3,10 @@ import {
   addRoadmapItem,
   addRoadmapStep,
   archiveRoadmap,
+  deleteRoadmap,
+  fetchArchivedRoadmaps,
+  fetchRoadmapById,
+  restoreRoadmap,
   createRoadmap,
   deleteRoadmapItem,
   deleteRoadmapStep,
@@ -17,6 +21,51 @@ import {
 
 export function roadmapKey(hobbyId: number) {
   return ['roadmap', hobbyId] as const
+}
+
+export function archivedKey(hobbyId: number) {
+  return ['roadmaps', 'archived', hobbyId] as const
+}
+
+export function useArchivedRoadmaps(hobbyId: number) {
+  return useQuery({
+    queryKey: archivedKey(hobbyId),
+    queryFn: () => fetchArchivedRoadmaps(hobbyId),
+    enabled: Number.isFinite(hobbyId) && hobbyId > 0,
+  })
+}
+
+/** 보관된 로드맵 한 개(읽기 전용 보기). */
+export function useRoadmapById(id: number | null) {
+  return useQuery({
+    queryKey: ['roadmaps', 'detail', id],
+    queryFn: () => fetchRoadmapById(id!),
+    enabled: id != null,
+  })
+}
+
+/** 복원하면 진행 중 로드맵이 바뀌므로 진행 중 캐시를 갱신하고 보관함 목록은 다시 받는다. */
+export function useRestoreRoadmap(hobbyId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, swap }: { id: number; swap: boolean }) => restoreRoadmap(id, swap),
+    onSuccess: (roadmap) => {
+      queryClient.setQueryData(roadmapKey(hobbyId), roadmap)
+      queryClient.invalidateQueries({ queryKey: archivedKey(hobbyId) })
+      queryClient.invalidateQueries({ queryKey: ['roadmaps', 'detail'] })
+    },
+  })
+}
+
+export function useDeleteArchivedRoadmap(hobbyId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => deleteRoadmap(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: archivedKey(hobbyId) })
+      queryClient.invalidateQueries({ queryKey: ['roadmaps', 'detail'] })
+    },
+  })
 }
 
 export function useRoadmap(hobbyId: number) {
@@ -50,6 +99,7 @@ export function useArchiveRoadmap(hobbyId: number) {
     mutationFn: (roadmapId: number) => archiveRoadmap(roadmapId),
     onSuccess: () => {
       queryClient.setQueryData(roadmapKey(hobbyId), null)
+      queryClient.invalidateQueries({ queryKey: archivedKey(hobbyId) })
     },
   })
 }

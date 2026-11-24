@@ -20,6 +20,8 @@ export type RoadmapStep = {
 export type Roadmap = {
   id: number
   hobbyId: number
+  /** ACTIVE 또는 ARCHIVED(보관된 로드맵은 읽기 전용). */
+  state: 'ACTIVE' | 'ARCHIVED'
   goalText: string
   targetDate: string | null
   steps: RoadmapStep[]
@@ -28,6 +30,37 @@ export type Roadmap = {
 }
 
 export type MoveDirection = 'UP' | 'DOWN'
+
+/** 보관함 카드 한 장. archivedAt은 보관한 시각(서버가 마지막 수정 시각으로 준다). */
+export type RoadmapSummary = {
+  id: number
+  goalText: string
+  createdAt: string
+  archivedAt: string
+  stepCount: number
+  itemCount: number
+  doneCount: number
+}
+
+/** 최근 보관한 순으로 최대 20개. */
+export function fetchArchivedRoadmaps(hobbyId: number) {
+  return apiRequest<RoadmapSummary[]>(`/api/hobbies/${hobbyId}/roadmaps?state=ARCHIVED`)
+}
+
+/** 진행 중·보관된 로드맵 모두(본인 것만). */
+export function fetchRoadmapById(id: number) {
+  return apiRequest<Roadmap>(`/api/roadmaps/${id}`)
+}
+
+/** 같은 분야에 진행 중인 로드맵이 있으면 swap이 true일 때만 맞바꾸고, 아니면 409(ROADMAP_ACTIVE_EXISTS). */
+export function restoreRoadmap(id: number, swap: boolean) {
+  return apiRequest<Roadmap>(`/api/roadmaps/${id}/restore`, { method: 'POST', body: swap ? { swap: true } : {} })
+}
+
+/** 보관된 로드맵만 지울 수 있다(되돌릴 수 없다). */
+export function deleteRoadmap(id: number) {
+  return apiRequest<void>(`/api/roadmaps/${id}`, { method: 'DELETE' })
+}
 
 /** 진행 중인 로드맵이 없으면 서버가 JSON null을 준다. */
 export function fetchRoadmap(hobbyId: number) {
