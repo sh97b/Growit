@@ -45,6 +45,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @DataJpaTest
 class UserServiceTest {
 
+	@Autowired
+	private com.growit.roadmap.repository.RoadmapItemBlockRepository blockRepository;
+
 	private static final String TEST_SECRET = "test-only-secret-key-please-replace-32bytes-min";
 	private static final String TEST_IP = "203.0.113.1";
 	private static final String CURRENT_PASSWORD = "Gr0wit-Journal9";
@@ -119,7 +122,7 @@ class UserServiceTest {
 				new LoginAttemptLimiter(Clock.systemUTC()), jwtTokenProvider, aiResultRepository, aiLogRepository,
 				activityRecordRepository, hobbyRepository, notificationSettingsRepository, pushSubscriptionRepository,
 				socialAccountRepository, dotProgressRepository, dotGoalRepository,
-				customFeelingRepository, roadmapRepository, roadmapStepRepository, roadmapItemRepository);
+				customFeelingRepository, roadmapRepository, roadmapStepRepository, roadmapItemRepository, blockRepository);
 	}
 
 	@Test
@@ -330,6 +333,7 @@ class UserServiceTest {
 		assertThat(roadmapRepository.findById(otherRoadmap)).isPresent();
 		assertThat(roadmapStepRepository.findByRoadmapIdOrderBySortOrderAscIdAsc(otherRoadmap)).hasSize(1);
 		assertThat(roadmapItemRepository.count()).isEqualTo(1);
+		assertThat(blockRepository.count()).isEqualTo(1);
 	}
 
 	private Long newRoadmap(Long userId) {
@@ -338,8 +342,10 @@ class UserServiceTest {
 				.save(new com.growit.roadmap.entity.Roadmap(userId, hobbyId, "목표", null, 1)).getId();
 		Long stepId = roadmapStepRepository
 				.save(new com.growit.roadmap.entity.RoadmapStep(roadmapId, 1, "단계", null)).getId();
-		roadmapItemRepository.save(new com.growit.roadmap.entity.RoadmapItem(stepId, 1, "항목",
-				com.growit.roadmap.entity.RoadmapItemOrigin.AI));
+		Long itemId = roadmapItemRepository.save(new com.growit.roadmap.entity.RoadmapItem(stepId, 1, "항목",
+				com.growit.roadmap.entity.RoadmapItemOrigin.AI)).getId();
+		blockRepository.save(new com.growit.roadmap.entity.RoadmapItemBlock(itemId,
+				com.growit.roadmap.entity.BlockKind.MEMO, 1, "{\"text\":\"메모\"}"));
 		return roadmapId;
 	}
 

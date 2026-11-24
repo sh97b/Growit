@@ -41,6 +41,9 @@ import org.springframework.transaction.PlatformTransactionManager;
 @DataJpaTest
 class RoadmapGenerationServiceTest {
 
+	@Autowired
+	private com.growit.roadmap.repository.RoadmapItemBlockRepository blockRepository;
+
 	private static final String VALID = """
 			{"steps":[
 			 {"title":"Am 코드 손에 익히기","periodHint":"약 1~2주","items":["Am 코드를 짚고 소리 확인하기","C에서 Am으로 천천히 열 번 바꿔 보기"]},
@@ -80,7 +83,7 @@ class RoadmapGenerationServiceTest {
 		AiUsageService usage = new AiUsageService(aiLogRepository, properties);
 		AiCallService call = new AiCallService(properties, aiChatClient, aiLogRepository, usage, objectMapper);
 		RoadmapService roadmapService = new RoadmapService(roadmapRepository, stepRepository, itemRepository,
-				hobbyRepository, Clock.systemUTC());
+				hobbyRepository, Clock.systemUTC(), blockRepository);
 		return new RoadmapGenerationService(hobbyRepository, activityRecordRepository, roadmapRepository,
 				stepRepository, itemRepository, call, new AiResponseValidator(objectMapper), roadmapService,
 				Clock.systemUTC(), transactionManager);
@@ -279,7 +282,7 @@ class RoadmapGenerationServiceTest {
 		AiCallService call = new AiCallService(properties, aiChatClient, aiLogRepository, usage, objectMapper);
 		RoadmapGenerationService limited = new RoadmapGenerationService(hobbyRepository, activityRecordRepository,
 				roadmapRepository, stepRepository, itemRepository, call, new AiResponseValidator(objectMapper),
-				new RoadmapService(roadmapRepository, stepRepository, itemRepository, hobbyRepository, Clock.systemUTC()),
+				new RoadmapService(roadmapRepository, stepRepository, itemRepository, hobbyRepository, Clock.systemUTC(), blockRepository),
 				Clock.systemUTC(), transactionManager);
 		java.util.List<String> logs = captureLogs();
 

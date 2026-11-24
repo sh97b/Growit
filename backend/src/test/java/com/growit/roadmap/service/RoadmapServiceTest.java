@@ -34,6 +34,9 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 class RoadmapServiceTest {
 
 	@Autowired
+	private com.growit.roadmap.repository.RoadmapItemBlockRepository blockRepository;
+
+	@Autowired
 	private RoadmapRepository roadmapRepository;
 
 	@Autowired
@@ -50,7 +53,7 @@ class RoadmapServiceTest {
 
 	private RoadmapService service() {
 		return new RoadmapService(roadmapRepository, stepRepository, itemRepository, hobbyRepository,
-				Clock.systemUTC());
+				Clock.systemUTC(), blockRepository);
 	}
 
 	private Hobby hobby(Long userId) {
@@ -359,7 +362,7 @@ class RoadmapServiceTest {
 		Hobby hobby = hobby(1L);
 		seed(1L, hobby.getId());
 		HobbyService hobbyService = new HobbyService(hobbyRepository, activityRecordRepository, roadmapRepository,
-				stepRepository, itemRepository);
+				stepRepository, itemRepository, blockRepository);
 
 		hobbyService.delete(1L, hobby.getId());
 

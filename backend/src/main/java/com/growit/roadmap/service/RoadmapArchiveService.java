@@ -9,6 +9,7 @@ import com.growit.roadmap.entity.Roadmap;
 import com.growit.roadmap.entity.RoadmapItem;
 import com.growit.roadmap.entity.RoadmapState;
 import com.growit.roadmap.entity.RoadmapStep;
+import com.growit.roadmap.repository.RoadmapItemBlockRepository;
 import com.growit.roadmap.repository.RoadmapItemRepository;
 import com.growit.roadmap.repository.RoadmapRepository;
 import com.growit.roadmap.repository.RoadmapStepRepository;
@@ -34,14 +35,17 @@ public class RoadmapArchiveService {
 	private final RoadmapItemRepository itemRepository;
 	private final HobbyRepository hobbyRepository;
 	private final RoadmapService roadmapService;
+	private final RoadmapItemBlockRepository blockRepository;
 
 	public RoadmapArchiveService(RoadmapRepository roadmapRepository, RoadmapStepRepository stepRepository,
-			RoadmapItemRepository itemRepository, HobbyRepository hobbyRepository, RoadmapService roadmapService) {
+			RoadmapItemRepository itemRepository, HobbyRepository hobbyRepository, RoadmapService roadmapService,
+			RoadmapItemBlockRepository blockRepository) {
 		this.roadmapRepository = roadmapRepository;
 		this.stepRepository = stepRepository;
 		this.itemRepository = itemRepository;
 		this.hobbyRepository = hobbyRepository;
 		this.roadmapService = roadmapService;
+		this.blockRepository = blockRepository;
 	}
 
 	/** 보관한 지 가장 최근인 것부터 최대 20개. */
@@ -109,6 +113,7 @@ public class RoadmapArchiveService {
 		if (roadmap.isActive()) {
 			throw new ApiException(ErrorCode.ROADMAP_NOT_ARCHIVED, "진행 중인 로드맵은 삭제할 수 없어요. 먼저 보관해 주세요");
 		}
+		blockRepository.deleteByRoadmapId(roadmapId);
 		itemRepository.deleteByRoadmapId(roadmapId);
 		stepRepository.deleteByRoadmapId(roadmapId);
 		roadmapRepository.delete(roadmap);

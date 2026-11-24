@@ -17,6 +17,7 @@ import com.growit.roadmap.entity.RoadmapItem;
 import com.growit.roadmap.entity.RoadmapItemOrigin;
 import com.growit.roadmap.entity.RoadmapState;
 import com.growit.roadmap.entity.RoadmapStep;
+import com.growit.roadmap.repository.RoadmapItemBlockRepository;
 import com.growit.roadmap.repository.RoadmapItemRepository;
 import com.growit.roadmap.repository.RoadmapRepository;
 import com.growit.roadmap.repository.RoadmapStepRepository;
@@ -52,14 +53,17 @@ public class RoadmapService {
 	private final RoadmapItemRepository itemRepository;
 	private final HobbyRepository hobbyRepository;
 	private final Clock clock;
+	private final RoadmapItemBlockRepository blockRepository;
 
 	public RoadmapService(RoadmapRepository roadmapRepository, RoadmapStepRepository stepRepository,
-			RoadmapItemRepository itemRepository, HobbyRepository hobbyRepository, Clock clock) {
+			RoadmapItemRepository itemRepository, HobbyRepository hobbyRepository, Clock clock,
+			RoadmapItemBlockRepository blockRepository) {
 		this.roadmapRepository = roadmapRepository;
 		this.stepRepository = stepRepository;
 		this.itemRepository = itemRepository;
 		this.hobbyRepository = hobbyRepository;
 		this.clock = clock;
+		this.blockRepository = blockRepository;
 	}
 
 	/** 진행 중인(ACTIVE) 로드맵. 없으면 null. */
@@ -128,6 +132,7 @@ public class RoadmapService {
 	public RoadmapResponse deleteStep(Long userId, Long stepId) {
 		RoadmapStep step = ownedStep(userId, stepId);
 		Roadmap roadmap = roadmapOf(step);
+		blockRepository.deleteByStepId(step.getId());
 		itemRepository.deleteByStepId(step.getId());
 		stepRepository.delete(step);
 		stepRepository.flush();
@@ -180,6 +185,7 @@ public class RoadmapService {
 	public RoadmapResponse deleteItem(Long userId, Long itemId) {
 		RoadmapItem item = ownedItem(userId, itemId);
 		Roadmap roadmap = roadmapOf(stepOf(item));
+		blockRepository.deleteByItemId(item.getId());
 		itemRepository.delete(item);
 		itemRepository.flush();
 		return toResponse(roadmap);
@@ -233,6 +239,13 @@ public class RoadmapService {
 		Map<Long, List<RoadmapItem>> itemsByStep = steps.isEmpty() ? Map.of()
 				: itemRepository.findByStepIdInOrderBySortOrderAscIdAsc(steps.stream().map(RoadmapStep::getId).toList())
 						.stream().collect(Collectors.groupingBy(RoadmapItem::getStepId));
+		Map<Long, Integer> blockCounts = new java.util.HashMap<>();
+		if (!itemsByStep.isEmpty()) {
+			List<Long> itemIds = itemsByStep.values().stream().flatMap(List::stream).map(RoadmapItem::getId).toList();
+			for (Object[] row : blockRepository.countGroupedByItemId(itemIds)) {
+				blockCounts.put((Long) row[0], ((Number) row[1]).intValue());
+			}
+		}
 		List<RoadmapStepResponse> stepResponses = new ArrayList<>();
 		for (int i = 0; i < steps.size(); i++) {
 			RoadmapStep step = steps.get(i);
@@ -241,7 +254,7 @@ public class RoadmapService {
 			for (int j = 0; j < items.size(); j++) {
 				RoadmapItem item = items.get(j);
 				itemResponses.add(new RoadmapItemResponse(item.getId(), j + 1, item.getContent(), item.isDone(),
-						item.getDoneAt(), item.getOrigin().name()));
+						item.getDoneAt(), item.getOrigin().name(), blockCounts.getOrDefault(item.getId(), 0)));
 			}
 			stepResponses.add(new RoadmapStepResponse(step.getId(), i + 1, step.getTitle(), step.getPeriodHint(),
 					itemResponses));

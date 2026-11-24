@@ -22,6 +22,7 @@ import com.growit.user.dto.DeleteAccountRequest;
 import com.growit.user.dto.MeResponse;
 import com.growit.user.dto.UpdateMeRequest;
 import com.growit.user.entity.User;
+import com.growit.roadmap.repository.RoadmapItemBlockRepository;
 import com.growit.roadmap.repository.RoadmapItemRepository;
 import com.growit.roadmap.repository.RoadmapRepository;
 import com.growit.roadmap.repository.RoadmapStepRepository;
@@ -59,6 +60,7 @@ public class UserService {
 	private final RoadmapRepository roadmapRepository;
 	private final RoadmapStepRepository roadmapStepRepository;
 	private final RoadmapItemRepository roadmapItemRepository;
+	private final RoadmapItemBlockRepository roadmapItemBlockRepository;
 
 	public UserService(UserRepository userRepository, CurrentUserProvider currentUserProvider,
 			PasswordEncoder passwordEncoder, PasswordPolicy passwordPolicy, LoginAttemptLimiter loginAttemptLimiter,
@@ -68,7 +70,8 @@ public class UserService {
 			PushSubscriptionRepository pushSubscriptionRepository, SocialAccountRepository socialAccountRepository,
 			DotProgressRepository dotProgressRepository, DotGoalRepository dotGoalRepository,
 			CustomFeelingRepository customFeelingRepository, RoadmapRepository roadmapRepository,
-			RoadmapStepRepository roadmapStepRepository, RoadmapItemRepository roadmapItemRepository) {
+			RoadmapStepRepository roadmapStepRepository, RoadmapItemRepository roadmapItemRepository,
+			RoadmapItemBlockRepository roadmapItemBlockRepository) {
 		this.userRepository = userRepository;
 		this.currentUserProvider = currentUserProvider;
 		this.passwordEncoder = passwordEncoder;
@@ -88,6 +91,7 @@ public class UserService {
 		this.roadmapRepository = roadmapRepository;
 		this.roadmapStepRepository = roadmapStepRepository;
 		this.roadmapItemRepository = roadmapItemRepository;
+		this.roadmapItemBlockRepository = roadmapItemBlockRepository;
 	}
 
 	public MeResponse me() {
@@ -165,6 +169,7 @@ public class UserService {
 		aiLogRepository.deleteByUserId(userId);
 		dotProgressRepository.deleteByUserId(userId);
 		dotGoalRepository.deleteByUserId(userId);
+		roadmapItemBlockRepository.deleteByUserId(userId);
 		roadmapItemRepository.deleteByUserId(userId);
 		roadmapStepRepository.deleteByUserId(userId);
 		roadmapRepository.deleteByUserId(userId);

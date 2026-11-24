@@ -22,6 +22,9 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 class HobbyServiceTest {
 
 	@Autowired
+	private com.growit.roadmap.repository.RoadmapItemBlockRepository blockRepository;
+
+	@Autowired
 	private HobbyRepository hobbyRepository;
 
 	@Autowired
@@ -38,7 +41,7 @@ class HobbyServiceTest {
 
 	private HobbyService hobbyService() {
 		return new HobbyService(hobbyRepository, activityRecordRepository, roadmapRepository, roadmapStepRepository,
-				roadmapItemRepository);
+				roadmapItemRepository, blockRepository);
 	}
 
 	@Test
