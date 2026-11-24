@@ -44,6 +44,12 @@ class CompareServiceTest {
 	private AiLogRepository aiLogRepository;
 
 	private final AiChatClient aiChatClient = mock(AiChatClient.class);
+
+	{
+		// 구조화(json_schema) 호출도 같은 스텁(complete)으로 답하게 한다.
+		given(aiChatClient.completeStructured(anyString(), anyString(), anyString(), org.mockito.ArgumentMatchers.anyMap()))
+				.willAnswer(invocation -> aiChatClient.complete(invocation.getArgument(0), invocation.getArgument(1)));
+	}
 	private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
 
 	private AiProperties enabledProperties() {
@@ -416,35 +422,34 @@ class CompareServiceTest {
 						+ insight("이어 쳤어요", "이번엔 이어 쳤다고 적었어요", current.getId()),
 				insight("근거 없는 항목", "근거 id가 비어 있어요") + ","
 						+ insight("낯선 id 항목", "허용되지 않은 id예요", 99999L),
-				idea("한 번 더 해 보세요", past.getId()) + "," + idea("긴 글".repeat(40), current.getId())));
+				idea("한 번 더 해 보세요", past.getId()) + "," + idea("긴".repeat(111), current.getId())));
 
 		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "2W"));
 
 		assertThat(response.schemaVersion()).isEqualTo(2);
 		assertThat(response.good()).extracting("point").containsExactly("이어 쳤어요");
-		assertThat(response.gap()).isEmpty();
+		// 근거가 비었거나 낯선 id인 항목은 버리지 않고 최근 기록 id로 대신한다. 글자 수 하드 한도(110자)를 넘은 제안만 버려진다.
+		assertThat(response.gap()).extracting("point").containsExactly("근거 없는 항목", "낯선 id 항목");
 		assertThat(response.next()).extracting("idea").containsExactly("한 번 더 해 보세요");
 	}
 
 	@Test
-	void compareStructured_otherUsersRecordId_isRejected_andFallsBackToLegacy() {
+	void compareStructured_otherUsersRecordId_isReplacedWithCurrentRecord_notTrusted() {
 		Long hobbyId = createHobby(1L);
 		createRecord(1L, hobbyId, LocalDate.now().minusDays(30), "예전 연습");
 		createRecord(1L, hobbyId, LocalDate.now().minusDays(5), "중간 연습");
-		createRecord(1L, hobbyId, LocalDate.now(), "최신 연습");
+		ActivityRecord current = createRecord(1L, hobbyId, LocalDate.now(), "최신 연습");
 		Long otherHobby = createHobby(2L);
 		ActivityRecord others = createRecord(2L, otherHobby, LocalDate.now(), "남의 기록");
 
-		given(aiChatClient.complete(anyString(), anyString()))
-				.willReturn(new AiChatResponse(structuredJson("남의 기록을 끌어왔어요",
-						insight("남의 기록", "허용되지 않은 근거예요", others.getId()), "", ""), 10, "model"))
-				.willReturn(new AiChatResponse(LEGACY_JSON, 10, "model"));
+		stubAiResponse(structuredJson("남의 기록을 끌어왔어요",
+				insight("남의 기록", "허용되지 않은 근거예요", others.getId()), "", ""));
 
 		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "2W"));
 
-		assertThat(response.schemaVersion()).isNull();
-		assertThat(response.interpretation()).isEqualTo("지난번엔 끊겼는데 이번엔 이어졌어요");
-		assertThat(response.good()).isNull();
+		assertThat(response.schemaVersion()).isEqualTo(2);
+		assertThat(response.good().get(0).evidence()).extracting("id").containsExactly(current.getId());
+		assertThat(response.good().get(0).evidence()).extracting("content").doesNotContain("남의 기록");
 	}
 
 	@Test
@@ -465,7 +470,7 @@ class CompareServiceTest {
 		assertThat(response.schemaVersion()).isNull();
 		assertThat(response.interpretation()).isEqualTo("지난번엔 끊겼는데 이번엔 이어졌어요");
 		assertThat(aiResultRepository.findAll()).hasSize(1);
-		org.mockito.Mockito.verify(aiChatClient, org.mockito.Mockito.times(2)).complete(anyString(), anyString());
+		org.mockito.Mockito.verify(aiChatClient, org.mockito.Mockito.times(3)).complete(anyString(), anyString());
 	}
 
 	@Test
@@ -486,6 +491,164 @@ class CompareServiceTest {
 		assertThat(response.schemaVersion()).isNull();
 		assertThat(response.good()).isNull();
 		assertThat(response.pastRecord().id()).isEqualTo(past.getId());
+	}
+
+	private java.util.List<String> captureCompareLogs() {
+		ch.qos.logback.classic.Logger logger =
+				(ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(CompareService.class);
+		ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+				new ch.qos.logback.core.read.ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		return new java.util.AbstractList<>() {
+			@Override
+			public String get(int index) {
+				return appender.list.get(index).getFormattedMessage();
+			}
+
+			@Override
+			public int size() {
+				return appender.list.size();
+			}
+		};
+	}
+
+	/** 과거·현재·중간 기록 세 개를 만든다(과거 기록 본문과 현재 기록 본문을 지정). */
+	private ActivityRecord[] threeRecords(Long hobbyId, String pastContent, String currentContent) {
+		ActivityRecord past = createRecord(1L, hobbyId, LocalDate.now().minusDays(20), pastContent);
+		createRecord(1L, hobbyId, LocalDate.now().minusDays(10), "중간 연습");
+		ActivityRecord current = createRecord(1L, hobbyId, LocalDate.now(), currentContent);
+		return new ActivityRecord[] {past, current};
+	}
+
+	@Test
+	void structured_lengthBoundaries_headline100AndItem110AreKept_oneMoreIsDropped() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord[] r = threeRecords(hobbyId, "예전 연습", "최신 연습");
+		String headline100 = "가".repeat(100);
+		String item110 = "나".repeat(110);
+
+		stubAiResponse(structuredJson(headline100,
+				insight(item110, "이유", r[1].getId()) + "," + insight("다".repeat(111), "이유", r[1].getId()),
+				"", idea("라".repeat(110), r[1].getId()) + "," + idea("마".repeat(111), r[1].getId())));
+		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "2W"));
+
+		assertThat(response.schemaVersion()).isEqualTo(2);
+		assertThat(response.headline()).hasSize(100);
+		assertThat(response.good()).hasSize(1);
+		assertThat(response.good().get(0).point()).hasSize(110);
+		assertThat(response.next()).hasSize(1);
+		assertThat(response.next().get(0).idea()).hasSize(110);
+	}
+
+	@Test
+	void structured_headline101_failsWholeStructure_afterOneStructuredRetry_thenLegacy() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord[] r = threeRecords(hobbyId, "예전 연습", "최신 연습");
+		java.util.List<String> logs = captureCompareLogs();
+		given(aiChatClient.complete(anyString(), anyString()))
+				.willReturn(new AiChatResponse(structuredJson("가".repeat(101), insight("점", "이유", r[1].getId()), "", ""), 10, "model"))
+				.willReturn(new AiChatResponse(LEGACY_JSON, 10, "model"));
+
+		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "2W"));
+
+		assertThat(response.schemaVersion()).isNull();
+		assertThat(response.interpretation()).isEqualTo("지난번엔 끊겼는데 이번엔 이어졌어요");
+		// 구조화 1회 + 구조화 교정 재호출 1회 + 예전 방식 1회
+		org.mockito.Mockito.verify(aiChatClient, org.mockito.Mockito.times(3)).complete(anyString(), anyString());
+		org.mockito.Mockito.verify(aiChatClient, org.mockito.Mockito.times(2))
+				.completeStructured(anyString(), anyString(), org.mockito.ArgumentMatchers.eq("compare_insights"),
+						org.mockito.ArgumentMatchers.anyMap());
+		assertThat(logs).anyMatch(m -> m.startsWith("COMPARE_STRUCT_DROPPED recordIds=[")
+				&& m.contains("field=headline reason=LENGTH length=101 raw={"));
+		assertThat(logs).anyMatch(m -> m.startsWith("COMPARE_FALLBACK_LEGACY reason=headline:"));
+	}
+
+	@Test
+	void structured_retryGetsRejectionHint_andSecondAnswerIsUsed_withoutCountingTowardLimit() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord[] r = threeRecords(hobbyId, "예전 연습", "최신 연습");
+		java.util.List<String> logs = captureCompareLogs();
+		org.mockito.ArgumentCaptor<String> system = org.mockito.ArgumentCaptor.forClass(String.class);
+		given(aiChatClient.complete(system.capture(), anyString()))
+				.willReturn(new AiChatResponse(structuredJson("달라졌어요", insight("횟수가 많아졌어요", "99번이래요", r[1].getId()), "", ""), 10, "model"))
+				.willReturn(new AiChatResponse(structuredJson("달라졌어요", insight("조금 편해졌어요", "이유", r[1].getId()), "",
+						idea("한 번 더 해 보세요", r[1].getId())), 10, "model"));
+
+		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "2W"));
+
+		assertThat(response.schemaVersion()).isEqualTo(2);
+		assertThat(response.good()).extracting("point").containsExactly("조금 편해졌어요");
+		assertThat(system.getAllValues()).hasSize(2);
+		assertThat(system.getAllValues().get(0)).doesNotContain("[교정 지시]");
+		assertThat(system.getAllValues().get(1)).contains("[교정 지시]", "good 필드", "기록에 없는 숫자");
+		assertThat(aiLogRepository.findAll()).extracting("state").containsExactlyInAnyOrder("OK", "RETRY");
+		assertThat(logs).anyMatch(m -> m.contains("field=good reason=NUMBER"));
+		assertThat(logs).anyMatch(m -> m.equals("COMPARE_STRUCT_OK good=1 gap=0 next=1"));
+		assertThat(logs).noneMatch(m -> m.startsWith("COMPARE_FALLBACK_LEGACY"));
+	}
+
+	@Test
+	void structured_koreanNumeralsAndArabicDigitsMatchEachOther() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord[] r = threeRecords(hobbyId, "코드를 3번 바꿨다", "열 번 이어서 쳤다");
+
+		stubAiResponse(structuredJson("달라졌어요",
+				insight("10번을 이어 쳤어요", "예전엔 세 번이었어요", r[1].getId()) + ","
+						+ insight("여섯 번도 해 봤어요", "이유", r[1].getId()),
+				"", ""));
+		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "2W"));
+
+		// 열 번=10, 3번=세 번은 통과하고, 입력에 없는 "여섯 번"(6)은 버려진다.
+		assertThat(response.schemaVersion()).isEqualTo(2);
+		assertThat(response.good()).extracting("point").containsExactly("10번을 이어 쳤어요");
+	}
+
+	@Test
+	void numbersIn_readsDigitsAndNativeKoreanNumerals() {
+		assertThat(CompareService.numbersIn("10번 쳤다")).containsExactly(10);
+		assertThat(CompareService.numbersIn("열 번 쳤다")).containsExactly(10);
+		assertThat(CompareService.numbersIn("여섯 개와 스물세 번")).containsExactlyInAnyOrder(6, 23);
+		assertThat(CompareService.numbersIn("한국 세계 네이버")).isEmpty();
+		assertThat(CompareService.numbersIn(null)).isEmpty();
+	}
+
+	@Test
+	void structured_missingOrForeignEvidence_isReplacedWithCurrentRecordId() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord[] r = threeRecords(hobbyId, "예전 연습", "최신 연습");
+		Long otherHobby = createHobby(2L);
+		ActivityRecord others = createRecord(2L, otherHobby, LocalDate.now(), "남의 기록");
+
+		stubAiResponse(structuredJson("달라졌어요",
+				insight("근거 비어 있음", "이유") + "," + insight("남의 id", "이유", others.getId(), 99999L) + ","
+						+ insight("섞인 id", "이유", others.getId(), r[0].getId()),
+				"", idea("제안", others.getId())));
+		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "2W"));
+
+		assertThat(response.schemaVersion()).isEqualTo(2);
+		assertThat(response.good()).hasSize(3);
+		assertThat(response.good().get(0).evidence()).extracting("id").containsExactly(r[1].getId());
+		assertThat(response.good().get(1).evidence()).extracting("id").containsExactly(r[1].getId());
+		assertThat(response.good().get(2).evidence()).extracting("id").containsExactly(r[0].getId());
+		assertThat(response.next().get(0).evidence()).extracting("id").containsExactly(r[1].getId());
+	}
+
+	@Test
+	void structured_requestUsesStrictJsonSchema() {
+		AiProperties unused = enabledProperties();
+		java.util.Map<String, Object> schema = CompareService.structuredSchema();
+
+		assertThat(schema.get("additionalProperties")).isEqualTo(false);
+		assertThat(schema.get("required")).isEqualTo(java.util.List.of("headline", "good", "gap", "next"));
+		@SuppressWarnings("unchecked")
+		java.util.Map<String, Object> properties = (java.util.Map<String, Object>) schema.get("properties");
+		@SuppressWarnings("unchecked")
+		java.util.Map<String, Object> goodItem = (java.util.Map<String, Object>) ((java.util.Map<String, Object>) properties
+				.get("good")).get("items");
+		assertThat(goodItem.get("additionalProperties")).isEqualTo(false);
+		assertThat(goodItem.get("required")).isEqualTo(java.util.List.of("point", "because", "evidenceRecordIds"));
+		assertThat(unused).isNotNull();
 	}
 
 	@Test

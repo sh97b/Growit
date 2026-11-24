@@ -47,15 +47,19 @@ public class CompareService {
 	private static final String LEGACY_PROMPT_RESOURCE_NAME = "ai-compare-legacy-system.txt";
 	/** 새 결과의 schemaVersion. 예전 결과는 null이다. */
 	static final int STRUCTURED_SCHEMA_VERSION = 2;
-	private static final int HEADLINE_MAX = 60;
-	private static final int ITEM_TEXT_MAX = 70;
+	/** 글자 수 하드 한도. 프롬프트에는 headline 60자·각 문장 70자 이내를 목표로 적고, 서버는 이만큼까지 받아들인다. */
+	private static final int HEADLINE_HARD_MAX = 100;
+	private static final int ITEM_HARD_MAX = 110;
+	private static final int RAW_LOG_MAX = 150;
+	private static final String STRUCTURED_SCHEMA_NAME = "compare_insights";
+	private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CompareService.class);
 	private static final int GOOD_MAX = 3;
 	private static final int GAP_MAX = 2;
 	private static final int NEXT_MAX = 2;
 	private static final int EVIDENCE_SNIPPET_MAX = 40;
 	private static final Pattern NUMBER_PATTERN = Pattern.compile("\\d+");
 	/** prompts/ai-compare-system.txt를 바꿀 때마다, 또는 기준일 규칙처럼 저장된 결과의 모양이 바뀌면 올린다. */
-	static final int PROMPT_VERSION = 4;
+	static final int PROMPT_VERSION = 5;
 	private static final Set<String> VALID_COMPARE_TO = Set.of("1W", "2W", "1M", "3M");
 	private static final List<String> FORBIDDEN_WORDS =
 			List.of("실력", "늘었", "향상", "잘했", "훌륭", "대단", "점수", "순위", "완벽", "최고", "천재", "반드시",
@@ -147,10 +151,21 @@ public class CompareService {
 				toPayloadRecord(past),
 				toPayloadRecord(current));
 
-		AiCallResult result = aiCallService.call(userId, AiResultType.COMPARE, systemPrompt, payload);
-		StoredCompareResult stored = validateStructured(result.content(), past, current);
+		// 새 구조(json_schema)로 먼저 부른다. 검증에 실패하면 어떤 필드가 왜 거절됐는지 한 줄을 붙여 같은 방식으로 한 번 더 부르고
+		// (하루 한도에 세지 않는다), 그래도 안 되면 예전 한 문단 방식으로 대체한다.
+		java.util.Map<String, Object> schema = structuredSchema();
+		AiCallResult result = aiCallService.call(userId, AiResultType.COMPARE, systemPrompt, payload, false,
+				STRUCTURED_SCHEMA_NAME, schema);
+		StructuredCheck check = validateStructured(result.content(), past, current);
+		if (check.stored() == null) {
+			String hint = systemPrompt + "\n\n[교정 지시] 직전 응답의 " + check.field() + " 필드가 " + reasonText(check.reason())
+					+ " 때문에 거절됐어요. 같은 입력으로 규칙을 지켜 JSON 객체 하나만 다시 응답해요.";
+			result = aiCallService.call(userId, AiResultType.COMPARE, hint, payload, true, STRUCTURED_SCHEMA_NAME, schema);
+			check = validateStructured(result.content(), past, current);
+		}
+		StoredCompareResult stored = check.stored();
 		if (stored == null) {
-			// headline이나 좋아진 점이 하나도 안 남았으면 예전 한 문단 방식으로 한 번 더 만든다(한도에는 세지 않는 교정 재호출).
+			log.warn("COMPARE_FALLBACK_LEGACY reason={}:{}", check.field(), check.reason());
 			result = aiCallService.call(userId, AiResultType.COMPARE, loadLegacyPrompt(), payload, true);
 			stored = validate(result.content(), past.getId(), current.getId());
 		}
@@ -214,37 +229,78 @@ public class CompareService {
 		}
 	}
 
+	/** 구조화 검증 결과. stored가 null이면 전체 실패이고 field·reason이 첫 실패 지점이다. */
+	record StructuredCheck(StoredCompareResult stored, String field, String reason) {
+		static StructuredCheck ok(StoredCompareResult stored) {
+			return new StructuredCheck(stored, null, null);
+		}
+
+		static StructuredCheck failed(String field, String reason) {
+			return new StructuredCheck(null, field, reason);
+		}
+	}
+
+	/** 한 문장 검사 결과: value가 null이면 reason(LENGTH|FIELD|FORBIDDEN|NUMBER)이 거절 이유다. */
+	private record Text(String value, String reason, int length) {
+	}
+
+	/** 항목 하나가 버려질 때 첫 사유를 field별로 기억해 두었다가, 그 field가 통째로 비면 보고한다. */
+	private static final class Drops {
+		private final java.util.Map<String, String> firstReason = new java.util.HashMap<>();
+
+		void add(String field, String reason) {
+			firstReason.putIfAbsent(field, reason);
+		}
+
+		String reasonOf(String field) {
+			return firstReason.getOrDefault(field, "FIELD");
+		}
+	}
+
 	/**
-	 * 구조화 응답을 검증한다. 검증을 통과하지 못한 항목만 버리고, headline이나 좋아진 점(good)이 하나도 안 남으면
-	 * null을 돌려 호출한 쪽이 예전 방식으로 대체하게 한다. 항목의 근거 id는 이 요청에 넣어 준 두 기록(과거·현재)만
-	 * 허용하고(다른 id가 하나라도 섞이면 그 항목을 버린다), 글에 나온 숫자는 두 기록에 적힌 숫자만 허용한다.
+	 * 구조화 응답을 검증한다. 검증을 통과하지 못한 항목만 버리고(버릴 때마다 COMPARE_STRUCT_DROPPED를 남긴다), headline이나
+	 * 좋아진 점(good)이 하나도 안 남으면 전체 실패(StructuredCheck.failed)다. 근거 id가 비었거나 잘못됐으면 항목을 버리지 않고
+	 * 비교한 두 기록 중 최근 기록 id로 대신한다. 글에 나온 숫자(아라비아 숫자와 한글 수사)는 입력 기록의 본문·시간·날짜에 있는 숫자만 허용한다.
 	 */
-	StoredCompareResult validateStructured(String rawJson, ActivityRecord past, ActivityRecord current) {
+	StructuredCheck validateStructured(String rawJson, ActivityRecord past, ActivityRecord current) {
+		List<Long> recordIds = List.of(past.getId(), current.getId());
 		JsonNode node;
 		try {
 			node = aiResponseValidator.parse(rawJson);
 		} catch (ApiException e) {
-			return null;
+			logDropped(recordIds, "headline", "PARSE", rawJson == null ? 0 : rawJson.length(), rawJson);
+			return StructuredCheck.failed("headline", "PARSE");
 		}
 		Set<Long> allowed = Set.of(past.getId(), current.getId());
-		Set<String> allowedNumbers = numbersIn(past.getContent(), past.getDifficulty(), current.getContent(),
-				current.getDifficulty());
+		Set<Integer> allowedNumbers = allowedNumbers(past, current);
+		Drops drops = new Drops();
 
-		String headline = cleanText(node.path("headline"), HEADLINE_MAX, allowedNumbers);
-		List<StoredCompareInsight> good = insights(node.path("good"), GOOD_MAX, allowed, allowedNumbers);
-		if (headline == null || good.isEmpty()) {
-			return null;
+		Text headline = cleanText(node.path("headline"), HEADLINE_HARD_MAX, allowedNumbers);
+		if (headline.value() == null) {
+			logDropped(recordIds, "headline", headline.reason(), headline.length(), rawJson);
+			return StructuredCheck.failed("headline", headline.reason());
 		}
-		List<StoredCompareInsight> gap = insights(node.path("gap"), GAP_MAX, allowed, allowedNumbers);
-		List<StoredCompareIdea> next = ideas(node.path("next"), NEXT_MAX, allowed, allowedNumbers);
-
+		List<StoredCompareInsight> good = insights("good", node.path("good"), GOOD_MAX, allowed, current, allowedNumbers,
+				recordIds, rawJson, drops);
+		if (good.isEmpty()) {
+			String reason = node.path("good").isArray() ? drops.reasonOf("good") : "FIELD";
+			if (!node.path("good").isArray()) {
+				logDropped(recordIds, "good", "FIELD", 0, rawJson);
+			}
+			return StructuredCheck.failed("good", reason);
+		}
+		List<StoredCompareInsight> gap = insights("gap", node.path("gap"), GAP_MAX, allowed, current, allowedNumbers,
+				recordIds, rawJson, drops);
+		List<StoredCompareIdea> next = ideas(node.path("next"), NEXT_MAX, allowed, current, allowedNumbers, recordIds,
+				rawJson);
+		log.info("COMPARE_STRUCT_OK good={} gap={} next={}", good.size(), gap.size(), next.size());
 		// 구조화 결과는 비교한 두 기록을 항상 함께 보여 준다(근거로 어느 쪽을 몇 번 썼는지와 상관없이).
-		return new StoredCompareResult(headline, past.getId(), current.getId(), null, null, false, false,
-				STRUCTURED_SCHEMA_VERSION, headline, good, gap, next);
+		return StructuredCheck.ok(new StoredCompareResult(headline.value(), past.getId(), current.getId(), null, null,
+				false, false, STRUCTURED_SCHEMA_VERSION, headline.value(), good, gap, next));
 	}
 
-	private List<StoredCompareInsight> insights(JsonNode arrayNode, int max, Set<Long> allowed,
-			Set<String> allowedNumbers) {
+	private List<StoredCompareInsight> insights(String field, JsonNode arrayNode, int max, Set<Long> allowed,
+			ActivityRecord current, Set<Integer> allowedNumbers, List<Long> recordIds, String rawJson, Drops drops) {
 		List<StoredCompareInsight> kept = new ArrayList<>();
 		if (!arrayNode.isArray()) {
 			return kept;
@@ -253,17 +309,24 @@ public class CompareService {
 			if (kept.size() >= max) {
 				break;
 			}
-			String point = cleanText(item.path("point"), ITEM_TEXT_MAX, allowedNumbers);
-			String because = cleanText(item.path("because"), ITEM_TEXT_MAX, allowedNumbers);
-			List<Long> evidence = evidenceIds(item.path("evidenceRecordIds"), allowed);
-			if (point != null && because != null && evidence != null) {
-				kept.add(new StoredCompareInsight(point, because, evidence));
+			Text point = cleanText(item.path("point"), ITEM_HARD_MAX, allowedNumbers);
+			if (point.value() == null) {
+				drop(field, point, recordIds, rawJson, drops);
+				continue;
 			}
+			Text because = cleanText(item.path("because"), ITEM_HARD_MAX, allowedNumbers);
+			if (because.value() == null) {
+				drop(field, because, recordIds, rawJson, drops);
+				continue;
+			}
+			kept.add(new StoredCompareInsight(point.value(), because.value(),
+					evidenceIds(item.path("evidenceRecordIds"), allowed, current)));
 		}
 		return kept;
 	}
 
-	private List<StoredCompareIdea> ideas(JsonNode arrayNode, int max, Set<Long> allowed, Set<String> allowedNumbers) {
+	private List<StoredCompareIdea> ideas(JsonNode arrayNode, int max, Set<Long> allowed, ActivityRecord current,
+			Set<Integer> allowedNumbers, List<Long> recordIds, String rawJson) {
 		List<StoredCompareIdea> kept = new ArrayList<>();
 		if (!arrayNode.isArray()) {
 			return kept;
@@ -272,62 +335,152 @@ public class CompareService {
 			if (kept.size() >= max) {
 				break;
 			}
-			String idea = cleanText(item.path("idea"), ITEM_TEXT_MAX, allowedNumbers);
-			List<Long> evidence = evidenceIds(item.path("evidenceRecordIds"), allowed);
-			if (idea != null && evidence != null) {
-				kept.add(new StoredCompareIdea(idea, evidence));
+			Text idea = cleanText(item.path("idea"), ITEM_HARD_MAX, allowedNumbers);
+			if (idea.value() == null) {
+				logDropped(recordIds, "next", idea.reason(), idea.length(), rawJson);
+				continue;
 			}
+			kept.add(new StoredCompareIdea(idea.value(), evidenceIds(item.path("evidenceRecordIds"), allowed, current)));
 		}
 		return kept;
 	}
 
-	/** 근거가 없거나(빈 배열), 허용되지 않은 id(남의 기록 포함)가 하나라도 섞여 있으면 null이다. */
-	private List<Long> evidenceIds(JsonNode idsNode, Set<Long> allowed) {
-		if (!idsNode.isArray() || idsNode.isEmpty()) {
-			return null;
+	private void drop(String field, Text text, List<Long> recordIds, String rawJson, Drops drops) {
+		drops.add(field, text.reason());
+		logDropped(recordIds, field, text.reason(), text.length(), rawJson);
+	}
+
+	private void logDropped(List<Long> recordIds, String field, String reason, int length, String rawJson) {
+		String raw = rawJson == null ? "" : rawJson.replaceAll("\\s+", " ");
+		if (raw.length() > RAW_LOG_MAX) {
+			raw = raw.substring(0, RAW_LOG_MAX);
 		}
+		log.warn("COMPARE_STRUCT_DROPPED recordIds={} field={} reason={} length={} raw={}", recordIds, field, reason,
+				length, raw);
+	}
+
+	/** 허용된 id만 남기고, 하나도 안 남으면(비었거나 남의·없는 id) 비교한 두 기록 중 최근 기록 id로 대신한다. */
+	private List<Long> evidenceIds(JsonNode idsNode, Set<Long> allowed, ActivityRecord current) {
 		List<Long> ids = new ArrayList<>();
-		for (JsonNode idNode : idsNode) {
-			if (!idNode.canConvertToLong() || !allowed.contains(idNode.asLong())) {
-				return null;
+		if (idsNode.isArray()) {
+			for (JsonNode idNode : idsNode) {
+				if (idNode.canConvertToLong() && allowed.contains(idNode.asLong()) && !ids.contains(idNode.asLong())) {
+					ids.add(idNode.asLong());
+				}
 			}
-			if (!ids.contains(idNode.asLong())) {
-				ids.add(idNode.asLong());
-			}
+		}
+		if (ids.isEmpty()) {
+			ids.add(current.getId());
 		}
 		return ids;
 	}
 
-	/** 문자열이 아니거나, 비었거나, 길이를 넘거나, 금지어가 있거나, 기록에 없는 숫자가 있으면 null이다. */
-	private String cleanText(JsonNode node, int maxLength, Set<String> allowedNumbers) {
+	/** 문자열이 아니거나 비었으면 FIELD, 길이를 넘으면 LENGTH, 금지어면 FORBIDDEN, 기록에 없는 숫자가 있으면 NUMBER. */
+	private Text cleanText(JsonNode node, int maxLength, Set<Integer> allowedNumbers) {
 		if (!node.isTextual()) {
-			return null;
+			return new Text(null, "FIELD", 0);
 		}
 		String text = node.asText().trim();
-		if (text.isEmpty() || text.length() > maxLength || containsForbiddenWord(text)) {
-			return null;
+		if (text.isEmpty()) {
+			return new Text(null, "FIELD", 0);
 		}
-		Matcher matcher = NUMBER_PATTERN.matcher(text);
-		while (matcher.find()) {
-			if (!allowedNumbers.contains(matcher.group())) {
-				return null;
+		if (text.length() > maxLength) {
+			return new Text(null, "LENGTH", text.length());
+		}
+		if (containsForbiddenWord(text)) {
+			return new Text(null, "FORBIDDEN", text.length());
+		}
+		for (int number : numbersIn(text)) {
+			// 한·두(1·2)는 "한 번", "두 기록"처럼 숫자가 아닌 말로도 흔히 쓰여 검사하지 않는다.
+			if (number > 2 && !allowedNumbers.contains(number)) {
+				return new Text(null, "NUMBER", text.length());
 			}
 		}
-		return text;
+		return new Text(text, null, text.length());
 	}
 
-	private Set<String> numbersIn(String... texts) {
-		Set<String> numbers = new java.util.HashSet<>();
-		for (String text : texts) {
-			if (text == null) {
-				continue;
+	/** 입력(두 기록의 본문·어려움·시간·날짜)에 나온 숫자 전부(아라비아 숫자와 한글 수사). */
+	private Set<Integer> allowedNumbers(ActivityRecord past, ActivityRecord current) {
+		Set<Integer> numbers = new java.util.HashSet<>();
+		for (ActivityRecord record : List.of(past, current)) {
+			numbers.addAll(numbersIn(record.getContent()));
+			numbers.addAll(numbersIn(record.getDifficulty()));
+			if (record.getMinutes() != null) {
+				numbers.add(record.getMinutes());
 			}
-			Matcher matcher = NUMBER_PATTERN.matcher(text);
-			while (matcher.find()) {
-				numbers.add(matcher.group());
-			}
+			numbers.add(record.getRecordDate().getYear());
+			numbers.add(record.getRecordDate().getMonthValue());
+			numbers.add(record.getRecordDate().getDayOfMonth());
 		}
 		return numbers;
+	}
+
+	private static final java.util.Map<String, Integer> NATIVE_TENS = java.util.Map.of("열", 10, "스물", 20, "스무", 20,
+			"서른", 30, "마흔", 40, "쉰", 50);
+	private static final java.util.Map<String, Integer> NATIVE_UNITS = java.util.Map.ofEntries(
+			java.util.Map.entry("하나", 1), java.util.Map.entry("한", 1), java.util.Map.entry("둘", 2),
+			java.util.Map.entry("두", 2), java.util.Map.entry("셋", 3), java.util.Map.entry("세", 3),
+			java.util.Map.entry("넷", 4), java.util.Map.entry("네", 4), java.util.Map.entry("다섯", 5),
+			java.util.Map.entry("여섯", 6), java.util.Map.entry("일곱", 7), java.util.Map.entry("여덟", 8),
+			java.util.Map.entry("아홉", 9));
+	/** 한글 수사는 뒤에 셈 단위가 붙은 것만 숫자로 본다("한국", "세계" 같은 말을 숫자로 읽지 않으려고). */
+	private static final Pattern KOREAN_COUNT = Pattern.compile(
+			"(?<![가-힣])(열|스물|스무|서른|마흔|쉰)?(하나|한|둘|두|셋|세|넷|네|다섯|여섯|일곱|여덟|아홉)?\\s?"
+					+ "(번째|번|개|분|시간|곡|줄|쪽|주|달|가지|마디|장|회|차례|곳|배|명|권)");
+
+	/** 글 안의 숫자를 정수 집합으로 뽑는다: 아라비아 숫자("10번")와 한글 수사("열 번", "여섯 개"). */
+	static Set<Integer> numbersIn(String text) {
+		Set<Integer> numbers = new java.util.HashSet<>();
+		if (text == null) {
+			return numbers;
+		}
+		Matcher digits = NUMBER_PATTERN.matcher(text);
+		while (digits.find()) {
+			String value = digits.group();
+			if (value.length() <= 9) {
+				numbers.add(Integer.parseInt(value));
+			}
+		}
+		Matcher korean = KOREAN_COUNT.matcher(text);
+		while (korean.find()) {
+			String tens = korean.group(1);
+			String units = korean.group(2);
+			if (tens == null && units == null) {
+				continue;
+			}
+			int value = (tens == null ? 0 : NATIVE_TENS.get(tens)) + (units == null ? 0 : NATIVE_UNITS.get(units));
+			numbers.add(value);
+		}
+		return numbers;
+	}
+
+	/** 구조화 응답의 JSON 스키마(strict): 모든 칸 required, additionalProperties=false. */
+	static java.util.Map<String, Object> structuredSchema() {
+		java.util.Map<String, Object> string = java.util.Map.of("type", "string");
+		java.util.Map<String, Object> ids = java.util.Map.of("type", "array", "items", java.util.Map.of("type", "integer"));
+		java.util.Map<String, Object> insight = java.util.Map.of("type", "object", "additionalProperties", false,
+				"required", List.of("point", "because", "evidenceRecordIds"),
+				"properties", java.util.Map.of("point", string, "because", string, "evidenceRecordIds", ids));
+		java.util.Map<String, Object> idea = java.util.Map.of("type", "object", "additionalProperties", false,
+				"required", List.of("idea", "evidenceRecordIds"),
+				"properties", java.util.Map.of("idea", string, "evidenceRecordIds", ids));
+		return java.util.Map.of("type", "object", "additionalProperties", false,
+				"required", List.of("headline", "good", "gap", "next"),
+				"properties", java.util.Map.of("headline", string,
+						"good", java.util.Map.of("type", "array", "items", insight),
+						"gap", java.util.Map.of("type", "array", "items", insight),
+						"next", java.util.Map.of("type", "array", "items", idea)));
+	}
+
+	private static String reasonText(String reason) {
+		return switch (reason) {
+			case "PARSE" -> "JSON 형식이 아니었기";
+			case "LENGTH" -> "글자 수가 너무 많았기";
+			case "FORBIDDEN" -> "쓰면 안 되는 표현이 있었기";
+			case "NUMBER" -> "기록에 없는 숫자가 있었기";
+			case "EVIDENCE" -> "근거 기록이 올바르지 않았기";
+			default -> "비어 있거나 형식이 맞지 않았기";
+		};
 	}
 
 	private boolean containsId(JsonNode idsNode, long targetId, Set<Long> allowed) {

@@ -61,6 +61,12 @@ public class AiCallService {
 	 * (처음 호출이 이미 한 번 셌다). 동시 호출 제한은 그대로 적용한다.
 	 */
 	public AiCallResult call(Long userId, AiResultType type, String systemPrompt, Object userData, boolean retry) {
+		return call(userId, type, systemPrompt, userData, retry, null, null);
+	}
+
+	/** schema가 있으면 json_schema(strict) 응답 형식으로 부른다(schemaName과 함께). 없으면 기존 json_object 호출이다. */
+	public AiCallResult call(Long userId, AiResultType type, String systemPrompt, Object userData, boolean retry,
+			String schemaName, java.util.Map<String, Object> schema) {
 		if (!properties.isEnabled()) {
 			throw new ApiException(ErrorCode.AI_FAILED, MESSAGE_FAILED);
 		}
@@ -92,9 +98,13 @@ public class AiCallService {
 			String safeSystemPrompt = systemPrompt + "\n\n" + AiSafetyPrompt.DATA_NOT_INSTRUCTION;
 			AiChatResponse response;
 			try {
-				response = type == AiResultType.ROADMAP
-						? aiChatClient.complete(safeSystemPrompt, userContent, ROADMAP_MIN_OUTPUT_TOKENS)
-						: aiChatClient.complete(safeSystemPrompt, userContent);
+				if (schema != null) {
+					response = aiChatClient.completeStructured(safeSystemPrompt, userContent, schemaName, schema);
+				} else {
+					response = type == AiResultType.ROADMAP
+							? aiChatClient.complete(safeSystemPrompt, userContent, ROADMAP_MIN_OUTPUT_TOKENS)
+							: aiChatClient.complete(safeSystemPrompt, userContent);
+				}
 			} catch (AiClientException e) {
 				int responseMs = (int) (System.currentTimeMillis() - startedAt);
 				aiLogRepository.save(new AiLog(userId, type.name(), AiLogState.FAIL.name(), responseMs, null,

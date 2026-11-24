@@ -29,6 +29,8 @@ public class OpenAiChatClient implements AiChatClient {
 	private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OpenAiChatClient.class);
 	/** 잘린 응답을 다시 받을 때 늘리는 최대 토큰의 상한. */
 	private static final int TRUNCATED_RETRY_TOKEN_CAP = 3000;
+	/** 구조화 결과(headline·항목 여러 개)가 중간에 잘리지 않게 하는 최소 출력 토큰. */
+	private static final int STRUCTURED_MIN_OUTPUT_TOKENS = 1200;
 
 	public OpenAiChatClient(AiProperties properties, ObjectMapper objectMapper) {
 		this.properties = properties;
@@ -68,13 +70,28 @@ public class OpenAiChatClient implements AiChatClient {
 	 */
 	@Override
 	public AiChatResponse complete(String systemPrompt, String userContent, int minOutputTokens) {
+		return completeWith(systemPrompt, userContent, minOutputTokens, null);
+	}
+
+	/** json_schema(strict) 응답 형식으로 요청한다. 같은 잘림 재시도 규칙을 쓴다. */
+	@Override
+	public AiChatResponse completeStructured(String systemPrompt, String userContent, String schemaName,
+			Map<String, Object> schema) {
+		Map<String, Object> format = new LinkedHashMap<>();
+		format.put("type", "json_schema");
+		format.put("json_schema", Map.of("name", schemaName, "strict", true, "schema", schema));
+		return completeWith(systemPrompt, userContent, STRUCTURED_MIN_OUTPUT_TOKENS, format);
+	}
+
+	private AiChatResponse completeWith(String systemPrompt, String userContent, int minOutputTokens,
+			Map<String, Object> responseFormat) {
 		int tokens = Math.max(properties.getMaxOutputTokens(), minOutputTokens);
-		AiChatResponse first = request(systemPrompt, userContent, tokens);
+		AiChatResponse first = request(systemPrompt, userContent, tokens, responseFormat);
 		if (!first.truncated()) {
 			return first;
 		}
 		int doubled = Math.min(TRUNCATED_RETRY_TOKEN_CAP, Math.max(tokens, tokens * 2));
-		AiChatResponse second = request(systemPrompt, userContent, doubled);
+		AiChatResponse second = request(systemPrompt, userContent, doubled, responseFormat);
 		if (!second.truncated()) {
 			return second;
 		}
@@ -82,11 +99,12 @@ public class OpenAiChatClient implements AiChatClient {
 		throw new AiClientException(AiClientException.Type.INVALID_RESPONSE, "AI 응답이 잘렸거나 비어 있음", "truncated");
 	}
 
-	private AiChatResponse request(String systemPrompt, String userContent, int maxTokens) {
+	private AiChatResponse request(String systemPrompt, String userContent, int maxTokens,
+			Map<String, Object> responseFormat) {
 		Map<String, Object> body = new LinkedHashMap<>();
 		body.put("model", properties.getModel());
 		body.put("max_completion_tokens", maxTokens);
-		body.put("response_format", Map.of("type", "json_object"));
+		body.put("response_format", responseFormat != null ? responseFormat : Map.of("type", "json_object"));
 		body.put("messages", List.of(
 				Map.of("role", "system", "content", systemPrompt),
 				Map.of("role", "user", "content", userContent)));
@@ -102,6 +120,11 @@ public class OpenAiChatClient implements AiChatClient {
 					.body(String.class);
 		} catch (HttpStatusCodeException e) {
 			int status = e.getStatusCode().value();
+			if (status == 400 && responseFormat != null) {
+				// 공급자가 json_schema를 받아들이지 않으면 이 호출만 json_object로 한 번 낮춰 다시 보낸다.
+				log.warn("AI_SCHEMA_UNSUPPORTED provider={} model={}", properties.getProvider(), properties.getModel());
+				return request(systemPrompt, userContent, maxTokens, null);
+			}
 			String sub = errorSubOf(e, status);
 			if (status == 429 && !PROVIDER_DOWN_SUBS.contains(sub)) {
 				throw new AiClientException(AiClientException.Type.RATE_LIMITED, "AI 제공자가 요청을 거절함(429)", sub);
