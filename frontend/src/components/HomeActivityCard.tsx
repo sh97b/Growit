@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { useActivityView } from '../hooks/useActivityView'
 import type { ActivityView } from '../lib/dots'
-import { ActivityHeatmap } from './ActivityHeatmap'
+import { ActivityHeatmap, HeatmapLegend } from './ActivityHeatmap'
 import { DotPanel } from './DotPanel'
 
 const OPTIONS: { value: ActivityView; label: string }[] = [
@@ -14,8 +14,51 @@ const OPTIONS: { value: ActivityView; label: string }[] = [
  * maxPictureHeight는 웹 홈 사이드처럼 남는 높이가 정해진 자리에서 도트 그림을 줄일 때 쓴다.
  * 잔디 보기는 기존 활동 지도 그대로이고, 기록 탭처럼 다른 지도·요약을 쓰려면 grass로 바꿔 끼운다.
  */
-export function HomeActivityCard({ grass, maxPictureHeight }: { grass?: ReactNode; maxPictureHeight?: number }) {
+export function HomeActivityCard({
+  grass,
+  maxPictureHeight,
+  home = false,
+}: {
+  grass?: ReactNode
+  maxPictureHeight?: number
+  /** 웹 홈: 제목·범례·토글을 한 줄 헤더로 합치고 여백은 홈 밀도 변수(--hpad)를 따른다. */
+  home?: boolean
+}) {
   const [view, setView] = useActivityView()
+
+  if (home) {
+    return (
+      <section aria-label="활동 지도" className="home-pad flex min-h-0 flex-col gap-2 rounded-2xl bg-surface">
+        <div className="flex h-8 items-center justify-between gap-3">
+          <h2 className="flex-none text-card-title">활동 지도</h2>
+          <div className="flex min-w-0 items-center gap-3">
+            {view === 'grass' ? (
+              <span className="home-hide-2">
+                <HeatmapLegend />
+              </span>
+            ) : null}
+            <div className="inline-flex flex-none rounded-lg border border-line-2 bg-white p-[0.125rem]" role="group" aria-label="활동 지도 보기 방식">
+              {OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={view === option.value}
+                  onClick={() => setView(option.value)}
+                  className={[
+                    'h-7 whitespace-nowrap rounded-md px-3 text-xs font-medium',
+                    view === option.value ? 'bg-ink text-white' : 'bg-transparent text-ink-2',
+                  ].join(' ')}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        {view === 'dot' ? <DotPanel maxPictureHeight={maxPictureHeight} /> : (grass ?? <ActivityHeatmap weeks={26} home />)}
+      </section>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-3 rounded-2xl bg-surface p-5">

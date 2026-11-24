@@ -5,7 +5,7 @@ import { addDays, todayLocalDate } from '../lib/date'
 import { fetchActivityMap } from '../lib/stats'
 
 /** 최근 7일 줄(홈 부품). 저장 직후 화면 사이드(LAYOUT-V2 3단계)에서도 재사용한다. */
-export function RecentWeekStrip() {
+export function RecentWeekStrip({ compact = false }: { compact?: boolean }) {
   const today = todayLocalDate()
   const from = addDays(today, -6)
   const query = useQuery({
@@ -14,7 +14,7 @@ export function RecentWeekStrip() {
   })
 
   if (query.isLoading) {
-    return <Loading />
+    return compact ? <div className="h-[3.25rem] rounded-xl bg-surface motion-safe:animate-pulse" /> : <Loading />
   }
 
   const datesWithRecord = new Set((query.data ?? []).map((entry) => entry.date))
@@ -23,5 +23,5 @@ export function RecentWeekStrip() {
     return { date, isToday: date === today, hasRecord: datesWithRecord.has(date) }
   })
 
-  return <WeekStrip days={days} />
+  return <WeekStrip days={days} compact={compact} />
 }

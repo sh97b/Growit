@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AiLabel } from '../components/AiLabel'
@@ -9,21 +9,17 @@ import { HomeNextActionBlock } from '../components/NextActionCard'
 import { Dropdown } from '../components/Dropdown'
 import { HobbyInlineCreate } from '../components/HobbyInlineCreate'
 import { HomeActivityCard } from '../components/HomeActivityCard'
+import { HomeRecentCompact } from '../components/HomeRecentCompact'
 import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
-import { Split } from '../components/PageLayout'
 import { RecentRecordsCard } from '../components/RecentRecordsCard'
 import { RecentWeekStrip } from '../components/RecentWeekStrip'
 import { TopicChips } from '../components/TopicChips'
 import { ChevronRightIcon, PlusIcon } from '../components/icons'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { DotCompletionHost } from '../components/DotCompletionHost'
-import { useDotsCurrent } from '../hooks/useDots'
 import { useHobbies } from '../hooks/useHobbies'
-import { useActivityView } from '../hooks/useActivityView'
 import { useIsDesktop, useMediaQuery } from '../hooks/useIsDesktop'
-import { useOverflowHidePriority } from '../hooks/useOverflowHidePriority'
-import { useShrinkToFit } from '../hooks/useShrinkToFit'
 import { fetchLatestCoach, generateAutoCoach, type CoachAutoResponse } from '../lib/ai'
 import { ApiError } from '../lib/api'
 import {
@@ -38,7 +34,6 @@ import { takeDroppedOfflineMessages } from '../hooks/useOfflineSync'
 import { createRecord, fetchRecords } from '../lib/records'
 import { fetchActivityMap, fetchSummary, type StatsSummary } from '../lib/stats'
 
-/** 홈 최근 기록 한 줄의 추정 높이(테두리+패딩+두 줄, rem). 남은 열 높이에 맞춰 0~3개만 보여준다. */
 
 const primaryLinkClass =
   'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-base px-5 text-body-min font-medium text-white no-underline lg:w-fit'
@@ -89,13 +84,6 @@ function useAutoCoachOncePerDay(): CoachAutoResponse | null {
   return autoStatus
 }
 
-/** 도트 카드에서 그림을 뺀 나머지(여백·토글·문구·도감 링크)의 대략적인 높이(px). 남는 높이에서 빼서 그림 높이를 정한다. */
-const DOT_CARD_OVERHEAD_PX = 240
-/** 잔디 보기 카드와 목표 없는 도트 카드의 대략적인 높이(px). 왼쪽 열이 넘치는지 가늠할 때 쓴다. */
-const GRASS_CARD_PX = 280
-const DOT_EMPTY_CARD_PX = 200
-/** 웹 홈 왼쪽 열은 폭이 넓어서 도트 그림 높이 한도를 사이드(220px)보다 크게 쓴다. */
-const LEFT_PICTURE_CAP_PX = 360
 
 export function HomePage() {
   const { data: currentUser, isLoading: userLoading } = useCurrentUser()
@@ -103,25 +91,14 @@ export function HomePage() {
   const [today] = useState(() => new Date())
   const [droppedMessages] = useState(() => takeDroppedOfflineMessages())
   const autoStatus = useAutoCoachOncePerDay()
-  // 도트 보기를 열지 않아도 홈이 열릴 때 한 번 불러, 서버가 칠하기에 실패했던 날을 채워 두게 한다. 실패해도 홈에는 아무것도 보이지 않는다.
+  const isDesktop = useIsDesktop()
+  // 도트 그림 높이 상한만 고르는 값이다(요소를 숨기지 않는다). 열 높이 = 뷰포트 − 116px 기준으로 단계와 맞춘다.
+  const dotTight = useMediaQuery('(max-height: 659px)')
+  const dotCompact = useMediaQuery('(max-height: 875px)')
+  const pictureMax = dotTight ? 70 : dotCompact ? 110 : 200
 
-  // W4: 웹(폭 1024 이상)에서는 활동 지도 카드가 왼쪽 열의 "최근 기록" 아래에 있다. 왼쪽이 넘치면 최근 기록을
-  // 3→2→1→0개로 먼저 줄이고, 활동 지도 카드는 마지막까지 남긴다(그림은 남는 높이에 맞추고, 칸이 6px 미만이면 요약만).
-  const [activityView] = useActivityView()
-  const dotsQuery = useDotsCurrent()
-  const dotShown = dotsQuery.data?.goal ?? dotsQuery.data?.justCompleted ?? null
-  const dotNeedPicture = activityView === 'dot' && dotShown ? dotShown.height * 8 : 0
-  const leftOverhead = activityView === 'grass' ? GRASS_CARD_PX : dotShown ? DOT_CARD_OVERHEAD_PX : DOT_EMPTY_CARD_PX
-  const {
-    containerRef: leftFitRef,
-    shrinkRef: recentRef,
-    count: recentCount,
-    pictureMax: leftPictureMax,
-  } = useShrinkToFit({ max: 3, overhead: leftOverhead, needPicture: dotNeedPicture, pictureCap: LEFT_PICTURE_CAP_PX })
-
-  // 아래 세 훅은 summary가 아직 로딩 중이어도(이 아래 early return보다 먼저) 매 렌더마다 똑같이
-  // 호출돼야 한다(Hooks 규칙) — summary 로딩 전에는 잠정적으로 안전한 기본값으로 계산해 두고,
-  // 실제 상태별 분기는 이 함수의 나머지 부분(이미 로딩이 끝난 뒤)에서 한다.
+  // 아래 훅은 summary가 아직 로딩 중이어도(이 아래 early return보다 먼저) 매 렌더마다 똑같이
+  // 호출돼야 한다(Hooks 규칙) — summary 로딩 전에는 잠정 기본값으로 계산해 둔다.
   const summaryPreview = summaryQuery.data
   const statePreview: 'first' | 'comeback' | 'done' | 'off' | null = !summaryPreview
     ? null
@@ -138,11 +115,6 @@ export function HomePage() {
     queryFn: () => fetchActivityMap({ from: startOfWeekLocal(today), to: todayLocalDate() }),
     enabled: statePreview === 'comeback',
   })
-
-  const sideItemCount = statePreview == null || statePreview === 'first' ? 0 : 3
-  const { containerRef: sideFitRef, itemRefs: sideItemRefs } = useOverflowHidePriority(sideItemCount, 1)
-  // 낮은 화면(1366×768, 1280×720 같은)에서는 통계 3칸을 한 줄로 줄인다. 모바일(폭 1024 미만)은 이 값을 쓰지 않는다.
-  const lowScreen = useMediaQuery('(max-height: 760px)')
 
   if (userLoading || summaryQuery.isLoading) {
     return <Loading />
@@ -171,150 +143,128 @@ export function HomePage() {
   const name = displayNameOf(currentUser)
   const state = statePreview!
 
-  const showWeekStrip = state === 'done' || state === 'off'
   const restedWeek = state === 'comeback' && (restedWeekQuery.data ?? []).length === 0
 
-  const greeting = (
-    <div className="flex flex-col gap-1.5">
-      <h1 className="font-serif text-[22px] font-semibold lg:text-[2rem]">
-        {state === 'comeback' ? `다시 오셨네요, ${name}님` : state === 'first' ? `${name}님, 환영합니다` : `안녕하세요, ${name}님`}
-      </h1>
-      <span className="text-sm text-ink-2">{formatMonthDayWeekday(today)}</span>
-      {state === 'first' ? (
-        <p className="text-body-min text-ink-2">오늘 있었던 일을 한 줄만 적어도 첫 기록이 돼요.</p>
-      ) : null}
-      {/* P1 5단계: 쉬었다 돌아온 문구와 "이번 주는 쉬어 간 주예요" 안내를 한 줄로 합친다. */}
-      {state === 'comeback' && summary.lastRecordedDate ? (
-        <p className="text-body-min text-ink-2">
-          마지막 기록은 {formatMonthDay(summary.lastRecordedDate)}이에요. 쌓아 둔 기록은 그대로 있어요.
-          {restedWeek ? ' 이번 주는 쉬어 간 주예요 — 쉬는 시간도 흐름의 일부예요.' : ''}
-        </p>
-      ) : null}
-    </div>
-  )
+  const titleText =
+    state === 'comeback' ? `다시 오셨네요, ${name}님` : state === 'first' ? `${name}님, 환영합니다` : `안녕하세요, ${name}님`
+  const subLine =
+    state === 'first' ? (
+      <p className="text-body-min text-ink-2">오늘 있었던 일을 한 줄만 적어도 첫 기록이 돼요.</p>
+    ) : state === 'comeback' && summary.lastRecordedDate ? (
+      // P1 5단계: 쉬었다 돌아온 문구와 "이번 주는 쉬어 간 주예요" 안내를 한 줄로 합친다.
+      <p className="text-body-min text-ink-2">
+        마지막 기록은 {formatMonthDay(summary.lastRecordedDate)}이에요. 쌓아 둔 기록은 그대로 있어요.
+        {restedWeek ? ' 이번 주는 쉬어 간 주예요 — 쉬는 시간도 흐름의 일부예요.' : ''}
+      </p>
+    ) : null
 
-  // P1 5단계: 사이드는 우선순위 순서(① 최근 회고 카드 ② 활동 지도 ③ 쌓인 기록 3칸 ④ 자주 하는
-  // 주제)로 두고, 열이 실제로 넘칠 때만 아래 블록부터 숨긴다(useOverflowHidePriority). 최근 7일
-  // 줄은 이 우선순위 목록에 없던 기존 블록이라(지시문 목록에 없음) 숨김 대상에서 빼고 그대로 맨
-  // 위에 둔다 — 작아서 공간을 거의 안 차지하고, done/off 상태에서만 보이던 기존 규칙도 유지한다.
-  // 배열 순서가 숨김 우선순위다(앞이 높음, 넘치면 맨 뒤부터 숨김): 최근 회고 → 통계 → 자주 하는 주제.
-  // (활동 지도 카드는 W4부터 왼쪽 열로 옮겼다.)
-  const sideItems: { key: string; order: number; node: ReactNode }[] =
-    state === 'first'
-      ? []
-      : [
-          { key: 'coach', order: 0, node: <HomeCoachCard autoStatus={autoStatus} /> },
-          { key: 'stats', order: 2, node: <StatsTiles summary={summary} compact={lowScreen} /> },
-          { key: 'topics', order: 3, node: <TopicChips /> },
-        ]
+  const droppedNote =
+    droppedMessages.length > 0 ? (
+      <Note variant="sand">
+        연결이 안 될 때 기기에 저장해 뒀던 기록 {droppedMessages.length}개를 서버가 받아들이지 못해 지웠어요.
+      </Note>
+    ) : null
 
-  const sideDesktop = (
-    <>
-      {showWeekStrip ? <RecentWeekStrip /> : null}
-      <div ref={sideFitRef} className="flex flex-1 min-h-0 flex-col gap-7 overflow-hidden">
-        {sideItems.map((item, index) => (
-          <div
-            key={item.key}
-            style={{ order: item.order }}
-            ref={(el) => {
-              sideItemRefs.current[index] = el
-            }}
-          >
-            {item.node}
+  // ---- 웹(폭 1024 이상): 페이지 스크롤 없이 두 열을 뷰포트 − 헤더 높이에 고정하고 CSS 컨테이너 쿼리로 밀도만 바꾼다 ----
+  if (isDesktop) {
+    return (
+      <div className="flex flex-col gap-7 lg:min-h-0 lg:flex-1">
+        <div className="grid min-h-0 flex-1 grid-cols-12 grid-rows-[minmax(0,1fr)] gap-8">
+          <div className="home-col col-span-7">
+            <div className="home-fit">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-baseline justify-between gap-3">
+                  <h1 className="home-h1 min-w-0 truncate font-serif font-semibold">{titleText}</h1>
+                  <span className="flex-none text-xs text-ink-3">{formatMonthDayWeekday(today)}</span>
+                </div>
+                {subLine ? <div className="line-clamp-1">{subLine}</div> : null}
+              </div>
+              {droppedNote}
+              {state === 'first' ? <FirstUseBoard /> : <QuickRecordInput />}
+              {state !== 'first' ? (
+                <>
+                  <HomeRecentCompact />
+                  <HomeActivityCard home maxPictureHeight={pictureMax} />
+                </>
+              ) : null}
+            </div>
           </div>
-        ))}
-      </div>
-    </>
-  )
-
-  const main = (
-    // 웹에서는 페이지 스크롤이 없다. 이 열의 안쪽 블록이 넘치면 아래의 숨김·줄이기 규칙이 처리하고, 열 자체는 스크롤하지 않는다.
-    <div className="flex flex-col gap-5 lg:h-full lg:min-h-0 lg:overflow-hidden">
-      {greeting}
-
-      {droppedMessages.length > 0 ? (
-        <Note variant="sand">
-          연결이 안 될 때 기기에 저장해 뒀던 기록 {droppedMessages.length}개를 서버가 받아들이지 못해 지웠어요.
-        </Note>
-      ) : null}
-
-      {/* Q1 1번: "쉬었다 돌아온" 상태에서만 보이던 한 줄 기록 입력칸을 기록이 1개 이상인 모든
-          상태(기본·오늘 기록 완료·쉬었다 돌아온·AI 정리 꺼짐)에서 항상 보여준다. 기록이 0개인
-          첫 사용 상태만 기존 [첫 기록 쓰기] 버튼 그대로 둔다. */}
-      {state === 'first' ? <FirstUseBoard /> : <QuickRecordInput />}
-
-      {/*
-        S1 D-2단계: 모바일 순서는 인사말 → 한 줄 기록 → 최근 7일 → 최근 회고 카드 → 최근 기록
-        2개 → (스크롤 아래) 쌓인 기록 3칸·활동 지도·자주 하는 주제. "한 화면에 핵심이 보이게"가
-        목적이라 최근 7일은 상태와 무관하게(기존 showWeekStrip 게이트는 데스크톱 사이드 전용으로
-        남겨 둔다) 항상 보여준다.
-      */}
-      {state !== 'first' ? (
-        <>
-          <div className="lg:hidden">
-            <RecentWeekStrip />
-          </div>
-          <div className="lg:hidden">
-            <HomeCoachCard autoStatus={autoStatus} />
-          </div>
-          <div className="lg:hidden">
-            <RecentRecordsCard limit={2} />
-          </div>
-          <div className="flex flex-col gap-7 lg:hidden">
-            <HomeActivityCard />
-            <StatsTiles summary={summary} />
-            <TopicChips />
-          </div>
-        </>
-      ) : null}
-
-      {state !== 'first' ? (
-        <div ref={leftFitRef} className="hidden lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-7 lg:overflow-hidden">
-          <div ref={recentRef} className={recentCount > 0 ? 'flex-none' : 'hidden'}>
-            {recentCount > 0 ? <RecentRecordsCard limit={recentCount} /> : null}
-          </div>
-          <div className="flex-none">
-            <HomeActivityCard maxPictureHeight={leftPictureMax} />
+          <div className="home-col col-span-5">
+            <div className="home-fit">
+              {state !== 'first' ? (
+                <>
+                  <RecentWeekStrip compact />
+                  <HomeCoachCard autoStatus={autoStatus} dense />
+                  <StatsTiles summary={summary} slim />
+                  <div className="home-hide-1">
+                    <TopicChips dense />
+                  </div>
+                </>
+              ) : null}
+            </div>
           </div>
         </div>
-      ) : null}
-    </div>
-  )
+        <DotCompletionHost />
+      </div>
+    )
+  }
 
+  // ---- 모바일(폭 1024 미만): 기존 구성 그대로 ----
   return (
-    <div className="flex flex-col gap-7 lg:min-h-0 lg:flex-1">
-      <Split
-        main={main}
-        side={<div className="hidden lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:gap-7">{sideDesktop}</div>}
-        className="lg:min-h-0 lg:flex-1 lg:grid-rows-[minmax(0,1fr)]"
-      />
+    <div className="flex flex-col gap-7">
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-1.5">
+          <h1 className="font-serif text-[22px] font-semibold">{titleText}</h1>
+          <span className="text-sm text-ink-2">{formatMonthDayWeekday(today)}</span>
+          {subLine}
+        </div>
+
+        {droppedNote}
+
+        {/* Q1 1번: 기록이 1개 이상인 모든 상태에서 한 줄 기록 입력칸을 보여주고, 기록이 0개인 첫 사용 상태만 [첫 기록 쓰기]. */}
+        {state === 'first' ? <FirstUseBoard /> : <QuickRecordInput />}
+
+        {/* S1 D-2단계: 모바일 순서는 인사말 → 한 줄 기록 → 최근 7일 → 최근 회고 카드 → 최근 기록 2개 → 활동 지도·통계·주제. */}
+        {state !== 'first' ? (
+          <>
+            <RecentWeekStrip />
+            <HomeCoachCard autoStatus={autoStatus} />
+            <RecentRecordsCard limit={2} />
+            <div className="flex flex-col gap-7">
+              <HomeActivityCard />
+              <StatsTiles summary={summary} />
+              <TopicChips />
+            </div>
+          </>
+        ) : null}
+      </div>
       <DotCompletionHost />
     </div>
   )
 }
 
+
 /** 디자인에 없는 추가(U3): 연속 일수 같은 쉬면 줄어드는 지표 대신 쌓이기만 하는 지표 3개. */
-function StatsTiles({ summary, compact = false }: { summary: StatsSummary; compact?: boolean }) {
+function StatsTiles({ summary, slim = false }: { summary: StatsSummary; slim?: boolean }) {
   const daysSinceStart = summary.firstRecordedDate
     ? daysBetween(summary.firstRecordedDate, summary.today) + 1
     : null
 
-  if (compact) {
-    // 낮은 화면용 한 줄 카드: 값은 같고 높이와 글자만 줄인다
+  if (slim) {
+    // 웹 홈: 세 칸이 한 줄(높이 56px 안팎)이고 칸마다 라벨과 값이 한 줄이다.
+    const tiles = [
+      ['기록한 날', `${summary.recordedDays}일`],
+      ['쌓인 시간', summary.totalMinutes === 0 ? '기록 안 함' : formatDurationMinutes(summary.totalMinutes)],
+      ['시작한 지', daysSinceStart != null ? `${daysSinceStart}일` : '-'],
+    ]
     return (
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 rounded-xl bg-surface px-3 py-2 text-caption-min text-ink-2">
-        <span>
-          기록한 날 <span className="font-serif text-ink">{summary.recordedDays}일</span>
-        </span>
-        <span>
-          쌓인 시간{' '}
-          <span className="font-serif text-ink">
-            {summary.totalMinutes === 0 ? '기록 안 함' : formatDurationMinutes(summary.totalMinutes)}
-          </span>
-        </span>
-        <span>
-          시작한 지 <span className="font-serif text-ink">{daysSinceStart != null ? `${daysSinceStart}일` : '-'}</span>
-        </span>
+      <div className="grid h-14 grid-cols-3 gap-2">
+        {tiles.map(([label, value]) => (
+          <div key={label} className="flex min-w-0 items-center justify-center gap-1.5 rounded-xl bg-surface px-2">
+            <span className="flex-none text-xs text-ink-2">{label}</span>
+            <span className="truncate font-serif text-base text-ink">{value}</span>
+          </div>
+        ))}
       </div>
     )
   }
@@ -351,32 +301,37 @@ function FirstUseBoard() {
 }
 
 /**
- * 홈 사이드의 "최근 회고 카드"(P1 5단계). 전에는 '오늘 기록 완료' 상태에서만 본문 안에 보였는데,
- * 이제 상태와 무관하게 사이드 1순위 블록으로 항상 보인다(회고가 아예 없을 때는 진행 안내로 대체).
- * cardState가 EXPIRED여도 카드를 숨기지 않고 날짜·내용은 그대로 보여주되 반응 버튼만 숨긴다
- * (전에는 EXPIRED를 "회고 없음"과 똑같이 취급해 카드 전체가 "회고 받기" 안내로 바뀌었는데, 그
- * 회고 자체는 여전히 유효한 정보라 숨길 이유가 없다는 게 이번 지시의 핵심 — 서버 `latest()`는
- * 이미 EXPIRED여도 result를 그대로 돌려주고 있어 이 부분은 프론트 로직만 바꾸면 됐다).
+ * 홈의 "최근 회고 카드". 상태와 무관하게 항상 보이고, 로딩 중에는 같은 높이의 자리표시, 회고가 없으면 한 줄 안내를
+ * 같은 카드 자리에 둔다. cardState가 EXPIRED여도 카드를 숨기지 않는다(날짜·내용은 그대로, 반응 버튼만 숨김).
+ * dense는 웹 홈용: "회고 보기"는 제목 줄 오른쪽 끝, 요약 2줄 말줄임, 다음에 해 볼 일은 컴팩트 모양, 안쪽 여백 축소.
  */
-function HomeCoachCard({ autoStatus }: { autoStatus: CoachAutoResponse | null }) {
+function HomeCoachCard({ autoStatus, dense = false }: { autoStatus: CoachAutoResponse | null; dense?: boolean }) {
   const { data, isLoading } = useQuery({ queryKey: ['ai', 'coach', 'latest'], queryFn: fetchLatestCoach })
   const nextActionQuery = useLatestNextAction()
 
   if (isLoading || nextActionQuery.isLoading) {
-    return <Loading />
+    return dense ? (
+      <div className="home-pad flex flex-col gap-2 rounded-2xl bg-surface" role="status" aria-label="회고를 불러오는 중이에요">
+        <div className="h-5 w-1/3 rounded-full bg-rest motion-safe:animate-pulse" />
+        <div className="h-4 w-full rounded-full bg-rest motion-safe:animate-pulse" />
+        <div className="h-[8.5rem] rounded-xl bg-rest motion-safe:animate-pulse" />
+      </div>
+    ) : (
+      <Loading />
+    )
   }
 
-  // 회고가 있든 없든, 최신 기록에 반응 전 제안이 있으면 항상 보인다(예전에는 회고가 있을 때만 카드 안에 있었다).
+  // 회고가 있든 없든, 최신 기록에 반응 전 제안이 있으면 항상 보인다.
   const nextAction = nextActionQuery.data && nextActionQuery.data.state == null ? nextActionQuery.data : null
-  const nextActionBlock = nextAction ? <HomeNextActionBlock action={nextAction} /> : null
+  const nextActionBlock = nextAction ? <HomeNextActionBlock action={nextAction} dense={dense} /> : null
+  const cardClass = dense ? 'home-pad flex flex-col gap-2 rounded-2xl bg-surface' : 'flex flex-col gap-2.5 rounded-2xl bg-surface p-5'
 
-  // 회고가 아예 없으면: 오늘 접속 때 자동 생성 조건을 이미 확인했다면(autoStatus) 정확한 진행
-  // 수치를, 아니면(같은 날 두 번째 접속 등으로 건너뛴 경우) 일반 안내만 보여준다.
+  // 회고가 아예 없으면: 오늘 접속 때 자동 생성 조건을 이미 확인했다면(autoStatus) 정확한 진행 수치를, 아니면 일반 안내만.
   if (!data) {
     if (autoStatus && autoStatus.status === 'NOT_ELIGIBLE' && !autoStatus.hasAnyCoach) {
       const ratio = Math.min(100, (autoStatus.newRecordsSinceLast / Math.max(1, autoStatus.requiredCount)) * 100)
       return (
-        <div className="flex flex-col items-start gap-3 rounded-2xl bg-surface p-5">
+        <div className={dense ? cardClass : 'flex flex-col items-start gap-3 rounded-2xl bg-surface p-5'}>
           <h2 className="text-card-title">AI 회고</h2>
           {nextActionBlock ? <div className="w-full">{nextActionBlock}</div> : null}
           <p className="text-caption-min text-ink-2">
@@ -386,17 +341,21 @@ function HomeCoachCard({ autoStatus }: { autoStatus: CoachAutoResponse | null })
           <div className="h-2 w-full overflow-hidden rounded-full bg-rest">
             <div className="h-full rounded-full bg-base" style={{ width: `${ratio}%` }} />
           </div>
-          <Link to="/records/new" className="inline-flex min-h-9 items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
-            기록하기
-          </Link>
+          {dense ? null : (
+            <Link to="/records/new" className="inline-flex min-h-9 items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
+              기록하기
+            </Link>
+          )}
         </div>
       )
     }
     return (
-      <div className="flex flex-col items-start gap-2 rounded-2xl bg-surface p-5">
+      <div className={dense ? cardClass : 'flex flex-col items-start gap-2 rounded-2xl bg-surface p-5'}>
         <h2 className="text-card-title">AI 회고</h2>
         {nextActionBlock ? <div className="w-full">{nextActionBlock}</div> : null}
-        <p className="text-caption-min text-ink-2">아직 받은 회고가 없어요.</p>
+        <p className="text-caption-min text-ink-2">
+          {dense ? '기록이 쌓이면 회고를 보여 드릴게요' : '아직 받은 회고가 없어요.'}
+        </p>
       </div>
     )
   }
@@ -406,30 +365,40 @@ function HomeCoachCard({ autoStatus }: { autoStatus: CoachAutoResponse | null })
       <AiLabel>새로 도착</AiLabel>
     </div>
   ) : null
-
-  // 다음 행동은 이제 기록 직후에 만들어지는 "다음에 해 볼 일"이 맡는다. 없으면 이 블록은 숨긴다.
-  const body = nextActionBlock
+  const reviewLink = (
+    <Link
+      to={data.id != null ? `/coach?r=${data.id}` : '/coach'}
+      className={
+        dense
+          ? 'inline-flex h-8 flex-none items-center gap-0.5 rounded-full px-2 text-sm font-medium text-base-ink no-underline hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]'
+          : 'inline-flex min-h-9 w-fit items-center gap-0.5 text-sm font-medium text-base-ink no-underline'
+      }
+    >
+      회고 보기
+      <ChevronRightIcon width={14} height={14} />
+    </Link>
+  )
 
   return (
-    <div className="flex flex-col gap-2.5 rounded-2xl bg-surface p-5">
+    <div className={cardClass}>
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-card-title">
+        <h2 className="min-w-0 truncate text-card-title">
           {data.startDate ? `${formatMonthDay(data.startDate)} 회고` : 'AI 회고'}
         </h2>
-        {newBanner}
+        <div className="flex flex-none items-center gap-1">
+          {newBanner}
+          {dense ? reviewLink : null}
+        </div>
       </div>
-      {data.periodSummary ? <p className="line-clamp-2 text-body-min text-ink-2">{data.periodSummary}</p> : null}
-      {body}
-      <Link
-        to={data.id != null ? `/coach?r=${data.id}` : '/coach'}
-        className="inline-flex min-h-9 w-fit items-center gap-0.5 text-sm font-medium text-base-ink no-underline"
-      >
-        회고 보기
-        <ChevronRightIcon width={14} height={14} />
-      </Link>
+      {data.periodSummary ? (
+        <p className={dense ? 'line-clamp-2 text-sm text-ink-2' : 'line-clamp-2 text-body-min text-ink-2'}>{data.periodSummary}</p>
+      ) : null}
+      {nextActionBlock}
+      {dense ? null : reviewLink}
     </div>
   )
 }
+
 
 /**
  * Q1 1번: 모든 상태(기본·오늘 기록 완료·쉬었다 돌아온·AI 정리 꺼짐)에서 인사말 아래에 항상 보이는
@@ -451,7 +420,11 @@ function QuickRecordInput() {
   const [addingHobby, setAddingHobby] = useState(false)
 
   if (hobbiesLoading || recentQuery.isLoading) {
-    return <Loading />
+    return isDesktop ? (
+      <div className="h-[6.5rem] rounded-xl bg-surface motion-safe:animate-pulse" role="status" aria-label="입력칸을 불러오는 중이에요" />
+    ) : (
+      <Loading />
+    )
   }
 
   const activeIds = new Set((activeHobbies ?? []).map((hobby) => hobby.id))

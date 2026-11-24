@@ -11,6 +11,8 @@ type Props = {
   hobbyId?: number | null
   /** 지난 기록의 1년 지도·모바일처럼 [6개월|1년] 토글을 둘지 여부. */
   toggle?: boolean
+  /** 웹 홈용: 아래 범례·선택 줄을 없애고(헤더로 옮김), 칸 크기는 홈 밀도 변수(--heat-cell-max)를 따르며, 아주 낮은 화면에서는 한 줄 요약만 보인다. */
+  home?: boolean
 }
 
 /*
@@ -52,7 +54,7 @@ const LEVEL_BG: Record<0 | 1 | 2 | 3, string> = {
   3: 'var(--color-base)',
 }
 
-export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: Props) {
+export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false, home = false }: Props) {
   const today = todayLocalDate()
   const currentWeekStart = startOfWeekLocal(new Date())
   const [range, setRange] = useState<'half' | 'full'>('half')
@@ -170,7 +172,16 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
     window.setTimeout(updateScrollButtons, reducedMotion ? 0 : 400)
   }
 
-  if (mapQuery.isLoading) return <Loading />
+  if (mapQuery.isLoading) {
+    return home ? (
+      <div
+        className="rounded-lg bg-rest motion-safe:animate-pulse"
+        style={{ height: 'calc(var(--heat-cell-max, 16px) * 7 + 36px)' }}
+      />
+    ) : (
+      <Loading />
+    )
+  }
 
   const monthLabels = computeMonthLabels(from, weeks)
 
@@ -263,7 +274,7 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
       '--weeks': weeksForRow,
       '--cell': fixedCell
         ? `${FULL_CELL_PX}px`
-        : `clamp(9px, calc(100cqw / var(--weeks) - ${GAP_PX}px), ${MAX_CLAMP_CELL_PX}px)`,
+        : `clamp(9px, calc(100cqw / var(--weeks) - ${GAP_PX}px), var(--heat-cell-max, ${MAX_CLAMP_CELL_PX}px))`,
     } as CSSProperties
   }
 
@@ -417,10 +428,16 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
         </div>
       ) : null}
 
+      {home ? (
+        <p className="home-show-2 text-sm text-ink-2">
+          최근 {weeks}주 중 {Array.from(countByDate.values()).filter((count) => count > 0).length}일 기록했어요
+        </p>
+      ) : null}
+
       {scrollableSingleRow ? (
         renderScrollableRow()
       ) : (
-        <div style={{ containerType: 'inline-size', ...makeGridVars(weeks) } as CSSProperties}>
+        <div className={home ? 'home-hide-2' : undefined} style={{ containerType: 'inline-size', ...makeGridVars(weeks) } as CSSProperties}>
           <div
             ref={fixedCell ? scrollRef : undefined}
             className={fixedCell ? 'scrollbar-none overflow-x-auto overflow-y-hidden' : 'overflow-x-visible overflow-y-hidden'}
@@ -430,6 +447,7 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
         </div>
       )}
 
+      {home ? null : (
       <div className="flex items-center justify-between gap-3">
         <p className="min-h-5 text-caption-min text-ink-2" aria-live="polite">
           {selectedDate ? `${formatMonthDay(selectedDate)} · 기록 ${selectedCount}개` : ' '}
@@ -443,6 +461,20 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false }: 
           <span>많음</span>
         </div>
       </div>
+      )}
+    </div>
+  )
+}
+
+/** 홈 활동 지도 카드 헤더에 들어가는 범례(적음 ■■■■ 많음). */
+export function HeatmapLegend() {
+  return (
+    <div className="flex items-center gap-1 text-xs text-ink-2">
+      <span>적음</span>
+      {([0, 1, 2, 3] as const).map((level) => (
+        <span key={level} className="h-3 w-3 rounded-sm" style={{ background: LEVEL_BG[level] }} />
+      ))}
+      <span>많음</span>
     </div>
   )
 }
