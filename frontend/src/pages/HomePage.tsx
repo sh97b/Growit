@@ -191,7 +191,7 @@ export function HomePage() {
             </div>
           </div>
           <div className="home-col col-span-5">
-            <div className="home-fit">
+            <div className="home-fit home-fit-right">
               {state !== 'first' ? (
                 <>
                   <RecentWeekStrip home />
@@ -312,7 +312,7 @@ function HomeCoachCard({ autoStatus, dense = false }: { autoStatus: CoachAutoRes
 
   if (isLoading || nextActionQuery.isLoading) {
     return dense ? (
-      <div className="home-pad home-grow flex flex-col gap-2 rounded-2xl bg-surface" role="status" aria-label="회고를 불러오는 중이에요">
+      <div className="home-pad home-grow home-grow-cap flex flex-col gap-2 rounded-2xl bg-surface" role="status" aria-label="회고를 불러오는 중이에요">
         <div className="h-5 w-1/3 rounded-full bg-rest motion-safe:animate-pulse" />
         <div className="h-4 w-full rounded-full bg-rest motion-safe:animate-pulse" />
         <div className="min-h-[8.5rem] flex-1 rounded-xl bg-rest motion-safe:animate-pulse" />
@@ -325,7 +325,7 @@ function HomeCoachCard({ autoStatus, dense = false }: { autoStatus: CoachAutoRes
   // 회고가 있든 없든, 최신 기록에 반응 전 제안이 있으면 항상 보인다.
   const nextAction = nextActionQuery.data && nextActionQuery.data.state == null ? nextActionQuery.data : null
   const nextActionBlock = nextAction ? <HomeNextActionBlock action={nextAction} dense={dense} /> : null
-  const cardClass = dense ? 'home-pad home-grow flex flex-col gap-2 rounded-2xl bg-surface' : 'flex flex-col gap-2.5 rounded-2xl bg-surface p-5'
+  const cardClass = dense ? 'home-pad home-grow home-grow-cap flex flex-col gap-2 rounded-2xl bg-surface' : 'flex flex-col gap-2.5 rounded-2xl bg-surface p-5'
 
   // 회고가 아예 없으면: 오늘 접속 때 자동 생성 조건을 이미 확인했다면(autoStatus) 정확한 진행 수치를, 아니면 일반 안내만.
   if (!data) {

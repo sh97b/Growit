@@ -346,20 +346,21 @@ select:focus-visible {
     --hg: 20px;
     --hh1: 28px;
     --hpad: 20px;
-    --rec-row: 64px;
+    --rec-row: clamp(64px, 10cqh, 96px);
     --rec-lines: 2;
     --rec-cols: minmax(0, 1fr) auto;
     --rec-areas: 'cap tag' 'body tag';
-    --stat-h: 76px;
+    --stat-h: clamp(76px, 16cqh, 148px);
     --stat-dir: column;
-    --stat-fs: 24px;
+    --stat-fs: clamp(24px, 4cqh, 38px);
     --wk-dir: column;
-    --wk-circle: 28px;
+    --wk-circle: clamp(28px, 4.6cqh, 40px);
     --tp-dir: column;
-    --na-fs: 22px;
-    --na-lines: 2;
-    --na-pad: 16px;
-    --cell-max: 24px;
+    --na-fs: clamp(22px, 4cqh, 38px);
+    --na-title-lines: 3;
+    --na-lines: 3;
+    --na-pad: clamp(16px, 3cqh, 30px);
+    --cell-max: 40px;
     --cell-min: 12px;
     display: flex;
     flex-direction: column;
@@ -374,6 +375,13 @@ select:focus-visible {
   .home-fit > .home-grow {
     flex: 1 1 0;
     min-height: 0;
+  }
+  /* 회고 카드는 내용 높이만큼만: 남는 높이는 주간 원·통계가 키워서 쓰고 나머지는 간격(space-between)으로 둬 카드 안 빈 공간을 만들지 않는다. */
+  .home-fit > .home-grow-cap {
+    flex: 0 1 auto;
+  }
+  .home-fit-right {
+    justify-content: space-between;
   }
   .home-pad {
     padding: var(--hpad);
@@ -428,7 +436,7 @@ select:focus-visible {
     gap: 8px 16px;
   }
   .home-week-days {
-    flex: 1 1 0;
+    flex: 1 1 auto;
     min-width: 0;
   }
   .home-week-circle {
@@ -446,7 +454,7 @@ select:focus-visible {
     font-size: var(--na-fs);
     line-height: 1.3;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: var(--na-title-lines);
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
@@ -458,6 +466,9 @@ select:focus-visible {
   }
   .home-na-block {
     padding: var(--na-pad);
+  }
+  .home-na-reason-text {
+    font-size: clamp(12px, 1.7cqh, 15px);
   }
 }
 @container homecol (max-height: 729px) {
@@ -471,6 +482,7 @@ select:focus-visible {
     --stat-fs: 20px;
     --wk-circle: 24px;
     --na-fs: 20px;
+    --na-title-lines: 2;
     --na-lines: 1;
     --na-pad: 12px;
     --cell-max: 18px;
