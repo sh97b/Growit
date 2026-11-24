@@ -626,3 +626,46 @@ select:focus-visible {
     font-size: clamp(18px, 3.4cqh, 30px);
   }
 }
+
+/* 변화 해석 카드 본문: 남는 높이가 모자라면 아래가 흐려지며 잘리고(전체는 [전체 보기]), 넉넉하면 내용 높이만 차지한다. */
+@media (min-width: 1024px) {
+  .ch-fade-auto {
+    min-height: 0;
+    flex: 0 1 auto;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent 100%);
+  }
+  .ch-body {
+    container-type: size;
+    container-name: chbody;
+  }
+  .ch-pair-body {
+    display: -webkit-box;
+    -webkit-line-clamp: var(--pair-lines, 4);
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+/* 본문 높이가 모자라면 줄 수만 줄인다(글자 크기는 그대로): 이전·최근 카드 4줄 → 2줄, 주 요약의 주제 칩은 숨김. */
+@container chbody (max-height: 700px) {
+  .ch-pair-body {
+    --pair-lines: 2;
+  }
+  .ch-week-tags {
+    display: none;
+  }
+  .ch-because {
+    -webkit-line-clamp: 2;
+  }
+  .ch-fold {
+    display: none;
+  }
+}
+
+.ch-pair-body {
+  display: -webkit-box;
+  -webkit-line-clamp: var(--pair-lines, 4);
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AiLabel } from '../components/AiLabel'
+import { Spinner } from '../components/AiProgress'
 import { AiViewCard } from '../components/AiViewCard'
+import { InfoTip } from '../components/InfoTip'
 import { CompareInsights } from '../components/CompareInsights'
 import { Button } from '../components/Button'
 import { ChartIcon, ChevronRightIcon } from '../components/icons'
@@ -238,7 +240,7 @@ export function ChangesPage() {
           />
         </>
       }
-      right={infoLine}
+      right=""
     />
   )
 
@@ -246,52 +248,144 @@ export function ChangesPage() {
     <span className="text-caption-min text-ink-2">오늘 {usageQuery.data.remaining}회 남음</span>
   ) : null
 
-  // 한 줄 지표 카드: 기록한 날·쌓인 시간·자주 나온 주제를 컴팩트한 카드 하나에 모은다(지시문 3).
-  const metricsCard = result?.metrics ? (() => {
-    const m = result.metrics!
-    const bothZeroMinutes = m.totalMinutes.past === 0 && m.totalMinutes.current === 0
-    const minutesLabel = bothZeroMinutes
-      ? null
-      : m.totalMinutes.past === m.totalMinutes.current
-        ? `${formatDurationMinutes(m.totalMinutes.current)} (변동 없음)`
-        : `${m.totalMinutes.past === 0 ? '기록 안 함' : formatDurationMinutes(m.totalMinutes.past)} → ${m.totalMinutes.current === 0 ? '기록 안 함' : formatDurationMinutes(m.totalMinutes.current)}`
-    return (
-      <div className="flex min-w-0 flex-col gap-2 rounded-xl bg-surface p-4 lg:gap-1 lg:px-4 lg:py-2.5">
-        <div className="flex items-center justify-between gap-3 text-sm">
-          <span className="text-ink-2">기록한 날</span>
-          <span className="font-medium text-ink">{m.recordedDays.past}일 → {m.recordedDays.current}일</span>
-        </div>
-        {minutesLabel ? (
-          <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="text-ink-2">쌓인 시간</span>
-            <span className="font-medium text-ink">{minutesLabel}</span>
-          </div>
-        ) : null}
-        {m.topTags && m.topTags.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5 pt-1 lg:pt-0">
-            {m.topTags.slice(0, 2).map((topic) => (
-              <Tag key={topic.tag} variant="topic">
-                {topic.tag} · {topic.count}
-              </Tag>
-            ))}
-          </div>
-        ) : null}
+  const showResult = !compareQuery.isFetching && !!result && !result.locked
+
+  // ① 이전·최근 두 장. 결과를 기다리는 동안에는 같은 자리에 같은 크기의 자리표시를 둔다.
+  const pairRow =
+    showResult && result ? (
+      <RecordPairCards
+        left={
+          result.pastRecord
+            ? { id: result.pastRecord.id, label: `${result.pastDate ? formatMonthDay(result.pastDate) : ''} 전후`, content: result.pastRecord.content }
+            : null
+        }
+        right={
+          result.currentRecord
+            ? { id: result.currentRecord.id, label: `최근 · ${result.currentDate ? formatMonthDay(result.currentDate) : ''}`, content: result.currentRecord.content }
+            : null
+        }
+      />
+    ) : (
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2" aria-hidden="true">
+        <div className="h-[132px] rounded-xl bg-surface motion-safe:animate-pulse" />
+        <div className="h-[132px] rounded-xl bg-surface motion-safe:animate-pulse" />
       </div>
     )
-  })() : null
+
+  // ③ 숫자 비교 칩(서버가 계산한 값만 쓴다). 값은 줄바꿈하고 말줄임으로 자르지 않는다.
+  const chip = (label: string, body: ReactNode) => (
+    <div className="flex min-w-0 flex-col justify-center gap-1 rounded-xl bg-surface p-3">
+      <span className="t-sub text-ink-2">{label}</span>
+      {body}
+    </div>
+  )
+  const metricChips = (() => {
+    if (compareQuery.isFetching) {
+      return (
+        <div className="grid grid-cols-1 gap-2 lg:grid-cols-3" aria-hidden="true">
+          {[0, 1, 2].map((index) => (
+            <div key={index} className="h-[84px] rounded-xl bg-surface motion-safe:animate-pulse" />
+          ))}
+        </div>
+      )
+    }
+    if (!result?.metrics) return null
+    const m = result.metrics
+    const minutesText =
+      m.totalMinutes.past === 0 && m.totalMinutes.current === 0
+        ? '기록 안 함'
+        : `${m.totalMinutes.past === 0 ? '0분' : formatDurationMinutes(m.totalMinutes.past)} → ${m.totalMinutes.current === 0 ? '0분' : formatDurationMinutes(m.totalMinutes.current)}`
+    return (
+      <div className="grid grid-cols-1 gap-2 lg:grid-cols-3" aria-label="비교 숫자">
+        {chip('기록한 날', <span className="t-key break-words text-ink">{m.recordedDays.past}일 → {m.recordedDays.current}일</span>)}
+        {chip('쌓인 시간', <span className="t-key break-words text-ink">{minutesText}</span>)}
+        {chip(
+          '자주 나온 주제',
+          m.topTags && m.topTags.length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {m.topTags.slice(0, 2).map((topic) => (
+                <Tag key={topic.tag} variant="topic">
+                  {topic.tag} · {topic.count}
+                </Tag>
+              ))}
+            </div>
+          ) : (
+            <span className="t-body text-ink-2">없어요</span>
+          ),
+        )}
+      </div>
+    )
+  })()
+
+  // ② 변화 해석 카드(웹·모바일 공용). 오른쪽 위에는 비교 기준을 알려 주는 ⓘ만 둔다.
+  const interpretationCard = (
+    <section
+      aria-label="변화 해석"
+      className="relative flex min-h-0 min-w-0 flex-col gap-3 overflow-hidden rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-4 lg:flex-[0_1_auto] lg:p-5"
+    >
+      <div className="flex flex-none items-center justify-between gap-2">
+        <AiLabel>변화 해석</AiLabel>
+        <div className="flex items-center gap-1">
+          {isDesktop && showResult ? (
+            <button
+              type="button"
+              onClick={() => setDialog('interpretation')}
+              className="t-sub inline-flex h-8 flex-none items-center rounded-full px-2 font-medium text-base-ink hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+            >
+              전체 보기
+            </button>
+          ) : null}
+          {infoLine ? <InfoTip text={infoLine} /> : null}
+        </div>
+      </div>
+
+      {compareQuery.isFetching ? (
+        <div role="status" aria-live="polite" className="flex flex-col gap-3 lg:min-h-[200px]">
+          <p className="t-body-lg flex items-center gap-2.5 font-medium text-ink">
+            <Spinner className="text-base-ink" />
+            AI가 기록을 읽고 있어요
+          </p>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {[0, 1, 2].map((index) => (
+              <div key={index} className="flex flex-col gap-2.5 rounded-xl bg-white/60 p-3">
+                <div className="h-4 w-1/2 rounded-full bg-rest motion-safe:animate-pulse" />
+                <div className="h-4 w-full rounded-full bg-rest motion-safe:animate-pulse" />
+                <div className="h-4 w-4/5 rounded-full bg-rest motion-safe:animate-pulse" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {showResult && result ? (
+        <>
+          <div className={isDesktop ? 'ch-fade-auto' : ''}>
+            {isStructuredCompare(result) ? (
+              <CompareInsights result={result} columns={isDesktop} />
+            ) : (
+              <p className="t-body-lg max-w-[70ch] break-words font-serif text-ink">{result.interpretation}</p>
+            )}
+          </div>
+          <div className="flex-none">
+            <FeedbackRow
+              variant="text"
+              question="이 해석이 맞나요?"
+              status={result.feedback === 'HELPFUL' ? 'positive' : result.feedback === 'NOT_HELPFUL' ? 'negative' : null}
+              pending={feedbackMutation.isPending}
+              onPositive={() => handleFeedback('HELPFUL')}
+              onNegative={() => handleFeedback('NOT_HELPFUL')}
+              errorMessage={feedbackError}
+            />
+          </div>
+        </>
+      ) : null}
+    </section>
+  )
 
   // O1(B.1): [변화 보기] 버튼 없이 페이지 진입·분야·기간 변경 즉시 자동으로 부른다. 불러오는 동안은
   // 카드 모양 스켈레톤을 보여주고(isFetching, 초기 로딩·분야/기간 변경 둘 다 포함) 왼쪽을 비워 두지 않는다.
   const comparison = (
     <div className="flex min-w-0 flex-col gap-5 lg:gap-2">
-      {compareQuery.isFetching ? (
-        <div className="flex flex-col gap-3.5 rounded-2xl bg-surface p-7">
-          <AiLabel>기록을 천천히 읽고 있어요</AiLabel>
-          <div className="h-3.5 w-[80%] animate-pulse rounded-full bg-rest" />
-          <div className="h-3.5 w-full animate-pulse rounded-full bg-rest" />
-        </div>
-      ) : null}
-
       {!compareQuery.isFetching && compareQuery.isError ? (
         <div className="flex flex-col gap-3">
           <Note variant="sand">
@@ -331,62 +425,11 @@ export function ChangesPage() {
         </div>
       ) : null}
 
-      {!isDesktop && !compareQuery.isFetching && result && !result.locked ? (
-        <div className="flex min-w-0 flex-col gap-5">
-          {/* S1 D-4단계: 모바일은 변화 해석 카드를 맨 위(강조)로, 과거·현재 카드를 그 아래로 둔다.
-              DOM 순서(데스크톱 원래 순서: 과거·현재 → 해석 → 지표)는 그대로 두고 CSS order만
-              모바일에서 바꾼다(lg: 접두사에서는 숫자를 원래 DOM 순서와 같게 둬 데스크톱은 그대로). */}
-          <div className="order-2 lg:order-1">
-            <RecordPairCards
-              left={
-                result.pastRecord
-                  ? { id: result.pastRecord.id, label: `${result.pastDate ? formatMonthDay(result.pastDate) : ''} 전후`, content: result.pastRecord.content }
-                  : null
-              }
-              right={
-                result.currentRecord
-                  ? { id: result.currentRecord.id, label: `최근 · ${result.currentDate ? formatMonthDay(result.currentDate) : ''}`, content: result.currentRecord.content }
-                  : null
-              }
-              rightBadge="최근"
-              lines={isDesktop ? 3 : undefined}
-            />
-          </div>
-
-          <div className="order-1 flex min-w-0 flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-7 lg:order-2 lg:gap-2 lg:p-4">
-            <div className="flex items-center justify-between gap-2">
-              <AiLabel>변화 해석</AiLabel>
-              {isDesktop ? (
-                <button
-                  type="button"
-                  onClick={() => setDialog('interpretation')}
-                  className="inline-flex h-8 flex-none items-center rounded-full px-2 text-sm font-medium text-base-ink hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
-                >
-                  전체 보기
-                </button>
-              ) : null}
-            </div>
-            {isStructuredCompare(result) ? (
-              <CompareInsights result={result} />
-            ) : (
-              <p className={['break-words font-serif leading-[1.55]', isDesktop ? 'line-clamp-3 text-[1.0625rem] text-ink' : 'text-lg'].join(' ')}>
-                {result.interpretation}
-              </p>
-            )}
-            {/* 근거 칩은 원래 두지 않는다 — compare의 근거는 항상 pastRecord·currentRecord뿐이라
-                바로 위 RecordPairCards와 완전히 같은 기록이라서(지시문 3), 중복으로 다시 보여주지 않는다. */}
-            <FeedbackRow
-              variant="text"
-              question="이 해석이 맞나요?"
-              status={result.feedback === 'HELPFUL' ? 'positive' : result.feedback === 'NOT_HELPFUL' ? 'negative' : null}
-              pending={feedbackMutation.isPending}
-              onPositive={() => handleFeedback('HELPFUL')}
-              onNegative={() => handleFeedback('NOT_HELPFUL')}
-              errorMessage={feedbackError}
-            />
-          </div>
-
-          <div className="order-3 min-w-0">{metricsCard}</div>
+      {!isDesktop && (compareQuery.isFetching || showResult) ? (
+        <div className="flex min-w-0 flex-col gap-4">
+          {pairRow}
+          {interpretationCard}
+          {metricChips}
         </div>
       ) : null}
     </div>
@@ -503,23 +546,6 @@ export function ChangesPage() {
     </div>
   )
 
-  const infoCaption = infoLine ? (
-    <p className="flex min-w-0 flex-none items-center gap-1 text-xs text-ink-3">
-      <span className="min-w-0 flex-1 truncate" title={infoLine}>
-        {infoLine}
-      </span>
-      <span
-        role="img"
-        tabIndex={0}
-        aria-label={infoLine}
-        title={infoLine}
-        className="inline-flex h-5 w-5 flex-none cursor-help items-center justify-center rounded-full border border-line-2 text-[11px]"
-      >
-        i
-      </span>
-    </p>
-  ) : null
-
   const weekSummaryLine = selectedWeek
     ? `${formatMonthDay(selectedWeek.weekStart)} – ${formatMonthDay(addDays(selectedWeek.weekStart, 6))} · ${
         selectedWeek.recordedDays > 0 ? `${selectedWeek.recordedDays}일 · ${formatDurationMinutes(selectedWeek.totalMinutes)}` : '기록 없음'
@@ -534,7 +560,7 @@ export function ChangesPage() {
         <button
           type="button"
           onClick={onOpen}
-          className="inline-flex h-8 flex-none items-center rounded-full px-2 text-sm font-medium text-base-ink hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+          className="t-sub inline-flex h-8 flex-none items-center rounded-full px-2 font-medium text-base-ink hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
         >
           전체 보기
         </button>
@@ -544,12 +570,12 @@ export function ChangesPage() {
 
   // 주 요약 카드: 제목, 기간·일수·시간 한 줄, 그 주의 주제 칩(2줄 말줄임). 전체는 Dialog.
   const weekCardDesktop = selectedWeek ? (
-    <section aria-label="주 요약" className="ch-pad min-h-0 flex-1 flex min-w-0 flex-col gap-1.5 overflow-hidden rounded-2xl bg-surface">
+    <section aria-label="주 요약" className="flex min-w-0 flex-1 flex-col gap-1.5 overflow-hidden rounded-2xl bg-surface p-4">
       {cardHead(<h3 className="text-card-title">주 요약</h3>, () => setDialog('week'))}
-      <div className="ch-fade flex flex-col gap-1.5">
-      <p className="break-words text-sm text-ink">{weekSummaryLine}</p>
+      <div className="flex flex-col gap-1.5">
+      <p className="t-body line-clamp-3 break-words text-ink">{weekSummaryLine}</p>
       {selectedWeek.tags.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="ch-week-tags flex flex-wrap gap-1.5">
           {selectedWeek.tags.slice(0, 6).map((entry) => (
             <Tag key={entry.tag} variant="topic">
               {entry.tag} · {entry.count}
@@ -566,7 +592,7 @@ export function ChangesPage() {
   // 지표 해석 카드: AI 글이라 산세리프가 아니라 해석 카드와 같은 세리프 본문색(text-ink), 3줄 말줄임 + [전체 보기].
   const metricsCardDesktop = (() => {
     const shell = (body: ReactNode, onOpen?: () => void) => (
-      <section aria-label="지표 해석" className="ch-pad min-h-0 flex-1 flex min-w-0 flex-col gap-1.5 overflow-hidden rounded-2xl bg-surface">
+      <section aria-label="지표 해석" className="flex min-w-0 flex-1 flex-col gap-1.5 overflow-hidden rounded-2xl bg-surface p-4">
         {cardHead(<h3 className="text-card-title">지표 해석</h3>, onOpen)}
         {body}
       </section>
@@ -595,9 +621,7 @@ export function ChangesPage() {
     }
     if (metricsQuery.data.empty) return shell(<p className="text-sm text-ink-2">이번 주는 쉬어 간 주예요.</p>)
     return shell(
-      <div className="ch-fade">
-        <p className="ch-text-sm break-words font-serif text-ink">{metricsQuery.data.displayText}</p>
-      </div>,
+      <p className="t-body line-clamp-3 break-words font-serif text-ink">{metricsQuery.data.displayText}</p>,
       () => setDialog('metrics'),
     )
   })()
@@ -715,72 +739,6 @@ export function ChangesPage() {
     </>
   )
 
-  // 비교 숫자 칩: 기록한 날·쌓인 시간·주제(서버가 계산한 값만 쓴다).
-  const metricChips = result?.metrics ? (() => {
-    const m = result.metrics!
-    const minutesText =
-      m.totalMinutes.past === 0 && m.totalMinutes.current === 0
-        ? '기록 안 함'
-        : `${m.totalMinutes.past === 0 ? '0분' : formatDurationMinutes(m.totalMinutes.past)} → ${m.totalMinutes.current === 0 ? '0분' : formatDurationMinutes(m.totalMinutes.current)}`
-    const chip = (label: string, body: ReactNode) => (
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col justify-center gap-1 overflow-hidden rounded-xl bg-surface px-3">
-        <span className="text-xs text-ink-2">{label}</span>
-        {body}
-      </div>
-    )
-    return (
-      <div className="ch-chips flex gap-2" aria-label="비교 숫자">
-        {chip('기록한 날', <span className="truncate font-serif text-[1.0625rem] text-ink">{m.recordedDays.past}일 → {m.recordedDays.current}일</span>)}
-        {chip('쌓인 시간', <span className="truncate font-serif text-[1.0625rem] text-ink">{minutesText}</span>)}
-        {chip(
-          '자주 나온 주제',
-          m.topTags && m.topTags.length > 0 ? (
-            <div className="flex max-h-[1.75rem] flex-wrap gap-1 overflow-hidden">
-              {m.topTags.slice(0, 2).map((topic) => (
-                <Tag key={topic.tag} variant="topic">
-                  {topic.tag} · {topic.count}
-                </Tag>
-              ))}
-            </div>
-          ) : (
-            <span className="text-sm text-ink-2">없어요</span>
-          ),
-        )}
-      </div>
-    )
-  })() : null
-
-  // 변화 해석(웹): 크게. 넘치는 글은 아래가 흐려지고 전체는 [전체 보기]에서 본다.
-  const interpretationCardDesktop =
-    result && !result.locked ? (
-      <section
-        aria-label="변화 해석"
-        className={[
-          'ch-pad flex min-w-0 flex-col gap-2 overflow-hidden rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)]',
-          isStructuredCompare(result) ? 'ch-grow6' : 'ch-grow3',
-        ].join(' ')}
-      >
-        {cardHead(<AiLabel>변화 해석</AiLabel>, () => setDialog('interpretation'))}
-        <div className="ch-fade">
-          {isStructuredCompare(result) ? (
-            <CompareInsights result={result} headlineClass="ch-headline" dense />
-          ) : (
-            <p className="ch-text break-words font-serif text-ink">{result.interpretation}</p>
-          )}
-        </div>
-        <FeedbackRow
-          variant="text"
-          question="이 해석이 맞나요?"
-          status={result.feedback === 'HELPFUL' ? 'positive' : result.feedback === 'NOT_HELPFUL' ? 'negative' : null}
-          pending={feedbackMutation.isPending}
-          onPositive={() => handleFeedback('HELPFUL')}
-          onNegative={() => handleFeedback('NOT_HELPFUL')}
-          errorMessage={feedbackError}
-        />
-      </section>
-    ) : null
-
-  const showResultDesktop = !compareQuery.isFetching && result && !result.locked
 
   const dialogs =
     dialog === 'interpretation' && result ? (
@@ -792,7 +750,7 @@ export function ChangesPage() {
           {isStructuredCompare(result) ? (
             <CompareInsights result={result} />
           ) : (
-            <p className="break-words font-serif text-lg leading-[1.7]">{result.interpretation}</p>
+            <p className="t-body-lg max-w-[70ch] break-words font-serif text-ink">{result.interpretation}</p>
           )}
         </div>
         <div className="mt-5 flex justify-end">
@@ -854,42 +812,16 @@ export function ChangesPage() {
     return (
       <div className="flex min-h-0 flex-1 flex-col gap-4">
         {desktopHeader}
-        <div className="grid min-h-0 flex-1 grid-cols-12 grid-rows-[minmax(0,1fr)] gap-8">
-          {/* 두 열 모두 높이에 비례해 늘고 줄며(clamp·flex 비율) 중첩 스크롤·가로 스크롤이 없다. */}
-          <div className="ch-col col-span-5 whitespace-normal break-words">
-            <div className="ch-fit">
-              {infoCaption}
-              {comparison}
-              {showResultDesktop ? (
-                <>
-                  <div className="ch-grow3 flex min-h-0 flex-col">
-                    <RecordPairCards
-                      stack
-                      left={
-                        result.pastRecord
-                          ? { id: result.pastRecord.id, label: `${result.pastDate ? formatMonthDay(result.pastDate) : ''} 전후`, content: result.pastRecord.content }
-                          : null
-                      }
-                      right={
-                        result.currentRecord
-                          ? { id: result.currentRecord.id, label: `최근 · ${result.currentDate ? formatMonthDay(result.currentDate) : ''}`, content: result.currentRecord.content }
-                          : null
-                      }
-                    />
-                  </div>
-                  {metricChips}
-                </>
-              ) : null}
-            </div>
-          </div>
-          <div className="ch-col col-span-7 whitespace-normal break-words">
-            <div className="ch-fit">
-              {interpretationCardDesktop}
-              <div className="ch-grow2 flex gap-[inherit]" style={{ gap: 'clamp(8px, 1.6cqh, 16px)' }}>
-                {weekCardDesktop}
-                {metricsCardDesktop}
-              </div>
-            </div>
+        {/* 위에서부터: ① 이전·최근 두 장(내용 높이) → ② 변화 해석(남는 높이를 먹고 모자라면 줄어듦) → ③ 숫자 칩·주 요약·지표 해석.
+            글자는 토큰으로 고정이고 카드 높이만 달라진다. 레이아웃이 결과 도착 시 움직이지 않게 ①·②에는 같은 크기의 자리표시를 둔다. */}
+        <div className="ch-body flex min-h-0 flex-1 flex-col gap-4 overflow-hidden whitespace-normal break-words">
+          {comparison}
+          {compareQuery.isFetching || showResult ? pairRow : null}
+          {compareQuery.isFetching || showResult ? interpretationCard : null}
+          <div className="grid flex-none grid-cols-12 gap-4">
+            <div className="col-span-6 min-w-0">{metricChips}</div>
+            <div className="col-span-3 flex min-w-0">{weekCardDesktop}</div>
+            <div className="col-span-3 flex min-w-0">{metricsCardDesktop}</div>
           </div>
         </div>
         {flowPanelOpen ? (
