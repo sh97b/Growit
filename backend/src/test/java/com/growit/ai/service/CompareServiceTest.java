@@ -363,6 +363,131 @@ class CompareServiceTest {
 						e -> assertThat(e.getCode()).isEqualTo(ErrorCode.AI_LIMIT_EXCEEDED));
 	}
 
+	private static final String LEGACY_JSON = "{\"interpretation\":\"지난번엔 끊겼는데 이번엔 이어졌어요\",\"pastRecordIds\":[],\"currentRecordIds\":[]}";
+
+	private String structuredJson(String headline, String goodItems, String gapItems, String nextItems) {
+		return "{\"headline\":\"" + headline + "\",\"good\":[" + goodItems + "],\"gap\":[" + gapItems + "],\"next\":[" + nextItems + "]}";
+	}
+
+	private String insight(String point, String because, Long... ids) {
+		return "{\"point\":\"" + point + "\",\"because\":\"" + because + "\",\"evidenceRecordIds\":" + java.util.Arrays.toString(ids) + "}";
+	}
+
+	private String idea(String text, Long... ids) {
+		return "{\"idea\":\"" + text + "\",\"evidenceRecordIds\":" + java.util.Arrays.toString(ids) + "}";
+	}
+
+	@Test
+	void compareStructured_success_storesItemsAndFillsEvidenceFromRecords() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord past = createRecord(1L, hobbyId, LocalDate.now().minusDays(30), "예전 연습에서는 소리가 자꾸 끊겼다");
+		createRecord(1L, hobbyId, LocalDate.now().minusDays(5), "중간 연습");
+		ActivityRecord current = createRecord(1L, hobbyId, LocalDate.now(), "최신 연습에서는 천천히 이어 쳤다");
+
+		stubAiResponse(structuredJson("소리가 덜 끊겼어요",
+				insight("끊기는 일이 줄었어요", "지난번엔 끊겼는데 이번엔 이어 쳤다고 적었어요", past.getId(), current.getId()),
+				insight("속도는 아직 남았어요", "천천히 칠 때만 이어졌어요", current.getId()),
+				idea("천천히 쳤던 방식으로 한 번 더 해 보세요", current.getId())));
+
+		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "2W"));
+
+		assertThat(response.schemaVersion()).isEqualTo(2);
+		assertThat(response.headline()).isEqualTo("소리가 덜 끊겼어요");
+		assertThat(response.good()).hasSize(1);
+		assertThat(response.good().get(0).evidence()).extracting("id").containsExactly(past.getId(), current.getId());
+		assertThat(response.good().get(0).evidence().get(0).content()).isEqualTo("예전 연습에서는 소리가 자꾸 끊겼다");
+		assertThat(response.good().get(0).evidence().get(0).recordDate()).isEqualTo(past.getRecordDate());
+		assertThat(response.gap()).hasSize(1);
+		assertThat(response.next()).hasSize(1);
+		assertThat(response.pastRecord().id()).isEqualTo(past.getId());
+		assertThat(response.currentRecord().id()).isEqualTo(current.getId());
+		assertThat(aiResultRepository.findAll()).hasSize(1);
+	}
+
+	@Test
+	void compareStructured_failedItemsAreDroppedOthersKept() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord past = createRecord(1L, hobbyId, LocalDate.now().minusDays(30), "예전 연습");
+		createRecord(1L, hobbyId, LocalDate.now().minusDays(5), "중간 연습");
+		ActivityRecord current = createRecord(1L, hobbyId, LocalDate.now(), "최신 연습");
+
+		stubAiResponse(structuredJson("달라진 점이 보여요",
+				insight("실력이 늘었어요", "금지어가 들어간 항목", current.getId()) + ","
+						+ insight("이어 쳤어요", "이번엔 이어 쳤다고 적었어요", current.getId()),
+				insight("근거 없는 항목", "근거 id가 비어 있어요") + ","
+						+ insight("낯선 id 항목", "허용되지 않은 id예요", 99999L),
+				idea("한 번 더 해 보세요", past.getId()) + "," + idea("긴 글".repeat(40), current.getId())));
+
+		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "2W"));
+
+		assertThat(response.schemaVersion()).isEqualTo(2);
+		assertThat(response.good()).extracting("point").containsExactly("이어 쳤어요");
+		assertThat(response.gap()).isEmpty();
+		assertThat(response.next()).extracting("idea").containsExactly("한 번 더 해 보세요");
+	}
+
+	@Test
+	void compareStructured_otherUsersRecordId_isRejected_andFallsBackToLegacy() {
+		Long hobbyId = createHobby(1L);
+		createRecord(1L, hobbyId, LocalDate.now().minusDays(30), "예전 연습");
+		createRecord(1L, hobbyId, LocalDate.now().minusDays(5), "중간 연습");
+		createRecord(1L, hobbyId, LocalDate.now(), "최신 연습");
+		Long otherHobby = createHobby(2L);
+		ActivityRecord others = createRecord(2L, otherHobby, LocalDate.now(), "남의 기록");
+
+		given(aiChatClient.complete(anyString(), anyString()))
+				.willReturn(new AiChatResponse(structuredJson("남의 기록을 끌어왔어요",
+						insight("남의 기록", "허용되지 않은 근거예요", others.getId()), "", ""), 10, "model"))
+				.willReturn(new AiChatResponse(LEGACY_JSON, 10, "model"));
+
+		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "2W"));
+
+		assertThat(response.schemaVersion()).isNull();
+		assertThat(response.interpretation()).isEqualTo("지난번엔 끊겼는데 이번엔 이어졌어요");
+		assertThat(response.good()).isNull();
+	}
+
+	@Test
+	void compareStructured_allFail_replacesWithLegacyOneParagraph() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord past = createRecord(1L, hobbyId, LocalDate.now().minusDays(30), "예전 연습");
+		createRecord(1L, hobbyId, LocalDate.now().minusDays(5), "중간 연습");
+		createRecord(1L, hobbyId, LocalDate.now(), "최신 연습");
+
+		// 첫 응답: 기록에 없는 숫자(30번)가 들어 있어 good이 하나도 안 남는다. 두 번째 응답: 예전 모양.
+		given(aiChatClient.complete(anyString(), anyString()))
+				.willReturn(new AiChatResponse(structuredJson("달라졌어요",
+						insight("많이 했어요", "30번을 했다고 적었어요", past.getId()), "", ""), 10, "model"))
+				.willReturn(new AiChatResponse(LEGACY_JSON, 10, "model"));
+
+		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "2W"));
+
+		assertThat(response.schemaVersion()).isNull();
+		assertThat(response.interpretation()).isEqualTo("지난번엔 끊겼는데 이번엔 이어졌어요");
+		assertThat(aiResultRepository.findAll()).hasSize(1);
+		org.mockito.Mockito.verify(aiChatClient, org.mockito.Mockito.times(2)).complete(anyString(), anyString());
+	}
+
+	@Test
+	void compareStructured_legacyResultStillReadsAsOldShape() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord past = createRecord(1L, hobbyId, LocalDate.now().minusDays(30), "예전 연습");
+		createRecord(1L, hobbyId, LocalDate.now().minusDays(5), "중간 연습");
+		ActivityRecord current = createRecord(1L, hobbyId, LocalDate.now(), "최신 연습");
+		String oldJson = "{\"interpretation\":\"예전에 저장된 한 문단이에요\",\"pastRecordId\":" + past.getId()
+				+ ",\"currentRecordId\":" + current.getId() + ",\"metrics\":null,\"baseDate\":\"" + LocalDate.now()
+				+ "\",\"anchoredToLatest\":false,\"pastIsOldest\":false}";
+		AiResult saved = aiResultRepository.save(new AiResult(1L, hobbyId, "COMPARE", past.getRecordDate(),
+				LocalDate.now(), oldJson, "[" + past.getId() + "," + current.getId() + "]", "old-key", 3, "model"));
+
+		AiCompareResponse response = service(enabledProperties()).getById(1L, saved.getId());
+
+		assertThat(response.interpretation()).isEqualTo("예전에 저장된 한 문단이에요");
+		assertThat(response.schemaVersion()).isNull();
+		assertThat(response.good()).isNull();
+		assertThat(response.pastRecord().id()).isEqualTo(past.getId());
+	}
+
 	@Test
 	void submitFeedback_ownResult_savesValue() {
 		Long hobbyId = createHobby(1L);

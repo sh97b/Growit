@@ -2,6 +2,7 @@ package com.growit.ai.dto;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record AiCompareResponse(
 		boolean locked,
@@ -22,16 +23,22 @@ public record AiCompareResponse(
 		CompareRecordCard pastRecord,
 		CompareRecordCard currentRecord,
 		CompareMetrics metrics,
-		String feedback) {
+		String feedback,
+		/** null이면 예전 모양(interpretation 한 문단), 2면 headline·good·gap·next가 채워진다. */
+		Integer schemaVersion,
+		String headline,
+		List<CompareInsight> good,
+		List<CompareInsight> gap,
+		List<CompareIdea> next) {
 
 	public static AiCompareResponse lockedNotEnoughRecords(int requiredCount, int currentCount) {
 		return new AiCompareResponse(true, "NOT_ENOUGH_RECORDS", requiredCount, currentCount, null, null, null, null,
-				null, null, false, null, false, false, null, null, null, null, null);
+				null, null, false, null, false, false, null, null, null, null, null, null, null, null, null, null);
 	}
 
 	public static AiCompareResponse lockedNoPastRecord(int requiredCount, int currentCount, LocalDate oldestRecordDate,
 			LocalDate latestRecordDate) {
 		return new AiCompareResponse(true, "NO_PAST_RECORD", requiredCount, currentCount, oldestRecordDate,
-				latestRecordDate, null, null, null, null, false, null, false, false, null, null, null, null, null);
+				latestRecordDate, null, null, null, null, false, null, false, false, null, null, null, null, null, null, null, null, null, null);
 	}
 }

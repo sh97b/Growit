@@ -28,6 +28,11 @@ export type CompareMetrics = {
 
 export type CompareLockReason = 'NOT_ENOUGH_RECORDS' | 'NO_PAST_RECORD'
 
+/** 근거 기록 한 건(날짜·내용 일부는 서버가 저장된 기록에서 채운다). */
+export type CompareEvidence = { id: number; recordDate: string; content: string }
+export type CompareInsight = { point: string; because: string; evidence: CompareEvidence[] }
+export type CompareIdea = { idea: string; evidence: CompareEvidence[] }
+
 export type CompareResult = {
   locked: boolean
   lockReason: CompareLockReason | null
@@ -48,6 +53,17 @@ export type CompareResult = {
   currentRecord: CompareRecordCard | null
   metrics: CompareMetrics | null
   feedback: 'HELPFUL' | 'NOT_HELPFUL' | null
+  /** 2이면 headline·good·gap·next가 있고, 없으면(예전 결과) interpretation 한 문단만 있다. */
+  schemaVersion?: number | null
+  headline?: string | null
+  good?: CompareInsight[] | null
+  gap?: CompareInsight[] | null
+  next?: CompareIdea[] | null
+}
+
+/** 구조화된 변화 해석인지. */
+export function isStructuredCompare(result: CompareResult): boolean {
+  return result.schemaVersion === 2 && !!result.headline && (result.good?.length ?? 0) > 0
 }
 
 export function fetchCompare(payload: { hobbyId: number; compareTo: CompareTo }) {

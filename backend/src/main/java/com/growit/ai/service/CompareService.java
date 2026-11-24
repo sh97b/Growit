@@ -4,6 +4,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.growit.ai.dto.AiCompareResponse;
+import com.growit.ai.dto.CompareEvidence;
+import com.growit.ai.dto.CompareIdea;
+import com.growit.ai.dto.CompareInsight;
 import com.growit.ai.dto.CompareMetrics;
 import com.growit.ai.dto.CompareRecordCard;
 import com.growit.ai.dto.CompareRequest;
@@ -24,6 +27,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,11 +43,23 @@ public class CompareService {
 	private static final int DIFFICULTY_MAX = 200;
 	private static final int INTERPRETATION_MAX = 200;
 	private static final String PROMPT_RESOURCE_NAME = "ai-compare-system.txt";
+	/** 구조화 결과를 하나도 못 쓸 때 대신 쓰는 예전(한 문단) 프롬프트. */
+	private static final String LEGACY_PROMPT_RESOURCE_NAME = "ai-compare-legacy-system.txt";
+	/** 새 결과의 schemaVersion. 예전 결과는 null이다. */
+	static final int STRUCTURED_SCHEMA_VERSION = 2;
+	private static final int HEADLINE_MAX = 60;
+	private static final int ITEM_TEXT_MAX = 70;
+	private static final int GOOD_MAX = 3;
+	private static final int GAP_MAX = 2;
+	private static final int NEXT_MAX = 2;
+	private static final int EVIDENCE_SNIPPET_MAX = 40;
+	private static final Pattern NUMBER_PATTERN = Pattern.compile("\\d+");
 	/** prompts/ai-compare-system.txt를 바꿀 때마다, 또는 기준일 규칙처럼 저장된 결과의 모양이 바뀌면 올린다. */
-	static final int PROMPT_VERSION = 3;
+	static final int PROMPT_VERSION = 4;
 	private static final Set<String> VALID_COMPARE_TO = Set.of("1W", "2W", "1M", "3M");
 	private static final List<String> FORBIDDEN_WORDS =
-			List.of("실력", "늘었", "향상", "잘했", "훌륭", "대단", "점수", "순위");
+			List.of("실력", "늘었", "향상", "잘했", "훌륭", "대단", "점수", "순위", "완벽", "최고", "천재", "반드시",
+					"오늘 안에", "연속");
 
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
@@ -52,6 +69,7 @@ public class CompareService {
 	private final ObjectMapper objectMapper;
 
 	PromptResourceLoader promptLoader = new PromptResourceLoader(PROMPT_RESOURCE_NAME);
+	PromptResourceLoader legacyPromptLoader = new PromptResourceLoader(LEGACY_PROMPT_RESOURCE_NAME);
 
 	public CompareService(ActivityRecordRepository activityRecordRepository, HobbyRepository hobbyRepository,
 			AiResultRepository aiResultRepository, AiCallService aiCallService,
@@ -130,11 +148,17 @@ public class CompareService {
 				toPayloadRecord(current));
 
 		AiCallResult result = aiCallService.call(userId, AiResultType.COMPARE, systemPrompt, payload);
-		StoredCompareResult stored = validate(result.content(), past.getId(), current.getId());
+		StoredCompareResult stored = validateStructured(result.content(), past, current);
+		if (stored == null) {
+			// headline이나 좋아진 점이 하나도 안 남았으면 예전 한 문단 방식으로 한 번 더 만든다(한도에는 세지 않는 교정 재호출).
+			result = aiCallService.call(userId, AiResultType.COMPARE, loadLegacyPrompt(), payload, true);
+			stored = validate(result.content(), past.getId(), current.getId());
+		}
 
 		CompareMetrics metrics = computeMetrics(userId, hobby.getId(), past.getRecordDate(), baseDate);
 		StoredCompareResult withMetrics = new StoredCompareResult(stored.interpretation(), stored.pastRecordId(),
-				stored.currentRecordId(), metrics, baseDate, anchoredToLatest, pastIsOldest);
+				stored.currentRecordId(), metrics, baseDate, anchoredToLatest, pastIsOldest, stored.schemaVersion(),
+				stored.headline(), stored.good(), stored.gap(), stored.next());
 
 		AiResult saved = new AiResult(userId, hobby.getId(), AiResultType.COMPARE.name(), past.getRecordDate(),
 				baseDate, toJson(withMetrics), toJson(List.of(past.getId(), current.getId())), cacheKey,
@@ -178,7 +202,132 @@ public class CompareService {
 		Long usedPastId = containsId(node.path("pastRecordIds"), pastId, allowed) ? pastId : null;
 		Long usedCurrentId = containsId(node.path("currentRecordIds"), currentId, allowed) ? currentId : null;
 
-		return new StoredCompareResult(interpretation, usedPastId, usedCurrentId, null, null, false, false);
+		return new StoredCompareResult(interpretation, usedPastId, usedCurrentId, null, null, false, false, null, null,
+				null, null, null);
+	}
+
+	private String loadLegacyPrompt() {
+		try {
+			return legacyPromptLoader.load();
+		} catch (java.io.IOException e) {
+			throw new ApiException(ErrorCode.AI_FAILED, "지금은 AI를 쓸 수 없어요. 기록은 안전하게 저장돼 있어요.");
+		}
+	}
+
+	/**
+	 * 구조화 응답을 검증한다. 검증을 통과하지 못한 항목만 버리고, headline이나 좋아진 점(good)이 하나도 안 남으면
+	 * null을 돌려 호출한 쪽이 예전 방식으로 대체하게 한다. 항목의 근거 id는 이 요청에 넣어 준 두 기록(과거·현재)만
+	 * 허용하고(다른 id가 하나라도 섞이면 그 항목을 버린다), 글에 나온 숫자는 두 기록에 적힌 숫자만 허용한다.
+	 */
+	StoredCompareResult validateStructured(String rawJson, ActivityRecord past, ActivityRecord current) {
+		JsonNode node;
+		try {
+			node = aiResponseValidator.parse(rawJson);
+		} catch (ApiException e) {
+			return null;
+		}
+		Set<Long> allowed = Set.of(past.getId(), current.getId());
+		Set<String> allowedNumbers = numbersIn(past.getContent(), past.getDifficulty(), current.getContent(),
+				current.getDifficulty());
+
+		String headline = cleanText(node.path("headline"), HEADLINE_MAX, allowedNumbers);
+		List<StoredCompareInsight> good = insights(node.path("good"), GOOD_MAX, allowed, allowedNumbers);
+		if (headline == null || good.isEmpty()) {
+			return null;
+		}
+		List<StoredCompareInsight> gap = insights(node.path("gap"), GAP_MAX, allowed, allowedNumbers);
+		List<StoredCompareIdea> next = ideas(node.path("next"), NEXT_MAX, allowed, allowedNumbers);
+
+		// 구조화 결과는 비교한 두 기록을 항상 함께 보여 준다(근거로 어느 쪽을 몇 번 썼는지와 상관없이).
+		return new StoredCompareResult(headline, past.getId(), current.getId(), null, null, false, false,
+				STRUCTURED_SCHEMA_VERSION, headline, good, gap, next);
+	}
+
+	private List<StoredCompareInsight> insights(JsonNode arrayNode, int max, Set<Long> allowed,
+			Set<String> allowedNumbers) {
+		List<StoredCompareInsight> kept = new ArrayList<>();
+		if (!arrayNode.isArray()) {
+			return kept;
+		}
+		for (JsonNode item : arrayNode) {
+			if (kept.size() >= max) {
+				break;
+			}
+			String point = cleanText(item.path("point"), ITEM_TEXT_MAX, allowedNumbers);
+			String because = cleanText(item.path("because"), ITEM_TEXT_MAX, allowedNumbers);
+			List<Long> evidence = evidenceIds(item.path("evidenceRecordIds"), allowed);
+			if (point != null && because != null && evidence != null) {
+				kept.add(new StoredCompareInsight(point, because, evidence));
+			}
+		}
+		return kept;
+	}
+
+	private List<StoredCompareIdea> ideas(JsonNode arrayNode, int max, Set<Long> allowed, Set<String> allowedNumbers) {
+		List<StoredCompareIdea> kept = new ArrayList<>();
+		if (!arrayNode.isArray()) {
+			return kept;
+		}
+		for (JsonNode item : arrayNode) {
+			if (kept.size() >= max) {
+				break;
+			}
+			String idea = cleanText(item.path("idea"), ITEM_TEXT_MAX, allowedNumbers);
+			List<Long> evidence = evidenceIds(item.path("evidenceRecordIds"), allowed);
+			if (idea != null && evidence != null) {
+				kept.add(new StoredCompareIdea(idea, evidence));
+			}
+		}
+		return kept;
+	}
+
+	/** 근거가 없거나(빈 배열), 허용되지 않은 id(남의 기록 포함)가 하나라도 섞여 있으면 null이다. */
+	private List<Long> evidenceIds(JsonNode idsNode, Set<Long> allowed) {
+		if (!idsNode.isArray() || idsNode.isEmpty()) {
+			return null;
+		}
+		List<Long> ids = new ArrayList<>();
+		for (JsonNode idNode : idsNode) {
+			if (!idNode.canConvertToLong() || !allowed.contains(idNode.asLong())) {
+				return null;
+			}
+			if (!ids.contains(idNode.asLong())) {
+				ids.add(idNode.asLong());
+			}
+		}
+		return ids;
+	}
+
+	/** 문자열이 아니거나, 비었거나, 길이를 넘거나, 금지어가 있거나, 기록에 없는 숫자가 있으면 null이다. */
+	private String cleanText(JsonNode node, int maxLength, Set<String> allowedNumbers) {
+		if (!node.isTextual()) {
+			return null;
+		}
+		String text = node.asText().trim();
+		if (text.isEmpty() || text.length() > maxLength || containsForbiddenWord(text)) {
+			return null;
+		}
+		Matcher matcher = NUMBER_PATTERN.matcher(text);
+		while (matcher.find()) {
+			if (!allowedNumbers.contains(matcher.group())) {
+				return null;
+			}
+		}
+		return text;
+	}
+
+	private Set<String> numbersIn(String... texts) {
+		Set<String> numbers = new java.util.HashSet<>();
+		for (String text : texts) {
+			if (text == null) {
+				continue;
+			}
+			Matcher matcher = NUMBER_PATTERN.matcher(text);
+			while (matcher.find()) {
+				numbers.add(matcher.group());
+			}
+		}
+		return numbers;
 	}
 
 	private boolean containsId(JsonNode idsNode, long targetId, Set<Long> allowed) {
@@ -281,6 +430,7 @@ public class CompareService {
 	private AiCompareResponse toResponse(AiResult result, boolean reused, Long userId, ActivityRecord past,
 			ActivityRecord current) {
 		StoredCompareResult stored = readJson(result.getResult());
+		boolean structured = stored.schemaVersion() != null && stored.headline() != null;
 		return new AiCompareResponse(
 				false, null, null, null, null, null,
 				result.getId(),
@@ -295,7 +445,44 @@ public class CompareService {
 				past == null ? null : toCard(past),
 				current == null ? null : toCard(current),
 				stored.metrics(),
-				result.getFeedback());
+				result.getFeedback(),
+				structured ? stored.schemaVersion() : null,
+				structured ? stored.headline() : null,
+				structured ? toInsights(stored.good(), userId) : null,
+				structured ? toInsights(stored.gap(), userId) : null,
+				structured ? toIdeas(stored.next(), userId) : null);
+	}
+
+	private List<CompareInsight> toInsights(List<StoredCompareInsight> items, Long userId) {
+		if (items == null) {
+			return List.of();
+		}
+		return items.stream()
+				.map(item -> new CompareInsight(item.point(), item.because(), evidenceOf(item.evidenceRecordIds(), userId)))
+				.toList();
+	}
+
+	private List<CompareIdea> toIdeas(List<StoredCompareIdea> items, Long userId) {
+		if (items == null) {
+			return List.of();
+		}
+		return items.stream()
+				.map(item -> new CompareIdea(item.idea(), evidenceOf(item.evidenceRecordIds(), userId)))
+				.toList();
+	}
+
+	/** 근거의 날짜·내용은 AI가 말한 것이 아니라 저장된 그 사용자의 기록에서 채운다(남의 기록이면 빠진다). */
+	private List<CompareEvidence> evidenceOf(List<Long> ids, Long userId) {
+		if (ids == null) {
+			return List.of();
+		}
+		List<CompareEvidence> evidence = new ArrayList<>();
+		for (Long id : ids) {
+			activityRecordRepository.findByIdAndUserId(id, userId).ifPresent(record -> evidence.add(
+					new CompareEvidence(record.getId(), record.getRecordDate(),
+							truncate(record.getContent(), EVIDENCE_SNIPPET_MAX))));
+		}
+		return evidence;
 	}
 
 	private CompareRecordCard toCard(ActivityRecord record) {

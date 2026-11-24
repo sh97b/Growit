@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AiLabel } from '../components/AiLabel'
 import { AiViewCard } from '../components/AiViewCard'
+import { CompareInsights } from '../components/CompareInsights'
 import { Button } from '../components/Button'
 import { ChartIcon, ChevronRightIcon } from '../components/icons'
 import { FloatingPanel } from '../components/FloatingPanel'
@@ -29,6 +30,7 @@ import {
   submitAiResultFeedback,
   type AiViewResult,
   type CompareResult,
+  isStructuredCompare,
   type CompareTo,
 } from '../lib/ai'
 import { addDays, formatDurationMinutes, formatMonthDay, startOfWeekLocal, todayLocalDate } from '../lib/date'
@@ -364,9 +366,13 @@ export function ChangesPage() {
                 </button>
               ) : null}
             </div>
-            <p className={['break-words font-serif leading-[1.55]', isDesktop ? 'line-clamp-3 text-[1.0625rem] text-ink' : 'text-lg'].join(' ')}>
-              {result.interpretation}
-            </p>
+            {isStructuredCompare(result) ? (
+              <CompareInsights result={result} />
+            ) : (
+              <p className={['break-words font-serif leading-[1.55]', isDesktop ? 'line-clamp-3 text-[1.0625rem] text-ink' : 'text-lg'].join(' ')}>
+                {result.interpretation}
+              </p>
+            )}
             {/* 근거 칩은 원래 두지 않는다 — compare의 근거는 항상 pastRecord·currentRecord뿐이라
                 바로 위 RecordPairCards와 완전히 같은 기록이라서(지시문 3), 중복으로 다시 보여주지 않는다. */}
             <FeedbackRow
@@ -538,7 +544,7 @@ export function ChangesPage() {
 
   // 주 요약 카드: 제목, 기간·일수·시간 한 줄, 그 주의 주제 칩(2줄 말줄임). 전체는 Dialog.
   const weekCardDesktop = selectedWeek ? (
-    <section aria-label="주 요약" className="ch-pad ch-grow1 flex min-w-0 flex-col gap-1.5 overflow-hidden rounded-2xl bg-surface">
+    <section aria-label="주 요약" className="ch-pad min-h-0 flex-1 flex min-w-0 flex-col gap-1.5 overflow-hidden rounded-2xl bg-surface">
       {cardHead(<h3 className="text-card-title">주 요약</h3>, () => setDialog('week'))}
       <div className="ch-fade flex flex-col gap-1.5">
       <p className="break-words text-sm text-ink">{weekSummaryLine}</p>
@@ -560,7 +566,7 @@ export function ChangesPage() {
   // 지표 해석 카드: AI 글이라 산세리프가 아니라 해석 카드와 같은 세리프 본문색(text-ink), 3줄 말줄임 + [전체 보기].
   const metricsCardDesktop = (() => {
     const shell = (body: ReactNode, onOpen?: () => void) => (
-      <section aria-label="지표 해석" className="ch-pad ch-grow1 flex min-w-0 flex-col gap-1.5 overflow-hidden rounded-2xl bg-surface">
+      <section aria-label="지표 해석" className="ch-pad min-h-0 flex-1 flex min-w-0 flex-col gap-1.5 overflow-hidden rounded-2xl bg-surface">
         {cardHead(<h3 className="text-card-title">지표 해석</h3>, onOpen)}
         {body}
       </section>
@@ -749,11 +755,18 @@ export function ChangesPage() {
     result && !result.locked ? (
       <section
         aria-label="변화 해석"
-        className="ch-pad ch-grow3 flex min-w-0 flex-col gap-2 overflow-hidden rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)]"
+        className={[
+          'ch-pad flex min-w-0 flex-col gap-2 overflow-hidden rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)]',
+          isStructuredCompare(result) ? 'ch-grow6' : 'ch-grow3',
+        ].join(' ')}
       >
         {cardHead(<AiLabel>변화 해석</AiLabel>, () => setDialog('interpretation'))}
         <div className="ch-fade">
-          <p className="ch-text break-words font-serif text-ink">{result.interpretation}</p>
+          {isStructuredCompare(result) ? (
+            <CompareInsights result={result} headlineClass="ch-headline" dense />
+          ) : (
+            <p className="ch-text break-words font-serif text-ink">{result.interpretation}</p>
+          )}
         </div>
         <FeedbackRow
           variant="text"
@@ -775,7 +788,13 @@ export function ChangesPage() {
         <h2 id="changes-dialog-title" className="font-serif text-xl font-semibold">
           변화 해석
         </h2>
-        <p className="mt-3 break-words font-serif text-lg leading-[1.7]">{result.interpretation}</p>
+        <div className="mt-3">
+          {isStructuredCompare(result) ? (
+            <CompareInsights result={result} />
+          ) : (
+            <p className="break-words font-serif text-lg leading-[1.7]">{result.interpretation}</p>
+          )}
+        </div>
         <div className="mt-5 flex justify-end">
           <Button type="button" variant="secondary" onClick={() => setDialog(null)}>
             닫기
@@ -866,8 +885,10 @@ export function ChangesPage() {
           <div className="ch-col col-span-7 whitespace-normal break-words">
             <div className="ch-fit">
               {interpretationCardDesktop}
-              {weekCardDesktop}
-              {metricsCardDesktop}
+              <div className="ch-grow2 flex gap-[inherit]" style={{ gap: 'clamp(8px, 1.6cqh, 16px)' }}>
+                {weekCardDesktop}
+                {metricsCardDesktop}
+              </div>
             </div>
           </div>
         </div>
