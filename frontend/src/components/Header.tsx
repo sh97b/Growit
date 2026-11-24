@@ -63,7 +63,7 @@ export function Header() {
         <div className="ml-auto flex items-center gap-2">
           <Link
             to="/records/new"
-            className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-base px-4 text-sm font-medium text-white no-underline"
+            className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-base px-4 t-sub font-medium text-white no-underline"
           >
             <PlusIcon width={16} height={16} />
             기록하기

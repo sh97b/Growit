@@ -69,7 +69,7 @@ function HelpContent({ onClose }: { onClose: () => void }) {
   return (
     <Dialog onClose={onClose} labelledBy={TITLE_ID}>
       <div className="flex items-start justify-between gap-3">
-        <h2 id={TITLE_ID} className="font-serif text-xl font-semibold">
+        <h2 id={TITLE_ID} className="font-serif t-section font-semibold">
           어떤 사진이 좋은가요?
         </h2>
         <button

@@ -118,7 +118,7 @@ export function RecordsPage() {
       <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
         <ReviewHeaderRow title="지난 기록" />
         <div className="flex max-w-[45rem] flex-col items-start gap-4 rounded-2xl bg-surface p-5">
-          <p className="text-[1.0625rem] text-ink">아직 기록이 없어요. 첫 기록이 여기에 쌓여요.</p>
+          <p className="t-body-lg text-ink">아직 기록이 없어요. 첫 기록이 여기에 쌓여요.</p>
           <Link
             to="/records/new"
             className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-base px-5 text-body-min font-medium text-white no-underline lg:w-auto"
@@ -156,12 +156,12 @@ export function RecordsPage() {
 
         {!listQuery.isLoading && totalCount === 0 ? (
           <div className="flex flex-col items-start gap-2 rounded-2xl bg-surface p-5">
-            <p className="text-sm text-ink-2">조건에 맞는 기록이 없어요.</p>
+            <p className="t-sub text-ink-2">조건에 맞는 기록이 없어요.</p>
             {filter.hasActiveFilter ? (
               <button
                 type="button"
                 onClick={filter.reset}
-                className="inline-flex min-h-9 items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+                className="inline-flex min-h-9 items-center t-sub font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
               >
                 초기화
               </button>
@@ -190,7 +190,7 @@ export function RecordsPage() {
                       </span>
                     ) : null}
                   </span>
-                  <p className="line-clamp-2 font-serif text-lg text-ink lg:line-clamp-1">{highlightMatch(record.content, filter.q)}</p>
+                  <p className="line-clamp-2 font-serif t-body-lg text-ink lg:line-clamp-1">{highlightMatch(record.content, filter.q)}</p>
                 </Link>
               )
             })}

@@ -59,7 +59,7 @@ export function FilterBar({ search, hobby, range, hasActiveFilter, onReset, trai
           onChange={(event) => setDraft(event.target.value)}
           placeholder={search.placeholder ?? '검색'}
           aria-label={search.placeholder ?? '검색'}
-          className="h-11 w-full rounded-lg border border-line-2 bg-white pl-9 pr-9 text-sm text-ink placeholder:text-ink-3 lg:h-10"
+          className="h-11 w-full rounded-lg border border-line-2 bg-white pl-9 pr-9 t-sub text-ink placeholder:text-ink-3 lg:h-10"
         />
         {draft ? (
           <button
@@ -95,7 +95,7 @@ export function FilterBar({ search, hobby, range, hasActiveFilter, onReset, trai
                   value={range.value.from}
                   onChange={(event) => range.onChange({ ...range.value, from: event.target.value })}
                   aria-label="시작 날짜"
-                  className="h-10 w-[8.5rem] rounded-md border border-line-2 bg-white px-2 text-sm text-ink"
+                  className="h-10 w-[8.5rem] rounded-md border border-line-2 bg-white px-2 t-sub text-ink"
                 />
                 <span className="text-ink-2">–</span>
                 <input
@@ -103,7 +103,7 @@ export function FilterBar({ search, hobby, range, hasActiveFilter, onReset, trai
                   value={range.value.to}
                   onChange={(event) => range.onChange({ ...range.value, to: event.target.value })}
                   aria-label="종료 날짜"
-                  className="h-10 w-[8.5rem] rounded-md border border-line-2 bg-white px-2 text-sm text-ink"
+                  className="h-10 w-[8.5rem] rounded-md border border-line-2 bg-white px-2 t-sub text-ink"
                 />
               </div>
             ),
@@ -115,7 +115,7 @@ export function FilterBar({ search, hobby, range, hasActiveFilter, onReset, trai
         <button
           type="button"
           onClick={onReset}
-          className="inline-flex h-11 w-fit flex-none items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] lg:h-10"
+          className="inline-flex h-11 w-fit flex-none items-center t-sub font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] lg:h-10"
         >
           초기화
         </button>

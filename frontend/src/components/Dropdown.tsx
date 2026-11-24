@@ -82,8 +82,8 @@ export function Dropdown<T extends string>({ value, options, onChange, extra, pi
         }}
         className={
           pill
-            ? 'flex h-9 flex-none items-center gap-1 whitespace-nowrap rounded-full border border-line-2 bg-white px-3 text-sm font-medium text-ink'
-            : 'flex h-10 w-full min-h-11 items-center justify-between gap-1.5 whitespace-nowrap rounded-lg border border-line-2 bg-white px-3 text-sm font-medium text-ink lg:w-auto lg:min-h-10 lg:justify-start'
+            ? 'flex h-9 flex-none items-center gap-1 whitespace-nowrap rounded-full border border-line-2 bg-white px-3 t-sub font-medium text-ink'
+            : 'flex h-10 w-full min-h-11 items-center justify-between gap-1.5 whitespace-nowrap rounded-lg border border-line-2 bg-white px-3 t-sub font-medium text-ink lg:w-auto lg:min-h-10 lg:justify-start'
         }
       >
         {current?.label ?? '선택'}
@@ -110,7 +110,7 @@ export function Dropdown<T extends string>({ value, options, onChange, extra, pi
                     if (!extra?.show) setOpen(false)
                   }}
                   className={[
-                    'flex min-h-10 w-full items-center justify-between gap-2 rounded-md px-3 text-left text-sm',
+                    'flex min-h-10 w-full items-center justify-between gap-2 rounded-md px-3 text-left t-sub',
                     option.value === value ? 'bg-surface font-semibold text-ink' : 'text-ink-2',
                   ].join(' ')}
                 >

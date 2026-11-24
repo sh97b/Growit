@@ -46,7 +46,7 @@ export function DotCompletionHost() {
       {open && goal ? (
         <Dialog onClose={() => finish()} labelledBy={TITLE_ID}>
           <div className="flex items-start justify-between gap-3">
-            <h2 id={TITLE_ID} className="font-serif text-xl font-semibold">
+            <h2 id={TITLE_ID} className="font-serif t-section font-semibold">
               {goal.goalDays}칸을 모두 채웠어요
             </h2>
             <button

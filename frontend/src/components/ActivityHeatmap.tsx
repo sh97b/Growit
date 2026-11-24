@@ -469,7 +469,7 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false, ho
       )}
 
       {home && !showHomeGrid ? (
-        <p className="flex-none text-sm text-ink-2">
+        <p className="flex-none t-sub text-ink-2">
           최근 {weeks}주 중 {columns.flat().filter((date) => (countByDate.get(date) ?? 0) > 0).length}일 기록했어요
         </p>
       ) : null}
@@ -496,7 +496,7 @@ export function ActivityHeatmap({ weeks: fixedWeeks, hobbyId, toggle = false, ho
 /** 홈 활동 지도 카드 헤더에 들어가는 범례(적음 ■■■■ 많음). */
 export function HeatmapLegend() {
   return (
-    <div className="flex items-center gap-1 text-xs text-ink-2">
+    <div className="flex items-center gap-1 t-cap text-ink-2">
       <span>적음</span>
       {([0, 1, 2, 3] as const).map((level) => (
         <span key={level} className="h-3 w-3 rounded-sm" style={{ background: LEVEL_BG[level] }} />

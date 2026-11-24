@@ -74,7 +74,7 @@ export function RecordSavedPanel({
       <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-base)_12%,white)] text-base-ink">
         <CheckIcon width={18} height={18} />
       </span>
-      <h1 className="font-serif text-xl font-semibold lg:text-[1.875rem]">기록을 저장했어요</h1>
+      <h1 className="t-page">기록을 저장했어요</h1>
       <span className="text-caption-min text-ink-2">
         {formatMonthDay(record.recordDate)} · {hobbyName}
       </span>
@@ -208,7 +208,7 @@ export function RecordSavedPanel({
 
       <div className="flex flex-col gap-3.5 rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-7">
         <AiLabel>첫 기록이에요</AiLabel>
-        <p className="font-serif text-lg leading-[1.55] lg:text-[1.5rem]">
+        <p className="t-key">
           오늘 쓴 기록이 첫 기록이에요.
           <br />
           다음 기록에서 이어서 볼게요.

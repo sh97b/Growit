@@ -49,16 +49,16 @@ export function WeekDetailPage() {
   const summary = (
     <div className="flex gap-10 rounded-2xl bg-surface p-5 lg:flex-col lg:gap-4">
       <div className="flex flex-col">
-        <b className="font-serif text-lg">{detail.recordedDays}일</b>
-        <span className="text-sm text-ink-2">기록한 날</span>
+        <b className="font-serif t-body-lg">{detail.recordedDays}일</b>
+        <span className="t-sub text-ink-2">기록한 날</span>
       </div>
       <div className="flex flex-col">
-        <b className="font-serif text-lg">{formatDurationMinutes(detail.totalMinutes)}</b>
-        <span className="text-sm text-ink-2">쌓인 시간</span>
+        <b className="font-serif t-body-lg">{formatDurationMinutes(detail.totalMinutes)}</b>
+        <span className="t-sub text-ink-2">쌓인 시간</span>
       </div>
       <div className="flex flex-col">
-        <b className="font-serif text-lg">{detail.hobbyCount}개</b>
-        <span className="text-sm text-ink-2">활동 분야</span>
+        <b className="font-serif t-body-lg">{detail.hobbyCount}개</b>
+        <span className="t-sub text-ink-2">활동 분야</span>
       </div>
     </div>
   )
@@ -87,8 +87,8 @@ export function WeekDetailPage() {
           if (day.records.length === 0) {
             return (
               <div key={day.date} className="flex items-center gap-5 border-t border-line py-3 text-ink last:border-b">
-                <span className="w-[4.5rem] flex-none tabular-nums text-sm text-ink-2">{dayLabel}</span>
-                <span className="flex items-center gap-1.5 text-sm text-ink-2">
+                <span className="w-[4.5rem] flex-none tabular-nums t-sub text-ink-2">{dayLabel}</span>
+                <span className="flex items-center gap-1.5 t-sub text-ink-2">
                   <RestIcon width={14} height={14} />
                   쉬어 간 날
                 </span>
@@ -104,7 +104,7 @@ export function WeekDetailPage() {
               <span className="w-[4.5rem] flex-none font-semibold tabular-nums">{index === 0 ? dayLabel : ''}</span>
               <span className="flex min-w-0 flex-col gap-1.5">
                 <span className="font-serif text-base leading-[1.7]">{record.content}</span>
-                <span className="flex items-center gap-2 text-sm text-ink-2">
+                <span className="flex items-center gap-2 t-sub text-ink-2">
                   {record.hobbyName}
                   {record.minutes != null ? ` · ${record.minutes}분` : ''}
                 </span>
@@ -140,7 +140,7 @@ export function WeekDetailPage() {
 
   return (
     <div className="flex flex-col gap-5 lg:min-h-0 lg:flex-1">
-      <nav className="text-sm text-ink-2">
+      <nav className="t-sub text-ink-2">
         <Link to="/records" className="inline-flex items-center gap-1 text-ink-2 no-underline">
           <ChevronLeftIcon width={16} height={16} />
           지난 기록

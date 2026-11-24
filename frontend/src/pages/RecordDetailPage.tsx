@@ -54,7 +54,7 @@ export function RecordDetailPage() {
         <p className="text-ink-2">
           {notFound ? '기록을 찾을 수 없어요. 지워졌거나 다른 계정의 기록이에요.' : '잠시 후 다시 시도해 주세요.'}
         </p>
-        <Link to="/records" className="text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
+        <Link to="/records" className="t-sub font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
           지난 기록으로 가기
         </Link>
       </div>
@@ -73,7 +73,7 @@ export function RecordDetailPage() {
 
   const main = (
     <>
-      <nav className="text-sm text-ink-2">
+      <nav className="t-sub text-ink-2">
         <Link to="/records" className="text-ink-2 no-underline">
           지난 기록
         </Link>{' '}
@@ -81,11 +81,11 @@ export function RecordDetailPage() {
       </nav>
 
       <div className="flex flex-col gap-3">
-        <span className="text-sm font-medium text-ink-2">
+        <span className="t-sub font-medium text-ink-2">
           {formatMonthDay(record.recordDate)} · {hobbyName}
           {record.minutes != null ? ` · ${record.minutes}분` : ''}
         </span>
-        <p className="font-serif text-xl leading-[1.7] whitespace-pre-wrap">{record.content}</p>
+        <p className="font-serif t-section leading-[1.7] whitespace-pre-wrap">{record.content}</p>
 
         {feelingLabel ? (
           <div className="flex flex-wrap gap-2">
@@ -93,7 +93,7 @@ export function RecordDetailPage() {
           </div>
         ) : null}
 
-        {record.difficulty ? <p className="text-sm leading-[1.6] text-ink-2">막힌 점이나 나아진 점 · {record.difficulty}</p> : null}
+        {record.difficulty ? <p className="t-sub leading-[1.6] text-ink-2">막힌 점이나 나아진 점 · {record.difficulty}</p> : null}
 
         <div className="flex gap-2 pt-1">
           <Button type="button" variant="secondary" size="sm" onClick={() => navigate(`/records/${record.id}/edit`)}>
@@ -128,7 +128,7 @@ export function RecordDetailPage() {
       <div className="lg:hidden">{analysisSection}</div>
 
       {record.previousRecord || record.nextRecord ? (
-        <div className="flex items-center justify-between border-t border-line pt-4 text-sm font-medium">
+        <div className="flex items-center justify-between border-t border-line pt-4 t-sub font-medium">
           {record.previousRecord ? (
             <Link
               to={`/records/${record.previousRecord.id}`}
@@ -216,13 +216,13 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
             type="button"
             disabled={reanalyze.isPending}
             onClick={() => reanalyze.mutate(record.id)}
-            className="inline-flex min-h-11 w-fit items-center gap-1.5 text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+            className="inline-flex min-h-11 w-fit items-center gap-1.5 t-sub font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
           >
             <RefreshIcon width={16} height={16} />
             다시 시도하기
           </button>
         ) : (
-          <Link to="/settings/ai" className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
+          <Link to="/settings/ai" className="inline-flex min-h-11 w-fit items-center t-sub font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
             설정에서 AI 정리 켜기
           </Link>
         )}
@@ -364,7 +364,7 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
         errorMessage={tagsFeedbackError}
         editArea={({ markSaved, cancel }) => (
           <div className="flex flex-col gap-3 rounded-2xl bg-surface p-[1.125rem]">
-            {analysis.tagsFeedback === 'DISPUTED' ? <p className="text-sm font-medium text-ink">어떻게 고칠까요?</p> : null}
+            {analysis.tagsFeedback === 'DISPUTED' ? <p className="t-sub font-medium text-ink">어떻게 고칠까요?</p> : null}
             <div className="flex flex-wrap gap-2">
               {tagDrafts.map((tag, index) => (
                 <button
@@ -372,7 +372,7 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
                   type="button"
                   onClick={() => removeTagDraft(index)}
                   aria-label={`${tag} 태그 지우기`}
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink"
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-line-2 bg-white px-4 t-sub font-medium text-ink"
                 >
                   {tag}
                   <XIcon width={14} height={14} />
@@ -392,7 +392,7 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
                     placeholder="태그 추가"
                     maxLength={TAG_MAX_LENGTH}
                     autoFocus
-                    className="h-11 w-28 rounded-lg border border-input bg-white px-3 text-sm text-ink outline-none"
+                    className="h-11 w-28 rounded-lg border border-input bg-white px-3 t-sub text-ink outline-none"
                   />
                   <button
                     type="button"
@@ -406,7 +406,7 @@ function AnalysisSection({ record, aiEnabled }: { record: RecordDetail; aiEnable
               ) : null}
             </div>
             {tagsError ? <p className="text-caption-min text-[#6B3F0F]">{tagsError}</p> : null}
-            <p className="text-sm text-ink-2">고친 내용은 이 기록의 태그에만 반영돼요. 쓰신 글은 바뀌지 않아요.</p>
+            <p className="t-sub text-ink-2">고친 내용은 이 기록의 태그에만 반영돼요. 쓰신 글은 바뀌지 않아요.</p>
             <div className="flex gap-2">
               <Button type="button" size="sm" disabled={editTags.isPending} onClick={() => saveTags(markSaved)}>
                 저장

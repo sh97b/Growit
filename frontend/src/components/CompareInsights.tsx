@@ -71,7 +71,7 @@ function Marker({ tone, children }: { tone: Tone; children: ReactNode }) {
   return (
     <span
       aria-hidden="true"
-      className={['mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full text-xs font-semibold', TONE[tone].marker].join(' ')}
+      className={['mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full t-cap font-semibold', TONE[tone].marker].join(' ')}
     >
       {children}
     </span>

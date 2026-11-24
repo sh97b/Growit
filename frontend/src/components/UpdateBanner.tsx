@@ -65,7 +65,7 @@ export function UpdateBanner() {
   return (
     <div
       role="status"
-      className="fixed inset-x-4 bottom-20 z-50 mx-auto flex max-w-md items-center justify-between gap-3 rounded-xl border border-line-2 bg-white px-4 py-2 text-sm text-ink shadow-md lg:bottom-4"
+      className="fixed inset-x-4 bottom-20 z-50 mx-auto flex max-w-md items-center justify-between gap-3 rounded-xl border border-line-2 bg-white px-4 py-2 t-sub text-ink shadow-md lg:bottom-4"
     >
       <span>새 버전이 있어요.</span>
       <button

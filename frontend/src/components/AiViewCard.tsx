@@ -49,7 +49,7 @@ export function AiViewCard({
         <button
           type="button"
           onClick={onRetry}
-          className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+          className="inline-flex min-h-11 w-fit items-center t-sub font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
         >
           다시 받기
         </button>
@@ -81,7 +81,7 @@ export function AiViewCard({
 
       <div className="flex flex-col gap-1.5">
         {hasRemaining ? <span className="text-caption-min text-ink-2">이어진 것</span> : null}
-        <p className="font-serif text-lg leading-[1.55]">{data.displayText}</p>
+        <p className="font-serif t-body-lg leading-[1.55]">{data.displayText}</p>
         <div className="flex flex-wrap gap-2">
           {data.evidence.map((record) => (
             <EvidenceChip key={record.id} record={record} />
@@ -92,7 +92,7 @@ export function AiViewCard({
       {hasRemaining ? (
         <div className="flex flex-col gap-1.5">
           <span className="text-caption-min text-ink-2">아직 남은 어려움</span>
-          <p className="font-serif text-lg leading-[1.55]">{data.remainingText}</p>
+          <p className="font-serif t-body-lg leading-[1.55]">{data.remainingText}</p>
           <div className="flex flex-wrap gap-2">
             {data.remainingEvidence.map((record) => (
               <EvidenceChip key={record.id} record={record} />
@@ -185,11 +185,11 @@ function ViewFeedbackSection({
                   },
                 )
               }
-              className="inline-flex min-h-9 items-center justify-center rounded-lg bg-base px-4 text-sm font-medium text-white disabled:bg-line disabled:text-[#5F594F]"
+              className="inline-flex min-h-9 items-center justify-center rounded-lg bg-base px-4 t-sub font-medium text-white disabled:bg-line disabled:text-[#5F594F]"
             >
               저장
             </button>
-            <button type="button" onClick={cancel} className="inline-flex min-h-9 items-center text-sm font-medium text-ink-2">
+            <button type="button" onClick={cancel} className="inline-flex min-h-9 items-center t-sub font-medium text-ink-2">
               취소
             </button>
           </div>

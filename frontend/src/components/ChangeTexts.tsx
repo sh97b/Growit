@@ -15,14 +15,14 @@ export function ChangeTexts({ change, large = false }: { change: RecordAnalysisC
   return (
     <div className="flex min-w-0 flex-col gap-3">
       {change.text ? (
-        <p className={['break-words font-serif text-lg leading-[1.55]', large ? 'lg:text-[1.5rem]' : ''].join(' ')}>{change.text}</p>
+        <p className={['break-words font-serif leading-[1.55]', large ? 't-key' : 't-body-lg'].join(' ')}>{change.text}</p>
       ) : null}
       {change.support ? (
         <p
           className={[
             'break-words font-serif leading-[1.6] text-base-ink',
             supportOnly
-              ? ['text-lg', large ? 'lg:text-[1.5rem]' : ''].join(' ')
+              ? [large ? 't-key' : 't-body-lg'].join(' ')
               : 'border-t border-[color-mix(in_srgb,var(--color-base)_20%,white)] pt-3 text-base',
           ].join(' ')}
         >

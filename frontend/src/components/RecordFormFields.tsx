@@ -109,7 +109,7 @@ export function RecordFormFields({
           disabled={submitting}
           placeholder="오늘은 무엇을 했나요?"
           aria-label="오늘 한 일을 한 줄로 적어 보세요"
-          className="h-[9.375rem] w-full resize-none rounded-xl border border-input bg-white p-4 pb-14 font-serif text-lg leading-[1.85] text-ink outline-none focus:border-base focus:shadow-[0_0_0_1px_var(--color-base)] disabled:bg-surface lg:h-[9.375rem]"
+          className="h-[9.375rem] w-full resize-none rounded-xl border border-input bg-white p-4 pb-14 font-serif t-body-lg leading-[1.85] text-ink outline-none focus:border-base focus:shadow-[0_0_0_1px_var(--color-base)] disabled:bg-surface lg:h-[9.375rem]"
         />
         {voice.supported ? (
           <VoiceInputButton
@@ -137,7 +137,7 @@ export function RecordFormFields({
       <button
         type="button"
         onClick={onToggleMore}
-        className="inline-flex min-h-11 w-fit items-center gap-1 border-0 bg-transparent p-0 text-sm font-medium text-base-ink"
+        className="inline-flex min-h-11 w-fit items-center gap-1 border-0 bg-transparent p-0 t-sub font-medium text-base-ink"
       >
         <ChevronDownIcon width={14} height={14} className={moreOpen ? '' : 'rotate-[-90deg]'} />
         {moreOpen ? '더 적기 접기' : '더 적기'}
@@ -146,7 +146,7 @@ export function RecordFormFields({
       {moreOpen ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-x-8 lg:gap-y-4">
           <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium">날짜</span>
+            <span className="t-sub font-medium">날짜</span>
             <div className="inline-flex w-fit gap-0.5 rounded-lg border border-line-2 bg-white p-[0.1875rem]">
               {(['today', 'yesterday', 'custom'] as DateMode[]).map((mode) => (
                 <button
@@ -155,7 +155,7 @@ export function RecordFormFields({
                   aria-pressed={dateMode === mode}
                   onClick={() => onDateModeChange(mode)}
                   className={[
-                    'min-h-10 rounded-md px-3.5 text-sm font-medium whitespace-nowrap',
+                    'min-h-10 rounded-md px-3.5 t-sub font-medium whitespace-nowrap',
                     dateMode === mode ? 'bg-ink text-white' : 'bg-transparent text-ink-2',
                   ].join(' ')}
                 >
@@ -175,7 +175,7 @@ export function RecordFormFields({
           </div>
 
           <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium">시간</span>
+            <span className="t-sub font-medium">시간</span>
             <div className="flex flex-wrap gap-1.5">
               {MINUTE_PRESETS.map((preset) => (
                 <button
@@ -211,7 +211,7 @@ export function RecordFormFields({
           </Field>
 
           <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium">감정</span>
+            <span className="t-sub font-medium">감정</span>
             <div className="flex flex-wrap gap-1.5">
               {FEELINGS.map(({ value, label }) => (
                 <button
@@ -220,7 +220,7 @@ export function RecordFormFields({
                   aria-pressed={feeling === value}
                   onClick={() => onToggleFeeling(value)}
                   className={[
-                    'inline-flex min-h-11 items-center justify-center rounded-full bg-tag-feel-bg px-3 text-sm font-medium text-tag-feel-fg',
+                    'inline-flex min-h-11 items-center justify-center rounded-full bg-tag-feel-bg px-3 t-sub font-medium text-tag-feel-fg',
                     feeling === value ? 'shadow-[inset_0_0_0_2px_var(--color-tag-feel-fg)]' : '',
                   ].join(' ')}
                 >

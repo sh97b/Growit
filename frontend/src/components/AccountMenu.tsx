@@ -24,7 +24,7 @@ export function AccountMenu({ size = 40 }: { size?: number }) {
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
         style={{ width: size, height: size }}
-        className="flex items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] text-sm font-semibold text-base-ink"
+        className="flex items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] t-sub font-semibold text-base-ink"
       >
         {initial}
       </button>
@@ -33,35 +33,35 @@ export function AccountMenu({ size = 40 }: { size?: number }) {
           <Link
             to="/settings"
             onClick={() => setOpen(false)}
-            className="flex min-h-11 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium text-ink no-underline"
+            className="flex min-h-11 items-center gap-2.5 rounded-lg px-2.5 t-sub font-medium text-ink no-underline"
           >
             설정
           </Link>
           <Link
             to="/settings/hobbies"
             onClick={() => setOpen(false)}
-            className="flex min-h-11 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium text-ink no-underline"
+            className="flex min-h-11 items-center gap-2.5 rounded-lg px-2.5 t-sub font-medium text-ink no-underline"
           >
             활동 분야 관리
           </Link>
           <Link
             to="/settings/ai"
             onClick={() => setOpen(false)}
-            className="flex min-h-11 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium text-ink no-underline"
+            className="flex min-h-11 items-center gap-2.5 rounded-lg px-2.5 t-sub font-medium text-ink no-underline"
           >
             AI 정리
           </Link>
           <Link
             to="/settings/notifications"
             onClick={() => setOpen(false)}
-            className="flex min-h-11 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium text-ink no-underline"
+            className="flex min-h-11 items-center gap-2.5 rounded-lg px-2.5 t-sub font-medium text-ink no-underline"
           >
             알림 설정
           </Link>
           <button
             type="button"
             onClick={handleLogout}
-            className="flex min-h-11 items-center gap-2.5 rounded-lg border-0 bg-transparent px-2.5 text-left text-sm font-medium text-ink"
+            className="flex min-h-11 items-center gap-2.5 rounded-lg border-0 bg-transparent px-2.5 text-left t-sub font-medium text-ink"
           >
             로그아웃
           </button>

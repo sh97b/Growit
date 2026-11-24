@@ -10,7 +10,7 @@ export function EmptyState({ title, description, action }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-input bg-white px-5 py-9 text-center">
       <p className="text-card-title">{title}</p>
-      {description ? <p className="text-sm text-ink-2">{description}</p> : null}
+      {description ? <p className="t-sub text-ink-2">{description}</p> : null}
       {action}
     </div>
   )

@@ -228,8 +228,8 @@ export function RoadmapItemBlocks({ itemId, hobbyId, readOnly }: { itemId: numbe
           >
             <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-surface text-ink-2">{info.icon}</span>
             <span className="flex min-w-0 flex-col">
-              <span className="text-sm font-medium text-ink">{info.name}</span>
-              <span className="text-xs text-ink-2">{disabled ? '이미 만들었어요' : info.description}</span>
+              <span className="t-sub font-medium text-ink">{info.name}</span>
+              <span className="t-cap text-ink-2">{disabled ? '이미 만들었어요' : info.description}</span>
             </span>
           </button>
         )
@@ -239,9 +239,9 @@ export function RoadmapItemBlocks({ itemId, hobbyId, readOnly }: { itemId: numbe
 
   return (
     <div ref={rootRef} onKeyDown={onRootKeyDown} className="flex min-w-0 flex-col gap-2 py-2" aria-label="항목 블록">
-      {blocksQuery.isLoading ? <p className="text-sm text-ink-2">블록을 불러오고 있어요</p> : null}
+      {blocksQuery.isLoading ? <p className="t-sub text-ink-2">블록을 불러오고 있어요</p> : null}
       {blocksQuery.isError ? (
-        <p className="text-sm text-ink-2">
+        <p className="t-sub text-ink-2">
           블록을 불러오지 못했어요.{' '}
           <button type="button" className="font-medium text-base-ink" onClick={() => blocksQuery.refetch()}>
             다시 받기
@@ -250,7 +250,7 @@ export function RoadmapItemBlocks({ itemId, hobbyId, readOnly }: { itemId: numbe
       ) : null}
 
       {!blocksQuery.isLoading && blocks.length === 0 && !adding && !generate.isPending ? (
-        <p className="text-sm text-ink-2">{readOnly ? '붙은 블록이 없어요.' : '아직 붙은 블록이 없어요. 아래에서 필요한 블록을 붙여 보세요.'}</p>
+        <p className="t-sub text-ink-2">{readOnly ? '붙은 블록이 없어요.' : '아직 붙은 블록이 없어요. 아래에서 필요한 블록을 붙여 보세요.'}</p>
       ) : null}
 
       <ul className="flex min-w-0 flex-col gap-2">
@@ -284,7 +284,7 @@ export function RoadmapItemBlocks({ itemId, hobbyId, readOnly }: { itemId: numbe
                     <span aria-hidden="true" className="text-base leading-none tracking-[-0.2em]">⋮⋮</span>
                   </button>
                 ) : null}
-                <span className="flex flex-none items-center gap-1.5 text-xs font-medium text-ink-2">
+                <span className="flex flex-none items-center gap-1.5 t-cap font-medium text-ink-2">
                   {KIND_INFO[block.kind].icon}
                   {KIND_INFO[block.kind].name}
                 </span>
@@ -308,7 +308,7 @@ export function RoadmapItemBlocks({ itemId, hobbyId, readOnly }: { itemId: numbe
               <div className="min-w-0 px-3 pb-3 pt-1">
                 {confirmDeleteId === block.id ? (
                   <div className="flex flex-col gap-2 py-1">
-                    <p className="text-sm text-ink">이 블록을 지울까요?</p>
+                    <p className="t-sub text-ink">이 블록을 지울까요?</p>
                     <div className="flex gap-2">
                       <Button
                         type="button"
@@ -354,7 +354,7 @@ export function RoadmapItemBlocks({ itemId, hobbyId, readOnly }: { itemId: numbe
 
       {suggestion && !readOnly ? (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-line-2 bg-surface px-3 py-2">
-          <p className="min-w-0 flex-1 text-sm text-ink">
+          <p className="min-w-0 flex-1 t-sub text-ink">
             이 검색어로 찾아보면 어때요? <span className="font-medium">“{suggestion}”</span>
           </p>
           <Button type="button" size="sm" disabled={createBlock.isPending} onClick={addSuggestedSearch}>
@@ -378,7 +378,7 @@ export function RoadmapItemBlocks({ itemId, hobbyId, readOnly }: { itemId: numbe
       ) : null}
 
       {error && !adding && editingId == null ? (
-        <p role="alert" className="text-sm text-ink-2">
+        <p role="alert" className="t-sub text-ink-2">
           {error}
         </p>
       ) : null}
@@ -391,10 +391,10 @@ export function RoadmapItemBlocks({ itemId, hobbyId, readOnly }: { itemId: numbe
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             onClick={toggleMenu}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-dashed border-line-2 bg-white px-3 text-sm font-medium text-base-ink hover:bg-surface lg:min-h-9"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-dashed border-line-2 bg-white px-3 t-sub font-medium text-base-ink hover:bg-surface lg:min-h-9"
           >
             + 블록 추가
-            <span className="hidden text-xs font-normal text-ink-3 lg:inline">( / 키로도 열려요)</span>
+            <span className="hidden t-cap font-normal text-ink-3 lg:inline">( / 키로도 열려요)</span>
           </button>
           {menuOpen && desktop && menuPos
             ? createPortal(
@@ -485,7 +485,7 @@ function BlockMenu({ label, entries }: { label: string; entries: { label: string
                 setOpen(false)
                 entry.onSelect()
               }}
-              className="flex min-h-9 w-full items-center whitespace-nowrap rounded-md px-3 text-left text-sm text-ink hover:bg-surface focus-visible:bg-surface disabled:opacity-40"
+              className="flex min-h-9 w-full items-center whitespace-nowrap rounded-md px-3 text-left t-sub text-ink hover:bg-surface focus-visible:bg-surface disabled:opacity-40"
             >
               {entry.label}
             </button>
@@ -530,10 +530,10 @@ function BlockBody({
     const inner = (
       <>
         <span className="flex min-w-0 flex-col">
-          <span className="truncate text-sm font-medium text-ink">{title}</span>
-          <span className="truncate text-xs text-ink-2">{String(payload.host ?? '')}</span>
+          <span className="truncate t-sub font-medium text-ink">{title}</span>
+          <span className="truncate t-cap text-ink-2">{String(payload.host ?? '')}</span>
         </span>
-        <span className="flex-none rounded-md bg-tag-topic-bg px-2 py-0.5 text-xs font-medium text-tag-topic-fg">{category}</span>
+        <span className="flex-none rounded-md bg-tag-topic-bg px-2 py-0.5 t-cap font-medium text-tag-topic-fg">{category}</span>
       </>
     )
     return isWebUrl(url) ? (
@@ -558,13 +558,13 @@ function BlockBody({
     const query = String(payload.query ?? '')
     return (
       <div className="flex flex-col gap-2">
-        <p className="break-words text-sm font-medium text-ink">“{query}”</p>
+        <p className="break-words t-sub font-medium text-ink">“{query}”</p>
         <div className="flex flex-wrap gap-2">
           <a
             href={youtubeSearchUrl(query)}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex min-h-11 items-center rounded-lg border border-line-2 bg-white px-3 text-sm font-medium text-ink no-underline lg:min-h-9"
+            className="inline-flex min-h-11 items-center rounded-lg border border-line-2 bg-white px-3 t-sub font-medium text-ink no-underline lg:min-h-9"
           >
             유튜브에서 찾기
           </a>
@@ -572,7 +572,7 @@ function BlockBody({
             href={googleSearchUrl(query)}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex min-h-11 items-center rounded-lg border border-line-2 bg-white px-3 text-sm font-medium text-ink no-underline lg:min-h-9"
+            className="inline-flex min-h-11 items-center rounded-lg border border-line-2 bg-white px-3 t-sub font-medium text-ink no-underline lg:min-h-9"
           >
             구글에서 찾기
           </a>
@@ -586,7 +586,7 @@ function BlockBody({
     const done = items.filter((item) => item.done).length
     return (
       <div className="flex flex-col gap-1">
-        <p className="text-xs text-ink-2">
+        <p className="t-cap text-ink-2">
           {items.length}개 중 {done}개 체크했어요
         </p>
         {items.map((item, index) => (
@@ -602,7 +602,7 @@ function BlockBody({
               }
               className="h-5 w-5 flex-none accent-[var(--color-base)]"
             />
-            <span className={['min-w-0 break-words text-sm', item.done ? 'text-ink-2 line-through' : 'text-ink'].join(' ')}>{item.text}</span>
+            <span className={['min-w-0 break-words t-sub', item.done ? 'text-ink-2 line-through' : 'text-ink'].join(' ')}>{item.text}</span>
           </label>
         ))}
       </div>
@@ -615,26 +615,26 @@ function BlockBody({
   const mistakes = asStrings(payload.mistakes)
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-xs text-ink-2">AI가 제안한 일반적인 연습 순서예요. 내 상황에 맞게 바꿔 쓰세요.</p>
+      <p className="t-cap text-ink-2">AI가 제안한 일반적인 연습 순서예요. 내 상황에 맞게 바꿔 쓰세요.</p>
       <div className="flex flex-col gap-1.5">
-        <h4 className="text-sm font-semibold text-ink">해 보는 순서</h4>
+        <h4 className="t-sub font-semibold text-ink">해 보는 순서</h4>
         <ol className="flex flex-col gap-1.5">
           {steps.map((step, index) => (
             <li key={index} className="flex gap-2.5">
-              <span aria-hidden="true" className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-base text-xs font-semibold text-white">
+              <span aria-hidden="true" className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-base t-cap font-semibold text-white">
                 {index + 1}
               </span>
-              <span className="min-w-0 break-words text-sm leading-[1.5] text-ink">{step}</span>
+              <span className="min-w-0 break-words t-sub leading-[1.5] text-ink">{step}</span>
             </li>
           ))}
         </ol>
       </div>
       {checks.length > 0 ? (
         <div className="flex flex-col gap-1 rounded-lg bg-[color-mix(in_srgb,var(--color-base)_7%,white)] p-2.5">
-          <h4 className="text-sm font-semibold text-base-ink">이렇게 되면 된 거예요</h4>
+          <h4 className="t-sub font-semibold text-base-ink">이렇게 되면 된 거예요</h4>
           <ul className="flex list-disc flex-col gap-0.5 pl-5">
             {checks.map((check, index) => (
-              <li key={index} className="break-words text-sm text-ink">
+              <li key={index} className="break-words t-sub text-ink">
                 {check}
               </li>
             ))}
@@ -643,10 +643,10 @@ function BlockBody({
       ) : null}
       {mistakes.length > 0 ? (
         <div className="flex flex-col gap-1 rounded-lg bg-note-sand-bg p-2.5">
-          <h4 className="text-sm font-semibold text-note-sand-fg">흔히 하는 실수</h4>
+          <h4 className="t-sub font-semibold text-note-sand-fg">흔히 하는 실수</h4>
           <ul className="flex list-disc flex-col gap-0.5 pl-5">
             {mistakes.map((mistake, index) => (
-              <li key={index} className="break-words text-sm text-ink">
+              <li key={index} className="break-words t-sub text-ink">
                 {mistake}
               </li>
             ))}
@@ -658,7 +658,7 @@ function BlockBody({
           <AiProgressCard message="해 보는 방법을 다시 만드는 중이에요" lines={2} />
         ) : confirmRegenerate ? (
           <div className="flex flex-col gap-2 rounded-lg bg-surface p-2.5">
-            <p className="text-sm text-ink">다시 만들면 지금 내용이 바뀌어요. 하루 3번까지 다시 만들 수 있어요. 만들까요?</p>
+            <p className="t-sub text-ink">다시 만들면 지금 내용이 바뀌어요. 하루 3번까지 다시 만들 수 있어요. 만들까요?</p>
             <div className="flex gap-2">
               <Button type="button" size="sm" onClick={onRegenerate}>
                 다시 만들기
@@ -672,7 +672,7 @@ function BlockBody({
           <button
             type="button"
             onClick={onAskRegenerate}
-            className="inline-flex min-h-11 w-fit items-center rounded-lg px-2 text-sm font-medium text-base-ink hover:bg-surface lg:min-h-9"
+            className="inline-flex min-h-11 w-fit items-center rounded-lg px-2 t-sub font-medium text-base-ink hover:bg-surface lg:min-h-9"
           >
             다시 만들기
           </button>
@@ -716,7 +716,7 @@ function TimerBody({ minutes, hobbyId }: { minutes: number; hobbyId: number }) {
   return (
     <div className="flex flex-col gap-2">
       <p
-        className="font-serif text-[2.25rem] leading-none tabular-nums text-ink"
+        className="t-stat tabular-nums text-ink"
         role="timer"
         aria-label={`남은 시간 ${Math.floor(remaining / 60)}분 ${remaining % 60}초`}
       >
@@ -738,10 +738,10 @@ function TimerBody({ minutes, hobbyId }: { minutes: number; hobbyId: number }) {
       </div>
       {done ? (
         <div role="status" className="flex flex-wrap items-center gap-2 rounded-lg bg-[color-mix(in_srgb,var(--color-base)_9%,white)] px-3 py-2">
-          <p className="min-w-0 flex-1 text-sm text-ink">시간이 다 됐어요. 한 줄 남겨 볼까요?</p>
+          <p className="min-w-0 flex-1 t-sub text-ink">시간이 다 됐어요. 한 줄 남겨 볼까요?</p>
           <Link
             to={`/records/new?hobbyId=${hobbyId}`}
-            className="inline-flex min-h-11 items-center rounded-lg bg-base px-4 text-sm font-medium text-white no-underline lg:min-h-9"
+            className="inline-flex min-h-11 items-center rounded-lg bg-base px-4 t-sub font-medium text-white no-underline lg:min-h-9"
           >
             기록하기
           </Link>

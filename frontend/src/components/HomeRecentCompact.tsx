@@ -61,7 +61,7 @@ export function HomeRecentCompact() {
         <h2 className="text-card-title">최근 기록</h2>
         <Link
           to="/records"
-          className="inline-flex h-8 flex-none items-center gap-0.5 rounded-full px-2 text-sm font-medium text-base-ink no-underline hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+          className="inline-flex h-8 flex-none items-center gap-0.5 rounded-full px-2 t-sub font-medium text-base-ink no-underline hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
         >
           지난 기록 모두 보기
           <ChevronRightIcon width={16} height={16} />

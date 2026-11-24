@@ -124,7 +124,7 @@ export function HomePage() {
         <button
           type="button"
           onClick={() => summaryQuery.refetch()}
-          className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+          className="inline-flex min-h-11 w-fit items-center t-sub font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
         >
           다시 불러오기
         </button>
@@ -211,8 +211,8 @@ export function HomePage() {
     <div className="flex flex-col gap-7">
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-1.5">
-          <h1 className="font-serif text-[22px] font-semibold">{titleText}</h1>
-          <span className="text-sm text-ink-2">{formatMonthDayWeekday(today)}</span>
+          <h1 className="t-page">{titleText}</h1>
+          <span className="t-sub text-ink-2">{formatMonthDayWeekday(today)}</span>
           {subLine}
         </div>
 
@@ -269,18 +269,18 @@ function StatsTiles({ summary, slim = false }: { summary: StatsSummary; slim?: b
   return (
     <div className="grid grid-cols-3 gap-3">
       <div className="flex flex-col gap-1 rounded-xl bg-surface p-4">
-        <span className="text-sm text-ink-2">기록한 날</span>
-        <span className="font-serif text-lg text-ink">{summary.recordedDays}일</span>
+        <span className="t-sub text-ink-2">기록한 날</span>
+        <span className="font-serif t-body-lg text-ink">{summary.recordedDays}일</span>
       </div>
       <div className="flex flex-col gap-1 rounded-xl bg-surface p-4">
-        <span className="text-sm text-ink-2">쌓인 시간</span>
-        <span className="font-serif text-lg text-ink">
+        <span className="t-sub text-ink-2">쌓인 시간</span>
+        <span className="font-serif t-body-lg text-ink">
           {summary.totalMinutes === 0 ? '기록 안 함' : formatDurationMinutes(summary.totalMinutes)}
         </span>
       </div>
       <div className="flex flex-col gap-1 rounded-xl bg-surface p-4">
-        <span className="text-sm text-ink-2">시작한 지</span>
-        <span className="font-serif text-lg text-ink">{daysSinceStart != null ? `${daysSinceStart}일` : '-'}</span>
+        <span className="t-sub text-ink-2">시작한 지</span>
+        <span className="font-serif t-body-lg text-ink">{daysSinceStart != null ? `${daysSinceStart}일` : '-'}</span>
       </div>
     </div>
   )
@@ -289,7 +289,7 @@ function StatsTiles({ summary, slim = false }: { summary: StatsSummary; slim?: b
 function FirstUseBoard() {
   return (
     <Band className="flex flex-col items-start gap-3.5">
-      <h2 className="text-lg font-semibold">첫 기록을 남겨 볼까요?</h2>
+      <h2 className="t-body-lg font-semibold">첫 기록을 남겨 볼까요?</h2>
       <Link to="/records/new" className={primaryLinkClass}>
         <PlusIcon width={18} height={18} />첫 기록 쓰기
       </Link>
@@ -339,7 +339,7 @@ function HomeCoachCard({ autoStatus, dense = false }: { autoStatus: CoachAutoRes
             <div className="h-full rounded-full bg-base" style={{ width: `${ratio}%` }} />
           </div>
           {dense ? null : (
-            <Link to="/records/new" className="inline-flex min-h-9 items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
+            <Link to="/records/new" className="inline-flex min-h-9 items-center t-sub font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
               기록하기
             </Link>
           )}
@@ -367,8 +367,8 @@ function HomeCoachCard({ autoStatus, dense = false }: { autoStatus: CoachAutoRes
       to={data.id != null ? `/coach?r=${data.id}` : '/coach'}
       className={
         dense
-          ? 'inline-flex h-8 flex-none items-center gap-0.5 rounded-full px-2 text-sm font-medium text-base-ink no-underline hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]'
-          : 'inline-flex min-h-9 w-fit items-center gap-0.5 text-sm font-medium text-base-ink no-underline'
+          ? 'inline-flex h-8 flex-none items-center gap-0.5 rounded-full px-2 t-sub font-medium text-base-ink no-underline hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]'
+          : 'inline-flex min-h-9 w-fit items-center gap-0.5 t-sub font-medium text-base-ink no-underline'
       }
     >
       회고 보기
@@ -483,7 +483,7 @@ function QuickRecordInput() {
               <button
                 type="button"
                 onClick={() => setAddingHobby(true)}
-                className="flex min-h-10 w-full items-center gap-1.5 rounded-md px-3 text-left text-sm font-medium text-base-ink"
+                className="flex min-h-10 w-full items-center gap-1.5 rounded-md px-3 text-left t-sub font-medium text-base-ink"
               >
                 <PlusIcon width={14} height={14} className="flex-none" />
                 새 분야 추가
@@ -533,7 +533,7 @@ function QuickRecordInput() {
         </Link>
       ) : (
         <div className="flex flex-col gap-2 rounded-xl bg-surface px-3.5 py-3.5 lg:px-[1.125rem]">
-          <span className="text-sm text-ink-2">오늘 한 줄만 남겨도 충분해요</span>
+          <span className="t-sub text-ink-2">오늘 한 줄만 남겨도 충분해요</span>
 
           {/* R1 3번: 모바일(폭 1024 미만)은 위 줄 = 입력칸 전체 폭, 아래 줄 = 분야 알약(왼쪽)과
               저장(오른쪽)으로 세로 쌓기 — 한 줄에 셋을 다 넣으면 폭 360px에서 저장 버튼 글자가

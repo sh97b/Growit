@@ -394,7 +394,7 @@ export function ChangesPage() {
           <button
             type="button"
             onClick={() => compareQuery.refetch()}
-            className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+            className="inline-flex min-h-11 w-fit items-center t-sub font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
           >
             다시 시도
           </button>
@@ -404,8 +404,8 @@ export function ChangesPage() {
       {!compareQuery.isFetching && result?.locked && result.lockReason !== 'NO_PAST_RECORD' ? (
         <div className="flex flex-col items-start gap-3 rounded-2xl bg-surface p-7">
           <p className="text-ink">기록이 3개 쌓이면 비교가 열려요</p>
-          <p className="text-sm font-medium text-ink-2">{result.currentCount ?? 0}/{result.requiredCount ?? 3}</p>
-          <Link to="/records/new" className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
+          <p className="t-sub font-medium text-ink-2">{result.currentCount ?? 0}/{result.requiredCount ?? 3}</p>
+          <Link to="/records/new" className="inline-flex min-h-11 items-center t-sub font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
             기록하기
           </Link>
         </div>
@@ -414,12 +414,12 @@ export function ChangesPage() {
       {!compareQuery.isFetching && result?.locked && result.lockReason === 'NO_PAST_RECORD' ? (
         <div className="flex flex-col items-start gap-3 rounded-2xl bg-surface p-7">
           <p className="text-ink">비교할 이전 기록이 아직 없어요. 기록이 며칠 더 쌓이면 비교가 열려요</p>
-          <p className="text-sm text-ink-2">
+          <p className="t-sub text-ink-2">
             {result.oldestRecordDate ? `가장 오래된 기록 ${formatMonthDay(result.oldestRecordDate)}` : ''}
             {result.oldestRecordDate && result.latestRecordDate ? ' · ' : ''}
             {result.latestRecordDate ? `최근 기록 ${formatMonthDay(result.latestRecordDate)}` : ''}
           </p>
-          <Link to="/records/new" className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
+          <Link to="/records/new" className="inline-flex min-h-11 items-center t-sub font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
             기록하기
           </Link>
         </div>
@@ -437,15 +437,15 @@ export function ChangesPage() {
 
   const selectedWeekSummary = selectedWeek ? (
     <div className="flex flex-col gap-1.5 rounded-2xl bg-surface p-4">
-      <span className="text-sm font-semibold text-ink">
+      <span className="t-sub font-semibold text-ink">
         {/* O1(B.2): 한 줄로 쓰고 "주 0일" 같은 붙임 표기를 쓰지 않는다. */}
         {formatMonthDay(selectedWeek.weekStart)} – {formatMonthDay(addDays(selectedWeek.weekStart, 6))} ·{' '}
         {selectedWeek.recordedDays > 0 ? `${selectedWeek.recordedDays}일` : '기록 없음'}
       </span>
       {selectedWeek.recordedDays > 0 ? (
-        <span className="tabular-nums text-sm text-ink-2">{formatDurationMinutes(selectedWeek.totalMinutes)}</span>
+        <span className="tabular-nums t-sub text-ink-2">{formatDurationMinutes(selectedWeek.totalMinutes)}</span>
       ) : null}
-      <Link to={`/weeks/${selectedWeek.weekStart}`} className="inline-flex min-h-9 w-fit items-center gap-1 text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
+      <Link to={`/weeks/${selectedWeek.weekStart}`} className="inline-flex min-h-9 w-fit items-center gap-1 t-sub font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
         주 상세 보기
         <ChevronRightIcon width={16} height={16} />
       </Link>
@@ -479,8 +479,8 @@ export function ChangesPage() {
           onClick={() => setMetricsOpen(true)}
           className="flex w-full min-w-0 flex-col items-start gap-1 rounded-xl bg-surface p-4 text-left"
         >
-          <span className="text-sm font-medium text-ink">지표 해석 보기 ▾</span>
-          <span className="w-full min-w-0 truncate text-sm text-ink-2">{firstSentence(metricsQuery.data.displayText)}</span>
+          <span className="t-sub font-medium text-ink">지표 해석 보기 ▾</span>
+          <span className="w-full min-w-0 truncate t-sub text-ink-2">{firstSentence(metricsQuery.data.displayText)}</span>
         </button>
       )
     }
@@ -489,7 +489,7 @@ export function ChangesPage() {
         <button
           type="button"
           onClick={() => setMetricsOpen(false)}
-          className="inline-flex min-h-9 w-fit items-center text-sm font-medium text-ink-2"
+          className="inline-flex min-h-9 w-fit items-center t-sub font-medium text-ink-2"
         >
           지표 해석 접기 ▴
         </button>
@@ -534,13 +534,13 @@ export function ChangesPage() {
           aria-expanded={flowPanelOpen}
           aria-label="주별 흐름 패널 열기·닫기"
           title="주별 흐름"
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line-2 bg-white px-3 text-sm font-medium text-ink"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line-2 bg-white px-3 t-sub font-medium text-ink"
         >
           <ChartIcon width={16} height={16} />
           주별 흐름
         </button>
         {usageQuery.data ? (
-          <span className="whitespace-nowrap text-sm text-ink-2">오늘 {usageQuery.data.remaining}회 남음</span>
+          <span className="whitespace-nowrap t-sub text-ink-2">오늘 {usageQuery.data.remaining}회 남음</span>
         ) : null}
       </div>
     </div>
@@ -583,7 +583,7 @@ export function ChangesPage() {
           ))}
         </div>
       ) : (
-        <p className="text-sm text-ink-2">이 주에는 주제로 묶인 기록이 없어요.</p>
+        <p className="t-sub text-ink-2">이 주에는 주제로 묶인 기록이 없어요.</p>
       )}
       </div>
     </section>
@@ -598,11 +598,11 @@ export function ChangesPage() {
       </section>
     )
     if (metricsQuery.isLoading || weeksQuery.isLoading) {
-      return shell(<p className="text-sm text-ink-2">기록을 천천히 읽고 있어요</p>)
+      return shell(<p className="t-sub text-ink-2">기록을 천천히 읽고 있어요</p>)
     }
     if (metricsQuery.isError) {
       return shell(
-        <div className="flex items-center gap-3 text-sm text-ink-2">
+        <div className="flex items-center gap-3 t-sub text-ink-2">
           <span>지금은 불러오지 못했어요</span>
           <button type="button" onClick={() => metricsQuery.refetch()} className="font-medium text-base-ink">
             다시 받기
@@ -613,13 +613,13 @@ export function ChangesPage() {
     if (!metricsQuery.data) return null
     if (metricsQuery.data.locked) {
       return shell(
-        <p className="text-sm text-ink-2">
+        <p className="t-sub text-ink-2">
           기록이 있는 주가 {metricsQuery.data.requiredWeeks ?? 2}주 모이면 해석이 열려요 ({metricsQuery.data.currentWeeks ?? 0}/
           {metricsQuery.data.requiredWeeks ?? 2})
         </p>,
       )
     }
-    if (metricsQuery.data.empty) return shell(<p className="text-sm text-ink-2">이번 주는 쉬어 간 주예요.</p>)
+    if (metricsQuery.data.empty) return shell(<p className="t-sub text-ink-2">이번 주는 쉬어 간 주예요.</p>)
     return shell(
       <p className="t-body line-clamp-3 break-words font-serif text-ink">{metricsQuery.data.displayText}</p>,
       () => setDialog('metrics'),
@@ -633,7 +633,7 @@ export function ChangesPage() {
   const flowBody = (fill: boolean) => (
     <>
       <div className="flex flex-none items-center justify-between gap-3">
-        <span className="text-sm text-ink-2">최근 {WEEK_COUNT}주</span>
+        <span className="t-sub text-ink-2">최근 {WEEK_COUNT}주</span>
         <div className="inline-flex rounded-lg border border-line-2 bg-white p-[0.1875rem]" role="group" aria-label="지표">
           {METRIC_TABS.map((tab) => (
             <button
@@ -642,7 +642,7 @@ export function ChangesPage() {
               aria-pressed={metric === tab.value}
               onClick={() => setMetric(tab.value)}
               className={[
-                'h-8 whitespace-nowrap rounded-md px-3 text-sm font-medium',
+                'h-8 whitespace-nowrap rounded-md px-3 t-sub font-medium',
                 metric === tab.value ? 'bg-ink text-white' : 'bg-transparent text-ink-2',
               ].join(' ')}
             >
@@ -663,7 +663,7 @@ export function ChangesPage() {
         metric === 'tags' ? (
           <div className={['flex min-h-0 flex-col gap-2 overflow-hidden', fill ? 'flex-1' : ''].join(' ')}>
             {topTags.length === 0 ? (
-              <p className="text-sm text-ink-2">아직 모을 수 있는 태그가 없어요.</p>
+              <p className="t-sub text-ink-2">아직 모을 수 있는 태그가 없어요.</p>
             ) : (
               <div className="flex flex-wrap content-start gap-2 overflow-hidden">
                 {topTags.slice(0, 12).map(([tag, count]) => (
@@ -699,7 +699,7 @@ export function ChangesPage() {
                   >
                     {value > 0 ? (
                       <>
-                        <b className="mb-0.5 h-[18px] flex-none whitespace-nowrap font-sans text-xs font-semibold leading-[18px] text-ink">
+                        <b className="mb-0.5 h-[18px] flex-none whitespace-nowrap font-sans t-cap font-semibold leading-[18px] text-ink">
                           {valueLabel}
                         </b>
                         <i
@@ -719,7 +719,7 @@ export function ChangesPage() {
                 const isSelected = index === selectedWeekIndex
                 const showLabel = isSelected || (weeks.length - 1 - index) % LABEL_STEP === 0
                 return (
-                  <span key={week.weekStart} className="min-w-0 flex-1 text-center text-xs text-ink-2">
+                  <span key={week.weekStart} className="min-w-0 flex-1 text-center t-cap text-ink-2">
                     {showLabel ? formatSlashDate(week.weekStart) : ''}
                   </span>
                 )
@@ -731,7 +731,7 @@ export function ChangesPage() {
 
       <Link
         to="/growth"
-        className="inline-flex h-9 w-fit flex-none items-center gap-1 rounded-full px-2 text-sm font-medium text-base-ink no-underline hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+        className="inline-flex h-9 w-fit flex-none items-center gap-1 rounded-full px-2 t-sub font-medium text-base-ink no-underline hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
       >
         성장에서 더 보기
         <ChevronRightIcon width={16} height={16} />
@@ -743,7 +743,7 @@ export function ChangesPage() {
   const dialogs =
     dialog === 'interpretation' && result ? (
       <Dialog onClose={() => setDialog(null)} labelledBy="changes-dialog-title">
-        <h2 id="changes-dialog-title" className="font-serif text-xl font-semibold">
+        <h2 id="changes-dialog-title" className="font-serif t-section font-semibold">
           변화 해석
         </h2>
         <div className="mt-3">
@@ -761,7 +761,7 @@ export function ChangesPage() {
       </Dialog>
     ) : dialog === 'week' && selectedWeek ? (
       <Dialog onClose={() => setDialog(null)} labelledBy="changes-dialog-title">
-        <h2 id="changes-dialog-title" className="font-serif text-xl font-semibold">
+        <h2 id="changes-dialog-title" className="font-serif t-section font-semibold">
           주 요약
         </h2>
         <div className="mt-3 flex flex-col gap-3">
@@ -844,7 +844,7 @@ export function ChangesPage() {
               type="button"
               onClick={() => setFlowSheetOpen(true)}
               aria-label="주별 흐름 열기"
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-line-2 bg-white px-3 text-sm font-medium text-ink"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-line-2 bg-white px-3 t-sub font-medium text-ink"
             >
               <ChartIcon width={16} height={16} />
               주별 흐름

@@ -154,7 +154,7 @@ function ActionMenu({ label, items, small = false }: { label: string; items: Men
                 setOpen(false)
                 entry.onSelect()
               }}
-              className="flex min-h-11 w-full items-center whitespace-nowrap rounded-md px-3 text-left text-sm text-ink hover:bg-surface focus-visible:bg-surface disabled:opacity-40 lg:min-h-9"
+              className="flex min-h-11 w-full items-center whitespace-nowrap rounded-md px-3 text-left t-sub text-ink hover:bg-surface focus-visible:bg-surface disabled:opacity-40 lg:min-h-9"
             >
               {entry.label}
             </button>
@@ -185,7 +185,7 @@ function DateChip({
         aria-label={value ? `목표일 ${shortDate(value)}, 바꾸기` : '목표일 설정'}
         disabled={disabled}
         onClick={() => setOpen((prev) => !prev)}
-        className="inline-flex h-11 items-center gap-1.5 whitespace-nowrap rounded-full border border-line-2 bg-white px-3.5 text-sm font-medium text-ink disabled:opacity-40 lg:h-9"
+        className="inline-flex h-11 items-center gap-1.5 whitespace-nowrap rounded-full border border-line-2 bg-white px-3.5 t-sub font-medium text-ink disabled:opacity-40 lg:h-9"
       >
         {value ? shortDate(value) : '목표일 설정'}
         <ChevronDownIcon width={14} height={14} className="flex-none text-ink-2" />
@@ -196,7 +196,7 @@ function DateChip({
           aria-label="목표일"
           className="absolute right-0 top-full z-20 mt-1.5 flex w-64 flex-col gap-2 rounded-lg border border-line-2 bg-white p-3 shadow-sm lg:right-0"
         >
-          <label className="flex flex-col gap-1.5 whitespace-nowrap text-sm font-medium">
+          <label className="flex flex-col gap-1.5 whitespace-nowrap t-sub font-medium">
             목표일
             <Input
               type="date"
@@ -270,7 +270,7 @@ export function RoadmapPage() {
         <p className="text-body-min text-ink-2">분야를 먼저 추가해 주세요</p>
         <Link
           to="/settings/hobbies"
-          className="inline-flex min-h-11 items-center rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink no-underline"
+          className="inline-flex min-h-11 items-center rounded-lg border border-line-2 bg-white px-4 t-sub font-medium text-ink no-underline"
         >
           활동 분야 관리
         </Link>
@@ -301,7 +301,7 @@ export function RoadmapPage() {
                   aria-pressed={view === value}
                   onClick={() => setView(value)}
                   className={[
-                    'h-10 whitespace-nowrap rounded-md px-3.5 text-sm font-medium lg:h-8',
+                    'h-10 whitespace-nowrap rounded-md px-3.5 t-sub font-medium lg:h-8',
                     view === value ? 'bg-ink text-white' : 'bg-transparent text-ink-2',
                   ].join(' ')}
                 >
@@ -373,7 +373,7 @@ function GoalLine({ hobby, onError }: { hobby: Hobby; onError: (message: string 
     <div className="flex min-w-0 items-center gap-1">
       <p
         title={goal}
-        className="min-w-0 flex-1 break-words font-serif text-lg leading-[1.5] lg:truncate lg:text-[22px] lg:leading-[1.4]"
+        className="min-w-0 flex-1 break-words t-key lg:truncate"
       >
         {goal}
       </p>
@@ -437,7 +437,7 @@ function HobbyRoadmap({ hobby }: { hobby: Hobby }) {
   } else if (create.isPending || archive.isPending) {
     body = (
       <div role="status" aria-live="polite" className="flex flex-col gap-3 rounded-2xl bg-surface p-5">
-        <p className="flex items-center gap-3 text-[1.125rem] font-medium leading-[1.5] text-ink">
+        <p className="flex items-center gap-3 t-body-lg font-medium leading-[1.5] text-ink">
           <Spinner className="text-base-ink" />
           AI가 로드맵을 만들고 있어요
         </p>
@@ -463,7 +463,7 @@ function HobbyRoadmap({ hobby }: { hobby: Hobby }) {
               <button
                 type="button"
                 onClick={() => generate(targetDraft, 'MANUAL')}
-                className="inline-flex min-h-11 items-center whitespace-nowrap rounded-full px-1 text-sm font-medium text-base-ink underline underline-offset-2"
+                className="inline-flex min-h-11 items-center whitespace-nowrap rounded-full px-1 t-sub font-medium text-base-ink underline underline-offset-2"
               >
                 AI 없이 직접 만들기
               </button>
@@ -498,7 +498,7 @@ function HobbyRoadmap({ hobby }: { hobby: Hobby }) {
       {errorMessage ? <Note variant="sand">{errorMessage}</Note> : null}
       {notice ? <Note variant="calm">{notice}</Note> : null}
       {body}
-      <p className="flex-none text-xs leading-[1.5] text-ink-2 lg:text-xs">{NOTICE}</p>
+      <p className="flex-none t-cap text-ink-2">{NOTICE}</p>
     </div>
   )
 }
@@ -559,7 +559,7 @@ function RoadmapBody({
         <GoalLine hobby={hobby} onError={onError} />
       </div>
       <DateChip value={roadmap.targetDate} onChange={changeTarget} disabled={updateTarget.isPending} />
-      <p className="min-w-0 flex-1 whitespace-nowrap text-sm text-ink-2 lg:flex-none" aria-live="polite">
+      <p className="min-w-0 flex-1 whitespace-nowrap t-sub text-ink-2 lg:flex-none" aria-live="polite">
         {counts.total}개 중 {counts.done}개 체크했어요
       </p>
       <ActionMenu
@@ -574,7 +574,7 @@ function RoadmapBody({
 
   const confirmRow = !readOnly && confirming ? (
     <div className="flex flex-none flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-surface px-4 py-2">
-      <p className="text-sm">
+      <p className="t-sub">
         {confirming === 'renew'
           ? '지금 로드맵은 보관하고 새로 만들까요? 기존 로드맵은 보관함에 남아요.'
           : '지금 로드맵을 보관할까요? 보관함에서 다시 쓸 수 있어요.'}
@@ -602,7 +602,7 @@ function RoadmapBody({
   ) : null
 
   const goalNote = !readOnly && goalChanged ? (
-    <p className="flex-none text-xs text-ink-2">
+    <p className="flex-none t-cap text-ink-2">
       이 로드맵은 &lsquo;{roadmap.goalText}&rsquo; 목표로 만들었어요. 새로 만들면 지금 목표로 다시 제안해요.
     </p>
   ) : null
@@ -731,7 +731,7 @@ function StepAdder({
   const [title, setTitle] = useState('')
 
   if (stepCount >= MAX_STEPS) {
-    return <p className="px-2 py-2 text-xs text-ink-2">단계는 {MAX_STEPS}개까지 둘 수 있어요</p>
+    return <p className="px-2 py-2 t-cap text-ink-2">단계는 {MAX_STEPS}개까지 둘 수 있어요</p>
   }
 
   function submit(event: FormEvent) {
@@ -757,7 +757,7 @@ function StepAdder({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex h-11 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-dashed border-line-2 text-sm font-medium text-ink-2 hover:bg-surface lg:h-10"
+        className="inline-flex h-11 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-dashed border-line-2 t-sub font-medium text-ink-2 hover:bg-surface lg:h-10"
       >
         <PlusIcon width={16} height={16} />
         단계 추가
@@ -858,18 +858,18 @@ function StepRail({
             >
               <span
                 aria-hidden="true"
-                className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-white text-sm font-semibold ring-1 ring-line-2"
+                className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-white t-sub font-semibold ring-1 ring-line-2"
               >
                 {index + 1}
               </span>
-              <span className="line-clamp-2 min-w-0 flex-1 break-words text-sm leading-[1.35]">{step.title}</span>
+              <span className="line-clamp-2 min-w-0 flex-1 break-words t-sub leading-[1.35]">{step.title}</span>
               {step.id === currentId ? (
                 <span className="flex-none" title="현재 단계">
                   <span aria-hidden="true" className="block h-2 w-2 rounded-full bg-base" />
                   <span className="sr-only">현재 단계</span>
                 </span>
               ) : null}
-              <span className="flex-none text-xs tabular-nums text-ink-2">
+              <span className="flex-none t-cap tabular-nums text-ink-2">
                 {counts.done}/{counts.total}
               </span>
             </li>
@@ -1021,7 +1021,7 @@ function StepCard({
   const confirmRow =
     !readOnly && mode === 'confirm' ? (
       <div className="flex flex-none flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-surface px-3 py-2">
-        <p className="text-sm">이 단계와 안의 항목을 지울까요?</p>
+        <p className="t-sub">이 단계와 안의 항목을 지울까요?</p>
         <div className="flex gap-2">
           <Button
             type="button"
@@ -1055,7 +1055,7 @@ function StepCard({
       ].join(' ')}
     >
       {step.items.length === 0 ? (
-        <li className="py-2 text-sm text-ink-2">{readOnly ? '항목이 없어요.' : '아직 항목이 없어요. 아래에서 추가해 보세요.'}</li>
+        <li className="py-2 t-sub text-ink-2">{readOnly ? '항목이 없어요.' : '아직 항목이 없어요. 아래에서 추가해 보세요.'}</li>
       ) : null}
       {step.items.map((item, index) => (
         <ItemRow
@@ -1094,7 +1094,7 @@ function StepCard({
         </Button>
       </form>
     ) : (
-      <p className="flex-none text-xs text-ink-2">항목은 {MAX_ITEMS_PER_STEP}개까지 둘 수 있어요</p>
+      <p className="flex-none t-cap text-ink-2">항목은 {MAX_ITEMS_PER_STEP}개까지 둘 수 있어요</p>
     )
 
   if (detail) {
@@ -1106,7 +1106,7 @@ function StepCard({
         <div className="flex flex-none items-start gap-2">
           <div className="flex min-w-0 flex-1 flex-col">
             <h2 className="line-clamp-2 break-words text-card-title">{step.title}</h2>
-            <p className="text-xs text-ink-2">
+            <p className="t-cap text-ink-2">
               {step.periodHint ? `${step.periodHint} · ` : ''}
               {counts.total}개 중 {counts.done}개 체크했어요
             </p>
@@ -1138,7 +1138,7 @@ function StepCard({
         >
           <span
             aria-hidden="true"
-            className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-base)_14%,white)] text-sm font-semibold"
+            className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-base)_14%,white)] t-sub font-semibold"
           >
             {number}
           </span>
@@ -1246,7 +1246,7 @@ function ItemRow({
   if (mode === 'confirm') {
     return (
       <li className="flex flex-col gap-2 py-2 lg:flex-row lg:items-center">
-        <p className="min-w-0 break-words text-sm">이 항목을 지울까요?</p>
+        <p className="min-w-0 break-words t-sub">이 항목을 지울까요?</p>
         <div className="flex gap-2">
           <Button
             type="button"
@@ -1302,7 +1302,7 @@ function ItemRow({
         {item.text}
       </span>
       {item.blockCount ? (
-        <span className="flex-none rounded-md bg-surface px-1.5 py-0.5 text-xs text-ink-2">블록 {item.blockCount}</span>
+        <span className="flex-none rounded-md bg-surface px-1.5 py-0.5 t-cap text-ink-2">블록 {item.blockCount}</span>
       ) : null}
       <ChevronDownIcon width={16} height={16} className={['flex-none text-ink-3', expanded ? 'rotate-180' : ''].join(' ')} />
     </button>
@@ -1392,7 +1392,7 @@ function archiveDate(value: string): string {
 }
 
 const cardButton =
-  'inline-flex h-11 items-center justify-center whitespace-nowrap rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink hover:bg-surface disabled:opacity-40 lg:h-9'
+  'inline-flex h-11 items-center justify-center whitespace-nowrap rounded-lg border border-line-2 bg-white px-4 t-sub font-medium text-ink hover:bg-surface disabled:opacity-40 lg:h-9'
 
 type ArchiveConfirm = null | { kind: 'restore' | 'delete'; id: number }
 
@@ -1457,7 +1457,7 @@ function ArchiveView({ hobby, onRestored }: { hobby: Hobby; onRestored: () => vo
 
   const dialog = confirm ? (
     <Dialog onClose={() => setConfirm(null)} labelledBy="roadmap-archive-confirm">
-      <h2 id="roadmap-archive-confirm" className="font-serif text-xl font-semibold">
+      <h2 id="roadmap-archive-confirm" className="font-serif t-section font-semibold">
         {confirm.kind === 'restore' ? '이 로드맵을 다시 쓸까요?' : '이 로드맵을 삭제할까요?'}
       </h2>
       <p className="mt-3 text-body-min leading-[1.7] text-ink">
@@ -1507,7 +1507,7 @@ function ArchiveView({ hobby, onRestored }: { hobby: Hobby; onRestored: () => vo
     body = (
       <div className="flex flex-col gap-1 rounded-2xl bg-surface p-5">
         <p className="text-body-min">보관한 로드맵이 없어요.</p>
-        <p className="text-sm text-ink-2">새로 만들거나 보관하면 기존 로드맵이 여기에 남아요.</p>
+        <p className="t-sub text-ink-2">새로 만들거나 보관하면 기존 로드맵이 여기에 남아요.</p>
       </div>
     )
   } else {
@@ -1515,13 +1515,13 @@ function ArchiveView({ hobby, onRestored }: { hobby: Hobby; onRestored: () => vo
       <ul className="scrollbar-thin-fade grid content-start gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-2 lg:overflow-y-auto lg:overscroll-contain">
         {list.map((item) => (
           <li key={item.id} className="flex min-w-0 flex-col gap-1.5 rounded-2xl border border-line-2 bg-white p-4">
-            <p className="line-clamp-2 break-words font-serif text-lg leading-[1.45]" title={item.goalText}>
+            <p className="line-clamp-2 break-words font-serif t-body-lg leading-[1.45]" title={item.goalText}>
               {item.goalText}
             </p>
-            <p className="text-sm text-ink-2">
+            <p className="t-sub text-ink-2">
               {archiveDate(item.createdAt)} → {archiveDate(item.archivedAt)} 보관
             </p>
-            <p className="text-sm text-ink-2">
+            <p className="t-sub text-ink-2">
               {item.itemCount}개 중 {item.doneCount}개 체크했어요
             </p>
             <div className="mt-1 flex flex-wrap gap-2">
@@ -1590,11 +1590,11 @@ function ArchivedDetail({
         ← 보관함
       </button>
       <div className="min-w-0 basis-full lg:flex-1 lg:basis-auto">
-        <p title={roadmap.goalText} className="break-words font-serif text-lg leading-[1.5] lg:truncate lg:text-[22px] lg:leading-[1.4]">
+        <p title={roadmap.goalText} className="break-words t-key lg:truncate">
           {roadmap.goalText}
         </p>
       </div>
-      <p className="min-w-0 flex-1 text-sm text-ink-2 lg:flex-none">
+      <p className="min-w-0 flex-1 t-sub text-ink-2 lg:flex-none">
         <span className="font-medium text-ink">보관한 로드맵이에요</span> · {counts.total}개 중 {counts.done}개 체크했어요
       </p>
       <Button type="button" disabled={restoreDisabled} onClick={onRestore}>

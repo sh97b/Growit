@@ -64,7 +64,7 @@ export function CustomFeelingChips({
         <span
           key={feeling.id}
           className={[
-            'inline-flex min-h-11 items-center rounded-full bg-tag-feel-bg text-sm font-medium text-tag-feel-fg',
+            'inline-flex min-h-11 items-center rounded-full bg-tag-feel-bg t-sub font-medium text-tag-feel-fg',
             selectedId === feeling.id ? 'shadow-[inset_0_0_0_2px_var(--color-tag-feel-fg)]' : '',
           ].join(' ')}
         >
@@ -90,7 +90,7 @@ export function CustomFeelingChips({
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="inline-flex min-h-11 items-center justify-center rounded-full border border-dashed border-line-2 bg-white px-3 text-sm font-medium text-ink-2"
+          className="inline-flex min-h-11 items-center justify-center rounded-full border border-dashed border-line-2 bg-white px-3 t-sub font-medium text-ink-2"
         >
           + 직접 추가
         </button>
@@ -116,7 +116,7 @@ export function CustomFeelingChips({
                 <label
                   key={option.value}
                   className={[
-                    'inline-flex min-h-11 cursor-pointer items-center rounded-lg border px-3 text-sm font-medium has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-base',
+                    'inline-flex min-h-11 cursor-pointer items-center rounded-lg border px-3 t-sub font-medium has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-base',
                     direction === option.value ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)] text-ink' : 'border-line-2 bg-white text-ink',
                   ].join(' ')}
                 >

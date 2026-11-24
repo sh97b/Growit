@@ -176,27 +176,27 @@ export function CoachActionCard({
       <span className="text-caption-min text-ink-2">{action.minutes}분 · {action.reason}</span>
       <EvidenceRow evidence={action.evidence} />
       {hideReactions ? null : result.reaction === 'TRIED' || result.reaction === 'REST_TODAY' ? (
-        <p className="text-sm text-ink-2">{reactionLine(result.reaction, result.id ?? 0)}</p>
+        <p className="t-sub text-ink-2">{reactionLine(result.reaction, result.id ?? 0)}</p>
       ) : (
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => handleReaction('TRIED')}
-            className="inline-flex min-h-11 flex-none items-center justify-center whitespace-nowrap rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]"
+            className="inline-flex min-h-11 flex-none items-center justify-center whitespace-nowrap rounded-lg border border-line-2 bg-white px-4 t-sub font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]"
           >
             해봤어요
           </button>
           <button
             type="button"
             onClick={() => handleReaction('REST_TODAY')}
-            className="inline-flex min-h-11 flex-none items-center justify-center whitespace-nowrap rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]"
+            className="inline-flex min-h-11 flex-none items-center justify-center whitespace-nowrap rounded-lg border border-line-2 bg-white px-4 t-sub font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]"
           >
             오늘은 쉴게요
           </button>
           <button
             type="button"
             onClick={handleSimplify}
-            className="inline-flex min-h-11 flex-none items-center justify-center whitespace-nowrap rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]"
+            className="inline-flex min-h-11 flex-none items-center justify-center whitespace-nowrap rounded-lg border border-line-2 bg-white px-4 t-sub font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]"
           >
             너무 어려워요
           </button>
@@ -223,7 +223,7 @@ function NumberedSection({ title, note, cards }: { title: string; note?: string;
           >
             <span
               aria-hidden="true"
-              className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-full bg-base text-sm font-semibold text-white"
+              className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-full bg-base t-sub font-semibold text-white"
             >
               {index + 1}
             </span>
@@ -294,7 +294,7 @@ function SummaryBlock({ result }: { result: CoachResult }) {
   const records = [...byId.values()].sort((a, b) => a.recordDate.localeCompare(b.recordDate))
   return (
     <div className={`flex flex-col gap-2 ${RESULT_CARD_CLASS}`}>
-      <p className="font-serif text-[1.125rem] font-bold leading-[1.6] text-ink lg:text-[1.25rem]">
+      <p className="t-key text-ink">
         {result.periodSummary}
       </p>
       {records.length > 0 ? (
@@ -311,7 +311,7 @@ function SummaryBlock({ result }: { result: CoachResult }) {
           </button>
           <ul id={listId} hidden={!open} className="m-0 flex list-none flex-col gap-1 p-0">
             {records.map((record) => (
-              <li key={record.recordId} className="text-[0.8125rem] leading-[1.5] text-ink-3">
+              <li key={record.recordId} className="t-cap text-ink-3">
                 <Link to={`/records/${record.recordId}`} className="text-ink-3 no-underline">
                   <span className="font-medium">{formatMonthDay(record.recordDate)}</span>{' '}
                   <span className="line-clamp-1">{record.content}</span>
@@ -408,7 +408,7 @@ export function CoachResultView({
             </span>
           ) : null}
           {result.isNew ? (
-            <span className="inline-flex h-5 items-center rounded-md bg-[color-mix(in_srgb,var(--color-base)_16%,white)] px-1.5 text-[0.6875rem] font-medium text-base-ink">
+            <span className="inline-flex h-5 items-center rounded-md bg-[color-mix(in_srgb,var(--color-base)_16%,white)] px-1.5 t-cap font-medium text-base-ink">
               새로 도착
             </span>
           ) : null}
@@ -444,7 +444,7 @@ export function CoachResultView({
           </span>
         ) : null}
         {result.isNew ? (
-          <span className="inline-flex h-5 items-center rounded-md bg-[color-mix(in_srgb,var(--color-base)_16%,white)] px-1.5 text-[0.6875rem] font-medium text-base-ink">
+          <span className="inline-flex h-5 items-center rounded-md bg-[color-mix(in_srgb,var(--color-base)_16%,white)] px-1.5 t-cap font-medium text-base-ink">
             새로 도착
           </span>
         ) : null}

@@ -88,7 +88,7 @@ function StopMenu({ goal }: { goal: DotGoal }) {
       ) : null}
       {confirming ? (
         <Dialog onClose={closeConfirm} labelledBy={STOP_TITLE_ID}>
-          <h2 id={STOP_TITLE_ID} className="font-serif text-xl font-semibold">
+          <h2 id={STOP_TITLE_ID} className="font-serif t-section font-semibold">
             이 그림을 그만둘까요?
           </h2>
           <p className="mt-3 text-body-min leading-[1.7] text-ink">이 그림은 보관만 돼요. 새로 시작할 수 있어요.</p>

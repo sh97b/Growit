@@ -135,10 +135,10 @@ export function FeedbackRow({
         <div>
           <div className="flex flex-col gap-3 border-t border-[color-mix(in_srgb,var(--color-base)_28%,white)] pt-2">
             {transientMessage ? (
-              <span className="text-sm text-ink-2">{transientMessage}</span>
+              <span className="t-sub text-ink-2">{transientMessage}</span>
             ) : (
               <div className="flex items-center justify-between gap-3">
-                <span className="text-sm text-ink">{question}</span>
+                <span className="t-sub text-ink">{question}</span>
                 <div className="flex items-center gap-2">
                   {variant === 'thumbs' ? (
                     <>
@@ -178,7 +178,7 @@ export function FeedbackRow({
                         aria-pressed={status === 'positive'}
                         onClick={handlePositive}
                         className={[
-                          'inline-flex min-h-10 flex-none items-center justify-center whitespace-nowrap rounded-lg border px-4 text-sm font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
+                          'inline-flex min-h-10 flex-none items-center justify-center whitespace-nowrap rounded-lg border px-4 t-sub font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
                           status === 'positive'
                             ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
                             : 'border-line-2 bg-white',
@@ -191,7 +191,7 @@ export function FeedbackRow({
                         aria-pressed={status === 'negative' || status === 'edited'}
                         onClick={handleNegative}
                         className={[
-                          'inline-flex min-h-10 flex-none items-center justify-center whitespace-nowrap rounded-lg border px-4 text-sm font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
+                          'inline-flex min-h-10 flex-none items-center justify-center whitespace-nowrap rounded-lg border px-4 t-sub font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
                           status === 'negative' || status === 'edited'
                             ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
                             : 'border-line-2 bg-white',
@@ -205,7 +205,7 @@ export function FeedbackRow({
                     <button
                       type="button"
                       onClick={openEdit}
-                      className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+                      className="inline-flex min-h-11 items-center t-sub font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
                     >
                       {editTriggerLabel}
                     </button>
@@ -221,12 +221,12 @@ export function FeedbackRow({
 
       {editArea && status === 'edited' && !editing ? (
         <div className="flex flex-wrap items-center gap-2">
-          {editedMessage ? <span className="text-sm text-ink-2">{editedMessage}</span> : null}
+          {editedMessage ? <span className="t-sub text-ink-2">{editedMessage}</span> : null}
           {editedActionLabel ? (
             <button
               type="button"
               onClick={openEdit}
-              className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+              className="inline-flex min-h-11 items-center t-sub font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
             >
               {editedActionLabel}
             </button>
@@ -238,7 +238,7 @@ export function FeedbackRow({
         <button
           type="button"
           onClick={negativeLink.onAction}
-          className="inline-flex min-h-11 w-fit items-center gap-1.5 self-start text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+          className="inline-flex min-h-11 w-fit items-center gap-1.5 self-start t-sub font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
         >
           {negativeLink.label}
         </button>

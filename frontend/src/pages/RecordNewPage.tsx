@@ -129,7 +129,7 @@ export function RecordNewPage() {
             </div>
             <Link
               to="/settings/hobbies"
-              className="text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+              className="t-sub font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
             >
               활동 분야 관리로 가기
             </Link>
@@ -237,9 +237,9 @@ export function RecordNewPage() {
             <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-base)_12%,white)] text-base-ink">
               <CheckCircleIcon width={18} height={18} />
             </span>
-            <h1 className="font-serif text-xl font-semibold">기기에 저장했어요</h1>
+            <h1 className="font-serif t-section font-semibold">기기에 저장했어요</h1>
           </div>
-          <span className="pl-[2.625rem] text-sm text-ink-2">
+          <span className="pl-[2.625rem] t-sub text-ink-2">
             {formatMonthDay(offlineSaved.recordDate)} · {offlineSaved.hobbyName} · 연결되면 자동으로 올려요
           </span>
         </div>
@@ -296,7 +296,7 @@ export function RecordNewPage() {
         submitting={submitting}
         banner={
           draftRestored ? (
-            <div className="flex w-fit items-center gap-2 rounded-[0.625rem] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] px-3 py-2 text-sm text-ink">
+            <div className="flex w-fit items-center gap-2 rounded-[0.625rem] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] px-3 py-2 t-sub text-ink">
               <PencilIcon width={16} height={16} />
               쓰던 글이 남아 있어요
             </div>
@@ -311,7 +311,7 @@ export function RecordNewPage() {
                 aria-label={`지난 제안: ${suggestion.text}`}
                 onClick={() => setSuggestionOn((prev) => !prev)}
                 className={[
-                  'inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-4 text-sm font-medium',
+                  'inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-4 t-sub font-medium',
                   suggestionOn
                     ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_9%,white)] text-base-ink'
                     : 'border-line-2 bg-white text-ink-2',
@@ -344,7 +344,7 @@ export function RecordNewPage() {
             <button
               type="button"
               onClick={() => setSaveError(null)}
-              className="mx-auto inline-flex min-h-11 items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+              className="mx-auto inline-flex min-h-11 items-center t-sub font-medium text-base-ink no-underline rounded-full px-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
             >
               나중에 저장
             </button>

@@ -46,7 +46,7 @@ export function NextActionStatus({ record, action }: { record: RecordDetail; act
               aria-checked={selected}
               onClick={() => (selected ? undefined : mutation.mutate(option.value))}
               className={[
-                'inline-flex min-h-11 flex-1 basis-[7rem] items-center justify-center rounded-lg border px-3 text-sm font-medium whitespace-nowrap lg:flex-none lg:basis-auto lg:px-4',
+                'inline-flex min-h-11 flex-1 basis-[7rem] items-center justify-center rounded-lg border px-3 t-sub font-medium whitespace-nowrap lg:flex-none lg:basis-auto lg:px-4',
                 selected
                   ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_14%,white)] font-semibold text-ink'
                   : 'border-line-2 bg-white text-ink',

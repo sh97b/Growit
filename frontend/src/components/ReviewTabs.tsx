@@ -19,7 +19,7 @@ export function ReviewTabs() {
           to={to}
           className={({ isActive }) =>
             [
-              'flex min-h-10 flex-1 items-center justify-center whitespace-nowrap rounded-md px-3.5 text-sm font-medium no-underline',
+              'flex min-h-10 flex-1 items-center justify-center whitespace-nowrap rounded-md px-3.5 t-sub font-medium no-underline',
               'lg:min-h-[2.375rem] lg:flex-none',
               isActive ? 'bg-ink text-white' : 'text-ink-2',
             ].join(' ')

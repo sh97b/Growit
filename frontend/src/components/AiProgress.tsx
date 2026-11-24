@@ -15,7 +15,7 @@ export function Spinner({ className = '' }: { className?: string }) {
 export function AiProgressCard({ message, lines = 2 }: { message: string; lines?: number }) {
   return (
     <div role="status" aria-live="polite" className="flex flex-col gap-3.5 rounded-2xl bg-surface p-5">
-      <p className="flex items-center gap-2.5 text-[1rem] font-medium leading-[1.5] text-ink">
+      <p className="flex items-center gap-2.5 t-body font-medium leading-[1.5] text-ink">
         <Spinner className="text-base-ink" />
         {message}
       </p>

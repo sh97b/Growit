@@ -67,7 +67,7 @@ function Tile({ label, value, compact }: { label: string; value: string; compact
       ].join(' ')}
     >
       <span className="flex-none text-caption-min text-ink-2">{label}</span>
-      <span className="truncate font-serif text-lg font-semibold lg:text-xl">{value}</span>
+      <span className="truncate t-section">{value}</span>
     </div>
   )
 }
@@ -195,7 +195,7 @@ function OverviewTab({ growth, minSlot, compact }: { growth: Growth; minSlot: nu
       </Panel>
       <Link
         to="/changes"
-        className="inline-flex min-h-11 w-fit flex-none items-center rounded-full px-2 -mx-2 text-sm font-medium text-base-ink no-underline hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] lg:min-h-8"
+        className="inline-flex min-h-11 w-fit flex-none items-center rounded-full px-2 -mx-2 t-sub font-medium text-base-ink no-underline hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] lg:min-h-8"
       >
         변화 지표 자세히 보기
       </Link>
@@ -289,11 +289,11 @@ function HobbyTab({ growth }: { growth: Growth }) {
                   ].join(' ')}
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-[14px] text-ink" title={hobby.name}>
+                    <p className="truncate t-sub text-ink" title={hobby.name}>
                       {hobbyName(hobby.name, hobby.archived)}
                     </p>
                     {hobby.firstDate ? (
-                      <p className="truncate text-[12px] text-ink-2">{firstDateLabel(hobby.firstDate)}</p>
+                      <p className="truncate t-cap text-ink-2">{firstDateLabel(hobby.firstDate)}</p>
                     ) : null}
                   </div>
                   <span className="block h-3 overflow-hidden rounded-full bg-[var(--track)]" aria-hidden="true">
@@ -306,7 +306,7 @@ function HobbyTab({ growth }: { growth: Growth }) {
                       }}
                     />
                   </span>
-                  <span className="text-right text-[14px] tabular-nums text-ink">
+                  <span className="text-right t-sub tabular-nums text-ink">
                     {hobby.records}개 · {formatDurationMinutes(hobby.minutes)}
                   </span>
                 </li>
@@ -360,7 +360,7 @@ function FeelingTab({ growth, minSlot }: { growth: Growth; minSlot: number }) {
         title={daily ? '날짜별 감정' : '주별 감정'}
         intro={
           enough ? (
-            <p className="text-[14px]">
+            <p className="t-sub">
               {counted > 0
                 ? `감정을 남긴 기록 ${counted}개 중 ${GOOD_LABEL} 쪽 ${totals.good}개, ${NEUTRAL_LABEL} ${totals.neutral}개, ${HARD_LABEL} ${totals.hard}개예요.`
                 : '이 기간에는 감정을 남긴 기록이 아직 없어요.'}
@@ -398,7 +398,7 @@ function FeelingTab({ growth, minSlot }: { growth: Growth; minSlot: number }) {
                   {byFeeling.map((feeling) => (
                     <li
                       key={`${feeling.builtIn}-${feeling.label}`}
-                      className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-line-2 bg-white px-3 text-[14px]"
+                      className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-line-2 bg-white px-3 t-sub"
                     >
                       <Swatch fill={DIRECTION_COLOR[feeling.direction]} />
                       {feeling.label}
@@ -409,7 +409,7 @@ function FeelingTab({ growth, minSlot }: { growth: Growth; minSlot: number }) {
                 </ul>
               ) : null}
               {totals.none > 0 ? (
-                <p className="pt-1 text-[12px] text-ink-2">감정을 고르지 않은 기록 {totals.none}개는 빼고 셌어요</p>
+                <p className="pt-1 t-cap text-ink-2">감정을 고르지 않은 기록 {totals.none}개는 빼고 셌어요</p>
               ) : null}
             </>
           ) : undefined
@@ -517,10 +517,10 @@ function RhythmTab({ growth, minSlot }: { growth: Growth; minSlot: number }) {
                   to={`/records/${milestone.recordId}`}
                   className="flex min-h-11 flex-col justify-center rounded-xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_7%,white)] px-4 py-2 text-ink no-underline"
                 >
-                  <span className="truncate text-[12px] text-ink-2">
+                  <span className="truncate t-cap text-ink-2">
                     의미 있는 날 · {formatMonthDay(milestone.date)} · {milestone.hobbyName}
                   </span>
-                  <span className="truncate font-serif text-[14px]">{milestone.preview}</span>
+                  <span className="truncate font-serif t-sub">{milestone.preview}</span>
                 </Link>
               </li>
             ))}
@@ -602,7 +602,7 @@ export function GrowthPage() {
               tabIndex={tab === item.key ? 0 : -1}
               onClick={() => setTab(item.key)}
               className={[
-                'inline-flex h-11 flex-none items-center justify-center whitespace-nowrap rounded-full border px-4 text-sm lg:h-10',
+                'inline-flex h-11 flex-none items-center justify-center whitespace-nowrap rounded-full border px-4 t-sub lg:h-10',
                 tab === item.key
                   ? 'border-[#A8CDB4] bg-[#EEF2E2] font-bold text-[#3F6B4F]'
                   : 'border-line-2 bg-white font-medium text-ink-2',

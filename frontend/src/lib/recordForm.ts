@@ -13,7 +13,7 @@ export const FEELINGS: { value: Feeling; label: string }[] = [
 
 export function pickClass(active: boolean): string {
   return [
-    'inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border px-4 text-sm font-medium whitespace-nowrap',
+    'inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border px-4 t-sub font-medium whitespace-nowrap',
     active ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)] text-ink' : 'border-line-2 bg-white text-ink',
   ].join(' ')
 }

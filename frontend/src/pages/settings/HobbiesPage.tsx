@@ -190,7 +190,7 @@ function HobbyRow({
 
 function tabButtonClass(active: boolean): string {
   return [
-    'inline-flex min-h-9 flex-1 items-center justify-center whitespace-nowrap rounded-md px-3 text-sm font-medium lg:flex-none',
+    'inline-flex min-h-9 flex-1 items-center justify-center whitespace-nowrap rounded-md px-3 t-sub font-medium lg:flex-none',
     active ? 'bg-ink text-white' : 'bg-transparent text-ink-2',
   ].join(' ')
 }
@@ -317,7 +317,7 @@ export function HobbiesPage() {
           footer={<Pagination page={safePage} totalPages={totalPages} onChange={setPage} />}
         >
           {pageItems.length === 0 ? (
-            <p className="py-6 text-center text-sm text-ink-2">
+            <p className="py-6 text-center t-sub text-ink-2">
               {tab === 'active' ? '아직 활동 분야가 없어요.' : '보관한 분야가 없어요.'}
             </p>
           ) : (

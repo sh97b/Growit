@@ -184,7 +184,7 @@ export function DotStartFlow({ onClose }: { onClose: () => void }) {
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <p className="text-caption-min text-ink-3">{step}/4단계</p>
-          <h2 id={TITLE_ID} ref={headingRef} tabIndex={-1} className="font-serif text-xl font-semibold outline-none">
+          <h2 id={TITLE_ID} ref={headingRef} tabIndex={-1} className="font-serif t-section font-semibold outline-none">
             {STEP_TITLES[step - 1]}
           </h2>
         </div>

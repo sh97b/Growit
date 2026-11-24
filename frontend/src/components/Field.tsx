@@ -11,7 +11,7 @@ type FieldProps = {
 export function Field({ label, htmlFor, hint, error, children }: FieldProps) {
   return (
     <div className="flex flex-col gap-2">
-      <label htmlFor={htmlFor} className="text-sm font-medium">
+      <label htmlFor={htmlFor} className="t-sub font-medium">
         {label}
       </label>
       {children}

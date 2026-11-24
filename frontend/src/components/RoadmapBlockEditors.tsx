@@ -65,7 +65,7 @@ export function BlockEditor({ kind, initial, saving, error, onSubmit, onCancel }
     <form onSubmit={submit} className="flex min-w-0 flex-col gap-2.5 rounded-xl border border-line-2 bg-white p-3">
       {kind === 'MEMO' ? (
         <label className="flex flex-col gap-1">
-          <span className="text-xs text-ink-2">메모 ({text.length}/{MEMO_MAX})</span>
+          <span className="t-cap text-ink-2">메모 ({text.length}/{MEMO_MAX})</span>
           <textarea
             value={text}
             maxLength={MEMO_MAX}
@@ -81,7 +81,7 @@ export function BlockEditor({ kind, initial, saving, error, onSubmit, onCancel }
       {kind === 'LINK' ? (
         <>
           <label className="flex flex-col gap-1">
-            <span className="text-xs text-ink-2">링크 주소(http 또는 https)</span>
+            <span className="t-cap text-ink-2">링크 주소(http 또는 https)</span>
             <Input
               type="url"
               inputMode="url"
@@ -94,7 +94,7 @@ export function BlockEditor({ kind, initial, saving, error, onSubmit, onCancel }
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-xs text-ink-2">제목(선택)</span>
+            <span className="t-cap text-ink-2">제목(선택)</span>
             <Input value={title} maxLength={60} onChange={(event) => setTitle(event.target.value)} aria-label="링크 제목" />
           </label>
           <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="링크 구분">
@@ -106,7 +106,7 @@ export function BlockEditor({ kind, initial, saving, error, onSubmit, onCancel }
                 aria-checked={category === key}
                 onClick={() => setCategory(key)}
                 className={[
-                  'min-h-11 rounded-full border px-4 text-sm lg:min-h-9',
+                  'min-h-11 rounded-full border px-4 t-sub lg:min-h-9',
                   category === key ? 'border-base bg-tag-topic-bg font-medium text-tag-topic-fg' : 'border-line-2 bg-white text-ink-2',
                 ].join(' ')}
               >
@@ -119,7 +119,7 @@ export function BlockEditor({ kind, initial, saving, error, onSubmit, onCancel }
 
       {kind === 'TIMER' ? (
         <label className="flex items-center gap-2">
-          <span className="text-sm text-ink-2">시간</span>
+          <span className="t-sub text-ink-2">시간</span>
           <Input
             type="number"
             min={1}
@@ -130,13 +130,13 @@ export function BlockEditor({ kind, initial, saving, error, onSubmit, onCancel }
             className="!w-24"
             aria-label="타이머 분"
           />
-          <span className="text-sm text-ink-2">분 (1~120)</span>
+          <span className="t-sub text-ink-2">분 (1~120)</span>
         </label>
       ) : null}
 
       {kind === 'SEARCH' ? (
         <label className="flex flex-col gap-1">
-          <span className="text-xs text-ink-2">검색어 ({query.length}/{SEARCH_MAX})</span>
+          <span className="t-cap text-ink-2">검색어 ({query.length}/{SEARCH_MAX})</span>
           <Input value={query} maxLength={SEARCH_MAX} autoFocus onChange={(event) => setQuery(event.target.value)} aria-label="검색어" />
         </label>
       ) : null}
@@ -169,7 +169,7 @@ export function BlockEditor({ kind, initial, saving, error, onSubmit, onCancel }
             <button
               type="button"
               onClick={() => setItems((prev) => [...prev, { text: '', done: false }])}
-              className="inline-flex min-h-11 w-fit items-center rounded-lg px-2 text-sm font-medium text-base-ink lg:min-h-9"
+              className="inline-flex min-h-11 w-fit items-center rounded-lg px-2 t-sub font-medium text-base-ink lg:min-h-9"
             >
               + 하위 체크 추가 ({items.length}/{SUBLIST_MAX})
             </button>
@@ -178,7 +178,7 @@ export function BlockEditor({ kind, initial, saving, error, onSubmit, onCancel }
       ) : null}
 
       {message ? (
-        <p role="alert" className="text-sm text-ink-2">
+        <p role="alert" className="t-sub text-ink-2">
           {message}
         </p>
       ) : null}

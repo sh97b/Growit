@@ -16,7 +16,7 @@ const MIN_BAR = 8
 const MAX_BAR = 30
 /** 축·라벨은 12px, 값은 14px(고정 px, 스케일되지 않는다). */
 const FONT = 12
-const VALUE_FONT = 14
+const VALUE_FONT = 13
 const MIN_CHART_HEIGHT = 140
 /** 가로 스크롤바가 생길 때 그만큼 그림을 줄여 아래쪽 글자가 잘리지 않게 한다. */
 const SCROLLBAR_ROOM = 12
@@ -418,7 +418,7 @@ export function ChartCard({
       className="flex min-w-0 flex-col gap-2 rounded-xl border border-line bg-white p-4 lg:min-h-0 lg:p-5"
     >
       <div className="flex flex-none items-center justify-between gap-2">
-        <h2 className="min-w-0 truncate text-[18px] font-semibold leading-tight">{title}</h2>
+        <h2 className="t-section min-w-0 truncate">{title}</h2>
         <div className="flex flex-none items-center gap-2">
         {headerExtra}
         {table ? (

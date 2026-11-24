@@ -308,8 +308,8 @@ export function CoachPage() {
       {shownResult?.locked ? (
         <div className="flex flex-col items-start gap-3 rounded-2xl bg-surface p-7">
           <p className="text-ink">기록이 5개 쌓이면 첫 회고를 받아요</p>
-          <p className="text-sm font-medium text-ink-2">{shownResult.currentCount ?? 0}/{shownResult.requiredCount ?? 5}</p>
-          <Link to="/records/new" className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
+          <p className="t-sub font-medium text-ink-2">{shownResult.currentCount ?? 0}/{shownResult.requiredCount ?? 5}</p>
+          <Link to="/records/new" className="inline-flex min-h-11 items-center t-sub font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
             기록하기
           </Link>
         </div>
@@ -340,7 +340,7 @@ export function CoachPage() {
                 }}
               />
             </div>
-            <Link to="/records/new" className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
+            <Link to="/records/new" className="inline-flex min-h-11 items-center t-sub font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
               기록하기
             </Link>
           </div>
@@ -391,7 +391,7 @@ export function CoachPage() {
             <button
               type="button"
               onClick={() => mutation.mutate()}
-              className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+              className="inline-flex min-h-11 w-fit items-center t-sub font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
             >
               다시 시도
             </button>
@@ -402,12 +402,12 @@ export function CoachPage() {
 
         {listQuery.data && items.length === 0 ? (
           <div className="flex flex-col items-start gap-2 rounded-2xl bg-surface p-5">
-            <p className="text-sm text-ink-2">조건에 맞는 회고가 없어요.</p>
+            <p className="t-sub text-ink-2">조건에 맞는 회고가 없어요.</p>
             {filter.hasActiveFilter ? (
               <button
                 type="button"
                 onClick={filter.reset}
-                className="inline-flex min-h-9 items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+                className="inline-flex min-h-9 items-center t-sub font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
               >
                 필터 지우기
               </button>
@@ -450,7 +450,7 @@ export function CoachPage() {
 
       {nextCoachRemaining != null ? (
         <div className="flex flex-none flex-col items-start gap-2 rounded-2xl border border-line bg-white p-5">
-          <p className="text-sm text-ink">
+          <p className="t-sub text-ink">
             기록 {nextCoachRemaining}/{nextCoachRequired} · {nextCoachRequired}개가 쌓이면 회고가 자동으로 도착해요
           </p>
           <div className="h-2 w-full overflow-hidden rounded-full bg-rest">
@@ -459,7 +459,7 @@ export function CoachPage() {
               style={{ width: `${Math.min(100, (nextCoachRemaining / Math.max(1, nextCoachRequired)) * 100)}%` }}
             />
           </div>
-          <Link to="/records/new" className="inline-flex min-h-9 items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
+          <Link to="/records/new" className="inline-flex min-h-9 items-center t-sub font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
             기록하기
           </Link>
         </div>
@@ -473,7 +473,7 @@ export function CoachPage() {
       <div className="flex flex-col gap-5">
         {selectedId != null ? (
           <>
-            <nav className="text-sm text-ink-2">
+            <nav className="t-sub text-ink-2">
               <button
                 type="button"
                 onClick={() =>

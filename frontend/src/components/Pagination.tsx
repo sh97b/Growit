@@ -8,7 +8,7 @@ type Props = {
 
 function pageButtonClass(active: boolean): string {
   return [
-    'inline-flex h-11 min-w-11 items-center justify-center rounded-lg border px-2 text-sm font-medium',
+    'inline-flex h-11 min-w-11 items-center justify-center rounded-lg border px-2 t-sub font-medium',
     active ? 'border-base bg-base text-white' : 'border-line-2 bg-white text-ink',
   ].join(' ')
 }

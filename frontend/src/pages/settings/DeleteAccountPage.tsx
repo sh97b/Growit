@@ -56,7 +56,7 @@ export function DeleteAccountPage() {
           <Note variant="sand">
             <div className="flex flex-col gap-2">
               <p>계정을 삭제하면 아래 내용이 모두 사라져요. 되돌릴 수 없어요.</p>
-              <ul className="flex flex-col gap-1 pl-4 text-sm" style={{ listStyleType: 'disc' }}>
+              <ul className="flex flex-col gap-1 pl-4 t-sub" style={{ listStyleType: 'disc' }}>
                 {DELETED_ITEMS.map((item) => (
                   <li key={item}>{item}</li>
                 ))}

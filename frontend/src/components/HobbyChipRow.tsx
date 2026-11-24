@@ -135,7 +135,7 @@ export function HobbyChipRow({
             type="button"
             aria-expanded={addOpen ?? false}
             onClick={onToggleAdd}
-            className="inline-flex min-h-11 flex-none items-center justify-center rounded-lg border border-dashed border-line-2 bg-white px-4 text-sm font-medium whitespace-nowrap text-ink-2"
+            className="inline-flex min-h-11 flex-none items-center justify-center rounded-lg border border-dashed border-line-2 bg-white px-4 t-sub font-medium whitespace-nowrap text-ink-2"
           >
             + 분야 추가
           </button>

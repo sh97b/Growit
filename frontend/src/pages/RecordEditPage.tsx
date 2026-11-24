@@ -28,7 +28,7 @@ export function RecordEditPage() {
   }
 
   if (isError || !record) {
-    return <p className="py-10 text-center text-sm text-ink-2">기록을 찾을 수 없어요.</p>
+    return <p className="py-10 text-center t-sub text-ink-2">기록을 찾을 수 없어요.</p>
   }
 
   return <RecordEditForm key={record.id} record={record} activeHobbies={activeHobbies ?? []} />

@@ -18,7 +18,7 @@ function DetailDialog({ goal, onClose }: { goal: DotGoal; onClose: () => void })
   return (
     <Dialog onClose={onClose} labelledBy={DETAIL_TITLE_ID}>
       <div className="flex items-start justify-between gap-3">
-        <h2 id={DETAIL_TITLE_ID} className="font-serif text-xl font-semibold">
+        <h2 id={DETAIL_TITLE_ID} className="font-serif t-section font-semibold">
           {detail.title}
         </h2>
         <button
@@ -65,7 +65,7 @@ export function DotCollectionPage() {
 
   return (
     <div className="flex flex-col gap-5 lg:min-h-0 lg:flex-1">
-      <nav className="text-sm text-ink-2">
+      <nav className="t-sub text-ink-2">
         <Link to="/" className="inline-flex min-h-11 items-center gap-1 text-ink-2 no-underline">
           <ChevronLeftIcon width={16} height={16} />홈
         </Link>

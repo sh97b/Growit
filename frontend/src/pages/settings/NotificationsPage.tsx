@@ -176,7 +176,7 @@ export function NotificationsPage() {
               ))}
             </div>
             <div className="flex items-center gap-2.5">
-              <label htmlFor="exact-time" className="text-sm text-ink-2">
+              <label htmlFor="exact-time" className="t-sub text-ink-2">
                 정확한 시간
               </label>
               <input
@@ -195,7 +195,7 @@ export function NotificationsPage() {
         type="button"
         onClick={() => setAdvancedOpen((open) => !open)}
         aria-expanded={advancedOpen}
-        className="inline-flex min-h-11 w-fit items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+        className="inline-flex min-h-11 w-fit items-center t-sub font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
       >
         고급 설정 {advancedOpen ? '접기' : ''}
       </button>
@@ -203,7 +203,7 @@ export function NotificationsPage() {
       {advancedOpen ? (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium text-ink">요일</span>
+            <span className="t-sub font-medium text-ink">요일</span>
             <div className="flex flex-wrap gap-1.5">
               {WEEKDAY_LABELS.map((label, index) => (
                 <button
@@ -221,7 +221,7 @@ export function NotificationsPage() {
 
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1 rounded-xl bg-surface p-4">
-              <span className="text-sm text-ink-2">알림 문구</span>
+              <span className="t-sub text-ink-2">알림 문구</span>
               <p className="text-ink">오늘 한 줄 남기고 싶을 때 열어 보세요.</p>
             </div>
             <div className="flex min-h-11 items-center justify-between gap-3">
@@ -245,7 +245,7 @@ export function NotificationsPage() {
           <button
             type="button"
             onClick={handleReconnect}
-            className="inline-flex min-h-11 items-center rounded-lg bg-base px-4 text-sm font-medium text-white"
+            className="inline-flex min-h-11 items-center rounded-lg bg-base px-4 t-sub font-medium text-white"
           >
             알림 다시 켜기
           </button>
@@ -253,12 +253,12 @@ export function NotificationsPage() {
           <button
             type="button"
             onClick={handleTest}
-            className="inline-flex min-h-11 items-center rounded-lg border border-line-2 bg-white px-4 text-sm font-medium text-ink"
+            className="inline-flex min-h-11 items-center rounded-lg border border-line-2 bg-white px-4 t-sub font-medium text-ink"
           >
             테스트 알림 보내기
           </button>
         )}
-        <button type="button" onClick={handleDisableAll} className="inline-flex min-h-11 items-center text-sm font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
+        <button type="button" onClick={handleDisableAll} className="inline-flex min-h-11 items-center t-sub font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
           알림 모두 끄기
         </button>
       </div>
