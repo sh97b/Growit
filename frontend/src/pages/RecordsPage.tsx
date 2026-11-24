@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { ActivityHeatmap } from '../components/ActivityHeatmap'
@@ -52,8 +52,14 @@ export function RecordsPage() {
   // 고정 개수 대신 목록 영역의 실제 높이에 맞춰 한 페이지 개수를 계산한다(F3).
   // 모바일은 페이지 스크롤을 유지하므로 1열 5개를 그대로 쓴다.
   // S1 A단계: ready로 렌더·쿼리를 막지 않는다 — 기본값(또는 직전 값)으로 즉시 그린다.
+  // 첫 카드를 실제로 잰 높이. 추정(rem)이 실제보다 작으면 마지막 카드가 반만 보이므로 잰 값을 우선한다.
+  const [cardHeightPx, setCardHeightPx] = useState<number | null>(null)
+  const measureCard = useCallback((el: HTMLElement | null) => {
+    if (el && el.offsetHeight > 0) setCardHeightPx(el.offsetHeight)
+  }, [])
   const { containerRef, pageSize: fitPageSize } = useFitPageSize({
     itemHeightRem: CARD_MIN_HEIGHT_REM,
+    itemHeightPx: cardHeightPx,
     gapRem: CARD_GAP_REM,
     columns: 1,
     min: 2,
@@ -165,11 +171,12 @@ export function RecordsPage() {
 
         {!listQuery.isLoading && totalCount > 0 ? (
           <div className="grid grid-cols-1 content-start gap-2 lg:gap-3">
-            {records.map((record) => {
+            {records.map((record, index) => {
               const firstTag = record.analysis?.tags[0]
               return (
                 <Link
                   key={record.id}
+                  ref={index === 0 ? measureCard : undefined}
                   to={`/records/${record.id}`}
                   className="flex flex-col gap-1.5 rounded-xl border border-line bg-white p-3.5 text-ink no-underline lg:px-4 lg:py-4"
                 >
