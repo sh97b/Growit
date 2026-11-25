@@ -28,15 +28,18 @@ function CardBody({ card }: { card: RecordPairCard }) {
 export function RecordPairCards({
   left,
   right,
+  vertical = false,
 }: {
   left: RecordPairCard | null
   right: RecordPairCard | null
+  /** 웹 변화 탭 왼쪽 열: 두 카드를 세로로 쌓는다. */
+  vertical?: boolean
   /** 예전 호출과의 호환용(지금은 쓰지 않는다). */
   rightBadge?: string
 }) {
   if (!left && !right) return null
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
+    <div className={vertical ? 'flex flex-col gap-4' : 'grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start'}>
       {left ? <RecordPairCardItem card={left} /> : null}
       {right ? <RecordPairCardItem card={right} emphasized /> : null}
     </div>

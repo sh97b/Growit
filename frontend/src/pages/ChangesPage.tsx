@@ -5,9 +5,9 @@ import { AiLabel } from '../components/AiLabel'
 import { Spinner } from '../components/AiProgress'
 import { AiViewCard } from '../components/AiViewCard'
 import { InfoTip } from '../components/InfoTip'
-import { CompareInsights } from '../components/CompareInsights'
+import { CompareInsightZones, CompareInsights } from '../components/CompareInsights'
 import { Button } from '../components/Button'
-import { ChartIcon, ChevronRightIcon } from '../components/icons'
+import { ChartIcon, ChevronRightIcon, ListIcon, SparkleIcon } from '../components/icons'
 import { FloatingPanel } from '../components/FloatingPanel'
 import { Dialog } from '../components/Dialog'
 import { Dropdown } from '../components/Dropdown'
@@ -23,7 +23,6 @@ import { Tag } from '../components/Tag'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useHobbies } from '../hooks/useHobbies'
 import { useIsDesktop } from '../hooks/useIsDesktop'
-import { usePersistedOpen } from '../hooks/usePersistedOpen'
 import { ApiError } from '../lib/api'
 import {
   fetchAiUsage,
@@ -34,6 +33,7 @@ import {
   type AiViewResult,
   type CompareResult,
   isStructuredCompare,
+  countCompareItems,
   type CompareTo,
 } from '../lib/ai'
 import { addDays, formatDurationMinutes, formatMonthDay, startOfWeekLocal, todayLocalDate } from '../lib/date'
@@ -86,7 +86,8 @@ export function ChangesPage() {
   // 웹: 긴 내용(변화 해석 전체·주 요약·지표 해석)은 인라인으로 펼치지 않고 Dialog로 보여 준다.
   const [dialog, setDialog] = useState<null | 'interpretation' | 'week' | 'metrics'>(null)
   // 주별 흐름은 기본 화면에서 빼고, 웹은 떠 있는 작은 패널(열림·위치를 기억), 모바일은 아래에서 올라오는 시트로 보여 준다.
-  const [flowPanelOpen, setFlowPanelOpen] = usePersistedOpen('growit.changes.weeklyFlow')
+  // 웹의 떠 있는 패널은 한 번에 하나만 연다(주 요약·지표 해석·주별 흐름).
+  const [panel, setPanel] = useState<null | 'week' | 'metrics' | 'flow'>(null)
   const [flowSheetOpen, setFlowSheetOpen] = useState(false)
   const isDesktop = useIsDesktop()
   const queryClient = useQueryClient()
@@ -371,7 +372,7 @@ export function ChangesPage() {
         <>
           <div className={isDesktop ? 'ch-fade-auto' : ''}>
             {isStructuredCompare(result) ? (
-              <CompareInsights result={result} columns={isDesktop} />
+              <CompareInsights result={result} />
             ) : (
               <p className="t-body-lg max-w-[70ch] break-words font-serif text-ink">{result.interpretation}</p>
             )}
@@ -526,6 +527,21 @@ export function ChangesPage() {
   )
 
   // ---- 웹(폭 1024 이상): 탭 줄·분야·기간·남은 횟수를 한 줄로 합치고, 두 열은 스크롤 없이 밀도로 맞춘다 ----
+  const panelButton = (key: 'week' | 'metrics' | 'flow', label: string, icon: ReactNode) => (
+    <button
+      type="button"
+      onClick={() => setPanel(panel === key ? null : key)}
+      aria-expanded={panel === key}
+      className={[
+        't-sub inline-flex h-10 items-center gap-1.5 rounded-lg border px-3 font-medium',
+        panel === key ? 'border-ink bg-ink text-white' : 'border-line-2 bg-white text-ink',
+      ].join(' ')}
+    >
+      {icon}
+      {label}
+    </button>
+  )
+
   const desktopHeader = (
     <div className="flex flex-none items-center gap-3">
       <h1 className="sr-only">나의 변화</h1>
@@ -537,20 +553,12 @@ export function ChangesPage() {
         onChange={(value) => setHobbyId(Number(value))}
       />
       <Dropdown aria-label="비교 기간" value={compareTo} options={periodOptions} onChange={(value) => setCompareTo(value)} />
-      <div className="ml-auto flex flex-none items-center gap-3">
-        <button
-          type="button"
-          onClick={() => setFlowPanelOpen(!flowPanelOpen)}
-          aria-expanded={flowPanelOpen}
-          aria-label="주별 흐름 패널 열기·닫기"
-          title="주별 흐름"
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line-2 bg-white px-3 t-sub font-medium text-ink"
-        >
-          <ChartIcon width={16} height={16} />
-          주별 흐름
-        </button>
+      <div className="ml-auto flex flex-none items-center gap-2">
+        {panelButton('week', '주 요약', <ListIcon width={16} height={16} />)}
+        {panelButton('metrics', '지표 해석', <SparkleIcon width={16} height={16} />)}
+        {panelButton('flow', '주별 흐름', <ChartIcon width={16} height={16} />)}
         {usageQuery.data ? (
-          <span className="whitespace-nowrap t-sub text-ink-2">오늘 {usageQuery.data.remaining}회 남음</span>
+          <span className="ml-1 whitespace-nowrap t-sub text-ink-2">오늘 {usageQuery.data.remaining}회 남음</span>
         ) : null}
       </div>
     </div>
@@ -561,80 +569,6 @@ export function ChangesPage() {
         selectedWeek.recordedDays > 0 ? `${selectedWeek.recordedDays}일 · ${formatDurationMinutes(selectedWeek.totalMinutes)}` : '기록 없음'
       }`
     : ''
-
-  /** 카드 머리줄: 제목(또는 라벨) 왼쪽, [전체 보기] 오른쪽. */
-  const cardHead = (title: ReactNode, onOpen?: () => void) => (
-    <div className="flex flex-none items-center justify-between gap-2">
-      {title}
-      {onOpen ? (
-        <button
-          type="button"
-          onClick={onOpen}
-          className="t-sub inline-flex h-8 flex-none items-center rounded-full px-2 font-medium text-base-ink hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
-        >
-          전체 보기
-        </button>
-      ) : null}
-    </div>
-  )
-
-  // 주 요약 카드: 제목, 기간·일수·시간 한 줄, 그 주의 주제 칩(2줄 말줄임). 전체는 Dialog.
-  const weekCardDesktop = selectedWeek ? (
-    <section aria-label="주 요약" className="flex min-w-0 flex-1 flex-col gap-1.5 overflow-hidden rounded-2xl bg-surface p-4">
-      {cardHead(<h3 className="text-card-title">주 요약</h3>, () => setDialog('week'))}
-      <div className="flex flex-col gap-1.5">
-      <p className="t-body ch-clamp3 ch-week-line break-words text-ink">{weekSummaryLine}</p>
-      {selectedWeek.tags.length > 0 ? (
-        <div className="ch-week-tags flex flex-wrap gap-1.5">
-          {selectedWeek.tags.slice(0, 6).map((entry) => (
-            <Tag key={entry.tag} variant="topic">
-              {entry.tag} · {entry.count}
-            </Tag>
-          ))}
-        </div>
-      ) : (
-        <p className="t-sub text-ink-2">이 주에는 주제로 묶인 기록이 없어요.</p>
-      )}
-      </div>
-    </section>
-  ) : null
-
-  // 지표 해석 카드: AI 글이라 산세리프가 아니라 해석 카드와 같은 세리프 본문색(text-ink), 3줄 말줄임 + [전체 보기].
-  const metricsCardDesktop = (() => {
-    const shell = (body: ReactNode, onOpen?: () => void) => (
-      <section aria-label="지표 해석" className="flex min-w-0 flex-1 flex-col gap-1.5 overflow-hidden rounded-2xl bg-surface p-4">
-        {cardHead(<h3 className="text-card-title">지표 해석</h3>, onOpen)}
-        {body}
-      </section>
-    )
-    if (metricsQuery.isLoading || weeksQuery.isLoading) {
-      return shell(<p className="t-sub text-ink-2">기록을 천천히 읽고 있어요</p>)
-    }
-    if (metricsQuery.isError) {
-      return shell(
-        <div className="flex items-center gap-3 t-sub text-ink-2">
-          <span>지금은 불러오지 못했어요</span>
-          <button type="button" onClick={() => metricsQuery.refetch()} className="font-medium text-base-ink">
-            다시 받기
-          </button>
-        </div>,
-      )
-    }
-    if (!metricsQuery.data) return null
-    if (metricsQuery.data.locked) {
-      return shell(
-        <p className="t-sub text-ink-2">
-          기록이 있는 주가 {metricsQuery.data.requiredWeeks ?? 2}주 모이면 해석이 열려요 ({metricsQuery.data.currentWeeks ?? 0}/
-          {metricsQuery.data.requiredWeeks ?? 2})
-        </p>,
-      )
-    }
-    if (metricsQuery.data.empty) return shell(<p className="t-sub text-ink-2">이번 주는 쉬어 간 주예요.</p>)
-    return shell(
-      <p className="t-body ch-clamp3 break-words text-ink">{metricsQuery.data.displayText}</p>,
-      () => setDialog('metrics'),
-    )
-  })()
 
   // 차트 y축은 데이터 최댓값 기준(최소 4)이고, 높이는 180~240px로 제한한다. 값 라벨은 각 막대 바로 위에 붙는다.
   const axisMax = Math.max(4, ...weeks.map((w) => (metric === 'days' ? w.recordedDays : 0)))
@@ -750,6 +684,243 @@ export function ChangesPage() {
   )
 
 
+  // ---- 웹(폭 1024 이상) 새 구성: 왼쪽 38% = 이전·최근 카드 + 숫자 비교 카드, 오른쪽 62% = 변화 해석 카드(전체 높이) ----
+  const pairColumn = basisQuery.isLoading ? (
+    <div className="flex flex-col gap-4" aria-hidden="true">
+      <div className="h-[116px] rounded-xl bg-surface motion-safe:animate-pulse" />
+      <div className="h-[116px] rounded-xl bg-surface motion-safe:animate-pulse" />
+    </div>
+  ) : basis ? (
+    <RecordPairCards
+      vertical
+      left={
+        basis.previous
+          ? { id: basis.previous.id, label: `${basis.pastDate ? formatMonthDay(basis.pastDate) : ''} 전후`, content: basis.previous.content }
+          : null
+      }
+      right={
+        basis.latest
+          ? { id: basis.latest.id, label: `최근 · ${basis.currentDate ? formatMonthDay(basis.currentDate) : ''}`, content: basis.latest.content }
+          : null
+      }
+    />
+  ) : null
+
+  // 숫자 비교 카드 한 장: 행 세 개(라벨 sub 위, 값 22px 아래). 값은 한 줄로 두고 줄바꿈·말줄임으로 자르지 않는다.
+  const numbersCard = (() => {
+    if (basisQuery.isLoading) return <div className="h-[200px] rounded-2xl bg-surface motion-safe:animate-pulse" aria-hidden="true" />
+    if (!basis?.numbers) return null
+    const m = basis.numbers
+    const minutesText =
+      m.totalMinutes.past === 0 && m.totalMinutes.current === 0
+        ? '기록 안 함'
+        : `${m.totalMinutes.past === 0 ? '0분' : formatDurationMinutes(m.totalMinutes.past)} → ${m.totalMinutes.current === 0 ? '0분' : formatDurationMinutes(m.totalMinutes.current)}`
+    const row = (label: string, body: ReactNode) => (
+      <div className="flex min-w-0 flex-col gap-1">
+        <span className="t-sub text-ink-2">{label}</span>
+        {body}
+      </div>
+    )
+    return (
+      <section aria-label="비교 숫자" className="ch-num flex min-w-0 flex-col gap-3 rounded-2xl bg-surface p-4">
+        {row('기록한 날', <span className="t-key whitespace-nowrap text-ink">{m.recordedDays.past}일 → {m.recordedDays.current}일</span>)}
+        {row('쌓인 시간', <span className="t-key whitespace-nowrap text-ink">{minutesText}</span>)}
+        {row(
+          '자주 나온 주제',
+          m.topTags && m.topTags.length > 0 ? (
+            <div className="flex flex-nowrap gap-1.5 overflow-hidden">
+              {m.topTags.slice(0, 2).map((topic) => (
+                <Tag key={topic.tag} variant="topic">
+                  <span className="whitespace-nowrap">
+                    {topic.tag} · {topic.count}
+                  </span>
+                </Tag>
+              ))}
+            </div>
+          ) : (
+            <span className="t-body text-ink-2">없어요</span>
+          ),
+        )}
+      </section>
+    )
+  })()
+
+  const itemTotal = result && isStructuredCompare(result) ? countCompareItems(result) : 0
+
+  const interpretationWeb = (
+    <section
+      aria-label="변화 해석"
+      className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-5"
+    >
+      <div className="flex flex-none items-center justify-between gap-2">
+        <AiLabel>변화 해석</AiLabel>
+        <div className="flex items-center gap-1">
+          {showResult ? (
+            <button
+              type="button"
+              onClick={() => setDialog('interpretation')}
+              className="t-sub inline-flex h-8 flex-none items-center rounded-full px-2 font-medium text-base-ink hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+            >
+              전체 보기
+            </button>
+          ) : null}
+          {infoLine ? <InfoTip text={infoLine} /> : null}
+        </div>
+      </div>
+
+      {compareQuery.isFetching ? (
+        <div role="status" aria-live="polite" className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+          <p className="t-body-lg flex flex-none items-center gap-2.5 font-medium text-ink">
+            <Spinner className="text-base-ink" />
+            AI가 기록을 읽고 있어요
+          </p>
+          <div className="h-8 w-3/4 flex-none rounded-lg bg-white/60 motion-safe:animate-pulse" />
+          {[0, 1, 2].map((index) => (
+            <div key={index} className="flex flex-none flex-col gap-2.5 rounded-xl bg-white/60 p-3">
+              <div className="h-4 w-1/3 rounded-full bg-rest motion-safe:animate-pulse" />
+              <div className="h-4 w-full rounded-full bg-rest motion-safe:animate-pulse" />
+              <div className="h-4 w-4/5 rounded-full bg-rest motion-safe:animate-pulse" />
+            </div>
+          ))}
+        </div>
+      ) : compareQuery.isError ? (
+        <div className="flex flex-col items-start gap-3">
+          <p className="t-body text-ink-2">
+            {compareQuery.error instanceof ApiError ? compareQuery.error.message : '지금은 해석을 불러오지 못했어요. 기록은 그대로 안전해요.'}
+          </p>
+          <Button type="button" size="sm" variant="secondary" onClick={() => compareQuery.refetch()}>
+            다시 시도
+          </Button>
+        </div>
+      ) : result?.locked ? (
+        <p className="t-body text-ink-2">
+          {result.lockReason === 'NO_PAST_RECORD'
+            ? '비교할 이전 기록이 아직 없어요. 기록이 며칠 더 쌓이면 비교가 열려요.'
+            : `기록이 ${result.requiredCount ?? 3}개 쌓이면 비교가 열려요 (${result.currentCount ?? 0}/${result.requiredCount ?? 3})`}
+        </p>
+      ) : showResult && result ? (
+        <>
+          {isStructuredCompare(result) ? (
+            <>
+              <h3 className="t-key line-clamp-2 flex-none break-words text-ink">{result.headline}</h3>
+              <div className="ch-zones min-h-0 flex-1 overflow-hidden">
+                <CompareInsightZones result={result} />
+              </div>
+              {itemTotal > 1 ? (
+                <div className="flex flex-none">
+                  {Array.from({ length: itemTotal - 1 }, (_, i) => i + 1).map((visible) => (
+                    <button
+                      key={visible}
+                      type="button"
+                      data-r={visible}
+                      onClick={() => setDialog('interpretation')}
+                      className="ch-more t-sub h-8 items-center rounded-full px-2 font-medium text-base-ink hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+                    >
+                      나머지 {itemTotal - visible}개 보기
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <p className="t-body-lg max-w-[70ch] break-words font-serif text-ink">{result.interpretation}</p>
+            </div>
+          )}
+          <div className="flex-none">
+            <FeedbackRow
+              variant="text"
+              question="이 해석이 맞나요?"
+              status={result.feedback === 'HELPFUL' ? 'positive' : result.feedback === 'NOT_HELPFUL' ? 'negative' : null}
+              pending={feedbackMutation.isPending}
+              onPositive={() => handleFeedback('HELPFUL')}
+              onNegative={() => handleFeedback('NOT_HELPFUL')}
+              errorMessage={feedbackError}
+            />
+          </div>
+        </>
+      ) : null}
+    </section>
+  )
+
+  // 떠 있는 패널 세 개(주 요약·지표 해석·주별 흐름)는 같은 컴포넌트를 쓰고 한 번에 하나만 연다.
+  const metricsPanelBody = (() => {
+    if (metricsQuery.isLoading || weeksQuery.isLoading) return <p className="t-body text-ink-2">기록을 천천히 읽고 있어요</p>
+    if (metricsQuery.isError) {
+      return (
+        <div className="flex flex-col items-start gap-2">
+          <p className="t-body text-ink-2">지금은 불러오지 못했어요</p>
+          <Button type="button" size="sm" variant="secondary" onClick={() => metricsQuery.refetch()}>
+            다시 받기
+          </Button>
+        </div>
+      )
+    }
+    if (!metricsQuery.data) return null
+    if (metricsQuery.data.locked) {
+      return (
+        <p className="t-body text-ink-2">
+          기록이 있는 주가 {metricsQuery.data.requiredWeeks ?? 2}주 모이면 해석이 열려요 ({metricsQuery.data.currentWeeks ?? 0}/
+          {metricsQuery.data.requiredWeeks ?? 2})
+        </p>
+      )
+    }
+    if (metricsQuery.data.empty) return <p className="t-body text-ink-2">이번 주는 쉬어 간 주예요.</p>
+    return (
+      <AiViewCard
+        label="지표 해석"
+        question="해석이 맞나요?"
+        isLoading={metricsQuery.isLoading}
+        isError={metricsQuery.isError}
+        error={metricsQuery.error}
+        data={metricsQuery.data}
+        onRetry={() => metricsQuery.refetch()}
+        onChange={(updated: AiViewResult) => queryClient.setQueryData(metricsKey, updated)}
+      />
+    )
+  })()
+
+  const weekPanelBody = selectedWeek ? (
+    <div className="flex flex-col gap-3">
+      <p className="t-body text-ink">{weekSummaryLine}</p>
+      {selectedWeek.tags.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {selectedWeek.tags.slice(0, 8).map((entry) => (
+            <Tag key={entry.tag} variant="topic">
+              {entry.tag} · {entry.count}
+            </Tag>
+          ))}
+        </div>
+      ) : (
+        <p className="t-sub text-ink-2">이 주에는 주제로 묶인 기록이 없어요.</p>
+      )}
+      <Link
+        to={`/weeks/${selectedWeek.weekStart}`}
+        className="t-sub inline-flex min-h-9 w-fit items-center gap-1 font-medium text-base-ink no-underline"
+      >
+        주 상세 보기
+        <ChevronRightIcon width={16} height={16} />
+      </Link>
+    </div>
+  ) : (
+    <p className="t-body text-ink-2">선택한 주가 없어요. 주별 흐름에서 주를 골라 보세요.</p>
+  )
+
+  const panelNode =
+    panel === 'flow' ? (
+      <FloatingPanel title="주별 흐름" storageKey="growit.changes.weeklyFlow" onClose={() => setPanel(null)}>
+        {flowBody(true)}
+      </FloatingPanel>
+    ) : panel === 'week' ? (
+      <FloatingPanel title="주 요약" storageKey="growit.changes.weekPanel" scroll onClose={() => setPanel(null)}>
+        {weekPanelBody}
+      </FloatingPanel>
+    ) : panel === 'metrics' ? (
+      <FloatingPanel title="지표 해석" storageKey="growit.changes.metricsPanel" scroll onClose={() => setPanel(null)}>
+        {metricsPanelBody}
+      </FloatingPanel>
+    ) : null
+
   const dialogs =
     dialog === 'interpretation' && result ? (
       <Dialog onClose={() => setDialog(null)} labelledBy="changes-dialog-title">
@@ -822,23 +993,16 @@ export function ChangesPage() {
     return (
       <div className="flex min-h-0 flex-1 flex-col gap-4">
         {desktopHeader}
-        {/* 위에서부터: ① 이전·최근 두 장(내용 높이) → ② 변화 해석(남는 높이를 먹고 모자라면 줄어듦) → ③ 숫자 칩·주 요약·지표 해석.
-            글자는 토큰으로 고정이고 카드 높이만 달라진다. 레이아웃이 결과 도착 시 움직이지 않게 ①·②에는 같은 크기의 자리표시를 둔다. */}
-        <div className="ch-body flex min-h-0 flex-1 flex-col gap-4 overflow-hidden whitespace-normal break-words">
-          {comparison}
-          {basisQuery.isLoading || basis ? pairRow : null}
-          {compareQuery.isFetching || showResult ? interpretationCard : null}
-          <div className="grid flex-none grid-cols-12 gap-4">
-            <div className="col-span-6 min-w-0">{metricChips}</div>
-            <div className="col-span-3 flex min-w-0">{weekCardDesktop}</div>
-            <div className="col-span-3 flex min-w-0">{metricsCardDesktop}</div>
+        {/* 도구줄 아래는 2열 그리드: 왼쪽 38%(최소 360px) 이전·최근·숫자 카드, 오른쪽 62% 변화 해석 카드.
+            그리드 높이는 뷰포트에서 정해지고(container-type:size) 해석 항목은 그 높이에 맞춰 항목 단위로만 줄어든다. */}
+        <div className="ch-grid grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] gap-4 overflow-hidden whitespace-normal break-words" style={{ gridTemplateColumns: 'minmax(360px, 38fr) minmax(0, 62fr)' }}>
+          <div className="flex min-h-0 min-w-0 flex-col gap-4 overflow-hidden">
+            {pairColumn}
+            {numbersCard}
           </div>
+          <div className="flex min-h-0 min-w-0 flex-col">{interpretationWeb}</div>
         </div>
-        {flowPanelOpen ? (
-          <FloatingPanel title="주별 흐름" storageKey="growit.changes.weeklyFlow" onClose={() => setFlowPanelOpen(false)}>
-            {flowBody(true)}
-          </FloatingPanel>
-        ) : null}
+        {panelNode}
         {dialogs}
       </div>
     )

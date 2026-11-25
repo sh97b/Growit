@@ -38,12 +38,15 @@ export function FloatingPanel({
   storageKey,
   onClose,
   mobile = false,
+  scroll = false,
   children,
 }: {
   title: string
   storageKey: string
   onClose: () => void
   mobile?: boolean
+  /** 내용이 길면 패널 안에서 스크롤한다(웹). 모바일 시트는 항상 스크롤한다. */
+  scroll?: boolean
   children: ReactNode
 }) {
   const [position, setPosition] = useState<Position | null>(() => (mobile ? null : readPosition(storageKey)))
@@ -156,7 +159,7 @@ export function FloatingPanel({
       ].join(' ')}
     >
       {header}
-      <div className={['flex min-h-0 flex-1 flex-col gap-2 p-4', mobile ? 'overflow-y-auto' : 'overflow-hidden'].join(' ')}>{children}</div>
+      <div className={['flex min-h-0 flex-1 flex-col gap-2 p-4', mobile || scroll ? 'overflow-y-auto' : 'overflow-hidden'].join(' ')}>{children}</div>
     </div>
   )
 

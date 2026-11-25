@@ -61,6 +61,11 @@ export type CompareResult = {
   next?: CompareIdea[] | null
 }
 
+/** 구조화된 결과의 항목 수(good+gap+next). */
+export function countCompareItems(result: CompareResult): number {
+  return (result.good?.length ?? 0) + (result.gap?.length ?? 0) + (result.next?.length ?? 0)
+}
+
 /** 구조화된 변화 해석인지. */
 export function isStructuredCompare(result: CompareResult): boolean {
   return result.schemaVersion === 2 && !!result.headline && (result.good?.length ?? 0) > 0

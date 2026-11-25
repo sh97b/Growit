@@ -653,71 +653,6 @@ select:focus-visible {
     overflow: hidden;
   }
 }
-/* 본문 높이가 모자라면 줄 수만 줄인다(글자 크기는 그대로): 이전·최근 카드 4줄 → 2줄, 주 요약의 주제 칩은 숨김. */
-@container chbody (max-height: 700px) {
-  /* 낮은 화면: 변화 해석의 세 구역을 탭으로 바꿔 한 번에 한 구역만 전부 보여 준다(흐림·잘림 없이). */
-  .ch-body .ch-tabs {
-    display: flex;
-  }
-  .ch-cols {
-    grid-template-columns: minmax(0, 1fr) !important;
-  }
-  .ch-cols[data-active='good'] > [data-zone]:not([data-zone='good']),
-  .ch-cols[data-active='gap'] > [data-zone]:not([data-zone='gap']),
-  .ch-cols[data-active='next'] > [data-zone]:not([data-zone='next']) {
-    display: none;
-  }
-  .ch-fade-auto {
-    -webkit-mask-image: none;
-    mask-image: none;
-  }
-  .ch-body {
-    gap: 10px;
-  }
-  .ch-body .ch-clamp3 {
-    -webkit-line-clamp: 2;
-  }
-  /* 탭이 구역 이름을 알려 주므로 구역 안 제목은 줄이고, 아래 행(숫자 칩·주 요약·지표 해석)은 더 낮게 쓴다. */
-  .ch-body .ch-interp {
-    padding: 12px 16px;
-    gap: 8px;
-  }
-  .ch-body .rp-card {
-    padding: 10px 14px;
-    gap: 2px;
-  }
-  .ch-cols [data-zone] > h4 {
-    display: none;
-  }
-  .ch-cols [data-zone] {
-    padding: 4px 12px;
-  }
-  .ch-cols [data-zone] ul,
-  .ch-cols [data-zone] ol {
-    gap: 6px;
-  }
-  .ch-body .ch-tabs button {
-    height: 32px;
-  }
-  .ch-chip-tags > :nth-child(n + 2) {
-    display: none;
-  }
-  .ch-body .ch-week-line {
-    -webkit-line-clamp: 1;
-  }
-  .ch-pair-body {
-    --pair-lines: 2;
-  }
-  .ch-week-tags {
-    display: none;
-  }
-  .ch-body .ch-because {
-    -webkit-line-clamp: 2;
-  }
-  .ch-fold {
-    display: none;
-  }
-}
 
 .ch-pair-body {
   display: -webkit-box;
@@ -726,12 +661,109 @@ select:focus-visible {
   overflow: hidden;
 }
 
-.ch-tabs {
-  display: none;
-}
 .ch-clamp3 {
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/*
+ * 변화 탭(웹) 해석 카드: 높이가 모자라면 낮은 우선순위 항목부터 항목 단위로 숨긴다(흐림·잘림 없음, 높이 JS 측정 없음).
+ * data-priority는 실제로 있는 항목끼리 1부터 센 순서이고, 구역(data-minp)은 가장 앞선 항목이 숨겨지면 함께 숨는다.
+ * "나머지 N개 보기" 버튼은 보이는 항목 수(data-r)에 맞는 하나만 보인다. 임계값은 해석 카드를 포함한 그리드 높이(px).
+ */
+@media (min-width: 1024px) {
+  .ch-grid {
+    container-type: size;
+    container-name: chgrid;
+  }
+  .ch-more {
+    display: none;
+  }
+  .ch-zones {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+@container chgrid (height < 520px) {
+  [data-priority='2'],
+  [data-minp='2'] {
+    display: none;
+  }
+}
+@container chgrid (height < 650px) {
+  [data-priority='3'],
+  [data-minp='3'] {
+    display: none;
+  }
+}
+@container chgrid (height < 760px) {
+  [data-priority='4'],
+  [data-minp='4'] {
+    display: none;
+  }
+}
+@container chgrid (height < 870px) {
+  [data-priority='5'],
+  [data-minp='5'] {
+    display: none;
+  }
+}
+@container chgrid (height < 980px) {
+  [data-priority='6'],
+  [data-minp='6'] {
+    display: none;
+  }
+}
+@container chgrid (height < 1090px) {
+  [data-priority='7'],
+  [data-minp='7'] {
+    display: none;
+  }
+}
+@container chgrid (height < 520px) {
+  .ch-more[data-r='1'] {
+    display: inline-flex;
+  }
+}
+@container chgrid (520px <= height < 650px) {
+  .ch-more[data-r='2'] {
+    display: inline-flex;
+  }
+}
+@container chgrid (650px <= height < 760px) {
+  .ch-more[data-r='3'] {
+    display: inline-flex;
+  }
+}
+@container chgrid (760px <= height < 870px) {
+  .ch-more[data-r='4'] {
+    display: inline-flex;
+  }
+}
+@container chgrid (870px <= height < 980px) {
+  .ch-more[data-r='5'] {
+    display: inline-flex;
+  }
+}
+@container chgrid (980px <= height < 1090px) {
+  .ch-more[data-r='6'] {
+    display: inline-flex;
+  }
+}
+
+/* 낮은 화면(그리드 높이 700px 미만): 왼쪽 열이 잘리지 않게 이전·최근 본문을 2줄로, 카드 여백을 줄인다(글자 크기는 그대로). */
+@container chgrid (height < 700px) {
+  .ch-pair-body {
+    --pair-lines: 2;
+  }
+  .ch-grid .rp-card {
+    padding: 10px 14px;
+    gap: 2px;
+  }
+  .ch-num {
+    padding: 12px 14px;
+    gap: 8px;
+  }
 }
