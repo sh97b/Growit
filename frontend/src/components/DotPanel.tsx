@@ -129,13 +129,17 @@ function StopMenu({ goal }: { goal: DotGoal }) {
 function useElementWidth() {
   const [element, setElement] = useState<HTMLDivElement | null>(null)
   const [width, setWidth] = useState(0)
+  const [height, setHeight] = useState(0)
   useEffect(() => {
     if (!element) return
-    const observer = new ResizeObserver((entries) => setWidth(Math.floor(entries[0].contentRect.width)))
+    const observer = new ResizeObserver((entries) => {
+      setWidth(Math.floor(entries[0].contentRect.width))
+      setHeight(Math.floor(entries[0].contentRect.height))
+    })
     observer.observe(element)
     return () => observer.disconnect()
   }, [element])
-  return { ref: setElement, width }
+  return { ref: setElement, width, height }
 }
 
 /** 카드(컨테이너) 폭이 이 값 이상이면 왼쪽 그림·오른쪽 글자의 2열, 미만이면 그림 위·글자 아래. */
@@ -166,8 +170,11 @@ function DotPanelBody({ onStart, fit }: { onStart: () => void; fit: boolean }) {
   const query = useDotsCurrent()
   const albumQuery = useDotAlbum()
   const hasAlbum = (albumQuery.data ?? []).length > 0
-  const { ref, width } = useElementWidth()
+  const { ref, width, height } = useElementWidth()
   const wide = width >= WIDE_MIN_PX
+  // 카드가 낮으면 글자 블록이 잘리지 않게 덜 중요한 줄부터 뺀다(도감 링크 → 남은 칸 안내).
+  const roomy = !wide || height >= 190
+  const tight = wide && height < 130
 
   if (query.isLoading) {
     return <Loading />
@@ -210,7 +217,7 @@ function DotPanelBody({ onStart, fit }: { onStart: () => void; fit: boolean }) {
       ].join(' ')}
     >
       {pictureArea(picture)}
-      <div className={wide ? 'flex min-w-0 flex-1 flex-col justify-center' : 'flex-none'}>{text}</div>
+      <div className={wide ? 'flex min-h-0 min-w-0 flex-1 flex-col justify-center overflow-hidden' : 'flex-none'}>{text}</div>
     </div>
   )
 
@@ -226,11 +233,11 @@ function DotPanelBody({ onStart, fit }: { onStart: () => void; fit: boolean }) {
           </div>
         ) : null}
         <p className="t-key pr-11 text-ink">{done ? `${shown.title} 그림이 완성됐어요` : shown.title}</p>
-        <p className="t-stat text-ink">{done ? `${shown.goalDays}칸을 모두 채웠어요` : `${shown.goalDays}칸 중 ${shown.filledCount}칸`}</p>
-        {!done ? (
+        <p className="t-key text-ink">{done ? `${shown.goalDays}칸을 모두 채웠어요` : `${shown.goalDays}칸 중 ${shown.filledCount}칸`}</p>
+        {!done && !tight ? (
           <p className="t-body text-ink-2">{shown.filledCount === 0 ? '기록한 날마다 한 칸씩 채워져요' : `완성까지 ${remaining}칸 남았어요`}</p>
         ) : null}
-        <CollectionLink />
+        {roomy ? <CollectionLink /> : null}
       </div>,
     )
   }

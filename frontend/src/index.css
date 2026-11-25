@@ -464,7 +464,7 @@ select:focus-visible {
     padding-inline: 8px;
   }
   .home-stat-value {
-    font-size: var(--fs-stat);
+    font-size: var(--fs-key);
     line-height: var(--lh-title);
   }
   .home-week {
@@ -521,6 +521,12 @@ select:focus-visible {
   .home-fit {
     --sum-lines: 3;
     --reason-lines: 3;
+  }
+}
+/* 열이 낮으면(실제 긴 기록 포함) 최근 기록 본문을 한 줄로 줄여 활동 지도 카드에 높이를 남긴다. */
+@container homecol (max-height: 960px) {
+  .home-rec-body {
+    -webkit-line-clamp: 1;
   }
 }
 /* 핵심 문장은 높이가 모자라면 3줄 → 2줄 → 1줄 순으로 줄인다(글자 크기는 그대로). */
