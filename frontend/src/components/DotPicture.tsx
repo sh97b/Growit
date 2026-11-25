@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { formatMonthDay } from '../lib/date'
 import type { DotCell } from '../lib/dots'
 
 /** 칸 하나가 차지하는 폭(칸 + 사이 간격)의 위쪽 한도와, 아직 컨테이너 폭을 못 쟀을 때의 임시 값. */
@@ -38,6 +39,8 @@ type Props = {
   fit?: boolean
   /** 아주 연한 윤곽만 그린다(시작 전 안내 상태). */
   ghost?: boolean
+  /** 채워진 순서대로 그 칸을 채운 기록한 날(YYYY-MM-DD). 있으면 칸에 마우스를 올릴 때 날짜가 보인다. */
+  dates?: string[]
   /** 이 번호부터 칠해진 칸은 한 번 살짝 반짝인다. */
   sparkleFrom?: number
 }
@@ -54,8 +57,10 @@ export function DotPicture({
   box,
   fit = false,
   ghost = false,
+  dates,
   sparkleFrom,
 }: Props) {
+  const [hover, setHover] = useState<{ text: string; left: number; top: number } | null>(null)
   const { ref, width, height: areaHeight } = useElementSize()
   const sparkleStart = sparkleFrom ?? filledCount
 
@@ -94,6 +99,15 @@ export function DotPicture({
               key={`${dotCell.x}-${dotCell.y}`}
               aria-hidden="true"
               className={sparkle ? 'dot-sparkle' : undefined}
+              onMouseEnter={
+                filled && dates?.[index]
+                  ? (event) => {
+                      const rect = event.currentTarget.getBoundingClientRect()
+                      setHover({ text: formatMonthDay(dates[index]), left: rect.left + rect.width / 2, top: rect.top })
+                    }
+                  : undefined
+              }
+              onMouseLeave={filled && dates?.[index] ? () => setHover(null) : undefined}
               style={{
                 gridColumn: dotCell.x + 1,
                 gridRow: dotCell.y + 1,
@@ -111,6 +125,15 @@ export function DotPicture({
           )
         })}
       </div>
+      {hover ? (
+        <span
+          role="tooltip"
+          style={{ left: hover.left, top: hover.top - 6 }}
+          className="t-sub pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md bg-ink px-2 py-1 text-white shadow-md"
+        >
+          {hover.text}
+        </span>
+      ) : null}
     </div>
   )
 }

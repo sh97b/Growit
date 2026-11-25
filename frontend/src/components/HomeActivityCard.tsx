@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { useActivityView } from '../hooks/useActivityView'
 import type { ActivityView } from '../lib/dots'
 import { ActivityHeatmap, HeatmapLegend } from './ActivityHeatmap'
-import { DotPanel } from './DotPanel'
+import { DotMenu, DotPanel } from './DotPanel'
 
 const OPTIONS: { value: ActivityView; label: string }[] = [
   { value: 'grass', label: '잔디' },
@@ -49,6 +49,7 @@ export function HomeActivityCard({
                 </button>
               ))}
             </div>
+            {view === 'dot' ? <DotMenu /> : null}
           </div>
         </div>
         <div className="flex min-h-0 flex-1 flex-col">
@@ -60,7 +61,7 @@ export function HomeActivityCard({
 
   return (
     <div className="flex flex-col gap-3 rounded-2xl bg-surface p-5">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-end gap-2">
         <div className="inline-flex rounded-lg border border-line-2 bg-white p-[0.1875rem]" role="group" aria-label="활동 지도 보기 방식">
           {OPTIONS.map((option) => (
             <button
@@ -77,6 +78,7 @@ export function HomeActivityCard({
             </button>
           ))}
         </div>
+        {view === 'dot' ? <DotMenu /> : null}
       </div>
       {view === 'dot' ? <DotPanel /> : (grass ?? <ActivityHeatmap weeks={26} />)}
     </div>

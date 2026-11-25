@@ -26,6 +26,13 @@ function CollectionLink() {
 }
 
 /** 작은 메뉴에서 "그만두기"를 고르면 한 번 더 물어본다. 그만둔 그림은 보관만 되고 화면에서는 사라진다. */
+/** 진행 중인 그림이 있을 때만 보이는 ⋯ 메뉴(도감 보기·그만두기). 활동 지도 카드 머리줄의 [잔디|도트] 옆에 둔다. */
+export function DotMenu() {
+  const query = useDotsCurrent()
+  const goal = query.data?.goal
+  return goal ? <StopMenu goal={goal} /> : null
+}
+
 function StopMenu({ goal }: { goal: DotGoal }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [confirming, setConfirming] = useState(false)
@@ -227,12 +234,7 @@ function DotPanelBody({ onStart, fit }: { onStart: () => void; fit: boolean }) {
     return layout(
       <DotGridView key={shown.id} goal={shown} fit />,
       <div className={['relative flex flex-col gap-1', wide ? 'items-start text-left' : 'items-center text-center'].join(' ')}>
-        {goal ? (
-          <div className="absolute right-0 top-0 -mt-1">
-            <StopMenu goal={goal} />
-          </div>
-        ) : null}
-        <p className="t-key pr-11 text-ink">{done ? `${shown.title} 그림이 완성됐어요` : shown.title}</p>
+        <p className="t-key text-ink">{done ? `${shown.title} 그림이 완성됐어요` : shown.title}</p>
         <p className="t-key text-ink">{done ? `${shown.goalDays}칸을 모두 채웠어요` : `${shown.goalDays}칸 중 ${shown.filledCount}칸`}</p>
         {!done && !tight ? (
           <p className="t-body text-ink-2">{shown.filledCount === 0 ? '기록한 날마다 한 칸씩 채워져요' : `완성까지 ${remaining}칸 남았어요`}</p>
