@@ -631,7 +631,7 @@ export function ChangesPage() {
     }
     if (metricsQuery.data.empty) return shell(<p className="t-sub text-ink-2">이번 주는 쉬어 간 주예요.</p>)
     return shell(
-      <p className="t-body ch-clamp3 break-words font-serif text-ink">{metricsQuery.data.displayText}</p>,
+      <p className="t-body ch-clamp3 break-words text-ink">{metricsQuery.data.displayText}</p>,
       () => setDialog('metrics'),
     )
   })()

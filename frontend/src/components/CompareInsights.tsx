@@ -143,7 +143,7 @@ export function CompareInsights({
               <li key={`${item.point}-${index}`} className="flex min-w-0 gap-2">
                 <Marker tone="good">{index + 1}</Marker>
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <p className="t-body-lg break-words font-semibold text-ink">{item.point}</p>
+                  <p className="t-body break-words font-semibold text-ink">{item.point}</p>
                   <p className={['t-body break-words text-ink-2', dense ? 'line-clamp-2' : columns ? 'ch-because line-clamp-3' : ''].join(' ')}>{item.because}</p>
                   {dense ? null : <EvidenceFold evidence={item.evidence} />}
                 </div>
@@ -159,7 +159,7 @@ export function CompareInsights({
               <li key={`${item.point}-${index}`} className="flex min-w-0 gap-2">
                 <Marker tone="gap">•</Marker>
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <p className="t-body-lg break-words font-semibold text-ink">{item.point}</p>
+                  <p className="t-body break-words font-semibold text-ink">{item.point}</p>
                   <p className={['t-body break-words text-ink-2', dense ? 'line-clamp-2' : ''].join(' ')}>{item.because}</p>
                   {dense ? null : <EvidenceFold evidence={item.evidence} />}
                 </div>
@@ -175,7 +175,7 @@ export function CompareInsights({
               <li key={`${item.idea}-${index}`} className="flex min-w-0 gap-2">
                 <Marker tone="next">→</Marker>
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <p className="t-body-lg break-words font-semibold text-ink">{item.idea}</p>
+                  <p className="t-body break-words font-semibold text-ink">{item.idea}</p>
                   {dense ? null : <EvidenceFold evidence={item.evidence} />}
                 </div>
               </li>
