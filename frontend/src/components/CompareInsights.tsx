@@ -6,6 +6,12 @@ import type { CompareEvidence, CompareResult } from '../lib/ai'
 type Tone = 'good' | 'gap' | 'next'
 
 /** 구역별 색(성장 페이지 한지 톤에 맞춘 은은한 초록·호박·파랑 계열). */
+const TABS: { tone: Tone; label: string }[] = [
+  { tone: 'good', label: '좋아진 점' },
+  { tone: 'gap', label: '더 키워 볼 점' },
+  { tone: 'next', label: '이렇게 해 보면 좋아요' },
+]
+
 const TONE: Record<Tone, { box: string; title: string; marker: string }> = {
   good: {
     box: 'border-[color-mix(in_srgb,var(--color-base)_26%,white)] bg-[color-mix(in_srgb,var(--color-base)_7%,white)]',
@@ -60,7 +66,7 @@ function EvidenceFold({ evidence }: { evidence: CompareEvidence[] }) {
 function Zone({ tone, title, dense = false, children }: { tone: Tone; title: string; dense?: boolean; children: ReactNode }) {
   const style = TONE[tone]
   return (
-    <section aria-label={title} className={['flex min-w-0 flex-col rounded-xl border', dense ? 'gap-1.5 p-2.5' : 'gap-2 p-3', style.box].join(' ')}>
+    <section aria-label={title} data-zone={tone} className={['flex min-w-0 flex-col rounded-xl border', dense ? 'gap-1.5 p-2.5' : 'gap-2 p-3', style.box].join(' ')}>
       <h4 className={['t-body font-semibold', style.title].join(' ')}>{title}</h4>
       {children}
     </section>
@@ -101,10 +107,35 @@ export function CompareInsights({
   const good = result.good ?? []
   const gap = result.gap ?? []
   const next = result.next ?? []
+  const [tab, setTab] = useState<Tone>('good')
+  const counts: Record<Tone, number> = { good: good.length, gap: gap.length, next: next.length }
+  // 고른 구역이 비어 있으면(항목이 없는 결과) 항목이 있는 첫 구역을 보여 준다.
+  const activeTab: Tone = counts[tab] > 0 ? tab : (TABS.find((entry) => counts[entry.tone] > 0)?.tone ?? 'good')
   return (
     <div className={['flex min-w-0 flex-col', dense ? 'gap-2' : 'gap-3'].join(' ')}>
       {hideHeadline ? null : <h3 className={['t-key break-words text-ink', headlineClass].join(' ')}>{result.headline}</h3>}
-      <div className={columns ? 'grid min-w-0 grid-cols-3 items-start gap-4' : 'contents'}>
+      {columns ? (
+        // 낮은 화면(CSS 컨테이너 쿼리)에서만 보이는 구역 탭. 높이가 충분하면 숨겨지고 세 열이 모두 보인다.
+        <div className="ch-tabs gap-1 rounded-lg border border-line-2 bg-white p-[0.1875rem]" role="tablist" aria-label="변화 해석 구역">
+          {TABS.map((entry) => (
+            <button
+              key={entry.tone}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === entry.tone}
+              disabled={counts[entry.tone] === 0}
+              onClick={() => setTab(entry.tone)}
+              className={[
+                't-sub h-9 min-w-0 flex-1 whitespace-nowrap rounded-md px-2 font-medium disabled:opacity-40',
+                activeTab === entry.tone ? 'bg-ink text-white' : 'bg-transparent text-ink-2',
+              ].join(' ')}
+            >
+              {entry.label} {counts[entry.tone]}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      <div className={columns ? 'ch-cols grid min-w-0 grid-cols-3 items-start gap-4' : 'contents'} data-active={activeTab}>
       {good.length > 0 ? (
         <Zone tone="good" title="좋아진 점" dense={dense}>
           <ol className="flex flex-col gap-2.5">

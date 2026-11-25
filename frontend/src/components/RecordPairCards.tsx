@@ -45,7 +45,7 @@ export function RecordPairCards({
 
 function RecordPairCardItem({ card, emphasized = false }: { card: RecordPairCard; emphasized?: boolean }) {
   const className = [
-    'flex min-w-0 flex-col gap-2 overflow-hidden rounded-xl border p-4 text-ink no-underline lg:max-h-[180px]',
+    'rp-card flex min-w-0 flex-col gap-2 overflow-hidden rounded-xl border p-4 text-ink no-underline lg:max-h-[180px]',
     emphasized
       ? 'border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)]'
       : 'border-line bg-white',

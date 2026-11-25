@@ -673,13 +673,63 @@ select:focus-visible {
 }
 /* 본문 높이가 모자라면 줄 수만 줄인다(글자 크기는 그대로): 이전·최근 카드 4줄 → 2줄, 주 요약의 주제 칩은 숨김. */
 @container chbody (max-height: 700px) {
+  /* 낮은 화면: 변화 해석의 세 구역을 탭으로 바꿔 한 번에 한 구역만 전부 보여 준다(흐림·잘림 없이). */
+  .ch-body .ch-tabs {
+    display: flex;
+  }
+  .ch-cols {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .ch-cols[data-active='good'] > [data-zone]:not([data-zone='good']),
+  .ch-cols[data-active='gap'] > [data-zone]:not([data-zone='gap']),
+  .ch-cols[data-active='next'] > [data-zone]:not([data-zone='next']) {
+    display: none;
+  }
+  .ch-fade-auto {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .ch-body {
+    gap: 10px;
+  }
+  .ch-body .ch-clamp3 {
+    -webkit-line-clamp: 2;
+  }
+  /* 탭이 구역 이름을 알려 주므로 구역 안 제목은 줄이고, 아래 행(숫자 칩·주 요약·지표 해석)은 더 낮게 쓴다. */
+  .ch-body .ch-interp {
+    padding: 12px 16px;
+    gap: 8px;
+  }
+  .ch-body .rp-card {
+    padding: 10px 14px;
+    gap: 2px;
+  }
+  .ch-cols [data-zone] > h4 {
+    display: none;
+  }
+  .ch-cols [data-zone] {
+    padding: 4px 12px;
+  }
+  .ch-cols [data-zone] ul,
+  .ch-cols [data-zone] ol {
+    gap: 6px;
+  }
+  .ch-body .ch-tabs button {
+    height: 32px;
+  }
+  .ch-chip-tags > :nth-child(n + 2) {
+    display: none;
+  }
+  .ch-body .ch-week-line {
+    -webkit-line-clamp: 1;
+  }
   .ch-pair-body {
     --pair-lines: 2;
   }
   .ch-week-tags {
     display: none;
   }
-  .ch-because {
+  .ch-body .ch-because {
     -webkit-line-clamp: 2;
   }
   .ch-fold {
@@ -690,6 +740,16 @@ select:focus-visible {
 .ch-pair-body {
   display: -webkit-box;
   -webkit-line-clamp: var(--pair-lines, 4);
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ch-tabs {
+  display: none;
+}
+.ch-clamp3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

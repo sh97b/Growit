@@ -312,7 +312,7 @@ export function ChangesPage() {
         {chip(
           '자주 나온 주제',
           m.topTags && m.topTags.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
+            <div className="ch-chip-tags flex flex-wrap gap-1">
               {m.topTags.slice(0, 2).map((topic) => (
                 <Tag key={topic.tag} variant="topic">
                   {topic.tag} · {topic.count}
@@ -331,7 +331,7 @@ export function ChangesPage() {
   const interpretationCard = (
     <section
       aria-label="변화 해석"
-      className="relative flex min-h-0 min-w-0 flex-col gap-3 overflow-hidden rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-4 lg:flex-[0_1_auto] lg:p-5"
+      className="ch-interp relative flex min-h-0 min-w-0 flex-col gap-3 overflow-hidden rounded-2xl border border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)] p-4 lg:flex-[0_1_auto] lg:p-5"
     >
       <div className="flex flex-none items-center justify-between gap-2">
         <AiLabel>변화 해석</AiLabel>
@@ -583,7 +583,7 @@ export function ChangesPage() {
     <section aria-label="주 요약" className="flex min-w-0 flex-1 flex-col gap-1.5 overflow-hidden rounded-2xl bg-surface p-4">
       {cardHead(<h3 className="text-card-title">주 요약</h3>, () => setDialog('week'))}
       <div className="flex flex-col gap-1.5">
-      <p className="t-body line-clamp-3 break-words text-ink">{weekSummaryLine}</p>
+      <p className="t-body ch-clamp3 ch-week-line break-words text-ink">{weekSummaryLine}</p>
       {selectedWeek.tags.length > 0 ? (
         <div className="ch-week-tags flex flex-wrap gap-1.5">
           {selectedWeek.tags.slice(0, 6).map((entry) => (
@@ -631,7 +631,7 @@ export function ChangesPage() {
     }
     if (metricsQuery.data.empty) return shell(<p className="t-sub text-ink-2">이번 주는 쉬어 간 주예요.</p>)
     return shell(
-      <p className="t-body line-clamp-3 break-words font-serif text-ink">{metricsQuery.data.displayText}</p>,
+      <p className="t-body ch-clamp3 break-words font-serif text-ink">{metricsQuery.data.displayText}</p>,
       () => setDialog('metrics'),
     )
   })()
