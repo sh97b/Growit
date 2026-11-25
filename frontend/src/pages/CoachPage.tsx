@@ -10,7 +10,6 @@ import { Loading } from '../components/Loading'
 import { Note } from '../components/Note'
 import { Pagination } from '../components/Pagination'
 import { ReviewHeaderRow } from '../components/ReviewHeaderRow'
-import { SplitWide } from '../components/PageLayout'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useFilterBarQuery, resolveDateRange } from '../hooks/useFilterBarQuery'
 import type { DateRangeValue } from '../components/FilterBar'
@@ -114,7 +113,8 @@ export function CoachPage() {
   const latestQuery = useQuery({
     queryKey: ['ai', 'coach', 'latest'],
     queryFn: fetchLatestCoach,
-    enabled: !!currentUser?.aiEnabled && selectedId == null,
+    // 웹은 회고를 고르기 전에는 오른쪽 상세를 닫아 두므로 최신 회고를 미리 불러오지 않는다.
+    enabled: !!currentUser?.aiEnabled && selectedId == null && !isDesktop,
   })
 
   const selectedQuery = useQuery({
@@ -168,7 +168,8 @@ export function CoachPage() {
         setAutoStatus(data)
         if ((data.status === 'GENERATED' || data.status === 'EXISTS') && data.result) {
           queryClient.invalidateQueries({ queryKey: ['ai', 'coach', 'list'] })
-          if (selectedId == null) {
+          // 웹은 자동 생성돼도 상세를 저절로 열지 않는다(목록의 새 회고 점으로 알린다).
+          if (selectedId == null && !isDesktop) {
             setResult(data.result)
             if (data.result.id != null) {
               setSearchParams((prev) => {
@@ -501,11 +502,49 @@ export function CoachPage() {
     )
   }
 
+  // 웹: 회고를 고르기 전에는 목록이 전체 폭을 쓰고, 고르면 목록이 줄면서 오른쪽에서 상세가 밀려 나온다(움직임 줄이기 설정이면 바로 바뀐다).
+  const detailOpen = selectedId != null || result != null
+  function closeDetail() {
+    setResult(null)
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.delete('r')
+      return next
+    })
+  }
+  const columnClass = 'flex min-h-0 min-w-0 flex-col gap-5 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-thin-fade'
+
   return (
     <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
       <ReviewHeaderRow title="AI 회고" />
       {filterBar}
-      <SplitWide main={listPanel} side={detail} className="lg:min-h-0 lg:flex-1" />
+      <div
+        className="grid min-h-0 flex-1 transition-[grid-template-columns,column-gap] duration-300 ease-out motion-reduce:transition-none"
+        style={{ gridTemplateColumns: detailOpen ? '5fr 7fr' : '1fr 0fr', columnGap: detailOpen ? '2rem' : '0rem' }}
+      >
+        <div className={columnClass}>{listPanel}</div>
+        <div className="min-h-0 min-w-0 overflow-hidden">
+          <div
+            inert={!detailOpen}
+            aria-hidden={!detailOpen}
+            className={[
+              columnClass,
+              'h-full min-w-[30rem] transition-[opacity,transform] duration-300 ease-out motion-reduce:transition-none',
+              detailOpen ? 'translate-x-0 opacity-100' : 'translate-x-8 opacity-0',
+            ].join(' ')}
+          >
+            <button
+              type="button"
+              onClick={closeDetail}
+              className="t-sub inline-flex min-h-9 w-fit flex-none items-center gap-1 rounded-full bg-transparent px-2 -mx-2 font-medium text-ink-2 hover:text-ink"
+            >
+              <ChevronRightIcon width={14} height={14} className="rotate-180" aria-hidden="true" />
+              목록만 보기
+            </button>
+            {detail}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
