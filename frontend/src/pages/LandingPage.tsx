@@ -42,13 +42,13 @@ export default function LandingPage() {
       <div className="fixed inset-x-0 bottom-0 z-[8] flex gap-[8px] border-t border-line bg-white p-[12px_20px_18px] lg:hidden">
         <Link
           to="/login"
-          className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-[8px] border border-line-2 bg-white px-[20px] text-[15px] font-medium text-ink no-underline"
+          className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-[8px] border border-line-2 bg-white px-[20px] t-body font-medium text-ink no-underline"
         >
           로그인
         </Link>
         <Link
           to="/signup"
-          className="inline-flex min-h-[44px] flex-[2] items-center justify-center rounded-[8px] border border-transparent bg-base px-[20px] text-[15px] font-medium text-white no-underline"
+          className="inline-flex min-h-[44px] flex-[2] items-center justify-center rounded-[8px] border border-transparent bg-base px-[20px] t-body font-medium text-white no-underline"
         >
           무료로 시작하기
         </Link>

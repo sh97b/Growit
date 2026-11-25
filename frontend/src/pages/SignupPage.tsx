@@ -52,7 +52,7 @@ export function SignupPage() {
   return (
     <AuthShell>
       <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
-        <h1 className="font-serif text-xl font-semibold leading-[1.45] lg:text-[1.875rem]">첫 기록을 시작해 볼까요</h1>
+        <h1 className="t-page">첫 기록을 시작해 볼까요</h1>
 
         <Field label="이메일" htmlFor="signup-email">
           <Input
@@ -84,7 +84,7 @@ export function SignupPage() {
           {submitting ? '처리하는 중이에요' : '가입하기'}
         </Button>
 
-        <p className="text-center text-sm text-ink-2">
+        <p className="text-center t-sub text-ink-2">
           이미 계정이 있나요? <LinkButton to="/login" style={{ textDecoration: 'none' }}>로그인</LinkButton>
         </p>
 

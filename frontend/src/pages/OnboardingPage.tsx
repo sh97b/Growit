@@ -24,7 +24,7 @@ const TOTAL_STEPS = 4
 const SUGGESTED_HOBBIES = ['기타', '러닝', '코딩', '피아노', '그림', '요가', '영어 회화']
 const GOAL_MAX_LENGTH = 200
 
-const STEP_HEADING_CLASS = 'font-serif text-[1.375rem] font-semibold leading-[1.45] lg:text-[1.875rem] lg:leading-[1.4]'
+const STEP_HEADING_CLASS = 't-page'
 const NEXT_BUTTON_CLASS = 'lg:w-auto'
 
 /** 디자인에 없는 추가: 평소엔 연한 글자색, 마우스를 올리거나 포커스가 오면 포인트 색으로 바뀐다. */
@@ -33,7 +33,7 @@ function BackButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-ink-3 transition-colors duration-150 hover:text-base-ink focus-visible:text-base-ink"
+      className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 t-sub font-medium text-ink-3 transition-colors duration-150 hover:text-base-ink focus-visible:text-base-ink"
     >
       <ChevronLeftIcon width={16} height={16} />
       이전
@@ -220,7 +220,7 @@ export function OnboardingPage() {
               <form className="flex flex-col gap-5" onSubmit={handleNameSubmit}>
                 <div className="flex flex-col gap-1.5">
                   <h1 className={STEP_HEADING_CLASS}>뭐라고 부르면 좋을까요?</h1>
-                  <p className="text-sm text-ink-2">홈 인사말에 쓰여요</p>
+                  <p className="t-sub text-ink-2">홈 인사말에 쓰여요</p>
                 </div>
                 <Field label="이름" htmlFor="display-name">
                   <Input
@@ -256,7 +256,7 @@ export function OnboardingPage() {
                       aria-disabled={locked}
                       onClick={() => toggleHobby(hobbyName)}
                       className={[
-                        'inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border px-4 text-sm font-medium',
+                        'inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border px-4 t-sub font-medium',
                         selected
                           ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)] text-ink'
                           : 'border-line-2 bg-white text-ink',
@@ -306,7 +306,7 @@ export function OnboardingPage() {
                         <button
                           type="button"
                           onClick={() => setOpenGoalId(hobby.id)}
-                          className="inline-flex min-h-11 items-center gap-1 border-0 bg-transparent text-sm text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+                          className="inline-flex min-h-11 items-center gap-1 border-0 bg-transparent t-sub text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
                         >
                           지금 적어 보기
                         </button>
@@ -342,11 +342,11 @@ export function OnboardingPage() {
                 <InfoIcon width={28} height={28} />
               </span>
               <h1 className={STEP_HEADING_CLASS}>알림을 받아 볼까요?</h1>
-              <p className="text-[1.0625rem] text-ink-2">
+              <p className="t-body-lg text-ink-2">
                 하루 한 번, 정한 시간에만 알려요. 안 쓴 날을 알려주는 알림은 보내지 않아요.
               </p>
               {Object.values(goalDrafts).some((goal) => goal.trim() !== '') ? (
-                <p className="text-sm text-ink-2">
+                <p className="t-sub text-ink-2">
                   목표를 적어 두셨네요. 로드맵을 만들어 볼까요? 나중에 분야 관리에서도 만들 수 있어요.
                 </p>
               ) : null}

@@ -32,13 +32,13 @@ function ActivityMapVisual() {
     <Shadow className="w-full max-w-[540px]">
       <LandingCard className="flex flex-col gap-[18px] p-[28px]">
         <div className="flex items-center justify-between">
-          <span className="font-serif text-[18px] font-semibold text-ink">최근 12주 활동 지도</span>
-          <span className="inline-flex min-h-[24px] items-center rounded-[6px] bg-tag-topic-bg px-[8px] text-[12px] font-medium text-tag-topic-fg">
+          <span className="font-serif t-body-lg font-semibold text-ink">최근 12주 활동 지도</span>
+          <span className="inline-flex min-h-[24px] items-center rounded-[6px] bg-tag-topic-bg px-[8px] t-cap font-medium text-tag-topic-fg">
             3개 분야
           </span>
         </div>
         <StaticHeatmap cell={30} labelWidth={48} />
-        <div className="mt-[2px] flex items-center gap-1 text-[13px] text-ink-2">
+        <div className="mt-[2px] flex items-center gap-1 t-cap text-ink-2">
           <span>적음</span>
           <i className="h-[14px] w-[14px] rounded-[4px]" style={{ background: 'color-mix(in srgb, var(--color-base) 35%, var(--color-paper))' }} />
           <i className="h-[14px] w-[14px] rounded-[4px]" style={{ background: 'color-mix(in srgb, var(--color-base) 65%, var(--color-paper))' }} />
@@ -47,16 +47,16 @@ function ActivityMapVisual() {
         </div>
         <div className="flex gap-[12px] border-t border-line pt-[16px]">
           <div className="flex flex-1 flex-col gap-[2px]">
-            <span className="text-[13px] text-ink-2">기록한 날</span>
-            <span className="font-serif text-[20px] font-semibold tabular-nums text-ink">12일</span>
+            <span className="t-cap text-ink-2">기록한 날</span>
+            <span className="font-serif t-section font-semibold tabular-nums text-ink">12일</span>
           </div>
           <div className="flex flex-1 flex-col gap-[2px]">
-            <span className="text-[13px] text-ink-2">쌓인 시간</span>
-            <span className="font-serif text-[20px] font-semibold tabular-nums text-ink">8시간 30분</span>
+            <span className="t-cap text-ink-2">쌓인 시간</span>
+            <span className="font-serif t-section font-semibold tabular-nums text-ink">8시간 30분</span>
           </div>
           <div className="flex flex-1 flex-col gap-[2px]">
-            <span className="text-[13px] text-ink-2">시작한 지</span>
-            <span className="font-serif text-[20px] font-semibold tabular-nums text-ink">63일</span>
+            <span className="t-cap text-ink-2">시작한 지</span>
+            <span className="font-serif t-section font-semibold tabular-nums text-ink">63일</span>
           </div>
         </div>
       </LandingCard>
@@ -69,16 +69,16 @@ function ChangeVisual() {
     <Shadow className="w-full max-w-[540px]">
       <LandingCard className="flex flex-col gap-[16px] p-[28px]">
         <div className="flex items-center justify-between">
-          <span className="font-serif text-[18px] font-semibold text-ink">나의 변화</span>
+          <span className="font-serif t-body-lg font-semibold text-ink">나의 변화</span>
           <div className="inline-flex rounded-[8px] border border-line-2 bg-white p-[3px]">
-            <button type="button" className="min-h-[38px] rounded-[6px] px-[14px] text-[14px] font-medium text-ink-2">1주 전</button>
-            <button type="button" className="min-h-[38px] rounded-[6px] bg-ink px-[14px] text-[14px] font-medium text-white">한 달 전</button>
+            <button type="button" className="min-h-[38px] rounded-[6px] px-[14px] t-sub font-medium text-ink-2">1주 전</button>
+            <button type="button" className="min-h-[38px] rounded-[6px] bg-ink px-[14px] t-sub font-medium text-white">한 달 전</button>
           </div>
         </div>
         <div className="flex items-stretch gap-[12px]">
           <div className="flex flex-1 flex-col gap-[8px] rounded-[16px] bg-surface p-[16px]">
-            <span className="text-[13px] font-semibold text-ink">9월 25일 · 그때</span>
-            <p className="font-serif text-[16px] leading-[1.75] text-ink">
+            <span className="t-cap font-semibold text-ink">9월 25일 · 그때</span>
+            <p className="font-serif t-body leading-[1.75] text-ink">
               코드 이름이 낯설다. 줄 어디를 눌러야 하는지 계속 악보를 본다.
             </p>
           </div>
@@ -86,18 +86,18 @@ function ChangeVisual() {
             className="flex flex-1 flex-col gap-[8px] rounded-[16px] p-[16px]"
             style={{ background: 'color-mix(in srgb, var(--color-base) 9%, #fff)', border: '1px solid color-mix(in srgb, var(--color-base) 28%, #fff)' }}
           >
-            <span className="text-[13px] font-semibold text-base-ink">10월 28일 · 오늘</span>
-            <p className="font-serif text-[16px] leading-[1.75] text-ink">
+            <span className="t-cap font-semibold text-base-ink">10월 28일 · 오늘</span>
+            <p className="font-serif t-body leading-[1.75] text-ink">
               C에서 G로 바꾸는 걸 메트로놈 60에 맞춰 열 번 했다. 처음으로 한 번도 안 끊겼다.
             </p>
           </div>
         </div>
         <div className="flex flex-col gap-[10px] border-t border-line pt-[16px]">
-          <span className="flex items-center gap-[6px] text-[13px] font-semibold text-base-ink">
+          <span className="flex items-center gap-[6px] t-cap font-semibold text-base-ink">
             <SparkleIcon width={16} height={16} />
             AI 해석
           </span>
-          <p className="font-serif text-[17px] font-semibold leading-[1.7] text-ink">
+          <p className="font-serif t-body-lg font-semibold leading-[1.7] text-ink">
             9/25엔 코드 이름이 낯설다고 적었는데, 10/28 기록에서는 C→G 전환을 열 번 이어 갔어요.
           </p>
           <div className="flex flex-wrap gap-[8px]">
@@ -115,22 +115,22 @@ function CoachVisual() {
     <Shadow className="w-full max-w-[540px]">
       <LandingCard className="flex flex-col gap-[16px] p-[28px]">
         <div className="flex items-center justify-between">
-          <span className="font-serif text-[18px] font-semibold text-ink">AI 회고</span>
-          <span className="text-[14px] text-ink-2">10월 14일–28일</span>
+          <span className="font-serif t-body-lg font-semibold text-ink">AI 회고</span>
+          <span className="t-sub text-ink-2">10월 14일–28일</span>
         </div>
-        <p className="font-serif text-[17px] leading-[1.75] text-ink">F 코드가 처음으로 소리 났고, C→G 전환은 열 번 이어졌어요.</p>
+        <p className="font-serif t-body-lg leading-[1.75] text-ink">F 코드가 처음으로 소리 났고, C→G 전환은 열 번 이어졌어요.</p>
         <div className="flex flex-wrap gap-[8px]">
           <EvChipStatic date="10/26" text="F 코드를 처음으로…" />
           <EvChipStatic date="10/28" text="C에서 G로 바꾸는 걸…" />
         </div>
         <div className="flex flex-col gap-[8px] rounded-[16px] p-[20px]" style={{ background: 'color-mix(in srgb, var(--color-base) 9%, #fff)', border: '1px solid color-mix(in srgb, var(--color-base) 28%, #fff)' }}>
-          <span className="text-[13px] font-semibold text-base-ink">다음 작은 행동 · 5분</span>
-          <p className="font-serif text-[19px] font-semibold leading-[1.6] text-ink">메트로놈 70으로 올려서 C→G 전환을 열 번 해 보세요.</p>
+          <span className="t-cap font-semibold text-base-ink">다음 작은 행동 · 5분</span>
+          <p className="font-serif t-body-lg font-semibold leading-[1.6] text-ink">메트로놈 70으로 올려서 C→G 전환을 열 번 해 보세요.</p>
         </div>
         <div className="flex flex-wrap gap-[8px]">
-          <span className="inline-flex min-h-[44px] items-center rounded-[8px] border border-line-2 bg-white px-[16px] text-[14px] font-medium text-ink">해봤어요</span>
-          <span className="inline-flex min-h-[44px] items-center rounded-[8px] border border-line-2 bg-white px-[16px] text-[14px] font-medium text-ink">오늘은 쉴게요</span>
-          <span className="inline-flex min-h-[44px] items-center rounded-[8px] border border-line-2 bg-white px-[16px] text-[14px] font-medium text-ink">너무 어려워요</span>
+          <span className="inline-flex min-h-[44px] items-center rounded-[8px] border border-line-2 bg-white px-[16px] t-sub font-medium text-ink">해봤어요</span>
+          <span className="inline-flex min-h-[44px] items-center rounded-[8px] border border-line-2 bg-white px-[16px] t-sub font-medium text-ink">오늘은 쉴게요</span>
+          <span className="inline-flex min-h-[44px] items-center rounded-[8px] border border-line-2 bg-white px-[16px] t-sub font-medium text-ink">너무 어려워요</span>
         </div>
       </LandingCard>
     </Shadow>

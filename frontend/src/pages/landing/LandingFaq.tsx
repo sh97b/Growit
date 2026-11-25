@@ -56,7 +56,7 @@ function FaqItem({ index, q, a, open, onToggle }: { index: number; q: string; a:
       </button>
       <div id={panelId} role="region" aria-labelledby={buttonId} className={['grid-collapse', open ? '' : 'is-collapsed'].join(' ')}>
         <div>
-          <p className="max-w-[760px] pb-[22px] text-[16px] leading-[1.75] text-ink-2">{a}</p>
+          <p className="max-w-[760px] pb-[22px] t-body leading-[1.75] text-ink-2">{a}</p>
         </div>
       </div>
     </div>

@@ -42,7 +42,7 @@ export function LandingExamples() {
             <LandingCard key={example.topic} className="flex flex-1 flex-col gap-[12px] lg:gap-[16px] lg:p-[28px]">
               <div className="flex items-center justify-between">
                 <Tag>{example.topic}</Tag>
-                <span className="text-[13px] text-ink-2">{example.category}</span>
+                <span className="t-cap text-ink-2">{example.category}</span>
               </div>
               <p className="font-serif text-[16px] font-normal leading-[1.8] text-ink lg:text-[18px]">{example.quote}</p>
               <EvChipStatic date={example.date} text={example.preview} maxWidth={170} />

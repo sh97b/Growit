@@ -49,7 +49,7 @@ export function LandingPromise() {
           </Lead>
           <div className="mt-[6px] flex items-center gap-[12px]">
             <StaticSwitch />
-            <span className="text-[15px] text-ink">AI 정리 켜기 / 끄기</span>
+            <span className="t-body text-ink">AI 정리 켜기 / 끄기</span>
           </div>
         </div>
 
@@ -58,7 +58,7 @@ export function LandingPromise() {
             <LandingCard key={card.title} className="flex flex-row items-start gap-[14px] lg:flex-col lg:gap-[12px] lg:p-[28px]">
               <IconBadge>{card.icon}</IconBadge>
               <div className="flex min-w-0 flex-col gap-[2px] lg:gap-0">
-                <h3 className="font-serif text-[17px] font-semibold leading-[1.5] text-ink">{card.title}</h3>
+                <h3 className="font-serif t-body-lg font-semibold leading-[1.5] text-ink">{card.title}</h3>
                 <p className="text-[14px] leading-[1.6] text-ink-2 lg:text-[15px]">{card.lead}</p>
               </div>
             </LandingCard>

@@ -40,7 +40,7 @@ export function LandingHowTo() {
                   <IconBadge>{step.icon}</IconBadge>
                 </div>
                 <div className="flex items-center justify-between gap-[8px]">
-                  <h3 className="font-serif text-[18px] font-semibold leading-[1.5] text-ink">{step.title}</h3>
+                  <h3 className="font-serif t-body-lg font-semibold leading-[1.5] text-ink">{step.title}</h3>
                   <Tag className="lg:hidden">{step.tag}</Tag>
                 </div>
                 <p className="text-[15px] leading-[1.7] text-ink-2 lg:text-[16px]">{step.lead}</p>

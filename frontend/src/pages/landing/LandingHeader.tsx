@@ -21,7 +21,7 @@ export function LandingHeader() {
             <a
               key={link.href}
               href={link.href}
-              className="inline-flex min-h-[44px] items-center px-[14px] text-[15px] font-medium text-ink-2 no-underline"
+              className="inline-flex min-h-[44px] items-center px-[14px] t-body font-medium text-ink-2 no-underline"
             >
               {link.label}
             </a>
@@ -30,25 +30,25 @@ export function LandingHeader() {
         <div className="ml-0 flex items-center gap-2 lg:ml-auto">
           <Link
             to="/login"
-            className="hidden min-h-[40px] items-center rounded-[8px] border border-line-2 bg-white px-[16px] text-[14px] font-medium text-ink no-underline lg:inline-flex"
+            className="hidden min-h-[40px] items-center rounded-[8px] border border-line-2 bg-white px-[16px] t-sub font-medium text-ink no-underline lg:inline-flex"
           >
             로그인
           </Link>
           <Link
             to="/login"
-            className="inline-flex min-h-[44px] items-center rounded-[8px] px-[12px] text-[14px] font-medium text-ink no-underline lg:hidden"
+            className="inline-flex min-h-[44px] items-center rounded-[8px] px-[12px] t-sub font-medium text-ink no-underline lg:hidden"
           >
             로그인
           </Link>
           <Link
             to="/signup"
-            className="hidden min-h-[40px] items-center rounded-[8px] border border-transparent bg-base px-[16px] text-[14px] font-medium text-white no-underline lg:inline-flex"
+            className="hidden min-h-[40px] items-center rounded-[8px] border border-transparent bg-base px-[16px] t-sub font-medium text-white no-underline lg:inline-flex"
           >
             무료로 시작하기
           </Link>
           <Link
             to="/signup"
-            className="inline-flex min-h-[44px] items-center rounded-[8px] border border-transparent bg-base px-[14px] text-[14px] font-medium text-white no-underline lg:hidden"
+            className="inline-flex min-h-[44px] items-center rounded-[8px] border border-transparent bg-base px-[14px] t-sub font-medium text-white no-underline lg:hidden"
           >
             시작하기
           </Link>

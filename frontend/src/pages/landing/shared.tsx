@@ -15,7 +15,7 @@ export const SECTION = 'py-[56px] lg:py-[104px]'
 
 export function Eyebrow({ children }: { children: ReactNode }) {
   return (
-    <span className="inline-flex w-fit items-center gap-1.5 self-start rounded-full border border-[color-mix(in_srgb,var(--color-base)_28%,#fff)] bg-[color-mix(in_srgb,var(--color-base)_9%,#fff)] px-[12px] py-[4px] text-[13px] font-semibold leading-[1.5] text-base-ink">
+    <span className="inline-flex w-fit items-center gap-1.5 self-start rounded-full border border-[color-mix(in_srgb,var(--color-base)_28%,#fff)] bg-[color-mix(in_srgb,var(--color-base)_9%,#fff)] px-[12px] py-[4px] t-cap font-semibold leading-[1.5] text-base-ink">
       {children}
     </span>
   )
@@ -102,7 +102,7 @@ export function LandingBtn({ to, variant = 'primary', size = 'md', block = false
 
 export function CheckItem({ children }: { children: ReactNode }) {
   return (
-    <li className="flex items-start gap-[10px] text-[16px] text-ink-2">
+    <li className="flex items-start gap-[10px] t-body text-ink-2">
       <span className="mt-[2px] flex-none text-base-ink">
         <CheckCircleIcon width={18} height={18} />
       </span>
@@ -115,7 +115,7 @@ export function Tag({ children, className = '' }: { children: ReactNode; classNa
   return (
     <span
       className={[
-        'inline-flex min-h-[28px] items-center gap-1 whitespace-nowrap rounded-[6px] bg-tag-topic-bg px-[10px] text-[13px] font-medium text-tag-topic-fg',
+        'inline-flex min-h-[28px] items-center gap-1 whitespace-nowrap rounded-[6px] bg-tag-topic-bg px-[10px] t-cap font-medium text-tag-topic-fg',
         className,
       ].join(' ')}
     >
@@ -128,7 +128,7 @@ export function Tag({ children, className = '' }: { children: ReactNode; classNa
 export function EvChipStatic({ date, text, maxWidth = 150 }: { date: string; text: string; maxWidth?: number }) {
   return (
     <span
-      className="inline-flex min-h-[44px] max-w-full items-center gap-[8px] rounded-[8px] border border-line-2 bg-white px-[12px] text-[13px] text-ink"
+      className="inline-flex min-h-[44px] max-w-full items-center gap-[8px] rounded-[8px] border border-line-2 bg-white px-[12px] t-cap text-ink"
       title={text}
     >
       <span className="flex-none font-semibold text-base-ink">{date}</span>
@@ -149,7 +149,7 @@ export function IconBadge({ children }: { children: ReactNode }) {
 
 export function StepBadge({ children }: { children: ReactNode }) {
   return (
-    <span className="flex h-[40px] w-[40px] flex-none items-center justify-center rounded-full bg-base font-sans text-[16px] font-semibold text-white">
+    <span className="flex h-[40px] w-[40px] flex-none items-center justify-center rounded-full bg-base font-sans t-body font-semibold text-white">
       {children}
     </span>
   )
@@ -181,7 +181,7 @@ export function StaticHeatmap({ cell, labelWidth = 44, gap = 5 }: { cell: number
     >
       {HEATMAP_DEMO_ROWS.map((row) => (
         <Fragment key={row.label}>
-          <span className="text-[13px] font-medium text-ink">{row.label}</span>
+          <span className="t-cap font-medium text-ink">{row.label}</span>
           {row.levels.map((level, index) => (
             <i
               key={index}
@@ -196,7 +196,7 @@ export function StaticHeatmap({ cell, labelWidth = 44, gap = 5 }: { cell: number
 
 export function HeatmapLegend() {
   return (
-    <div className="flex items-center gap-1 text-[13px] text-ink-2">
+    <div className="flex items-center gap-1 t-cap text-ink-2">
       <span>적음</span>
       <i className="h-[14px] w-[14px] rounded-[4px]" style={{ background: LEVEL_BG[1] }} />
       <i className="h-[14px] w-[14px] rounded-[4px]" style={{ background: LEVEL_BG[2] }} />

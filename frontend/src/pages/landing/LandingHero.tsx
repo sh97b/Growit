@@ -12,22 +12,22 @@ function PhoneMockup() {
         style={{ background: 'var(--color-ink)', zIndex: 3 }}
       />
       <div className="relative flex h-full w-full flex-col overflow-hidden rounded-[38px]" style={{ background: 'var(--color-paper)' }}>
-        <div className="flex h-[44px] flex-none items-end justify-between px-[24px] pb-[4px] text-[12px] font-semibold">
+        <div className="flex h-[44px] flex-none items-end justify-between px-[24px] pb-[4px] t-cap font-semibold">
           <span>9:41</span>
           <span>●●●</span>
         </div>
         <div className="flex flex-1 flex-col gap-[12px] px-[18px] pt-[8px]">
           <div className="flex flex-col gap-[2px]">
-            <span className="text-[12px] text-ink-2">10월 28일 수요일</span>
-            <span className="font-serif text-[19px] font-semibold leading-[1.45] text-ink">
+            <span className="t-cap text-ink-2">10월 28일 수요일</span>
+            <span className="font-serif t-body-lg font-semibold leading-[1.45] text-ink">
               서현님, 오늘도
               <br />한 줄이면 충분해요
             </span>
           </div>
           <div className="rounded-[14px] bg-surface px-[12px] pb-[10px] pt-[12px]">
             <div className="mb-[6px] flex items-center justify-between">
-              <span className="text-[12px] font-semibold text-ink">최근 7일</span>
-              <span className="text-[12px] text-ink-2">5일 이어졌어요</span>
+              <span className="t-cap font-semibold text-ink">최근 7일</span>
+              <span className="t-cap text-ink-2">5일 이어졌어요</span>
             </div>
             <div className="grid grid-cols-7 gap-[4px]">
               {[true, true, false, true, true, false, true].map((on, index) => (
@@ -49,14 +49,14 @@ function PhoneMockup() {
             </div>
           </div>
           <div className="rounded-[14px] p-[14px]" style={{ background: 'color-mix(in srgb, var(--color-base) 9%, #fff)', border: '1px solid color-mix(in srgb, var(--color-base) 28%, #fff)' }}>
-            <span className="text-[12px] font-semibold text-base-ink">다음 작은 행동 · 5분</span>
-            <p className="my-[4px] font-serif text-[15px] font-semibold leading-[1.65] text-ink">
+            <span className="t-cap font-semibold text-base-ink">다음 작은 행동 · 5분</span>
+            <p className="my-[4px] font-serif t-body font-semibold leading-[1.65] text-ink">
               메트로놈 70으로 올려서 C→G 전환을 열 번 해 보세요.
             </p>
             <EvChipStatic date="10/28" text="C에서 G로 바꾸는 걸…" maxWidth={120} />
           </div>
         </div>
-        <div className="flex h-[58px] flex-none items-center justify-around border-t border-line bg-white px-[6px] text-[11px] text-ink-2">
+        <div className="flex h-[58px] flex-none items-center justify-around border-t border-line bg-white px-[6px] t-cap text-ink-2">
           <span>홈</span>
           <span className="rounded-[10px] bg-base px-[12px] py-[6px] font-semibold text-white">기록하기</span>
           <span>돌아보기</span>
@@ -70,11 +70,11 @@ function CoachFloatCard({ className = '' }: { className?: string }) {
   return (
     <div className={['rounded-[16px] border border-line bg-white p-[16px_18px]', className].join(' ')}>
       <div className="flex flex-col gap-[10px]">
-        <span className="flex items-center gap-[6px] text-[13px] font-semibold text-base-ink">
+        <span className="flex items-center gap-[6px] t-cap font-semibold text-base-ink">
           <SparkleIcon width={16} height={16} />
           AI 회고 · 10월 14일–28일
         </span>
-        <p className="font-serif text-[17px] font-semibold leading-[1.7] text-ink">
+        <p className="font-serif t-body-lg font-semibold leading-[1.7] text-ink">
           10/24엔 박자가 끊겼는데, 오늘은 열 번 이어졌어요.
         </p>
         <div className="flex flex-wrap gap-[8px]">
@@ -90,7 +90,7 @@ function HeatmapFloatCard() {
   return (
     <div className="w-[262px] rounded-[16px] border border-line bg-white p-[14px]">
       <div className="mb-[10px] flex items-center justify-between">
-        <span className="text-[13px] font-semibold text-ink">최근 12주 활동 지도</span>
+        <span className="t-cap font-semibold text-ink">최근 12주 활동 지도</span>
       </div>
       <StaticHeatmap cell={14} labelWidth={30} />
     </div>
@@ -128,7 +128,7 @@ export function LandingHero() {
               서비스 둘러보기
             </LandingBtn>
           </div>
-          <div className="flex flex-col gap-[4px] text-[14px] text-ink-2 lg:flex-row lg:flex-wrap lg:gap-[20px]">
+          <div className="flex flex-col gap-[4px] t-sub text-ink-2 lg:flex-row lg:flex-wrap lg:gap-[20px]">
             <span className="flex items-center gap-[6px]">
               <CheckCircleIcon width={16} height={16} />
               쉬는 날도 괜찮아요

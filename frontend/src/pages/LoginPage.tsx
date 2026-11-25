@@ -55,7 +55,7 @@ export function LoginPage() {
   return (
     <AuthShell>
       <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
-        <h1 className="font-serif text-xl font-semibold leading-[1.45] lg:text-[1.875rem]">다시 만나서 반가워요</h1>
+        <h1 className="t-page">다시 만나서 반가워요</h1>
 
         <Field label="이메일" htmlFor="email">
           <Input
@@ -85,7 +85,7 @@ export function LoginPage() {
         </Button>
 
         <div className="flex items-center justify-between">
-          <span className="inline-flex min-h-11 items-center text-sm font-medium text-ink-3">비밀번호 찾기</span>
+          <span className="inline-flex min-h-11 items-center t-sub font-medium text-ink-3">비밀번호 찾기</span>
           <LinkButton to="/signup" style={{ textDecoration: 'none' }}>회원가입</LinkButton>
         </div>
 
