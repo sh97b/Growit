@@ -385,7 +385,7 @@ function HomeCoachCard({ autoStatus, dense = false }: { autoStatus: CoachAutoRes
   )
 
   return (
-    <div className={[cardClass, dense && !nextAction ? 'justify-center' : ''].join(' ')}>
+    <div className={dense && !nextAction ? 'home-pad home-coach-compact flex flex-col gap-2 rounded-2xl bg-surface' : cardClass}>
       <div className="flex items-center justify-between gap-2">
         <h2 className="min-w-0 truncate text-card-title">
           {data.startDate ? `${formatMonthDay(data.startDate)} 회고` : 'AI 회고'}
