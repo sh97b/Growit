@@ -803,7 +803,7 @@ export function ChangesPage() {
           {isStructuredCompare(result) ? (
             <>
               <h3 className="t-key flex-none break-words text-ink">{result.headline}</h3>
-              <div className="ch-zones min-h-0 flex-1 overflow-hidden">
+              <div className="ch-zones min-h-0 flex-1 overflow-y-auto overscroll-contain">
                 <CompareInsightZones result={result} />
               </div>
             </>

@@ -130,8 +130,7 @@ export function FeedbackRow({
   }
 
   const answeredFinal = editArea ? status === 'positive' || status === 'edited' : status === 'positive' || status === 'negative'
-  // compact(해석 카드 하단)는 답한 뒤에도 줄을 접지 않고 고른 버튼만 강조해 계속 보이게 한다.
-  const collapsed = !compact && answeredFinal && !editing && !transientMessage
+  const collapsed = answeredFinal && !editing && !transientMessage
 
   return (
     <div className="flex flex-col gap-3">
