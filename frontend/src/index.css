@@ -687,70 +687,86 @@ select:focus-visible {
     mask-image: none;
   }
 }
-@container chgrid (height < 551px) {
+@container chgrid (height < 470px) {
   [data-priority='2'],
   [data-minp='2'] {
     display: none;
   }
 }
-@container chgrid (height < 682px) {
+@container chgrid (height < 590px) {
   [data-priority='3'],
   [data-minp='3'] {
     display: none;
   }
 }
-@container chgrid (height < 772px) {
+@container chgrid (height < 675px) {
   [data-priority='4'],
   [data-minp='4'] {
     display: none;
   }
 }
-@container chgrid (height < 862px) {
+@container chgrid (height < 790px) {
   [data-priority='5'],
   [data-minp='5'] {
     display: none;
   }
 }
-@container chgrid (height < 952px) {
+@container chgrid (height < 890px) {
   [data-priority='6'],
   [data-minp='6'] {
     display: none;
   }
 }
-@container chgrid (height < 1042px) {
+@container chgrid (height < 990px) {
   [data-priority='7'],
   [data-minp='7'] {
     display: none;
   }
 }
-@container chgrid (height < 551px) {
+@container chgrid (height < 470px) {
   .ch-more[data-r='1'] {
     display: inline-flex;
   }
 }
-@container chgrid (551px <= height < 682px) {
+@container chgrid (470px <= height < 590px) {
   .ch-more[data-r='2'] {
     display: inline-flex;
   }
 }
-@container chgrid (682px <= height < 772px) {
+@container chgrid (590px <= height < 675px) {
   .ch-more[data-r='3'] {
     display: inline-flex;
   }
 }
-@container chgrid (772px <= height < 862px) {
+@container chgrid (675px <= height < 790px) {
   .ch-more[data-r='4'] {
     display: inline-flex;
   }
 }
-@container chgrid (862px <= height < 952px) {
+@container chgrid (790px <= height < 890px) {
   .ch-more[data-r='5'] {
     display: inline-flex;
   }
 }
-@container chgrid (952px <= height < 1042px) {
+@container chgrid (890px <= height < 990px) {
   .ch-more[data-r='6'] {
     display: inline-flex;
+  }
+}
+
+/* 그리드 높이 800px 미만: 항목이 더 들어가도록 구역 여백을 줄이고 설명은 한 줄로 둔다(전체 보기에서 전문). */
+@container chgrid (height < 800px) {
+  .ch-zones [data-zone] {
+    padding: 8px 12px;
+    gap: 4px;
+  }
+  .ch-zones [data-zone] ol,
+  .ch-zones [data-zone] ul {
+    gap: 6px;
+  }
+  .ch-zones .line-clamp-2 {
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
   }
 }
 

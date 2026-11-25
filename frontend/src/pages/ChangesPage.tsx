@@ -806,28 +806,29 @@ export function ChangesPage() {
               <div className="ch-zones min-h-0 flex-1 overflow-hidden">
                 <CompareInsightZones result={result} />
               </div>
-              {itemTotal > 1 ? (
-                <div className="flex flex-none">
-                  {Array.from({ length: itemTotal - 1 }, (_, i) => i + 1).map((visible) => (
-                    <button
-                      key={visible}
-                      type="button"
-                      data-r={visible}
-                      onClick={() => setDialog('interpretation')}
-                      className="ch-more t-sub h-8 items-center rounded-full px-2 font-medium text-base-ink hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
-                    >
-                      나머지 {itemTotal - visible}개 보기
-                    </button>
-                  ))}
-                </div>
-              ) : null}
             </>
           ) : (
             <div className="min-h-0 flex-1 overflow-hidden">
               <p className="t-body-lg max-w-[70ch] break-words font-serif text-ink">{result.interpretation}</p>
             </div>
           )}
-          <div className="flex-none">
+          <div className="flex flex-none items-center gap-2">
+            {itemTotal > 1 ? (
+              <div className="flex flex-none">
+                {Array.from({ length: itemTotal - 1 }, (_, i) => i + 1).map((visible) => (
+                  <button
+                    key={visible}
+                    type="button"
+                    data-r={visible}
+                    onClick={() => setDialog('interpretation')}
+                    className="ch-more t-sub h-8 items-center rounded-full px-2 font-medium text-base-ink hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
+                  >
+                    나머지 {itemTotal - visible}개 보기
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <div className="min-w-0 flex-1">
             <FeedbackRow
               variant="text"
               question="이 해석이 맞나요?"
@@ -837,6 +838,7 @@ export function ChangesPage() {
               onNegative={() => handleFeedback('NOT_HELPFUL')}
               errorMessage={feedbackError}
             />
+            </div>
           </div>
         </>
       ) : null}
