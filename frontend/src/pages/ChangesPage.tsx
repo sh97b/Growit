@@ -33,7 +33,6 @@ import {
   type AiViewResult,
   type CompareResult,
   isStructuredCompare,
-  countCompareItems,
   type CompareTo,
 } from '../lib/ai'
 import { addDays, formatDurationMinutes, formatMonthDay, startOfWeekLocal, todayLocalDate } from '../lib/date'
@@ -745,8 +744,6 @@ export function ChangesPage() {
     )
   })()
 
-  const itemTotal = result && isStructuredCompare(result) ? countCompareItems(result) : 0
-
   const interpretationWeb = (
     <section
       aria-label="변화 해석"
@@ -754,15 +751,18 @@ export function ChangesPage() {
     >
       <div className="flex flex-none items-center justify-between gap-2">
         <AiLabel>변화 해석</AiLabel>
-        <div className="flex items-center gap-1">
-          {showResult ? (
-            <button
-              type="button"
-              onClick={() => setDialog('interpretation')}
-              className="t-sub inline-flex h-8 flex-none items-center rounded-full px-2 font-medium text-base-ink hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
-            >
-              전체 보기
-            </button>
+        <div className="flex min-w-0 items-center gap-2">
+          {showResult && result && !result.locked ? (
+            <FeedbackRow
+              compact
+              variant="text"
+              question="이 해석이 맞나요?"
+              status={result.feedback === 'HELPFUL' ? 'positive' : result.feedback === 'NOT_HELPFUL' ? 'negative' : null}
+              pending={feedbackMutation.isPending}
+              onPositive={() => handleFeedback('HELPFUL')}
+              onNegative={() => handleFeedback('NOT_HELPFUL')}
+              errorMessage={feedbackError}
+            />
           ) : null}
           {infoLine ? <InfoTip text={infoLine} /> : null}
         </div>
@@ -802,7 +802,7 @@ export function ChangesPage() {
         <>
           {isStructuredCompare(result) ? (
             <>
-              <h3 className="t-key line-clamp-2 flex-none break-words text-ink">{result.headline}</h3>
+              <h3 className="t-key flex-none break-words text-ink">{result.headline}</h3>
               <div className="ch-zones min-h-0 flex-1 overflow-hidden">
                 <CompareInsightZones result={result} />
               </div>
@@ -812,34 +812,6 @@ export function ChangesPage() {
               <p className="t-body-lg max-w-[70ch] break-words font-serif text-ink">{result.interpretation}</p>
             </div>
           )}
-          <div className="flex flex-none items-center gap-2">
-            {itemTotal > 1 ? (
-              <div className="flex flex-none">
-                {Array.from({ length: itemTotal - 1 }, (_, i) => i + 1).map((visible) => (
-                  <button
-                    key={visible}
-                    type="button"
-                    data-r={visible}
-                    onClick={() => setDialog('interpretation')}
-                    className="ch-more t-sub h-8 items-center rounded-full px-2 font-medium text-base-ink hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]"
-                  >
-                    나머지 {itemTotal - visible}개 보기
-                  </button>
-                ))}
-              </div>
-            ) : null}
-            <div className="min-w-0 flex-1">
-            <FeedbackRow
-              variant="text"
-              question="이 해석이 맞나요?"
-              status={result.feedback === 'HELPFUL' ? 'positive' : result.feedback === 'NOT_HELPFUL' ? 'negative' : null}
-              pending={feedbackMutation.isPending}
-              onPositive={() => handleFeedback('HELPFUL')}
-              onNegative={() => handleFeedback('NOT_HELPFUL')}
-              errorMessage={feedbackError}
-            />
-            </div>
-          </div>
         </>
       ) : null}
     </section>

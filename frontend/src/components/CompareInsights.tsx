@@ -120,7 +120,7 @@ function InsightItem({ tone, marker, item, priority }: { tone: Tone; marker: str
             <EvidenceButton count={item.evidence.length} open={open} onToggle={() => setOpen((value) => !value)} />
           ) : null}
         </div>
-        <p className={['t-body break-words text-ink-2', compact ? 'line-clamp-2' : ''].join(' ')}>{item.because}</p>
+        <p className={['t-body break-words text-ink-2', ''].join(' ')}>{item.because}</p>
         {compact ? open ? <EvidenceList evidence={item.evidence} /> : null : <EvidenceFold evidence={item.evidence} />}
       </div>
     </li>

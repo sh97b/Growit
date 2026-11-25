@@ -19,6 +19,8 @@ type Props = {
   onNegative: () => void
   /** 아이콘(엄지)인지 글자 버튼("맞아요"/"달라요")인지. 기본 thumbs. */
   variant?: 'thumbs' | 'text'
+  /** 해석 카드 머리줄처럼 좁은 자리용: 윗줄 없이 작은 글자·낮은 버튼. */
+  compact?: boolean
   positiveLabel?: string
   negativeLabel?: string
   thanksMessage?: string
@@ -55,6 +57,7 @@ export function FeedbackRow({
   onPositive,
   onNegative,
   variant = 'thumbs',
+  compact = false,
   positiveLabel,
   negativeLabel,
   thanksMessage = '피드백 고마워요',
@@ -133,12 +136,12 @@ export function FeedbackRow({
     <div className="flex flex-col gap-3">
       <div className={['grid-collapse', collapsed ? 'is-collapsed' : ''].join(' ')}>
         <div>
-          <div className="flex flex-col gap-3 border-t border-[color-mix(in_srgb,var(--color-base)_28%,white)] pt-2">
+          <div className={['flex flex-col gap-3', compact ? '' : 'border-t border-[color-mix(in_srgb,var(--color-base)_28%,white)] pt-2'].join(' ')}>
             {transientMessage ? (
-              <span className="t-sub text-ink-2">{transientMessage}</span>
+              <span className={[compact ? 't-cap' : 't-sub', 'text-ink-2'].join(' ')}>{transientMessage}</span>
             ) : (
               <div className="flex items-center justify-between gap-3">
-                <span className="t-sub text-ink">{question}</span>
+                <span className={[compact ? 't-cap' : 't-sub', 'text-ink'].join(' ')}>{question}</span>
                 <div className="flex items-center gap-2">
                   {variant === 'thumbs' ? (
                     <>
@@ -178,7 +181,7 @@ export function FeedbackRow({
                         aria-pressed={status === 'positive'}
                         onClick={handlePositive}
                         className={[
-                          'inline-flex min-h-10 flex-none items-center justify-center whitespace-nowrap rounded-lg border px-4 t-sub font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
+                          compact ? 'inline-flex min-h-8 flex-none items-center justify-center whitespace-nowrap rounded-lg border px-3 t-cap font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]' : 'inline-flex min-h-10 flex-none items-center justify-center whitespace-nowrap rounded-lg border px-4 t-sub font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
                           status === 'positive'
                             ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
                             : 'border-line-2 bg-white',
@@ -191,7 +194,7 @@ export function FeedbackRow({
                         aria-pressed={status === 'negative' || status === 'edited'}
                         onClick={handleNegative}
                         className={[
-                          'inline-flex min-h-10 flex-none items-center justify-center whitespace-nowrap rounded-lg border px-4 t-sub font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
+                          compact ? 'inline-flex min-h-8 flex-none items-center justify-center whitespace-nowrap rounded-lg border px-3 t-cap font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]' : 'inline-flex min-h-10 flex-none items-center justify-center whitespace-nowrap rounded-lg border px-4 t-sub font-medium text-ink hover:bg-[color-mix(in_srgb,var(--color-ink)_6%,white)]',
                           status === 'negative' || status === 'edited'
                             ? 'border-base bg-[color-mix(in_srgb,var(--color-base)_12%,white)]'
                             : 'border-line-2 bg-white',
