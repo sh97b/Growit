@@ -51,7 +51,7 @@ export function FilterBar({ search, hobby, range, hasActiveFilter, onReset, trai
     // [분야][기간] 드롭다운 한 줄) — 줄바꿈이 생겨도 컨테이너 높이가 내용에 맞춰 늘어나 아래 목록을
     // 덮지 않는다. 데스크톱은 기존처럼 한 줄(h-10, 줄바꿈 없음).
     <div className="flex flex-col gap-2 lg:h-10 lg:flex-row lg:flex-nowrap lg:items-center">
-      <div className="relative h-11 w-full flex-none lg:h-10 lg:w-[26rem] lg:max-w-full">
+      <div className="relative h-11 w-full flex-none lg:h-10 lg:w-[clamp(10rem,19vw,22rem)] lg:max-w-full">
         <SearchIcon width={16} height={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
         <input
           type="search"
