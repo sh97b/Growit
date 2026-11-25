@@ -107,40 +107,25 @@ const PRIORITY_ORDER: [Tone, number][] = [
 ]
 
 function InsightItem({ tone, marker, item, priority }: { tone: Tone; marker: string; item: CompareInsight; priority?: number }) {
-  const [open, setOpen] = useState(false)
-  // 웹 카드(priority 있음): 근거 버튼을 제목 줄 오른쪽에 두어 항목 높이를 한 줄 줄인다.
-  const compact = priority != null
   return (
     <li data-priority={priority} className="flex min-w-0 gap-2">
       <Marker tone={tone}>{marker}</Marker>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <div className="flex min-w-0 items-start justify-between gap-2">
-          <p className={[compact ? 't-body-lg' : 't-body', 'min-w-0 break-words font-semibold text-ink'].join(' ')}>{item.point}</p>
-          {compact && item.evidence.length > 0 ? (
-            <EvidenceButton count={item.evidence.length} open={open} onToggle={() => setOpen((value) => !value)} />
-          ) : null}
-        </div>
-        <p className={['t-body break-words text-ink-2', ''].join(' ')}>{item.because}</p>
-        {compact ? open ? <EvidenceList evidence={item.evidence} /> : null : <EvidenceFold evidence={item.evidence} />}
+        <p className={[priority != null ? 't-body-lg' : 't-body', 'break-words font-semibold text-ink'].join(' ')}>{item.point}</p>
+        <p className="t-body break-words text-ink-2">{item.because}</p>
+        <EvidenceFold evidence={item.evidence} />
       </div>
     </li>
   )
 }
 
 function IdeaItem({ item, priority }: { item: CompareIdea; priority?: number }) {
-  const [open, setOpen] = useState(false)
-  const compact = priority != null
   return (
     <li data-priority={priority} className="flex min-w-0 gap-2">
       <Marker tone="next">→</Marker>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <div className="flex min-w-0 items-start justify-between gap-2">
-          <p className={[compact ? 't-body-lg' : 't-body', 'min-w-0 break-words font-semibold text-ink'].join(' ')}>{item.idea}</p>
-          {compact && item.evidence.length > 0 ? (
-            <EvidenceButton count={item.evidence.length} open={open} onToggle={() => setOpen((value) => !value)} />
-          ) : null}
-        </div>
-        {compact ? open ? <EvidenceList evidence={item.evidence} /> : null : <EvidenceFold evidence={item.evidence} />}
+        <p className={[priority != null ? 't-body-lg' : 't-body', 'break-words font-semibold text-ink'].join(' ')}>{item.idea}</p>
+        <EvidenceFold evidence={item.evidence} />
       </div>
     </li>
   )

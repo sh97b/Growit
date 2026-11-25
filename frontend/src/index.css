@@ -684,37 +684,37 @@ select:focus-visible {
     mask-image: none;
   }
 }
-@container chgrid (height < 385px) {
+@container chgrid (height < 500px) {
   [data-priority='2'],
   [data-minp='2'] {
     display: none;
   }
 }
-@container chgrid (height < 465px) {
+@container chgrid (height < 605px) {
   [data-priority='3'],
   [data-minp='3'] {
     display: none;
   }
 }
-@container chgrid (height < 540px) {
+@container chgrid (height < 700px) {
   [data-priority='4'],
   [data-minp='4'] {
     display: none;
   }
 }
-@container chgrid (height < 600px) {
+@container chgrid (height < 810px) {
   [data-priority='5'],
   [data-minp='5'] {
     display: none;
   }
 }
-@container chgrid (height < 670px) {
+@container chgrid (height < 920px) {
   [data-priority='6'],
   [data-minp='6'] {
     display: none;
   }
 }
-@container chgrid (height < 740px) {
+@container chgrid (height < 1030px) {
   [data-priority='7'],
   [data-minp='7'] {
     display: none;

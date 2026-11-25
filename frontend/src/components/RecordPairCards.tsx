@@ -39,16 +39,17 @@ export function RecordPairCards({
 }) {
   if (!left && !right) return null
   return (
-    <div className={vertical ? 'flex flex-col gap-4' : 'grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start'}>
-      {left ? <RecordPairCardItem card={left} /> : null}
-      {right ? <RecordPairCardItem card={right} emphasized /> : null}
+    <div className={vertical ? 'flex min-h-0 flex-[2] flex-col gap-4' : 'grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start'}>
+      {left ? <RecordPairCardItem card={left} grow={vertical} /> : null}
+      {right ? <RecordPairCardItem card={right} emphasized grow={vertical} /> : null}
     </div>
   )
 }
 
-function RecordPairCardItem({ card, emphasized = false }: { card: RecordPairCard; emphasized?: boolean }) {
+function RecordPairCardItem({ card, emphasized = false, grow = false }: { card: RecordPairCard; emphasized?: boolean; grow?: boolean }) {
   const className = [
-    'rp-card flex min-w-0 flex-col gap-2 overflow-hidden rounded-xl border p-4 text-ink no-underline lg:max-h-[180px]',
+    'rp-card flex min-w-0 flex-col gap-2 overflow-hidden rounded-xl border p-4 text-ink no-underline',
+    grow ? 'min-h-0 flex-1 justify-center' : 'lg:max-h-[180px]',
     emphasized
       ? 'border-[color-mix(in_srgb,var(--color-base)_28%,white)] bg-[color-mix(in_srgb,var(--color-base)_9%,white)]'
       : 'border-line bg-white',
