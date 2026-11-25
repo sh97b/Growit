@@ -5,7 +5,7 @@ import { AiLabel } from '../components/AiLabel'
 import { Band } from '../components/Card'
 import { Button } from '../components/Button'
 import { useLatestNextAction } from '../hooks/useLatestNextAction'
-import { HomeNextActionBlock } from '../components/NextActionCard'
+import { HomeNextActionBlock, NextActionNote } from '../components/NextActionCard'
 import { Dropdown } from '../components/Dropdown'
 import { HobbyInlineCreate } from '../components/HobbyInlineCreate'
 import { HomeActivityCard } from '../components/HomeActivityCard'
@@ -305,6 +305,7 @@ function FirstUseBoard() {
 function HomeCoachCard({ autoStatus, dense = false }: { autoStatus: CoachAutoResponse | null; dense?: boolean }) {
   const { data, isLoading } = useQuery({ queryKey: ['ai', 'coach', 'latest'], queryFn: fetchLatestCoach })
   const nextActionQuery = useLatestNextAction()
+  const recentQuery = useQuery({ queryKey: ['records', 'recent'], queryFn: () => fetchRecords({ size: 1 }) })
 
   if (isLoading || nextActionQuery.isLoading) {
     return dense ? (
@@ -320,7 +321,14 @@ function HomeCoachCard({ autoStatus, dense = false }: { autoStatus: CoachAutoRes
 
   // 회고가 있든 없든, 최신 기록에 반응 전 제안이 있으면 항상 보인다.
   const nextAction = nextActionQuery.data && nextActionQuery.data.state == null ? nextActionQuery.data : null
-  const nextActionBlock = nextAction ? <HomeNextActionBlock action={nextAction} dense={dense} /> : null
+  const triedBefore = !!nextActionQuery.data && nextActionQuery.data.state != null
+  const analysisPending = recentQuery.data?.items[0]?.aiStatus === 'PENDING'
+  // 제안이 없으면 같은 자리에 버튼 없는 한 줄 안내를 둔다.
+  const nextActionBlock = nextAction ? (
+    <HomeNextActionBlock action={nextAction} dense={dense} />
+  ) : (
+    <NextActionNote tried={triedBefore} pending={analysisPending} />
+  )
   const cardClass = dense ? 'home-pad home-grow-3 flex min-h-0 flex-col gap-2 rounded-2xl bg-surface' : 'flex flex-col gap-2.5 rounded-2xl bg-surface p-5'
 
   // 회고가 아예 없으면: 오늘 접속 때 자동 생성 조건을 이미 확인했다면(autoStatus) 정확한 진행 수치를, 아니면 일반 안내만.
@@ -377,7 +385,7 @@ function HomeCoachCard({ autoStatus, dense = false }: { autoStatus: CoachAutoRes
   )
 
   return (
-    <div className={cardClass}>
+    <div className={[cardClass, dense && !nextAction ? 'justify-center' : ''].join(' ')}>
       <div className="flex items-center justify-between gap-2">
         <h2 className="min-w-0 truncate text-card-title">
           {data.startDate ? `${formatMonthDay(data.startDate)} 회고` : 'AI 회고'}

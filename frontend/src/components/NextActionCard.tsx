@@ -78,3 +78,23 @@ export function HomeNextActionBlock({ action, dense = false }: { action: NextAct
     </div>
   )
 }
+
+/**
+ * 다음에 해 볼 일이 없을 때 같은 자리에 두는 안내. 버튼은 두지 않는다(행동은 홈 위쪽 한 줄 입력칸과 상단 [기록하기]가 맡는다).
+ * 이미 해 봤거나 보류한 경우, AI가 만드는 중인 경우, 그 밖(아직 제안 없음)을 구분해 한 줄로 알린다.
+ */
+export function NextActionNote({ tried, pending }: { tried: boolean; pending: boolean }) {
+  const text = tried
+    ? '지난 제안을 해 보셨네요. 오늘 한 줄을 남기면 새 제안이 와요'
+    : pending
+      ? '기록을 읽고 다음에 해 볼 일을 찾고 있어요'
+      : '오늘 한 줄을 남기면 다음에 해 볼 일을 제안해 드려요'
+  return (
+    <p role="status" className="t-sub flex flex-none items-center gap-2 rounded-xl bg-white/60 px-4 py-3 text-ink-2">
+      {pending && !tried ? (
+        <span aria-hidden="true" className="inline-block h-4 w-4 flex-none animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none" />
+      ) : null}
+      {text}
+    </p>
+  )
+}
