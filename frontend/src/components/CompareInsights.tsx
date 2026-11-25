@@ -102,7 +102,7 @@ function InsightItem({ tone, marker, item, priority }: { tone: Tone; marker: str
       <Marker tone={tone}>{marker}</Marker>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <p className={[priority != null ? 't-body-lg' : 't-body', 'break-words font-semibold text-ink'].join(' ')}>{item.point}</p>
-        <p className="t-body break-words text-ink-2">{item.because}</p>
+        <p className={['t-body break-words text-ink-2', priority != null ? 'line-clamp-2' : ''].join(' ')}>{item.because}</p>
         <EvidenceFold evidence={item.evidence} />
       </div>
     </li>

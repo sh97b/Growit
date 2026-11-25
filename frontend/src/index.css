@@ -686,68 +686,68 @@ select:focus-visible {
     mask-image: none;
   }
 }
-@container chgrid (height < 520px) {
+@container chgrid (height < 551px) {
   [data-priority='2'],
   [data-minp='2'] {
     display: none;
   }
 }
-@container chgrid (height < 650px) {
+@container chgrid (height < 682px) {
   [data-priority='3'],
   [data-minp='3'] {
     display: none;
   }
 }
-@container chgrid (height < 760px) {
+@container chgrid (height < 772px) {
   [data-priority='4'],
   [data-minp='4'] {
     display: none;
   }
 }
-@container chgrid (height < 870px) {
+@container chgrid (height < 862px) {
   [data-priority='5'],
   [data-minp='5'] {
     display: none;
   }
 }
-@container chgrid (height < 980px) {
+@container chgrid (height < 952px) {
   [data-priority='6'],
   [data-minp='6'] {
     display: none;
   }
 }
-@container chgrid (height < 1090px) {
+@container chgrid (height < 1042px) {
   [data-priority='7'],
   [data-minp='7'] {
     display: none;
   }
 }
-@container chgrid (height < 520px) {
+@container chgrid (height < 551px) {
   .ch-more[data-r='1'] {
     display: inline-flex;
   }
 }
-@container chgrid (520px <= height < 650px) {
+@container chgrid (551px <= height < 682px) {
   .ch-more[data-r='2'] {
     display: inline-flex;
   }
 }
-@container chgrid (650px <= height < 760px) {
+@container chgrid (682px <= height < 772px) {
   .ch-more[data-r='3'] {
     display: inline-flex;
   }
 }
-@container chgrid (760px <= height < 870px) {
+@container chgrid (772px <= height < 862px) {
   .ch-more[data-r='4'] {
     display: inline-flex;
   }
 }
-@container chgrid (870px <= height < 980px) {
+@container chgrid (862px <= height < 952px) {
   .ch-more[data-r='5'] {
     display: inline-flex;
   }
 }
-@container chgrid (980px <= height < 1090px) {
+@container chgrid (952px <= height < 1042px) {
   .ch-more[data-r='6'] {
     display: inline-flex;
   }
@@ -766,4 +766,14 @@ select:focus-visible {
     padding: 12px 14px;
     gap: 8px;
   }
+}
+
+/* 해석 카드 안 구역은 촘촘하게(항목이 더 많이 들어가도록). */
+.ch-zones [data-zone] {
+  gap: 6px;
+  padding: 10px 12px;
+}
+.ch-zones [data-zone] ol,
+.ch-zones [data-zone] ul {
+  gap: 10px;
 }
