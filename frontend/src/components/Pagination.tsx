@@ -1,59 +1,48 @@
-import { ChevronLeftIcon, ChevronRightIcon } from './icons'
-
 type Props = {
   page: number
   totalPages: number
   onChange: (page: number) => void
 }
 
-function pageButtonClass(active: boolean): string {
-  return [
-    'inline-flex h-11 min-w-11 items-center justify-center rounded-lg border px-2 t-sub font-medium',
-    active ? 'border-base bg-base text-white' : 'border-line-2 bg-white text-ink',
-  ].join(' ')
-}
+/** 한 번에 점으로 보여 줄 최대 페이지 수. 넘으면 현재 쪽 주변만 보여 주고 가장자리 점을 누르면 창이 옮겨 간다. */
+const MAX_DOTS = 9
 
 /**
- * 디자인에 없는 추가 부품(U2): 서버의 page·size·totalCount 기반 목록을 넘길 때 공용으로 쓴다.
- * 0부터 시작하는 page를 받아 1부터 보여 준다.
+ * 서버의 page·size·totalCount 기반 목록을 넘길 때 공용으로 쓴다. 0부터 시작하는 page를 받는다.
+ * 숫자 대신 점으로 보여 주고 현재 쪽은 길쭉한 알약으로 표시한다. 누르는 영역은 점보다 크게(높이 44) 둔다.
  */
 export function Pagination({ page, totalPages, onChange }: Props) {
   if (totalPages <= 1) return null
 
-  const pageNumbers = Array.from({ length: totalPages }, (_, index) => index)
+  const count = Math.min(totalPages, MAX_DOTS)
+  const start = Math.min(Math.max(0, page - Math.floor(count / 2)), totalPages - count)
+  const pageNumbers = Array.from({ length: count }, (_, index) => start + index)
 
   return (
-    <nav aria-label="페이지 이동" className="flex items-center justify-center gap-1.5">
-      <button
-        type="button"
-        aria-label="이전 페이지"
-        disabled={page === 0}
-        onClick={() => onChange(page - 1)}
-        className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-line-2 bg-white text-ink disabled:opacity-40"
-      >
-        <ChevronLeftIcon width={16} height={16} />
-      </button>
-      {pageNumbers.map((pageNumber) => (
-        <button
-          key={pageNumber}
-          type="button"
-          aria-label={`${pageNumber + 1}페이지`}
-          aria-current={pageNumber === page ? 'page' : undefined}
-          onClick={() => onChange(pageNumber)}
-          className={pageButtonClass(pageNumber === page)}
-        >
-          {pageNumber + 1}
-        </button>
-      ))}
-      <button
-        type="button"
-        aria-label="다음 페이지"
-        disabled={page >= totalPages - 1}
-        onClick={() => onChange(page + 1)}
-        className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-line-2 bg-white text-ink disabled:opacity-40"
-      >
-        <ChevronRightIcon width={16} height={16} />
-      </button>
+    <nav aria-label="페이지 이동" className="flex items-center justify-center">
+      {pageNumbers.map((pageNumber) => {
+        const active = pageNumber === page
+        return (
+          <button
+            key={pageNumber}
+            type="button"
+            aria-label={`${pageNumber + 1}페이지`}
+            aria-current={active ? 'page' : undefined}
+            onClick={() => onChange(pageNumber)}
+            className="group inline-flex h-11 items-center justify-center px-1.5"
+          >
+            <span
+              aria-hidden="true"
+              className={[
+                'block h-2.5 rounded-full transition-[width,background-color] duration-200 motion-reduce:transition-none',
+                active
+                  ? 'w-7 bg-ink'
+                  : 'w-2.5 bg-[color-mix(in_srgb,var(--color-ink)_26%,white)] group-hover:bg-[color-mix(in_srgb,var(--color-ink)_46%,white)]',
+              ].join(' ')}
+            />
+          </button>
+        )
+      })}
     </nav>
   )
 }

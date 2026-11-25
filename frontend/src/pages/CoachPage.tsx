@@ -366,15 +366,29 @@ export function CoachPage() {
     />
   )
 
-  // P2 4번: 목록을 "받은 회고 N개" 카드로 감싸고, 그 아래 항상 "다음 회고" 카드를 둬서(진행 n/5)
-  // 회고가 1개뿐이어도 왼쪽 열이 비어 보이지 않게 한다.
+  // 목록 카드 머리줄 오른쪽에 "다음 회고" 진행(n/5)을 작게 둬서 목록이 세로로 최대한 길게 쓰이게 한다.
   const nextCoachRemaining = autoStatus?.newRecordsSinceLast
   const nextCoachRequired = autoStatus?.requiredCount ?? 5
 
   const listPanel = (
     <div className="flex flex-col gap-3 lg:h-full lg:min-h-0">
       <div className="flex flex-col gap-3 rounded-2xl border border-line bg-white p-5 lg:min-h-0 lg:flex-1">
-        <h2 className="flex-none text-card-title text-ink">받은 회고 {listQuery.data?.totalCount ?? 0}개</h2>
+        <div className="flex flex-none flex-wrap items-center justify-between gap-x-6 gap-y-2">
+          <h2 className="text-card-title text-ink">받은 회고 {listQuery.data?.totalCount ?? 0}개</h2>
+          {nextCoachRemaining != null ? (
+            <div className="flex min-w-0 items-center gap-3">
+              <p className="t-sub text-ink-2">
+                기록 {nextCoachRemaining}/{nextCoachRequired} · {nextCoachRequired}개가 쌓이면 회고가 자동으로 도착해요
+              </p>
+              <div className="h-1.5 w-20 flex-none overflow-hidden rounded-full bg-rest" aria-hidden="true">
+                <div
+                  className="h-full rounded-full bg-base"
+                  style={{ width: `${Math.min(100, (nextCoachRemaining / Math.max(1, nextCoachRequired)) * 100)}%` }}
+                />
+              </div>
+            </div>
+          ) : null}
+        </div>
         <ListPane
           listRef={containerRef}
           className="lg:min-h-0 lg:flex-1"
@@ -449,22 +463,6 @@ export function CoachPage() {
         </ListPane>
       </div>
 
-      {nextCoachRemaining != null ? (
-        <div className="flex flex-none flex-col items-start gap-2 rounded-2xl border border-line bg-white p-5">
-          <p className="t-sub text-ink">
-            기록 {nextCoachRemaining}/{nextCoachRequired} · {nextCoachRequired}개가 쌓이면 회고가 자동으로 도착해요
-          </p>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-rest">
-            <div
-              className="h-full rounded-full bg-base"
-              style={{ width: `${Math.min(100, (nextCoachRemaining / Math.max(1, nextCoachRequired)) * 100)}%` }}
-            />
-          </div>
-          <Link to="/records/new" className="inline-flex min-h-9 items-center t-sub font-medium text-base-ink no-underline rounded-full px-2 -mx-2 hover:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--color-base)_10%,transparent)]">
-            기록하기
-          </Link>
-        </div>
-      ) : null}
     </div>
   )
 
