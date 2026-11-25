@@ -396,7 +396,7 @@ function HomeCoachCard({ autoStatus, dense = false }: { autoStatus: CoachAutoRes
         </div>
       </div>
       {data.periodSummary ? (
-        <p className={dense ? 'home-sum t-body text-ink-2' : 'line-clamp-2 text-body-min text-ink-2'}>{data.periodSummary}</p>
+        <p className={dense ? 'home-sum t-body-lg text-ink-2' : 'line-clamp-2 text-body-min text-ink-2'}>{data.periodSummary}</p>
       ) : null}
       {nextActionBlock}
       {dense ? null : reviewLink}
