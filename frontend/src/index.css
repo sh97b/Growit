@@ -415,8 +415,8 @@ select:focus-visible {
     flex: 3 1 0;
     min-height: 0;
   }
-  /* 제안이 없어 회고 카드가 내용 높이일 때: 위 묶음(이번 주·회고)과 아래 묶음(통계·주제)으로 나눠 남는 높이를 두 묶음 사이에 둔다. */
-  .home-fit:has(.home-coach-compact) > .home-stats {
+  /* 제안이 없어 회고 카드가 내용 높이일 때: 통계는 회고 바로 아래에 붙이고, 남는 높이는 자주 하는 주제 위에 둔다. */
+  .home-fit:has(.home-coach-compact) > .home-hide-1 {
     margin-top: auto;
   }
   .home-fit > .home-stats {
