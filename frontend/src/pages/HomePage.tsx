@@ -5,7 +5,7 @@ import { AiLabel } from '../components/AiLabel'
 import { Band } from '../components/Card'
 import { Button } from '../components/Button'
 import { useLatestNextAction } from '../hooks/useLatestNextAction'
-import { HomeNextActionBlock } from '../components/NextActionCard'
+import { HomeNextActionBlock, HomeNextActionCard, NextActionCta } from '../components/NextActionCard'
 import { Dropdown } from '../components/Dropdown'
 import { HobbyInlineCreate } from '../components/HobbyInlineCreate'
 import { HomeActivityCard } from '../components/HomeActivityCard'
@@ -192,6 +192,7 @@ export function HomePage() {
                 <>
                   <RecentWeekStrip home />
                   <HomeCoachCard autoStatus={autoStatus} dense />
+                  <HomeNextActionCard />
                   <StatsTiles summary={summary} slim />
                   <div className="home-hide-1">
                     <TopicChips dense />
@@ -308,10 +309,10 @@ function HomeCoachCard({ autoStatus, dense = false }: { autoStatus: CoachAutoRes
 
   if (isLoading || nextActionQuery.isLoading) {
     return dense ? (
-      <div className="home-pad home-grow-3 flex flex-col gap-2 rounded-2xl bg-surface" role="status" aria-label="회고를 불러오는 중이에요">
+      <div className="home-pad flex flex-col gap-2 rounded-2xl bg-surface" role="status" aria-label="회고를 불러오는 중이에요">
         <div className="h-5 w-1/3 rounded-full bg-rest motion-safe:animate-pulse" />
         <div className="h-4 w-full rounded-full bg-rest motion-safe:animate-pulse" />
-        <div className="min-h-[8.5rem] flex-1 rounded-xl bg-rest motion-safe:animate-pulse" />
+        <div className="h-4 w-4/5 rounded-full bg-rest motion-safe:animate-pulse" />
       </div>
     ) : (
       <Loading />
@@ -320,8 +321,12 @@ function HomeCoachCard({ autoStatus, dense = false }: { autoStatus: CoachAutoRes
 
   // 회고가 있든 없든, 최신 기록에 반응 전 제안이 있으면 항상 보인다.
   const nextAction = nextActionQuery.data && nextActionQuery.data.state == null ? nextActionQuery.data : null
-  const nextActionBlock = nextAction ? <HomeNextActionBlock action={nextAction} dense={dense} /> : null
-  const cardClass = dense ? 'home-pad home-grow-3 flex min-h-0 flex-col gap-2 rounded-2xl bg-surface' : 'flex flex-col gap-2.5 rounded-2xl bg-surface p-5'
+  // 웹 홈은 다음에 해 볼 일을 독립 카드(HomeNextActionCard)로 분리했다. 모바일만 회고 카드 안에 [이 일로 기록하기] 버튼과 함께 둔다.
+  const nextActionBlock =
+    !dense && nextAction && nextActionQuery.data ? (
+      <HomeNextActionBlock action={nextAction} cta={<NextActionCta action={nextActionQuery.data} />} />
+    ) : null
+  const cardClass = dense ? 'home-pad flex min-h-0 flex-col gap-2 rounded-2xl bg-surface' : 'flex flex-col gap-2.5 rounded-2xl bg-surface p-5'
 
   // 회고가 아예 없으면: 오늘 접속 때 자동 생성 조건을 이미 확인했다면(autoStatus) 정확한 진행 수치를, 아니면 일반 안내만.
   if (!data) {
