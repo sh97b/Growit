@@ -17,10 +17,12 @@ import {
 import { reactionLine } from '../lib/coachReaction'
 import { formatMonthDay } from '../lib/date'
 
-export function EvidenceRow({ evidence }: { evidence: CoachEvidenceItem[] }) {
+export function EvidenceRow({ evidence, collapsible = false }: { evidence: CoachEvidenceItem[]; collapsible?: boolean }) {
+  const [open, setOpen] = useState(false)
+  const listId = useId()
   if (evidence.length === 0) return null
-  return (
-    <div className="flex flex-wrap gap-2">
+  const chips = (
+    <div id={listId} className="flex flex-wrap gap-2">
       {evidence.map((item) => (
         <Link
           key={item.recordId}
@@ -32,6 +34,22 @@ export function EvidenceRow({ evidence }: { evidence: CoachEvidenceItem[] }) {
           <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-ink-2">{item.content}</span>
         </Link>
       ))}
+    </div>
+  )
+  if (!collapsible) return chips
+  // 회고 화면: 근거 기록은 기본적으로 접어 두고 눌러서 펼친다.
+  return (
+    <div className="flex flex-col gap-2">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-controls={listId}
+        className="inline-flex min-h-11 w-fit items-center gap-1 rounded-full bg-transparent px-1 text-caption-min font-medium text-ink-2 hover:text-ink"
+      >
+        근거 기록 {evidence.length}개 <span aria-hidden="true">{open ? '▴' : '▾'}</span>
+      </button>
+      {open ? chips : null}
     </div>
   )
 }
@@ -73,7 +91,7 @@ function TextItemBlock({
             ) : null}
             {item.text}
           </p>
-          <EvidenceRow evidence={item.evidence} />
+          <EvidenceRow evidence={item.evidence} collapsible />
         </div>
       ))}
     </>
@@ -174,7 +192,7 @@ export function CoachActionCard({
       <AiLabel>{comeback ? '가볍게 다시 시작하려면' : '다음 작은 행동'}</AiLabel>
       <p className="text-section-title">{action.title}</p>
       <span className="text-caption-min text-ink-2">{action.minutes}분 · {action.reason}</span>
-      <EvidenceRow evidence={action.evidence} />
+      <EvidenceRow evidence={action.evidence} collapsible />
       {hideReactions ? null : result.reaction === 'TRIED' || result.reaction === 'REST_TODAY' ? (
         <p className="t-sub text-ink-2">{reactionLine(result.reaction, result.id ?? 0)}</p>
       ) : (
@@ -239,7 +257,7 @@ function NumberedSection({ title, note, cards }: { title: string; note?: string;
                   </ul>
                 </>
               ) : null}
-              <EvidenceRow evidence={card.evidence} />
+              <EvidenceRow evidence={card.evidence} collapsible />
             </div>
           </li>
         ))}
