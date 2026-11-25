@@ -47,7 +47,7 @@ export function EvidenceRow({ evidence, collapsible = false }: { evidence: Coach
         aria-controls={listId}
         className="inline-flex min-h-11 w-fit items-center gap-1 rounded-full bg-transparent px-1 text-caption-min font-medium text-ink-2 hover:text-ink"
       >
-        근거 기록 {evidence.length}개 <span aria-hidden="true">{open ? '▴' : '▾'}</span>
+        근거 {evidence.length}개 <span aria-hidden="true">{open ? '▴' : '▾'}</span>
       </button>
       {open ? chips : null}
     </div>
@@ -389,7 +389,7 @@ function SummaryBlock({ result }: { result: CoachResult }) {
             onClick={() => setOpen((prev) => !prev)}
             className="inline-flex min-h-11 w-fit items-center gap-1.5 bg-transparent p-0 text-caption-min font-medium text-ink-2"
           >
-            근거 기록 {records.length}개
+            근거 {records.length}개
             <span aria-hidden="true">{open ? '▴' : '▾'}</span>
           </button>
           <ul id={listId} hidden={!open} className="m-0 flex list-none flex-col gap-1 p-0">
