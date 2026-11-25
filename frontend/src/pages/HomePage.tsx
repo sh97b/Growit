@@ -190,6 +190,14 @@ export function HomePage() {
             <div className="home-fit">
               {state !== 'first' ? (
                 <>
+                  {/* 왼쪽 인사말 블록과 같은 높이의 보이지 않는 자리: 이번 주 줄을 왼쪽 입력 박스와 같은 높이에서 시작하게 한다. */}
+                  <div aria-hidden="true" className="pointer-events-none invisible flex flex-col gap-1 select-none">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="t-page min-w-0 truncate">{titleText}</span>
+                      <span className="t-sub flex-none">{formatMonthDayWeekday(today)}</span>
+                    </div>
+                    {subLine ? <div className="line-clamp-1">{subLine}</div> : null}
+                  </div>
                   <RecentWeekStrip home />
                   <HomeCoachCard autoStatus={autoStatus} dense />
                   <StatsTiles summary={summary} slim />

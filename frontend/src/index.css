@@ -415,10 +415,7 @@ select:focus-visible {
     flex: 3 1 0;
     min-height: 0;
   }
-  /* 제안이 없어 회고 카드가 내용 높이일 때: 통계·주제는 회고 바로 아래에 붙이고, 남는 높이는 이번 주 원 크기에 더 준다. */
-  .home-fit:has(.home-coach-compact) {
-    --wk-circle: clamp(32px, 6.4cqh, 64px);
-  }
+  /* 제안이 없어 회고 카드가 내용 높이일 때: 통계·주제는 회고 바로 아래에 붙이고, 남는 높이는 아래에 둔다. */
   .home-fit > .home-stats {
     flex: 1 1 0;
     min-height: 88px;
