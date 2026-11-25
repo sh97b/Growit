@@ -66,6 +66,28 @@ export function isStructuredCompare(result: CompareResult): boolean {
   return result.schemaVersion === 2 && !!result.headline && (result.good?.length ?? 0) > 0
 }
 
+/** 변화 탭 기본 데이터(AI 없이 즉시): 이전·최근 기록과 숫자. 해석(CompareResult)과 같은 기록 선정·같은 값이다. */
+export type CompareBasis = {
+  locked: boolean
+  lockReason: CompareLockReason | null
+  requiredCount: number | null
+  currentCount: number | null
+  oldestRecordDate: string | null
+  latestRecordDate: string | null
+  baseDate: string | null
+  anchoredToLatest: boolean
+  pastIsOldest: boolean
+  pastDate: string | null
+  currentDate: string | null
+  previous: CompareRecordCard | null
+  latest: CompareRecordCard | null
+  numbers: CompareMetrics | null
+}
+
+export function fetchCompareBasis(payload: { hobbyId: number; compareTo: CompareTo }) {
+  return apiRequest<CompareBasis>(`/api/compare/basis?hobbyId=${payload.hobbyId}&compareTo=${payload.compareTo}`)
+}
+
 export function fetchCompare(payload: { hobbyId: number; compareTo: CompareTo }) {
   return apiRequest<CompareResult>('/api/ai/compare', { method: 'POST', body: payload })
 }

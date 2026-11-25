@@ -124,6 +124,7 @@ public class CorsIntegrationTest {
 				Arguments.of("/api/roadmap-items/1", "PATCH"),
 				Arguments.of("/api/roadmap-items/1", "DELETE"),
 				Arguments.of("/api/roadmap-items/1/done", "PUT"),
+				Arguments.of("/api/compare/basis", "GET"),
 				Arguments.of("/api/roadmap-items/1/blocks", "GET"),
 				Arguments.of("/api/roadmap-items/1/blocks", "POST"),
 				Arguments.of("/api/roadmap-items/1/blocks/order", "PUT"),

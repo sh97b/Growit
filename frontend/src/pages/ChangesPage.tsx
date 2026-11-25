@@ -28,6 +28,7 @@ import { ApiError } from '../lib/api'
 import {
   fetchAiUsage,
   fetchCompare,
+  fetchCompareBasis,
   fetchMetricsInterpretation,
   submitAiResultFeedback,
   type AiViewResult,
@@ -108,6 +109,15 @@ export function ChangesPage() {
     retry: false,
   })
   const result = compareQuery.data ?? null
+
+  // 이전·최근 카드와 숫자 칩은 AI와 무관한 기본 데이터라 해석(AI)보다 먼저, 따로 불러 즉시 그린다.
+  const basisQuery = useQuery({
+    queryKey: ['compare', 'basis', effectiveHobbyId, compareTo],
+    queryFn: () => fetchCompareBasis({ hobbyId: effectiveHobbyId!, compareTo }),
+    enabled: effectiveHobbyId != null,
+    retry: false,
+  })
+  const basis = basisQuery.data && !basisQuery.data.locked ? basisQuery.data : null
 
   const feedbackMutation = useMutation({
     mutationFn: ({ id, value }: { id: number; value: 'HELPFUL' | 'NOT_HELPFUL' }) =>
@@ -216,10 +226,10 @@ export function ChangesPage() {
   // P1 3단계: 2행 = 왼쪽 안내 글자(결과가 있으면 기준일 안내, 없으면 비움) + 오른쪽 분야·기간
   // 드롭다운(기록·회고 탭과 같은 위치·모양). 남은 횟수는 1행 오른쪽(머리줄 액션)으로 옮긴다.
   const infoLine =
-    !compareQuery.isFetching && result && !result.locked && result.anchoredToLatest
-      ? `마지막 기록(${result.currentDate ? formatMonthDay(result.currentDate) : ''})을 기준으로 비교했어요`
-      : !compareQuery.isFetching && result && !result.locked && result.pastIsOldest
-        ? `${PERIODS.find((p) => p.value === compareTo)?.label ?? '이전'} 기록이 아직 없어서 가장 오래된 기록${result.pastDate ? ` (${formatMonthDay(result.pastDate)})` : ''}과 비교했어요`
+    basis && basis.anchoredToLatest
+      ? `마지막 기록(${basis.currentDate ? formatMonthDay(basis.currentDate) : ''})을 기준으로 비교했어요`
+      : basis && basis.pastIsOldest
+        ? `${PERIODS.find((p) => p.value === compareTo)?.label ?? '이전'} 기록이 아직 없어서 가장 오래된 기록${basis.pastDate ? ` (${formatMonthDay(basis.pastDate)})` : ''}과 비교했어요`
         : ''
 
   const toolbarRow = (
@@ -252,16 +262,16 @@ export function ChangesPage() {
 
   // ① 이전·최근 두 장. 결과를 기다리는 동안에는 같은 자리에 같은 크기의 자리표시를 둔다.
   const pairRow =
-    showResult && result ? (
+    basis ? (
       <RecordPairCards
         left={
-          result.pastRecord
-            ? { id: result.pastRecord.id, label: `${result.pastDate ? formatMonthDay(result.pastDate) : ''} 전후`, content: result.pastRecord.content }
+          basis.previous
+            ? { id: basis.previous.id, label: `${basis.pastDate ? formatMonthDay(basis.pastDate) : ''} 전후`, content: basis.previous.content }
             : null
         }
         right={
-          result.currentRecord
-            ? { id: result.currentRecord.id, label: `최근 · ${result.currentDate ? formatMonthDay(result.currentDate) : ''}`, content: result.currentRecord.content }
+          basis.latest
+            ? { id: basis.latest.id, label: `최근 · ${basis.currentDate ? formatMonthDay(basis.currentDate) : ''}`, content: basis.latest.content }
             : null
         }
       />
@@ -280,7 +290,7 @@ export function ChangesPage() {
     </div>
   )
   const metricChips = (() => {
-    if (compareQuery.isFetching) {
+    if (basisQuery.isLoading) {
       return (
         <div className="grid grid-cols-1 gap-2 lg:grid-cols-3" aria-hidden="true">
           {[0, 1, 2].map((index) => (
@@ -289,8 +299,8 @@ export function ChangesPage() {
         </div>
       )
     }
-    if (!result?.metrics) return null
-    const m = result.metrics
+    if (!basis?.numbers) return null
+    const m = basis.numbers
     const minutesText =
       m.totalMinutes.past === 0 && m.totalMinutes.current === 0
         ? '기록 안 함'
@@ -425,9 +435,9 @@ export function ChangesPage() {
         </div>
       ) : null}
 
-      {!isDesktop && (compareQuery.isFetching || showResult) ? (
+      {!isDesktop && (compareQuery.isFetching || showResult || basis) ? (
         <div className="flex min-w-0 flex-col gap-4">
-          {pairRow}
+          {basisQuery.isLoading || basis ? pairRow : null}
           {interpretationCard}
           {metricChips}
         </div>
@@ -816,7 +826,7 @@ export function ChangesPage() {
             글자는 토큰으로 고정이고 카드 높이만 달라진다. 레이아웃이 결과 도착 시 움직이지 않게 ①·②에는 같은 크기의 자리표시를 둔다. */}
         <div className="ch-body flex min-h-0 flex-1 flex-col gap-4 overflow-hidden whitespace-normal break-words">
           {comparison}
-          {compareQuery.isFetching || showResult ? pairRow : null}
+          {basisQuery.isLoading || basis ? pairRow : null}
           {compareQuery.isFetching || showResult ? interpretationCard : null}
           <div className="grid flex-none grid-cols-12 gap-4">
             <div className="col-span-6 min-w-0">{metricChips}</div>

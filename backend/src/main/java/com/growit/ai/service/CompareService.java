@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.growit.ai.dto.AiCompareResponse;
+import com.growit.ai.dto.CompareBasisResponse;
 import com.growit.ai.dto.CompareEvidence;
 import com.growit.ai.dto.CompareIdea;
 import com.growit.ai.dto.CompareInsight;
@@ -86,8 +87,16 @@ public class CompareService {
 		this.objectMapper = objectMapper;
 	}
 
-	@Transactional
-	public AiCompareResponse compare(Long userId, CompareRequest request) {
+	/** 비교할 두 기록을 고른 결과. locked가 있으면 비교할 수 없는 상태다(AI를 부르지 않는다). */
+	private record Basis(AiCompareResponse locked, Hobby hobby, ActivityRecord past, ActivityRecord current,
+			LocalDate baseDate, boolean pastIsOldest, boolean anchoredToLatest) {
+	}
+
+	/**
+	 * 이전·최근 기록 선정과 잠금 판단. AI 해석(compare)과 기본 데이터(basis)가 같은 규칙을 쓰도록 한 곳에 둔다.
+	 * 남의 분야는 존재를 숨기려고 NOT_FOUND다.
+	 */
+	private Basis resolveBasis(Long userId, CompareRequest request) {
 		Hobby hobby = hobbyRepository.findByIdAndUserId(request.hobbyId(), userId)
 				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "활동 분야를 찾을 수 없어요"));
 		if (!VALID_COMPARE_TO.contains(request.compareTo())) {
@@ -96,7 +105,8 @@ public class CompareService {
 
 		long totalCount = activityRecordRepository.countByUserIdAndHobbyId(userId, hobby.getId());
 		if (totalCount < REQUIRED_RECORD_COUNT) {
-			return AiCompareResponse.lockedNotEnoughRecords(REQUIRED_RECORD_COUNT, (int) totalCount);
+			return new Basis(AiCompareResponse.lockedNotEnoughRecords(REQUIRED_RECORD_COUNT, (int) totalCount), hobby,
+					null, null, null, false, false);
 		}
 
 		ActivityRecord current = activityRecordRepository
@@ -123,12 +133,44 @@ public class CompareService {
 				pastIsOldest = true;
 			} else {
 				LocalDate oldestDate = oldest == null ? null : oldest.getRecordDate();
-				return AiCompareResponse.lockedNoPastRecord(REQUIRED_RECORD_COUNT, (int) totalCount, oldestDate,
-						current.getRecordDate());
+				return new Basis(AiCompareResponse.lockedNoPastRecord(REQUIRED_RECORD_COUNT, (int) totalCount,
+						oldestDate, current.getRecordDate()), hobby, null, null, null, false, false);
 			}
 		}
-
 		boolean anchoredToLatest = !baseDate.equals(LocalDate.now(SERVER_ZONE));
+		return new Basis(null, hobby, past, current, baseDate, pastIsOldest, anchoredToLatest);
+	}
+
+	/**
+	 * 변화 탭의 기본 데이터(이전·최근 기록과 숫자). AI를 부르지 않아 즉시 답하고, 해석(compare)과 같은 기록 선정·같은 숫자를 쓴다.
+	 */
+	@Transactional(readOnly = true)
+	public CompareBasisResponse basis(Long userId, CompareRequest request) {
+		Basis basis = resolveBasis(userId, request);
+		if (basis.locked() != null) {
+			AiCompareResponse locked = basis.locked();
+			return CompareBasisResponse.locked(locked.lockReason(), locked.requiredCount(), locked.currentCount(),
+					locked.oldestRecordDate(), locked.latestRecordDate());
+		}
+		CompareMetrics metrics = computeMetrics(userId, basis.hobby().getId(), basis.past().getRecordDate(),
+				basis.baseDate());
+		return new CompareBasisResponse(false, null, null, null, null, null, basis.baseDate(), basis.anchoredToLatest(),
+				basis.pastIsOldest(), basis.past().getRecordDate(), basis.current().getRecordDate(),
+				toCard(basis.past()), toCard(basis.current()), metrics);
+	}
+
+	@Transactional
+	public AiCompareResponse compare(Long userId, CompareRequest request) {
+		Basis basis = resolveBasis(userId, request);
+		if (basis.locked() != null) {
+			return basis.locked();
+		}
+		Hobby hobby = basis.hobby();
+		ActivityRecord past = basis.past();
+		ActivityRecord current = basis.current();
+		LocalDate baseDate = basis.baseDate();
+		boolean pastIsOldest = basis.pastIsOldest();
+		boolean anchoredToLatest = basis.anchoredToLatest();
 
 		String cacheKey = CacheKeys.sha256(PROMPT_VERSION + "|COMPARE|" + hobby.getId()
 				+ "|" + past.getId() + ":" + past.getUpdatedAt()

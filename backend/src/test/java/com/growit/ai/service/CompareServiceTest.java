@@ -652,6 +652,64 @@ class CompareServiceTest {
 	}
 
 	@Test
+	void basis_returnsRecordsAndNumbersWithoutCallingProvider_andMatchesCompare() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord past = createRecord(1L, hobbyId, LocalDate.now().minusDays(30), "예전 연습");
+		createRecord(1L, hobbyId, LocalDate.now().minusDays(5), "중간 연습");
+		ActivityRecord current = createRecord(1L, hobbyId, LocalDate.now(), "최신 연습");
+		CompareRequest request = new CompareRequest(hobbyId, "2W");
+
+		com.growit.ai.dto.CompareBasisResponse basis = service(enabledProperties()).basis(1L, request);
+
+		verifyNoInteractions(aiChatClient);
+		assertThat(basis.locked()).isFalse();
+		assertThat(basis.previous().id()).isEqualTo(past.getId());
+		assertThat(basis.latest().id()).isEqualTo(current.getId());
+		assertThat(basis.pastDate()).isEqualTo(past.getRecordDate());
+		assertThat(basis.currentDate()).isEqualTo(current.getRecordDate());
+		assertThat(basis.anchoredToLatest()).isFalse();
+		assertThat(basis.numbers().recordedDays().current()).isEqualTo(3);
+
+		// 같은 요청의 AI 해석 응답과 값이 일치한다.
+		stubAiResponse(structuredJson("달라졌어요", insight("점", "이유", current.getId()), "", ""));
+		AiCompareResponse compare = service(enabledProperties()).compare(1L, request);
+		assertThat(compare.pastRecord().id()).isEqualTo(basis.previous().id());
+		assertThat(compare.currentRecord().id()).isEqualTo(basis.latest().id());
+		assertThat(compare.metrics()).isEqualTo(basis.numbers());
+		assertThat(compare.baseDate()).isEqualTo(basis.baseDate());
+		assertThat(compare.pastIsOldest()).isEqualTo(basis.pastIsOldest());
+	}
+
+	@Test
+	void basis_locked_returnsReasonWithoutRecords() {
+		Long hobbyId = createHobby(1L);
+		createRecord(1L, hobbyId, LocalDate.now(), "연습1");
+
+		com.growit.ai.dto.CompareBasisResponse basis = service(enabledProperties()).basis(1L, new CompareRequest(hobbyId, "1W"));
+
+		assertThat(basis.locked()).isTrue();
+		assertThat(basis.lockReason()).isEqualTo("NOT_ENOUGH_RECORDS");
+		assertThat(basis.previous()).isNull();
+		verifyNoInteractions(aiChatClient);
+	}
+
+	@Test
+	void basis_otherUsersHobby_isNotFound() {
+		Long hobbyId = createHobby(2L);
+
+		assertThatThrownBy(() -> service(enabledProperties()).basis(1L, new CompareRequest(hobbyId, "1W")))
+				.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.NOT_FOUND));
+	}
+
+	@Test
+	void basis_invalidCompareTo_isRejected() {
+		Long hobbyId = createHobby(1L);
+
+		assertThatThrownBy(() -> service(enabledProperties()).basis(1L, new CompareRequest(hobbyId, "9Y")))
+				.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
+	}
+
+	@Test
 	void submitFeedback_ownResult_savesValue() {
 		Long hobbyId = createHobby(1L);
 		AiResult saved = aiResultRepository.save(new AiResult(1L, hobbyId, "COMPARE", LocalDate.now(), LocalDate.now(),
