@@ -751,7 +751,19 @@ export function ChangesPage() {
     >
       <div className="flex flex-none items-center justify-between gap-2">
         <AiLabel>변화 해석</AiLabel>
-        <div className="flex items-center gap-1">
+        <div className="flex min-w-0 items-center gap-2">
+          {showResult && result && !result.locked ? (
+            <FeedbackRow
+              compact
+              variant="text"
+              question="이 해석이 맞나요?"
+              status={result.feedback === 'HELPFUL' ? 'positive' : result.feedback === 'NOT_HELPFUL' ? 'negative' : null}
+              pending={feedbackMutation.isPending}
+              onPositive={() => handleFeedback('HELPFUL')}
+              onNegative={() => handleFeedback('NOT_HELPFUL')}
+              errorMessage={feedbackError}
+            />
+          ) : null}
           {infoLine ? <InfoTip text={infoLine} /> : null}
         </div>
       </div>
@@ -800,18 +812,6 @@ export function ChangesPage() {
               <p className="t-body-lg max-w-[70ch] break-words font-serif text-ink">{result.interpretation}</p>
             </div>
           )}
-          <div className="flex-none border-t border-[color-mix(in_srgb,var(--color-base)_28%,white)] pt-2">
-            <FeedbackRow
-              compact
-              variant="text"
-              question="이 해석이 맞나요?"
-              status={result.feedback === 'HELPFUL' ? 'positive' : result.feedback === 'NOT_HELPFUL' ? 'negative' : null}
-              pending={feedbackMutation.isPending}
-              onPositive={() => handleFeedback('HELPFUL')}
-              onNegative={() => handleFeedback('NOT_HELPFUL')}
-              errorMessage={feedbackError}
-            />
-          </div>
         </>
       ) : null}
     </section>
