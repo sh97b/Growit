@@ -26,35 +26,45 @@ const TONE: Record<Tone, { box: string; title: string; marker: string }> = {
 
 const ZONE_TITLE: Record<Tone, string> = { good: '좋아진 점', gap: '더 키워 볼 점', next: '이렇게 해 보면 좋아요' }
 
+function EvidenceButton({ count, open, onToggle, className = '' }: { count: number; open: boolean; onToggle: () => void; className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      className={['t-sub inline-flex h-7 flex-none items-center gap-1 rounded-full px-1 font-medium text-ink-2 hover:text-ink', className].join(' ')}
+    >
+      근거 {count}개 {open ? '▴' : '▾'}
+    </button>
+  )
+}
+
+function EvidenceList({ evidence }: { evidence: CompareEvidence[] }) {
+  return (
+    <ul className="flex min-w-0 flex-col gap-1">
+      {evidence.map((entry) => (
+        <li key={entry.id} className="min-w-0">
+          <Link
+            to={`/records/${entry.id}`}
+            title={entry.content}
+            className="t-sub inline-flex min-h-8 max-w-full items-center gap-2 rounded-lg border border-line-2 bg-white px-2.5 text-ink no-underline"
+          >
+            <span className="flex-none font-semibold text-base-ink">{formatMonthDay(entry.recordDate)}</span>
+            <span className="min-w-0 truncate text-ink-2">{entry.content}</span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 function EvidenceFold({ evidence }: { evidence: CompareEvidence[] }) {
   const [open, setOpen] = useState(false)
   if (evidence.length === 0) return null
   return (
     <div className="flex min-w-0 flex-col gap-1">
-      <button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        aria-expanded={open}
-        className="t-sub inline-flex h-7 w-fit items-center gap-1 rounded-full px-1 font-medium text-ink-2 hover:text-ink"
-      >
-        근거 {evidence.length}개 {open ? '▴' : '▾'}
-      </button>
-      {open ? (
-        <ul className="flex min-w-0 flex-col gap-1">
-          {evidence.map((entry) => (
-            <li key={entry.id} className="min-w-0">
-              <Link
-                to={`/records/${entry.id}`}
-                title={entry.content}
-                className="t-sub inline-flex min-h-8 max-w-full items-center gap-2 rounded-lg border border-line-2 bg-white px-2.5 text-ink no-underline"
-              >
-                <span className="flex-none font-semibold text-base-ink">{formatMonthDay(entry.recordDate)}</span>
-                <span className="min-w-0 truncate text-ink-2">{entry.content}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <EvidenceButton count={evidence.length} open={open} onToggle={() => setOpen((value) => !value)} className="w-fit" />
+      {open ? <EvidenceList evidence={evidence} /> : null}
     </div>
   )
 }
@@ -97,25 +107,40 @@ const PRIORITY_ORDER: [Tone, number][] = [
 ]
 
 function InsightItem({ tone, marker, item, priority }: { tone: Tone; marker: string; item: CompareInsight; priority?: number }) {
+  const [open, setOpen] = useState(false)
+  // 웹 카드(priority 있음): 근거 버튼을 제목 줄 오른쪽에 두어 항목 높이를 한 줄 줄인다.
+  const compact = priority != null
   return (
     <li data-priority={priority} className="flex min-w-0 gap-2">
       <Marker tone={tone}>{marker}</Marker>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <p className={[priority != null ? 't-body-lg' : 't-body', 'break-words font-semibold text-ink'].join(' ')}>{item.point}</p>
-        <p className={['t-body break-words text-ink-2', priority != null ? 'line-clamp-2' : ''].join(' ')}>{item.because}</p>
-        <EvidenceFold evidence={item.evidence} />
+        <div className="flex min-w-0 items-start justify-between gap-2">
+          <p className={[compact ? 't-body-lg' : 't-body', 'min-w-0 break-words font-semibold text-ink'].join(' ')}>{item.point}</p>
+          {compact && item.evidence.length > 0 ? (
+            <EvidenceButton count={item.evidence.length} open={open} onToggle={() => setOpen((value) => !value)} />
+          ) : null}
+        </div>
+        <p className={['t-body break-words text-ink-2', compact ? 'line-clamp-2' : ''].join(' ')}>{item.because}</p>
+        {compact ? open ? <EvidenceList evidence={item.evidence} /> : null : <EvidenceFold evidence={item.evidence} />}
       </div>
     </li>
   )
 }
 
 function IdeaItem({ item, priority }: { item: CompareIdea; priority?: number }) {
+  const [open, setOpen] = useState(false)
+  const compact = priority != null
   return (
     <li data-priority={priority} className="flex min-w-0 gap-2">
       <Marker tone="next">→</Marker>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <p className={[priority != null ? 't-body-lg' : 't-body', 'break-words font-semibold text-ink'].join(' ')}>{item.idea}</p>
-        <EvidenceFold evidence={item.evidence} />
+        <div className="flex min-w-0 items-start justify-between gap-2">
+          <p className={[compact ? 't-body-lg' : 't-body', 'min-w-0 break-words font-semibold text-ink'].join(' ')}>{item.idea}</p>
+          {compact && item.evidence.length > 0 ? (
+            <EvidenceButton count={item.evidence.length} open={open} onToggle={() => setOpen((value) => !value)} />
+          ) : null}
+        </div>
+        {compact ? open ? <EvidenceList evidence={item.evidence} /> : null : <EvidenceFold evidence={item.evidence} />}
       </div>
     </li>
   )
