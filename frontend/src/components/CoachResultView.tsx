@@ -57,6 +57,74 @@ export function EvidenceRow({ evidence, collapsible = false }: { evidence: Coach
 /** P2: 회고 상세의 섹션 카드 한 겹(흰 배경, 옅은 테두리, 모서리 토큰, 안쪽 여백 1.25rem). */
 export const RESULT_CARD_CLASS = 'rounded-2xl border border-line bg-white p-5'
 
+/** 문장 앞에 이미 같은 날짜가 적혀 있으면 화면에서만 지운다(왼쪽 날짜 열과 겹쳐 보이지 않게). 문장 중간의 날짜는 그대로 둔다. */
+function stripLeadingDate(text: string, date: string | undefined): string {
+  if (!date) return text
+  const label = formatMonthDay(date)
+  if (!text.startsWith(label)) return text
+  const rest = text.slice(label.length).replace(/^[\s,·:-]+/, '')
+  return rest.length > 0 ? rest : text
+}
+
+/** 흐름 한 줄: 문장 끝 줄 오른쪽에 "근거 N개 ▾"를 두고, 펼치면 아래에 근거 칩이 나온다. */
+function TimelineLine({ item, date }: { item: CoachTextItem; date: string | undefined }) {
+  const [open, setOpen] = useState(false)
+  const listId = useId()
+  return (
+    <div className="flex min-w-0 flex-col gap-2">
+      <div className="flex min-w-0 items-end justify-between gap-3">
+        <p className="min-w-0 text-body-min leading-[1.7] text-ink">{stripLeadingDate(item.text, date)}</p>
+        {item.evidence.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => setOpen((value) => !value)}
+            aria-expanded={open}
+            aria-controls={listId}
+            className="inline-flex min-h-11 flex-none items-center gap-1 rounded-full bg-transparent px-1 text-caption-min font-medium text-ink-2 hover:text-ink lg:min-h-8"
+          >
+            근거 {item.evidence.length}개 <span aria-hidden="true">{open ? '▴' : '▾'}</span>
+          </button>
+        ) : null}
+      </div>
+      {open ? (
+        <div id={listId}>
+          <EvidenceRow evidence={item.evidence} />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+/** "이 기간에 한 일": 날짜는 한 번만(웹은 왼쪽 열, 모바일은 문장 위), 같은 날은 묶고 줄 사이는 연한 구분선으로 나눈다. */
+function TimelineList({ items }: { items: CoachTextItem[] }) {
+  const groups: { date: string | undefined; lines: CoachTextItem[] }[] = []
+  for (const item of items) {
+    const date = item.evidence[0]?.recordDate
+    const last = groups[groups.length - 1]
+    if (last && last.date === date) last.lines.push(item)
+    else groups.push({ date, lines: [item] })
+  }
+  return (
+    <ul className="m-0 flex list-none flex-col p-0">
+      {groups.map((group, index) => (
+        <li
+          key={`${group.date ?? 'none'}-${index}`}
+          className="flex flex-col gap-1 border-t border-line py-3 first:border-t-0 first:pt-0 lg:grid lg:grid-cols-[6rem_minmax(0,1fr)] lg:gap-4"
+        >
+          <span className="text-caption-min font-semibold text-base-ink lg:pt-1.5">
+            {group.date ? formatMonthDay(group.date) : ''}
+          </span>
+          <div className="flex min-w-0 flex-col gap-1">
+            {group.lines.map((line, lineIndex) => (
+              <TimelineLine key={lineIndex} item={line} date={group.date} />
+            ))}
+          </div>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 /*
  * 항목은 카드 안에서 배경 없는 평문(16px, 줄 높이 1.7)과 그 아래 근거 칩 한 줄로만 구성한다(카드
  * 안에 또 테두리 카드를 두지 않는다). 섹션 제목은 섹션 제목 토큰(20px)을 쓴다.
@@ -81,16 +149,13 @@ function TextItemBlock({
   const [open, setOpen] = useState(false)
   const contentId = useId()
   if (items.length === 0) return null
-  const content = (
+  const content = showDate ? (
+    <TimelineList items={items} />
+  ) : (
     <>
       {items.map((item, index) => (
         <div key={index} className="flex flex-col gap-2">
-          <p className="text-body-min leading-[1.7] text-ink">
-            {showDate && item.evidence[0] ? (
-              <span className="mr-2 font-semibold text-base-ink">{formatMonthDay(item.evidence[0].recordDate)}</span>
-            ) : null}
-            {item.text}
-          </p>
+          <p className="text-body-min leading-[1.7] text-ink">{item.text}</p>
           <EvidenceRow evidence={item.evidence} collapsible />
         </div>
       ))}
