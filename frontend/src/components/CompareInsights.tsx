@@ -106,26 +106,59 @@ const PRIORITY_ORDER: [Tone, number][] = [
   ['good', 2],
 ]
 
+/** 웹 카드(priority 있음): 근거 버튼을 글이 끝나는 줄의 오른쪽 끝에 두어 한 줄 높이를 아낀다. 눌러 펼친 근거 목록은 그 아래에 나온다. */
 function InsightItem({ tone, marker, item, priority }: { tone: Tone; marker: string; item: CompareInsight; priority?: number }) {
+  const [open, setOpen] = useState(false)
+  const inline = priority != null
   return (
     <li data-priority={priority} className="flex min-w-0 gap-2">
       <Marker tone={tone}>{marker}</Marker>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <p className={[priority != null ? 't-body-lg' : 't-body', 'break-words font-semibold text-ink'].join(' ')}>{item.point}</p>
-        <p className="t-body break-words text-ink-2">{item.because}</p>
-        <EvidenceFold evidence={item.evidence} />
+        <p className={[inline ? 't-body-lg' : 't-body', 'break-words font-semibold text-ink'].join(' ')}>{item.point}</p>
+        {inline ? (
+          <>
+            <div className="flex min-w-0 items-end justify-between gap-2">
+              <p className="t-body min-w-0 break-words text-ink-2">{item.because}</p>
+              {item.evidence.length > 0 ? (
+                <EvidenceButton count={item.evidence.length} open={open} onToggle={() => setOpen((value) => !value)} />
+              ) : null}
+            </div>
+            {open ? <EvidenceList evidence={item.evidence} /> : null}
+          </>
+        ) : (
+          <>
+            <p className="t-body break-words text-ink-2">{item.because}</p>
+            <EvidenceFold evidence={item.evidence} />
+          </>
+        )}
       </div>
     </li>
   )
 }
 
 function IdeaItem({ item, priority }: { item: CompareIdea; priority?: number }) {
+  const [open, setOpen] = useState(false)
+  const inline = priority != null
   return (
     <li data-priority={priority} className="flex min-w-0 gap-2">
       <Marker tone="next">→</Marker>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <p className={[priority != null ? 't-body-lg' : 't-body', 'break-words font-semibold text-ink'].join(' ')}>{item.idea}</p>
-        <EvidenceFold evidence={item.evidence} />
+        {inline ? (
+          <>
+            <div className="flex min-w-0 items-end justify-between gap-2">
+              <p className="t-body-lg min-w-0 break-words font-semibold text-ink">{item.idea}</p>
+              {item.evidence.length > 0 ? (
+                <EvidenceButton count={item.evidence.length} open={open} onToggle={() => setOpen((value) => !value)} />
+              ) : null}
+            </div>
+            {open ? <EvidenceList evidence={item.evidence} /> : null}
+          </>
+        ) : (
+          <>
+            <p className="t-body break-words font-semibold text-ink">{item.idea}</p>
+            <EvidenceFold evidence={item.evidence} />
+          </>
+        )}
       </div>
     </li>
   )
