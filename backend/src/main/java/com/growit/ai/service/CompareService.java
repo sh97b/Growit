@@ -60,11 +60,22 @@ public class CompareService {
 	private static final int EVIDENCE_SNIPPET_MAX = 40;
 	private static final Pattern NUMBER_PATTERN = Pattern.compile("\\d+");
 	/** prompts/ai-compare-system.txt를 바꿀 때마다, 또는 기준일 규칙처럼 저장된 결과의 모양이 바뀌면 올린다. */
-	static final int PROMPT_VERSION = 5;
+	static final int PROMPT_VERSION = 6;
 	private static final Set<String> VALID_COMPARE_TO = Set.of("1W", "2W", "1M", "3M");
-	private static final List<String> FORBIDDEN_WORDS =
-			List.of("실력", "늘었", "향상", "잘했", "훌륭", "대단", "점수", "순위", "완벽", "최고", "천재", "반드시",
-					"오늘 안에", "연속");
+	/**
+	 * 금지어 A(능력·점수 단정, 평가 칭찬, 재촉·연속 압박): headline·good·gap·next 모두에 적용한다.
+	 */
+	static final List<String> FORBIDDEN_A = List.of("실력", "늘었", "향상", "점수", "순위", "잘했", "훌륭", "대단", "반드시",
+			"오늘 안에", "연속");
+	/**
+	 * 금지어 B(과장·단정 예측): headline·good·next에만 적용하고, 아직 부족한 점을 부드럽게 말하는 gap에는 적용하지 않는다
+	 * (예: "아직 완벽하지는 않아요").
+	 */
+	static final List<String> FORBIDDEN_B = List.of("완벽", "최고", "천재", "틀림없", "될 거예요", "보장");
+	private static final int LOG_TEXT_MAX = 80;
+	private static final int FALLBACK_DIFFICULTY_MAX = 20;
+	/** 문장 끝에 붙은 평가 한 마디만 있는 꼬리를 잘라낼 때 쓰는 말(8자 이하). */
+	private static final Pattern PRAISE_TAIL = Pattern.compile("^(정말 |참 |아주 )?(좋아요|멋져요|대단해요|훌륭해요|잘했어요)$");
 
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
@@ -194,7 +205,8 @@ public class CompareService {
 				toPayloadRecord(current));
 
 		// 새 구조(json_schema)로 먼저 부른다. 검증에 실패하면 어떤 필드가 왜 거절됐는지 한 줄을 붙여 같은 방식으로 한 번 더 부르고
-		// (하루 한도에 세지 않는다), 그래도 안 되면 예전 한 문단 방식으로 대체한다.
+		// (하루 한도에 세지 않는다), 그래도 안 되면 예전 한 문단 방식으로 대체한다. 구조화 결과가 나왔는데 gap·next가 비면
+		// 그 구역을 반드시 채우라는 보강 지시로 한 번 더 부르고(총 3번 이하), 그래도 비면 서버가 정한 문장으로 채운다.
 		java.util.Map<String, Object> schema = structuredSchema();
 		AiCallResult result = aiCallService.call(userId, AiResultType.COMPARE, systemPrompt, payload, false,
 				STRUCTURED_SCHEMA_NAME, schema);
@@ -210,6 +222,11 @@ public class CompareService {
 			log.warn("COMPARE_FALLBACK_LEGACY reason={}:{}", check.field(), check.reason());
 			result = aiCallService.call(userId, AiResultType.COMPARE, loadLegacyPrompt(), payload, true);
 			stored = validate(result.content(), past.getId(), current.getId());
+		} else {
+			if (stored.gap().isEmpty() || stored.next().isEmpty()) {
+				stored = retryMissingSections(userId, systemPrompt, payload, schema, stored, check.dropNote(), past, current);
+			}
+			stored = fillMissingSections(stored, current);
 		}
 
 		CompareMetrics metrics = computeMetrics(userId, hobby.getId(), past.getRecordDate(), baseDate);
@@ -223,6 +240,84 @@ public class CompareService {
 		aiResultRepository.save(saved);
 
 		return toResponse(saved, false, userId, past, current);
+	}
+
+	/** gap 또는 next가 비었을 때 한 번만 더 불러 빈 구역만 채운다(하루 한도 미집계). 호출이 실패해도 결과 전체를 버리지 않는다. */
+	private StoredCompareResult retryMissingSections(Long userId, String systemPrompt, ComparePayload payload,
+			java.util.Map<String, Object> schema, StoredCompareResult stored, String dropNote, ActivityRecord past,
+			ActivityRecord current) {
+		String hint = systemPrompt + "\n\n[보강 지시] '더 키워 볼 점(gap)'과 '이렇게 해 보면 좋아요(next)'를 각각 1~2개 반드시 포함해 "
+				+ "JSON 객체 하나만 다시 응답해요. " + (dropNote == null || dropNote.isBlank() ? "" : dropNote);
+		StoredCompareResult second = null;
+		try {
+			AiCallResult again = aiCallService.call(userId, AiResultType.COMPARE, hint, payload, true,
+					STRUCTURED_SCHEMA_NAME, schema);
+			second = validateStructured(again.content(), past, current).stored();
+		} catch (ApiException e) {
+			log.warn("COMPARE_SECTION_RETRY_FAILED code={}", e.getCode());
+		}
+		List<StoredCompareInsight> gap = stored.gap().isEmpty() && second != null ? second.gap() : stored.gap();
+		List<StoredCompareIdea> next = stored.next().isEmpty() && second != null ? second.next() : stored.next();
+		return withSections(stored, gap, next);
+	}
+
+	private StoredCompareResult withSections(StoredCompareResult base, List<StoredCompareInsight> gap,
+			List<StoredCompareIdea> next) {
+		return new StoredCompareResult(base.interpretation(), base.pastRecordId(), base.currentRecordId(), base.metrics(),
+				base.baseDate(), base.anchoredToLatest(), base.pastIsOldest(), base.schemaVersion(), base.headline(),
+				base.good(), gap, next);
+	}
+
+	/** 재호출 뒤에도 gap·next가 비면 AI 없이 기록에서 정한 문장으로 채운다(근거는 최근 기록). */
+	private StoredCompareResult fillMissingSections(StoredCompareResult stored, ActivityRecord current) {
+		List<StoredCompareInsight> gap = stored.gap();
+		List<StoredCompareIdea> next = stored.next();
+		if (gap.isEmpty()) {
+			String difficulty = current.getDifficulty() == null ? "" : current.getDifficulty().trim();
+			if (!difficulty.isEmpty()) {
+				String snippet = difficulty.length() > FALLBACK_DIFFICULTY_MAX ? difficulty.substring(0, FALLBACK_DIFFICULTY_MAX)
+						: difficulty;
+				log.warn("COMPARE_SECTION_FALLBACK section=gap source=DIFFICULTY");
+				gap = List.of(new StoredCompareInsight("기록에 적은 '" + snippet + "'는 아직 남은 숙제예요",
+						"최근 기록에 적은 막힌 점이에요", List.of(current.getId())));
+			} else {
+				log.warn("COMPARE_SECTION_FALLBACK section=gap source=FEW_RECORDS");
+				gap = List.of(new StoredCompareInsight("비교할 기록이 아직 적어요", "기록이 더 쌓이면 변화가 더 선명해져요",
+						List.of(current.getId())));
+			}
+		}
+		if (next.isEmpty()) {
+			String actionText = nextActionText(current);
+			String firstTag = extractTags(current.getAiAnalysis()).stream().findFirst().orElse(null);
+			String idea;
+			String source;
+			if (actionText != null) {
+				idea = actionText;
+				source = "NEXT_ACTION";
+			} else if (firstTag != null) {
+				idea = "'" + firstTag + "'를 한 가지 조건만 바꿔 한 번 더 해 보고 기록해 봐요";
+				source = "TAG";
+			} else {
+				idea = "지금 하던 것을 한 가지 조건만 바꿔 한 번 더 해 보고 기록해 봐요";
+				source = "GENERIC";
+			}
+			log.warn("COMPARE_SECTION_FALLBACK section=next source={}", source);
+			next = List.of(new StoredCompareIdea(idea, List.of(current.getId())));
+		}
+		return withSections(stored, gap, next);
+	}
+
+	/** 기록 분석에 저장된 "다음에 해 볼 일" 문장. 없거나 읽을 수 없으면 null. */
+	private String nextActionText(ActivityRecord record) {
+		if (record.getAiAnalysis() == null) {
+			return null;
+		}
+		try {
+			JsonNode text = objectMapper.readTree(record.getAiAnalysis()).path("nextAction").path("text");
+			return text.isTextual() && !text.asText().isBlank() ? text.asText().trim() : null;
+		} catch (JsonProcessingException e) {
+			return null;
+		}
 	}
 
 	/** 1W/2W는 일수, 1M/3M은 달력 월 단위로 뺀다(2월 같은 짧은 달을 자연스럽게 다룬다). */
@@ -271,31 +366,51 @@ public class CompareService {
 		}
 	}
 
-	/** 구조화 검증 결과. stored가 null이면 전체 실패이고 field·reason이 첫 실패 지점이다. */
-	record StructuredCheck(StoredCompareResult stored, String field, String reason) {
-		static StructuredCheck ok(StoredCompareResult stored) {
-			return new StructuredCheck(stored, null, null);
+	/** 구조화 검증 결과. stored가 null이면 전체 실패이고 field·reason이 첫 실패 지점이다. dropNote는 버려진 항목을 한 줄로 요약한 것이다. */
+	record StructuredCheck(StoredCompareResult stored, String field, String reason, String dropNote) {
+		static StructuredCheck ok(StoredCompareResult stored, String dropNote) {
+			return new StructuredCheck(stored, null, null, dropNote);
 		}
 
 		static StructuredCheck failed(String field, String reason) {
-			return new StructuredCheck(null, field, reason);
+			return new StructuredCheck(null, field, reason, null);
 		}
 	}
 
-	/** 한 문장 검사 결과: value가 null이면 reason(LENGTH|FIELD|FORBIDDEN|NUMBER)이 거절 이유다. */
-	private record Text(String value, String reason, int length) {
+	/** 한 문장 검사 결과: value가 null이면 reason(LENGTH|FIELD|FORBIDDEN|NUMBER)이 거절 이유다. matched는 걸린 금지어나 숫자다. */
+	private record Text(String value, String reason, int length, String matched, String snippet) {
+		static Text rejected(String reason, int length, String matched, String text) {
+			return new Text(null, reason, length, matched, text == null ? "-" : text.replaceAll("\\s+", " ").trim());
+		}
 	}
 
-	/** 항목 하나가 버려질 때 첫 사유를 field별로 기억해 두었다가, 그 field가 통째로 비면 보고한다. */
+	/** 숫자 검사 방식: 엄격(거절), 소프트(통과하고 경고 로그), 없음. */
+	private enum NumberMode {
+		STRICT, SOFT, NONE
+	}
+
+	/** 항목 하나가 버려질 때 첫 사유를 field별로 기억해 두었다가, 그 field가 통째로 비면 보고하고, 재호출 지시에 쓸 한 줄도 모은다. */
 	private static final class Drops {
 		private final java.util.Map<String, String> firstReason = new java.util.HashMap<>();
+		private final List<String> notes = new ArrayList<>();
 
-		void add(String field, String reason) {
-			firstReason.putIfAbsent(field, reason);
+		void add(String field, int item, Text text) {
+			firstReason.putIfAbsent(field, text.reason());
+			String matched = text.matched() == null ? "" : "(" + text.matched() + ")";
+			notes.add(field + " " + (item + 1) + "번째 항목이 " + reasonText(text.reason()) + matched);
 		}
 
 		String reasonOf(String field) {
 			return firstReason.getOrDefault(field, "FIELD");
+		}
+
+		void addEmpty(String field) {
+			notes.add(field + " 구역이 비어 있");
+		}
+
+		/** "직전 응답에서는 …해서 거절됐어요" 한 줄. 모인 게 없으면 빈 문자열. */
+		String note() {
+			return notes.isEmpty() ? "" : "직전 응답에서는 " + String.join(", ", notes) + "었어요.";
 		}
 	}
 
@@ -310,55 +425,69 @@ public class CompareService {
 		try {
 			node = aiResponseValidator.parse(rawJson);
 		} catch (ApiException e) {
-			logDropped(recordIds, "headline", "PARSE", rawJson == null ? 0 : rawJson.length(), rawJson);
+			logDropped(recordIds, "headline", -1, Text.rejected("PARSE", rawJson == null ? 0 : rawJson.length(), null, null), rawJson);
 			return StructuredCheck.failed("headline", "PARSE");
 		}
 		Set<Long> allowed = Set.of(past.getId(), current.getId());
 		Set<Integer> allowedNumbers = allowedNumbers(past, current);
 		Drops drops = new Drops();
 
-		Text headline = cleanText(node.path("headline"), HEADLINE_HARD_MAX, allowedNumbers);
+		Text headline = cleanText(node.path("headline"), HEADLINE_HARD_MAX, allowedNumbers, true, NumberMode.STRICT, "headline");
 		if (headline.value() == null) {
-			logDropped(recordIds, "headline", headline.reason(), headline.length(), rawJson);
+			logDropped(recordIds, "headline", -1, headline, rawJson);
 			return StructuredCheck.failed("headline", headline.reason());
 		}
 		List<StoredCompareInsight> good = insights("good", node.path("good"), GOOD_MAX, allowed, current, allowedNumbers,
-				recordIds, rawJson, drops);
+				recordIds, rawJson, drops, true, NumberMode.STRICT);
 		if (good.isEmpty()) {
 			String reason = node.path("good").isArray() ? drops.reasonOf("good") : "FIELD";
 			if (!node.path("good").isArray()) {
-				logDropped(recordIds, "good", "FIELD", 0, rawJson);
+				logDropped(recordIds, "good", -1, Text.rejected("FIELD", 0, null, null), rawJson);
 			}
 			return StructuredCheck.failed("good", reason);
 		}
 		List<StoredCompareInsight> gap = insights("gap", node.path("gap"), GAP_MAX, allowed, current, allowedNumbers,
-				recordIds, rawJson, drops);
+				recordIds, rawJson, drops, false, NumberMode.SOFT);
 		List<StoredCompareIdea> next = ideas(node.path("next"), NEXT_MAX, allowed, current, allowedNumbers, recordIds,
-				rawJson);
+				rawJson, drops);
+		if (gap.isEmpty()) {
+			drops.addEmpty("gap");
+		}
+		if (next.isEmpty()) {
+			drops.addEmpty("next");
+		}
 		log.info("COMPARE_STRUCT_OK good={} gap={} next={}", good.size(), gap.size(), next.size());
 		// 구조화 결과는 비교한 두 기록을 항상 함께 보여 준다(근거로 어느 쪽을 몇 번 썼는지와 상관없이).
 		return StructuredCheck.ok(new StoredCompareResult(headline.value(), past.getId(), current.getId(), null, null,
-				false, false, STRUCTURED_SCHEMA_VERSION, headline.value(), good, gap, next));
+				false, false, STRUCTURED_SCHEMA_VERSION, headline.value(), good, gap, next), drops.note());
 	}
 
 	private List<StoredCompareInsight> insights(String field, JsonNode arrayNode, int max, Set<Long> allowed,
-			ActivityRecord current, Set<Integer> allowedNumbers, List<Long> recordIds, String rawJson, Drops drops) {
+			ActivityRecord current, Set<Integer> allowedNumbers, List<Long> recordIds, String rawJson, Drops drops,
+			boolean applyB, NumberMode numberMode) {
 		List<StoredCompareInsight> kept = new ArrayList<>();
 		if (!arrayNode.isArray()) {
 			return kept;
 		}
+		int index = -1;
 		for (JsonNode item : arrayNode) {
+			index++;
 			if (kept.size() >= max) {
 				break;
 			}
-			Text point = cleanText(item.path("point"), ITEM_HARD_MAX, allowedNumbers);
+			Text point = cleanText(item.path("point"), ITEM_HARD_MAX, allowedNumbers, applyB, numberMode, field + "." + index);
 			if (point.value() == null) {
-				drop(field, point, recordIds, rawJson, drops);
+				drop(field, index, point, recordIds, rawJson, drops);
 				continue;
 			}
-			Text because = cleanText(item.path("because"), ITEM_HARD_MAX, allowedNumbers);
+			// 설명 끝에 평가 한 마디("좋아요" 등)만 덧붙은 경우는 검사 전에 그 마디만 잘라낸다.
+			JsonNode becauseNode = item.path("because");
+			if (becauseNode.isTextual()) {
+				becauseNode = objectMapper.getNodeFactory().textNode(trimPraiseTail(becauseNode.asText()));
+			}
+			Text because = cleanText(becauseNode, ITEM_HARD_MAX, allowedNumbers, applyB, numberMode, field + "." + index);
 			if (because.value() == null) {
-				drop(field, because, recordIds, rawJson, drops);
+				drop(field, index, because, recordIds, rawJson, drops);
 				continue;
 			}
 			kept.add(new StoredCompareInsight(point.value(), because.value(),
@@ -368,18 +497,21 @@ public class CompareService {
 	}
 
 	private List<StoredCompareIdea> ideas(JsonNode arrayNode, int max, Set<Long> allowed, ActivityRecord current,
-			Set<Integer> allowedNumbers, List<Long> recordIds, String rawJson) {
+			Set<Integer> allowedNumbers, List<Long> recordIds, String rawJson, Drops drops) {
 		List<StoredCompareIdea> kept = new ArrayList<>();
 		if (!arrayNode.isArray()) {
 			return kept;
 		}
+		int index = -1;
 		for (JsonNode item : arrayNode) {
+			index++;
 			if (kept.size() >= max) {
 				break;
 			}
-			Text idea = cleanText(item.path("idea"), ITEM_HARD_MAX, allowedNumbers);
+			// next는 새 숫자(속도·횟수 등 제안)를 쓸 수 있어 숫자 검사를 하지 않는다.
+			Text idea = cleanText(item.path("idea"), ITEM_HARD_MAX, allowedNumbers, true, NumberMode.NONE, "next." + index);
 			if (idea.value() == null) {
-				logDropped(recordIds, "next", idea.reason(), idea.length(), rawJson);
+				drop("next", index, idea, recordIds, rawJson, drops);
 				continue;
 			}
 			kept.add(new StoredCompareIdea(idea.value(), evidenceIds(item.path("evidenceRecordIds"), allowed, current)));
@@ -387,18 +519,44 @@ public class CompareService {
 		return kept;
 	}
 
-	private void drop(String field, Text text, List<Long> recordIds, String rawJson, Drops drops) {
-		drops.add(field, text.reason());
-		logDropped(recordIds, field, text.reason(), text.length(), rawJson);
+	/** 마지막 문장이 8자 이하이고 평가 단어뿐이면 그 문장만 잘라낸다. 문장이 하나뿐이거나 그 밖의 문장은 그대로 둔다. */
+	static String trimPraiseTail(String because) {
+		String text = because.trim();
+		int cut = -1;
+		for (int i = text.length() - 2; i >= 0; i--) {
+			char ch = text.charAt(i);
+			if (ch == '.' || ch == '!' || ch == '?') {
+				cut = i;
+				break;
+			}
+		}
+		if (cut < 0) {
+			return text;
+		}
+		String tail = text.substring(cut + 1).trim().replaceAll("[.!?\\s]+$", "");
+		if (tail.length() <= 8 && PRAISE_TAIL.matcher(tail).matches()) {
+			return text.substring(0, cut + 1).trim();
+		}
+		return text;
 	}
 
-	private void logDropped(List<Long> recordIds, String field, String reason, int length, String rawJson) {
+	private void drop(String field, int item, Text text, List<Long> recordIds, String rawJson, Drops drops) {
+		drops.add(field, item, text);
+		logDropped(recordIds, field, item, text, rawJson);
+	}
+
+	private void logDropped(List<Long> recordIds, String field, int item, Text text, String rawJson) {
 		String raw = rawJson == null ? "" : rawJson.replaceAll("\\s+", " ");
 		if (raw.length() > RAW_LOG_MAX) {
 			raw = raw.substring(0, RAW_LOG_MAX);
 		}
-		log.warn("COMPARE_STRUCT_DROPPED recordIds={} field={} reason={} length={} raw={}", recordIds, field, reason,
-				length, raw);
+		String snippet = text.snippet() == null ? "-" : text.snippet();
+		if (snippet.length() > LOG_TEXT_MAX) {
+			snippet = snippet.substring(0, LOG_TEXT_MAX);
+		}
+		log.warn("COMPARE_STRUCT_DROPPED recordIds={} field={} reason={} length={} item={} text={} matched={} raw={}",
+				recordIds, field, text.reason(), text.length(), item < 0 ? "-" : String.valueOf(item), snippet,
+				text.matched() == null ? "-" : text.matched(), raw);
 	}
 
 	/** 허용된 id만 남기고, 하나도 안 남으면(비었거나 남의·없는 id) 비교한 두 기록 중 최근 기록 id로 대신한다. */
@@ -417,42 +575,83 @@ public class CompareService {
 		return ids;
 	}
 
-	/** 문자열이 아니거나 비었으면 FIELD, 길이를 넘으면 LENGTH, 금지어면 FORBIDDEN, 기록에 없는 숫자가 있으면 NUMBER. */
-	private Text cleanText(JsonNode node, int maxLength, Set<Integer> allowedNumbers) {
+	/**
+	 * 문자열이 아니거나 비었으면 FIELD, 길이를 넘으면 LENGTH, 금지어면 FORBIDDEN, 기록에 없는 숫자가 있으면 NUMBER(엄격할 때).
+	 * applyB가 false면 금지어 B(과장·예측)는 보지 않는다. 소프트 숫자 검사는 통과시키되 COMPARE_NUMBER_SOFT 경고만 남긴다.
+	 */
+	private Text cleanText(JsonNode node, int maxLength, Set<Integer> allowedNumbers, boolean applyB, NumberMode numberMode,
+			String where) {
 		if (!node.isTextual()) {
-			return new Text(null, "FIELD", 0);
+			return Text.rejected("FIELD", 0, null, null);
 		}
 		String text = node.asText().trim();
 		if (text.isEmpty()) {
-			return new Text(null, "FIELD", 0);
+			return Text.rejected("FIELD", 0, null, null);
 		}
 		if (text.length() > maxLength) {
-			return new Text(null, "LENGTH", text.length());
+			return Text.rejected("LENGTH", text.length(), null, text);
 		}
-		if (containsForbiddenWord(text)) {
-			return new Text(null, "FORBIDDEN", text.length());
+		String forbidden = firstForbidden(text, applyB);
+		if (forbidden != null) {
+			return Text.rejected("FORBIDDEN", text.length(), forbidden, text);
 		}
-		for (int number : numbersIn(text)) {
-			// 한·두(1·2)는 "한 번", "두 기록"처럼 숫자가 아닌 말로도 흔히 쓰여 검사하지 않는다.
-			if (number > 2 && !allowedNumbers.contains(number)) {
-				return new Text(null, "NUMBER", text.length());
+		if (numberMode != NumberMode.NONE) {
+			for (int number : numbersIn(text)) {
+				// 한·두(1·2)는 "한 번", "두 기록"처럼 숫자가 아닌 말로도 흔히 쓰여 검사하지 않는다.
+				if (number > 2 && !allowedNumbers.contains(number)) {
+					if (numberMode == NumberMode.STRICT) {
+						return Text.rejected("NUMBER", text.length(), String.valueOf(number), text);
+					}
+					log.warn("COMPARE_NUMBER_SOFT where={} number={} text={}", where, number,
+							text.length() > LOG_TEXT_MAX ? text.substring(0, LOG_TEXT_MAX) : text);
+				}
 			}
 		}
-		return new Text(text, null, text.length());
+		return new Text(text, null, text.length(), null, null);
+	}
+
+	/** 걸린 금지어를 돌려준다(없으면 null). A는 항상, B는 applyB일 때만 본다. */
+	private static String firstForbidden(String text, boolean applyB) {
+		for (String word : FORBIDDEN_A) {
+			if (text.contains(word)) {
+				return word;
+			}
+		}
+		if (applyB) {
+			for (String word : FORBIDDEN_B) {
+				if (text.contains(word)) {
+					return word;
+				}
+			}
+		}
+		return null;
 	}
 
 	/** 입력(두 기록의 본문·어려움·시간·날짜)에 나온 숫자 전부(아라비아 숫자와 한글 수사). */
 	private Set<Integer> allowedNumbers(ActivityRecord past, ActivityRecord current) {
 		Set<Integer> numbers = new java.util.HashSet<>();
+		Set<Integer> content = new java.util.HashSet<>();
 		for (ActivityRecord record : List.of(past, current)) {
-			numbers.addAll(numbersIn(record.getContent()));
-			numbers.addAll(numbersIn(record.getDifficulty()));
+			content.addAll(numbersIn(record.getContent()));
+			content.addAll(numbersIn(record.getDifficulty()));
 			if (record.getMinutes() != null) {
-				numbers.add(record.getMinutes());
+				content.add(record.getMinutes());
 			}
 			numbers.add(record.getRecordDate().getYear());
 			numbers.add(record.getRecordDate().getMonthValue());
 			numbers.add(record.getRecordDate().getDayOfMonth());
+		}
+		numbers.addAll(content);
+		// 본문·어려움·시간에 나온 숫자 두 개의 차와 합도 인정한다("20분에서 30분으로 10분 늘렸다" 같은 계산). 날짜 숫자는 제외한다.
+		List<Integer> base = new ArrayList<>(content);
+		for (int i = 0; i < base.size(); i++) {
+			for (int j = i + 1; j < base.size(); j++) {
+				numbers.add(Math.abs(base.get(i) - base.get(j)));
+				long sum = (long) base.get(i) + base.get(j);
+				if (sum <= Integer.MAX_VALUE) {
+					numbers.add((int) sum);
+				}
+			}
 		}
 		return numbers;
 	}
@@ -537,8 +736,9 @@ public class CompareService {
 		return false;
 	}
 
+	/** 예전 한 문단(interpretation)은 두 금지어 목록을 모두 적용한다. */
 	private boolean containsForbiddenWord(String text) {
-		return FORBIDDEN_WORDS.stream().anyMatch(text::contains);
+		return firstForbidden(text, true) != null;
 	}
 
 	private String truncate(String text, int maxLength) {

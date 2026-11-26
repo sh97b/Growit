@@ -560,7 +560,7 @@ class CompareServiceTest {
 				.completeStructured(anyString(), anyString(), org.mockito.ArgumentMatchers.eq("compare_insights"),
 						org.mockito.ArgumentMatchers.anyMap());
 		assertThat(logs).anyMatch(m -> m.startsWith("COMPARE_STRUCT_DROPPED recordIds=[")
-				&& m.contains("field=headline reason=LENGTH length=101 raw={"));
+				&& m.contains("field=headline reason=LENGTH length=101 item=- text=") && m.contains(" matched=- raw={"));
 		assertThat(logs).anyMatch(m -> m.startsWith("COMPARE_FALLBACK_LEGACY reason=headline:"));
 	}
 
@@ -579,10 +579,12 @@ class CompareServiceTest {
 
 		assertThat(response.schemaVersion()).isEqualTo(2);
 		assertThat(response.good()).extracting("point").containsExactly("조금 편해졌어요");
-		assertThat(system.getAllValues()).hasSize(2);
+		// 첫 응답 + 교정 재호출 + gap 보강 재호출(gap이 비어서). 총 3번이고 앞의 둘만 하루 한도에 세지 않는다.
+		assertThat(system.getAllValues()).hasSize(3);
 		assertThat(system.getAllValues().get(0)).doesNotContain("[교정 지시]");
 		assertThat(system.getAllValues().get(1)).contains("[교정 지시]", "good 필드", "기록에 없는 숫자");
-		assertThat(aiLogRepository.findAll()).extracting("state").containsExactlyInAnyOrder("OK", "RETRY");
+		assertThat(system.getAllValues().get(2)).contains("[보강 지시]", "gap 구역이 비어 있");
+		assertThat(aiLogRepository.findAll()).extracting("state").containsExactlyInAnyOrder("OK", "RETRY", "RETRY");
 		assertThat(logs).anyMatch(m -> m.contains("field=good reason=NUMBER"));
 		assertThat(logs).anyMatch(m -> m.equals("COMPARE_STRUCT_OK good=1 gap=0 next=1"));
 		assertThat(logs).noneMatch(m -> m.startsWith("COMPARE_FALLBACK_LEGACY"));
@@ -595,11 +597,11 @@ class CompareServiceTest {
 
 		stubAiResponse(structuredJson("달라졌어요",
 				insight("10번을 이어 쳤어요", "예전엔 세 번이었어요", r[1].getId()) + ","
-						+ insight("여섯 번도 해 봤어요", "이유", r[1].getId()),
+						+ insight("마흔 번도 해 봤어요", "이유", r[1].getId()),
 				"", ""));
 		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "2W"));
 
-		// 열 번=10, 3번=세 번은 통과하고, 입력에 없는 "여섯 번"(6)은 버려진다.
+		// 열 번=10, 3번=세 번은 통과하고, 입력에 없는 "마흔 번"(40)은 버려진다.
 		assertThat(response.schemaVersion()).isEqualTo(2);
 		assertThat(response.good()).extracting("point").containsExactly("10번을 이어 쳤어요");
 	}
@@ -730,5 +732,166 @@ class CompareServiceTest {
 
 		assertThatThrownBy(() -> service(enabledProperties()).submitFeedback(1L, saved.getId(), "HELPFUL"))
 				.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.NOT_FOUND));
+	}
+
+	// ---- CH5: 금지어 A·B 분리, 숫자 검사 범위, 구역 최소 1개 보장 ----
+
+	private static final String OK_GOOD = "{\"point\":\"이어 쳤어요\",\"because\":\"이번엔 이어서 쳤어요\",\"evidenceRecordIds\":[%d]}";
+
+	@Test
+	void ch5_gap_allowsBWords_butRejectsAWords_andNextRejectsBWords() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord[] r = threeRecords(hobbyId, "예전 연습", "최신 연습");
+		Long cur = r[1].getId();
+		java.util.List<String> logs = captureCompareLogs();
+
+		stubAiResponse(structuredJson("달라졌어요",
+				insight("이어 쳤어요", "이번엔 이어서 쳤어요", cur) + "," + insight("완벽한 연주예요", "이유", cur),
+				insight("아직 완벽하지는 않아요", "천천히 칠 때만 확인했어요", cur) + "," + insight("실력이 부족해요", "이유", cur),
+				idea("속도를 한 단계 올려 보세요", cur) + "," + idea("최고 속도로 쳐 보세요", cur)));
+		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "2W"));
+
+		// good: B 단어(완벽)는 거절, gap: B 단어는 통과·A 단어(실력)는 거절, next: B 단어(최고)는 거절.
+		assertThat(response.good()).extracting("point").containsExactly("이어 쳤어요");
+		assertThat(response.gap()).extracting("point").containsExactly("아직 완벽하지는 않아요");
+		assertThat(response.next()).extracting("idea").containsExactly("속도를 한 단계 올려 보세요");
+		// 거절 로그에는 항목 번호·앞 80자·걸린 단어가 남는다.
+		assertThat(logs).anyMatch(m -> m.startsWith("COMPARE_STRUCT_DROPPED") && m.contains("field=good reason=FORBIDDEN")
+				&& m.contains("item=1 text=완벽한 연주예요 matched=완벽"));
+		assertThat(logs).anyMatch(m -> m.contains("field=gap reason=FORBIDDEN") && m.contains("item=1 text=실력이 부족해요 matched=실력"));
+		assertThat(logs).anyMatch(m -> m.contains("field=next reason=FORBIDDEN") && m.contains("item=1 text=최고 속도로 쳐 보세요 matched=최고"));
+		org.mockito.Mockito.verify(aiChatClient, org.mockito.Mockito.times(1)).complete(anyString(), anyString());
+	}
+
+	@Test
+	void ch5_numbers_goodRejectsFalse_gapSoftWarns_nextAllowsNew_diffAndSumAreAllowed() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord[] r = threeRecords(hobbyId, "코드 연습을 20분 했다", "코드 연습을 30분 했다");
+		Long cur = r[1].getId();
+		java.util.List<String> logs = captureCompareLogs();
+
+		stubAiResponse(structuredJson("달라졌어요",
+				insight("10분 더 길게 했어요", "20분에서 30분으로 늘어 합쳐 50분을 연습했어요", cur) + ","
+						+ insight("77번이나 했어요", "이유", cur),
+				insight("횟수는 아직 적어요", "91번에 비하면 적어요", cur),
+				idea("속도를 60으로 맞춰 다섯 번 쳐 보세요", cur)));
+		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "2W"));
+
+		// good: 입력 숫자(20·30)의 차(10)·합(50)은 통과, 기록에 없는 77은 거절.
+		assertThat(response.good()).extracting("point").containsExactly("10분 더 길게 했어요");
+		// gap: 같은 규칙이지만 소프트라서 통과하고 경고만 남긴다.
+		assertThat(response.gap()).extracting("point").containsExactly("횟수는 아직 적어요");
+		assertThat(logs).anyMatch(m -> m.startsWith("COMPARE_NUMBER_SOFT where=gap.0 number=91"));
+		// next: 숫자 검사를 하지 않아 새 숫자(60)도 통과한다.
+		assertThat(response.next()).extracting("idea").containsExactly("속도를 60으로 맞춰 다섯 번 쳐 보세요");
+		assertThat(logs).anyMatch(m -> m.contains("field=good reason=NUMBER") && m.contains("matched=77"));
+		assertThat(logs).noneMatch(m -> m.contains("field=next reason=NUMBER"));
+	}
+
+	@Test
+	void ch5_emptyGapAndNext_retriesOnceWithRejectionNote_notCountedTowardLimit() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord[] r = threeRecords(hobbyId, "예전 연습", "최신 연습");
+		Long cur = r[1].getId();
+		org.mockito.ArgumentCaptor<String> system = org.mockito.ArgumentCaptor.forClass(String.class);
+		given(aiChatClient.complete(system.capture(), anyString()))
+				.willReturn(new AiChatResponse(structuredJson("달라졌어요", String.format(OK_GOOD, cur),
+						insight("실력이 부족해요", "이유", cur), ""), 10, "model"))
+				.willReturn(new AiChatResponse(structuredJson("달라졌어요", String.format(OK_GOOD, cur),
+						insight("속도는 아직 확인하지 못했어요", "천천히 칠 때만 적었어요", cur),
+						idea("같은 전환을 속도만 올려 세 번 쳐 보세요", cur)), 10, "model"));
+
+		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "2W"));
+
+		assertThat(response.good()).extracting("point").containsExactly("이어 쳤어요");
+		assertThat(response.gap()).extracting("point").containsExactly("속도는 아직 확인하지 못했어요");
+		assertThat(response.next()).extracting("idea").containsExactly("같은 전환을 속도만 올려 세 번 쳐 보세요");
+		assertThat(system.getAllValues()).hasSize(2);
+		assertThat(system.getAllValues().get(1)).contains("[보강 지시]", "각각 1~2개 반드시 포함",
+				"gap 1번째 항목이 쓰면 안 되는 표현이 있었기(실력)", "next 구역이 비어 있");
+		assertThat(aiLogRepository.findAll()).extracting("state").containsExactlyInAnyOrder("OK", "RETRY");
+	}
+
+	@Test
+	void ch5_stillEmptyAfterRetry_usesDeterministicFallback_difficultyAndNextAction() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord[] r = threeRecords(hobbyId, "예전 연습", "최신 연습");
+		ActivityRecord current = r[1];
+		current.markAnalysisDone("{\"tags\":[\"코드 전환\"],\"nextAction\":{\"text\":\"F에서 B♭으로 천천히 다섯 번 넘어가 보기\",\"minutes\":7}}");
+		activityRecordRepository.save(current);
+		java.util.List<String> logs = captureCompareLogs();
+		stubAiResponse(structuredJson("달라졌어요", String.format(OK_GOOD, current.getId()), "", ""));
+
+		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "2W"));
+
+		assertThat(response.schemaVersion()).isEqualTo(2);
+		// 막힌 점(어려움)이 있으면 그 말을, nextAction이 있으면 그 문장을 그대로 쓴다. 근거는 최근 기록.
+		assertThat(response.gap()).extracting("point").containsExactly("기록에 적은 '어려웠다'는 아직 남은 숙제예요");
+		assertThat(response.gap().get(0).evidence()).extracting("id").containsExactly(current.getId());
+		assertThat(response.next()).extracting("idea").containsExactly("F에서 B♭으로 천천히 다섯 번 넘어가 보기");
+		assertThat(response.next().get(0).evidence()).extracting("id").containsExactly(current.getId());
+		assertThat(logs).anyMatch(m -> m.equals("COMPARE_SECTION_FALLBACK section=gap source=DIFFICULTY"));
+		assertThat(logs).anyMatch(m -> m.equals("COMPARE_SECTION_FALLBACK section=next source=NEXT_ACTION"));
+		// 첫 호출 + 보강 재호출 한 번뿐(3번 이하), 대체 문장에는 AI 호출이 없다.
+		org.mockito.Mockito.verify(aiChatClient, org.mockito.Mockito.times(2)).complete(anyString(), anyString());
+	}
+
+	@Test
+	void ch5_fallback_noDifficulty_usesFewRecordsSentence_andTagForNext_thenGeneric() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord past = createRecord(1L, hobbyId, LocalDate.now().minusDays(20), "예전 연습");
+		createRecord(1L, hobbyId, LocalDate.now().minusDays(10), "중간 연습");
+		ActivityRecord current = activityRecordRepository.save(
+				new ActivityRecord(1L, hobbyId, LocalDate.now(), "최신 연습", 20, null, Feeling.PROUD, false));
+		current.markAnalysisDone("{\"tags\":[\"코드 전환\",\"박자\"]}");
+		activityRecordRepository.save(current);
+		java.util.List<String> logs = captureCompareLogs();
+		stubAiResponse(structuredJson("달라졌어요", String.format(OK_GOOD, current.getId()), "", ""));
+
+		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "2W"));
+
+		assertThat(response.gap()).extracting("point").containsExactly("비교할 기록이 아직 적어요");
+		assertThat(response.gap()).extracting("because").containsExactly("기록이 더 쌓이면 변화가 더 선명해져요");
+		assertThat(response.next()).extracting("idea").containsExactly("'코드 전환'를 한 가지 조건만 바꿔 한 번 더 해 보고 기록해 봐요");
+		assertThat(logs).anyMatch(m -> m.equals("COMPARE_SECTION_FALLBACK section=gap source=FEW_RECORDS"));
+		assertThat(logs).anyMatch(m -> m.equals("COMPARE_SECTION_FALLBACK section=next source=TAG"));
+		assertThat(past.getId()).isNotNull();
+
+		// 태그도 nextAction도 없으면 일반 문장으로 대신한다.
+		ActivityRecord plain = activityRecordRepository.save(
+				new ActivityRecord(1L, hobbyId, LocalDate.now().plusDays(1), "더 최신 연습", 20, null, Feeling.PROUD, false));
+		stubAiResponse(structuredJson("달라졌어요", String.format(OK_GOOD, plain.getId()), "", ""));
+		AiCompareResponse generic = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "2W"));
+		assertThat(generic.next()).extracting("idea")
+				.containsExactly("지금 하던 것을 한 가지 조건만 바꿔 한 번 더 해 보고 기록해 봐요");
+		assertThat(logs).anyMatch(m -> m.equals("COMPARE_SECTION_FALLBACK section=next source=GENERIC"));
+	}
+
+	@Test
+	void ch5_becauseTail_praiseOnlyLastSentenceIsCut_othersKept() {
+		assertThat(CompareService.trimPraiseTail("이어서 쳤어요. 좋아요.")).isEqualTo("이어서 쳤어요.");
+		assertThat(CompareService.trimPraiseTail("이어서 쳤어요. 멋져요!")).isEqualTo("이어서 쳤어요.");
+		assertThat(CompareService.trimPraiseTail("이어서 쳤어요. 정말 대단해요")).isEqualTo("이어서 쳤어요.");
+		// 평가 단어만이 아니거나 8자를 넘는 마지막 문장, 문장이 하나뿐인 경우는 건드리지 않는다.
+		assertThat(CompareService.trimPraiseTail("이어서 쳤어요. 큰 변화예요.")).isEqualTo("이어서 쳤어요. 큰 변화예요.");
+		assertThat(CompareService.trimPraiseTail("이어서 쳤어요. 박자도 좋아요.")).isEqualTo("이어서 쳤어요. 박자도 좋아요.");
+		assertThat(CompareService.trimPraiseTail("좋아요.")).isEqualTo("좋아요.");
+		assertThat(CompareService.trimPraiseTail("이어서 쳤어요")).isEqualTo("이어서 쳤어요");
+	}
+
+	@Test
+	void ch5_becauseTail_isCutBeforeForbiddenCheck_soItemIsKept() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord[] r = threeRecords(hobbyId, "예전 연습", "최신 연습");
+		Long cur = r[1].getId();
+
+		// "대단해요"는 금지어(대단)지만, 평가 한 마디만 남은 꼬리라 먼저 잘려 항목이 살아남는다.
+		stubAiResponse(structuredJson("달라졌어요",
+				insight("이어 쳤어요", "이번엔 이어서 쳤어요. 대단해요.", cur),
+				insight("속도는 아직 확인하지 못했어요", "천천히 칠 때만 적었어요", cur),
+				idea("속도만 올려 세 번 쳐 보세요", cur)));
+		AiCompareResponse response = service(enabledProperties()).compare(1L, new CompareRequest(hobbyId, "2W"));
+
+		assertThat(response.good()).extracting("because").containsExactly("이번엔 이어서 쳤어요.");
 	}
 }
