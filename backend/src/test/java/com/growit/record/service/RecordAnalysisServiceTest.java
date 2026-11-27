@@ -247,7 +247,7 @@ class RecordAnalysisServiceTest {
 		service(enabledProperties()).analyze(current.getId(), 1L);
 
 		ActivityRecord result = activityRecordRepository.findById(current.getId()).orElseThrow();
-		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":11").contains("\"model\":\"model\"");
+		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":12").contains("\"model\":\"model\"");
 	}
 
 	@Test
@@ -608,11 +608,11 @@ class RecordAnalysisServiceTest {
 		java.util.List<String> logs = captureLogs();
 
 		ActivityRecord result = analyzeWithChange("지난번엔 끊겼는데, 오늘은 열 번을 이어 쳤네요.",
-				"열 번을 이어 쳤다니 정말 멋져요.", true);
+				"열 번을 이어 쳤다니 멋져요.", true);
 
 		StoredChange change = storedChangeOf(result);
 		assertThat(change.text()).isEqualTo("지난번엔 끊겼는데, 오늘은 열 번을 이어 쳤네요.");
-		assertThat(change.support()).isEqualTo("열 번을 이어 쳤다니 정말 멋져요.");
+		assertThat(change.support()).isEqualTo("열 번을 이어 쳤다니 멋져요.");
 		assertThat(logs).noneMatch(l -> l.contains("SUPPORT_RETRY") || l.contains("SUPPORT_FALLBACK"));
 	}
 
@@ -763,7 +763,7 @@ class RecordAnalysisServiceTest {
 		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "코드 전환 연습");
 		given(aiChatClient.complete(anyString(), anyString())).willReturn(
 				new AiChatResponse(changeJson("전환을 이어 쳤어요.", "열 번 이어 쳤어요.", previous.getId()), 10, "model"),
-				new AiChatResponse(changeJson("전환을 이어 쳤어요.", "열 번 이어 쳐서 정말 멋져요.", previous.getId()), 10, "model"));
+				new AiChatResponse(changeJson("전환을 이어 쳤어요.", "열 번 이어 쳐서 멋져요.", previous.getId()), 10, "model"));
 		AiProperties properties = enabledProperties();
 		properties.setAnalysisUserDailyLimit(1);
 
@@ -781,13 +781,13 @@ class RecordAnalysisServiceTest {
 		ActivityRecord current = createPendingRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "코드 전환 연습");
 		given(aiChatClient.complete(anyString(), anyString())).willReturn(
 				new AiChatResponse(changeJson("전환을 이어 쳤어요.", "열 번 이어 쳤어요.", previous.getId()), 10, "model"),
-				new AiChatResponse(changeJson("전환을 이어 쳤어요.", "열 번 이어 쳐서 정말 멋져요.", previous.getId()), 10, "model"));
+				new AiChatResponse(changeJson("전환을 이어 쳤어요.", "열 번 이어 쳐서 멋져요.", previous.getId()), 10, "model"));
 		java.util.List<String> logs = captureLogs();
 
 		service(enabledProperties()).analyze(current.getId(), 1L);
 
 		StoredChange change = storedChangeOf(activityRecordRepository.findById(current.getId()).orElseThrow());
-		assertThat(change.support()).isEqualTo("열 번 이어 쳐서 정말 멋져요.");
+		assertThat(change.support()).isEqualTo("열 번 이어 쳐서 멋져요.");
 		assertThat(logs).anyMatch(l -> l.contains("SUPPORT_RETRY"));
 		assertThat(logs).noneMatch(l -> l.contains("SUPPORT_FALLBACK"));
 		org.mockito.ArgumentCaptor<String> system = org.mockito.ArgumentCaptor.forClass(String.class);
@@ -905,9 +905,9 @@ class RecordAnalysisServiceTest {
 	}
 
 	@Test
-	void change_promptVersionIsElevenAndOldSingleSentenceResultsStillRead() {
+	void change_promptVersionIsTwelveAndOldSingleSentenceResultsStillRead() {
 		ActivityRecord result = analyzeWithChange("전환을 이어 쳤어요.", "이어 간 게 멋져요.", true);
-		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":11");
+		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":12");
 
 		StoredAnalysis old = service(enabledProperties()).readJson("{\"title\":\"예전\",\"tags\":[],"
 				+ "\"relatedRecordIds\":[],\"change\":{\"text\":\"지난번엔 끊겼는데 오늘은 이어 쳤어요\",\"evidenceRecordId\":1},"
@@ -962,5 +962,136 @@ class RecordAnalysisServiceTest {
 		analyzeWithNextAction(actionJson("코드 전환을 쳐 봐요", "6", "코드 전환이 느렸어요" + "요".repeat(40), "%ID%"));
 
 		assertThat(logs).anyMatch(line -> line.contains("reason=LENGTH") && line.contains("detail=reason="));
+	}
+
+	// ---- T7: 칭찬 강도(강함/부드러움), 강조어 금지, 과한 칭찬 재호출 ----
+
+	/** 어려움이 없고 감정이 개운한 평범한 기록(이전 기록 없음)을 만들고, 주어진 응답을 차례로 돌려주게 한 뒤 분석한다. */
+	private ActivityRecord analyzeOrdinary(String... supports) {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord current = new ActivityRecord(1L, hobbyId, LocalDate.of(2026, 10, 10),
+				"아침에 20분 가볍게 뛰고 5분 걸었다. 숨이 편했고 어제보다 다리가 가벼웠다", 25, null, Feeling.RELIEVED, false);
+		current.markAnalysisPending(LocalDateTime.now());
+		current = activityRecordRepository.save(current);
+		AiChatResponse[] responses = new AiChatResponse[supports.length];
+		for (int i = 0; i < supports.length; i++) {
+			responses[i] = new AiChatResponse(changeJson(null, supports[i], current.getId()), 10, "model");
+		}
+		org.mockito.BDDMockito.BDDMyOngoingStubbing<AiChatResponse> stub = given(aiChatClient.complete(anyString(), anyString()))
+				.willReturn(responses[0]);
+		for (int i = 1; i < responses.length; i++) {
+			stub = stub.willReturn(responses[i]);
+		}
+		service(enabledProperties()).analyze(current.getId(), 1L);
+		return activityRecordRepository.findById(current.getId()).orElseThrow();
+	}
+
+	@Test
+	void t7_ordinaryRecordWithStrongPraise_retriesWithCorrection_andAcceptsSoftAnswer() {
+		java.util.List<String> logs = captureLogs();
+
+		ActivityRecord result = analyzeOrdinary("다리가 어제보다 가벼웠다니 멋져요.", "다리가 어제보다 가벼웠다니 다행이에요.");
+
+		assertThat(storedChangeOf(result).support()).isEqualTo("다리가 어제보다 가벼웠다니 다행이에요.");
+		assertThat(logs).anyMatch(l -> l.contains("SUPPORT_RETRY"));
+		assertThat(logs).noneMatch(l -> l.contains("SUPPORT_OVERPRAISE") || l.contains("SUPPORT_FALLBACK"));
+		org.mockito.ArgumentCaptor<String> system = org.mockito.ArgumentCaptor.forClass(String.class);
+		org.mockito.Mockito.verify(aiChatClient, org.mockito.Mockito.times(2)).complete(system.capture(), anyString());
+		assertThat(system.getAllValues().get(1)).contains("[교정 지시]", RecordAnalysisService.OVERPRAISE_CORRECTION);
+	}
+
+	@Test
+	void t7_ordinaryRecordStillStrongAfterRetry_isKeptWithOverpraiseWarning_notFallback() {
+		java.util.List<String> logs = captureLogs();
+
+		ActivityRecord result = analyzeOrdinary("다리가 어제보다 가벼웠다니 멋져요.", "다리가 가벼워서 대단해요.");
+
+		// 재호출도 강한 칭찬이면 문장은 규칙을 지켰으므로 그대로 두고, 경고 로그만 남긴다(기본 문장으로 바꾸지 않는다).
+		assertThat(storedChangeOf(result).support()).isEqualTo("다리가 가벼워서 대단해요.");
+		assertThat(logs).anyMatch(l -> l.startsWith("SUPPORT_OVERPRAISE recordId="));
+		assertThat(logs).noneMatch(l -> l.contains("SUPPORT_FALLBACK"));
+		assertThat(logs).noneMatch(l -> l.contains("다리가"));
+		org.mockito.Mockito.verify(aiChatClient, org.mockito.Mockito.times(2)).complete(anyString(), anyString());
+	}
+
+	@Test
+	void t7_recordWithDifficulty_strongPraiseIsAccepted_withoutRetry() {
+		java.util.List<String> logs = captureLogs();
+
+		// 기본 테스트 기록에는 어려움("코드 전환이 느렸다")이 적혀 있어 강한 칭찬이 어울린다.
+		ActivityRecord result = analyzeWithChange(null, "느렸던 전환을 끝까지 이어 쳤네요. 대단해요.", false);
+
+		assertThat(storedChangeOf(result).support()).isEqualTo("느렸던 전환을 끝까지 이어 쳤네요. 대단해요.");
+		assertThat(logs).noneMatch(l -> l.contains("SUPPORT_RETRY") || l.contains("SUPPORT_OVERPRAISE"));
+		org.mockito.Mockito.verify(aiChatClient, org.mockito.Mockito.times(1)).complete(anyString(), anyString());
+	}
+
+	@Test
+	void t7_hardFeelingWithoutDifficultyText_alsoAllowsStrongPraise() {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord current = new ActivityRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "스트레칭만 했다", 5, null,
+				Feeling.STUCK, false);
+		current.markAnalysisPending(LocalDateTime.now());
+		current = activityRecordRepository.save(current);
+		stubAiResponse(changeJson(null, "몸이 무거운 날에도 스트레칭을 했네요. 잘했어요.", current.getId()));
+
+		service(enabledProperties()).analyze(current.getId(), 1L);
+
+		assertThat(storedChangeOf(activityRecordRepository.findById(current.getId()).orElseThrow()).support())
+				.isEqualTo("몸이 무거운 날에도 스트레칭을 했네요. 잘했어요.");
+		org.mockito.Mockito.verify(aiChatClient, org.mockito.Mockito.times(1)).complete(anyString(), anyString());
+	}
+
+	@Test
+	void t7_emphasisWordsInSupport_areRejected_thenFallback() {
+		for (String word : RecordAnalysisService.EMPHASIS_WORDS) {
+			java.util.List<String> logs = captureLogs();
+
+			ActivityRecord result = analyzeWithChange(null, "열 번을 쳤네요. " + word + " 괜찮아요.", false);
+
+			assertThat(storedChangeOf(result).support()).as(word).isEqualTo(RecordAnalysisService.FALLBACK_SUPPORT_HARD);
+			assertThat(logs).as(word).anyMatch(l -> l.contains("field=support") && l.contains("reason=EMPHASIS"));
+			assertThat(logs).as(word).anyMatch(l -> l.contains("SUPPORT_RETRY"));
+		}
+	}
+
+	@Test
+	void t7_softOnlySupport_satisfiesTheWarmRequirement() {
+		for (String soft : RecordAnalysisService.WARM_SOFT) {
+			String support = "오늘도 기록을 남겼네요. " + soft;
+			ActivityRecord result = analyzeOrdinary(changeSupportCheck(support));
+			assertThat(storedChangeOf(result).support()).as(soft).isEqualTo(support);
+		}
+		// "좋아 보여요" 안의 "보여요"는 관찰체로 거절하지 않는다.
+		assertThat(storedChangeOf(analyzeOrdinary("다리가 가벼워 좋아 보여요.")).support()).isEqualTo("다리가 가벼워 좋아 보여요.");
+	}
+
+	private static String changeSupportCheck(String support) {
+		return support;
+	}
+
+	@Test
+	void t7_warmLists_areSplitAndUnioned() {
+		assertThat(RecordAnalysisService.WARM_STRONG).containsExactly("멋져요", "대단해요", "잘하셨어요", "잘했어요");
+		assertThat(RecordAnalysisService.WARM_SOFT).contains("수고했어요", "고생했어요", "애썼어요", "괜찮아요", "충분해요", "응원해요",
+				"다행이에요", "좋았겠어요", "좋아 보여요", "편안했겠어요", "반가워요", "좋은 시작", "좋은 흐름", "기분 좋은", "잘 이어 가고 있어요");
+		assertThat(RecordAnalysisService.WARM_PHRASES).containsAll(RecordAnalysisService.WARM_STRONG)
+				.containsAll(RecordAnalysisService.WARM_SOFT).hasSize(RecordAnalysisService.WARM_STRONG.size()
+						+ RecordAnalysisService.WARM_SOFT.size());
+		assertThat(RecordAnalysisService.EMPHASIS_WORDS).containsExactly("정말", "너무", "진짜", "엄청", "굉장히");
+	}
+
+	@Test
+	void t7_fallbackSentences_areGentle_andContainAWarmPhrase() {
+		assertThat(RecordAnalysisService.FALLBACK_SUPPORT_GOOD).isEqualTo("오늘도 기록을 이어 갔네요. 좋은 흐름이에요.");
+		assertThat(RecordAnalysisService.FALLBACK_SUPPORT_NORMAL).isEqualTo("오늘도 한 줄 남겼네요. 이어 가는 것만으로 충분해요.");
+		assertThat(RecordAnalysisService.FALLBACK_SUPPORT_HARD).isEqualTo("힘든 날에도 기록을 남겼네요. 오늘은 이걸로 충분해요. 고생했어요.");
+		for (String fallback : java.util.List.of(RecordAnalysisService.FALLBACK_SUPPORT_GOOD,
+				RecordAnalysisService.FALLBACK_SUPPORT_NORMAL, RecordAnalysisService.FALLBACK_SUPPORT_HARD)) {
+			assertThat(RecordAnalysisService.WARM_PHRASES).anyMatch(fallback::contains);
+			assertThat(RecordAnalysisService.EMPHASIS_WORDS).noneMatch(fallback::contains);
+			assertThat(RecordAnalysisService.WARM_STRONG).noneMatch(fallback::contains);
+			assertThat(fallback.length()).isLessThanOrEqualTo(80);
+		}
 	}
 }

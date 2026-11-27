@@ -67,18 +67,27 @@ public class RecordAnalysisService {
 	static final List<String> GENERIC_PHRASES =
 			List.of("다시 연습", "복습", "꾸준히", "자신 있는 곳", "한 번 더 연습", "한 번 더 해");
 	private static final int NEXT_ACTION_REASON_MAX = 40;
-	/** support에는 이 중 하나 이상이 있어야 한다(따뜻한 직접 표현). 문구를 늘릴 때는 이 목록만 고친다. */
-	static final List<String> WARM_PHRASES = List.of("멋져요", "대단해요", "잘하셨어요", "잘했어요", "고생했어요", "수고했어요",
-			"애썼어요", "괜찮아요", "충분해요", "좋은 시작이에요", "응원해요");
+	/** 강한 칭찬 표현. 어려움을 넘겼거나 새로 해 본 일, 뚜렷한 진전이 있을 때만 어울려, 평범한 기록에서는 과한 칭찬으로 본다. */
+	static final List<String> WARM_STRONG = List.of("멋져요", "대단해요", "잘하셨어요", "잘했어요");
+	/** 부드러운 따뜻한 표현(공감·가벼운 인정). 평범한 기록에도 쓸 수 있다. */
+	static final List<String> WARM_SOFT = List.of("수고했어요", "고생했어요", "애썼어요", "괜찮아요", "충분해요", "응원해요", "다행이에요",
+			"좋았겠어요", "좋아 보여요", "편안했겠어요", "반가워요", "좋은 시작", "좋은 흐름", "기분 좋은", "잘 이어 가고 있어요");
+	/** support에는 이 합집합(강함+부드러움) 중 하나 이상이 있어야 한다. 문구를 늘릴 때는 위 두 목록만 고친다. */
+	static final List<String> WARM_PHRASES = java.util.stream.Stream.concat(WARM_STRONG.stream(), WARM_SOFT.stream())
+			.toList();
+	/** support에 쓰면 안 되는 강조어(하드). 칭찬이 부풀려 보이는 것을 막는다. */
+	static final List<String> EMPHASIS_WORDS = List.of("정말", "너무", "진짜", "엄청", "굉장히");
+	/** 평범한 기록(어려움 없음, 감정이 힘듦 아님)의 support가 강한 칭찬을 쓸 때 재호출에 붙이는 교정 문구. */
+	static final String OVERPRAISE_CORRECTION = "평범한 기록이므로 강한 칭찬 대신 공감이나 가벼운 인정 한 문장으로 써요";
 	/** 보고서처럼 관찰하는 문체. support와 change 모두에서 막는다. */
 	static final List<String> REPORT_STYLE_PHRASES = List.of("알 수 있어요", "알 수 있습니다", "주목해요", "기억해요", "느껴져요",
 			"잘 드러", "과정이 보여", "점이에요", "기록이에요", "보여요");
-	static final String FALLBACK_SUPPORT_HARD = "힘든 날에도 기록을 남겼네요. 정말 고생했어요. 오늘은 이걸로 충분해요.";
-	static final String FALLBACK_SUPPORT_GOOD = "오늘도 이어 간 게 멋져요. 잘하셨어요.";
-	static final String FALLBACK_SUPPORT_NORMAL = "이어 가는 것 자체가 대단해요.";
+	static final String FALLBACK_SUPPORT_HARD = "힘든 날에도 기록을 남겼네요. 오늘은 이걸로 충분해요. 고생했어요.";
+	static final String FALLBACK_SUPPORT_GOOD = "오늘도 기록을 이어 갔네요. 좋은 흐름이에요.";
+	static final String FALLBACK_SUPPORT_NORMAL = "오늘도 한 줄 남겼네요. 이어 가는 것만으로 충분해요.";
 	private static final String PROMPT_RESOURCE_NAME = "record-analysis-system.txt";
 	/** prompts/record-analysis-system.txt의 내용을 바꿀 때마다 올린다. 저장된 결과가 어떤 지시문으로 만들어졌는지 추적하기 위해서다. */
-	static final int PROMPT_VERSION = 11;
+	static final int PROMPT_VERSION = 12;
 
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
@@ -163,7 +172,7 @@ public class RecordAnalysisService {
 		try {
 			AiCallResult result = aiCallService.call(userId, AiResultType.ANALYSIS, systemPrompt, input.payload());
 			ValidationOutcome outcome = validateOutcome(result.content(), input.allowedHistoryIds(), result.model(),
-					input.recordId(), input.corpus(), input.roadmapItemIds());
+					input.recordId(), input.corpus(), input.roadmapItemIds(), input.payload().record());
 			if (outcome.supportIssue() != null) {
 				outcome = retryForSupport(userId, systemPrompt, input, outcome);
 			}
@@ -196,11 +205,23 @@ public class RecordAnalysisService {
 		try {
 			AiCallResult result = aiCallService.call(userId, AiResultType.ANALYSIS, corrected, input.payload(), true);
 			ValidationOutcome second = validateOutcome(result.content(), input.allowedHistoryIds(), result.model(),
-					input.recordId(), input.corpus(), input.roadmapItemIds());
-			return second.supportIssue() == null ? second : first;
+					input.recordId(), input.corpus(), input.roadmapItemIds(), input.payload().record());
+			if (second.supportIssue() == null) {
+				return second;
+			}
+			// 과한 칭찬은 문장 자체는 규칙에 맞으므로, 다시 불러도 같으면 그대로 두고 경고만 남긴다.
+			if (second.overpraise()) {
+				return acceptedWithOverpraise(second, input);
+			}
+			return first.overpraise() ? acceptedWithOverpraise(first, input) : first;
 		} catch (RuntimeException e) {
-			return first;
+			return first.overpraise() ? acceptedWithOverpraise(first, input) : first;
 		}
+	}
+
+	private ValidationOutcome acceptedWithOverpraise(ValidationOutcome outcome, AnalysisInput input) {
+		log.warn("SUPPORT_OVERPRAISE recordId={}", input.recordId());
+		return new ValidationOutcome(outcome.analysis(), null, outcome.evidenceId(), false);
 	}
 
 	private StoredAnalysis withFallbackSupport(ValidationOutcome outcome, AnalysisInput input) {
@@ -218,10 +239,12 @@ public class RecordAnalysisService {
 	}
 
 	/** supportIssue가 null이 아니면 support가 규칙을 어긴 것이다(evidenceId는 그때 기본 문장을 붙일 근거 기록). */
-	private record ValidationOutcome(StoredAnalysis analysis, String supportIssue, Long evidenceId) {
+	private record ValidationOutcome(StoredAnalysis analysis, String supportIssue, Long evidenceId,
+			boolean overpraise) {
 	}
 
-	private record ChangeOutcome(StoredChange change, String supportIssue, Long evidenceId) {
+	/** overpraise가 true이면 supportIssue는 "과한 칭찬"뿐이고 support 문장 자체는 저장 가능한 상태다. */
+	private record ChangeOutcome(StoredChange change, String supportIssue, Long evidenceId, boolean overpraise) {
 	}
 
 	/** FAILED 기록의 실패 이유("LIMIT")를 읽는다. 예전 행처럼 값이 없거나 읽을 수 없으면 null. */
@@ -320,11 +343,11 @@ public class RecordAnalysisService {
 	/** corpus가 null이면 낱말 포함 검사는 건너뛴다(품질 평가 하네스처럼 입력 전문이 없는 호출). */
 	StoredAnalysis validate(String rawJson, Set<Long> allowedHistoryIds, String model, Long recordId,
 			String corpus) {
-		return validateOutcome(rawJson, allowedHistoryIds, model, recordId, corpus, Set.of()).analysis();
+		return validateOutcome(rawJson, allowedHistoryIds, model, recordId, corpus, Set.of(), null).analysis();
 	}
 
 	private ValidationOutcome validateOutcome(String rawJson, Set<Long> allowedHistoryIds, String model,
-			Long recordId, String corpus, Set<Long> roadmapItemIds) {
+			Long recordId, String corpus, Set<Long> roadmapItemIds, AnalysisRecordInput record) {
 		JsonNode node = aiResponseValidator.parse(rawJson);
 		aiResponseValidator.requireFields(node, "title", "tags", "relatedRecordIds");
 
@@ -336,7 +359,7 @@ public class RecordAnalysisService {
 		if (recordId != null) {
 			nextActionEvidenceIds.add(recordId);
 		}
-		ChangeOutcome changeOutcome = sanitizeChange(node.path("change"), nextActionEvidenceIds, recordId);
+		ChangeOutcome changeOutcome = sanitizeChange(node.path("change"), nextActionEvidenceIds, recordId, record);
 
 		// nextAction이 이상해도 나머지 결과는 살린다(전체 실패 금지).
 		StoredNextAction nextAction = sanitizeNextAction(node.path("nextAction"), nextActionEvidenceIds, corpus,
@@ -346,7 +369,8 @@ public class RecordAnalysisService {
 				recordId);
 		StoredAnalysis analysis = new StoredAnalysis(title, tags, relatedRecordIds, changeOutcome.change(), null, null,
 				PROMPT_VERSION, model, nextAction, suggestion);
-		return new ValidationOutcome(analysis, changeOutcome.supportIssue(), changeOutcome.evidenceId());
+		return new ValidationOutcome(analysis, changeOutcome.supportIssue(), changeOutcome.evidenceId(),
+				changeOutcome.overpraise());
 	}
 
 	/** 입력으로 준 미완료 항목의 id만 받는다(남의 것·이미 체크한 것·지어낸 id는 버린다). 자동 체크는 하지 않는다. */
@@ -414,18 +438,19 @@ public class RecordAnalysisService {
 		return result;
 	}
 
-	private ChangeOutcome sanitizeChange(JsonNode changeNode, Set<Long> allowedIds, Long recordId) {
+	private ChangeOutcome sanitizeChange(JsonNode changeNode, Set<Long> allowedIds, Long recordId,
+			AnalysisRecordInput record) {
 		if (changeNode.isMissingNode() || changeNode.isNull() || !changeNode.isObject()) {
 			// 객체 자체가 없으면 근거 기록도 없어 기본 문장을 붙일 수 없다. 로그만 남긴다.
 			log.warn("SUPPORT_MISSING recordId={}", recordId);
-			return new ChangeOutcome(null, null, null);
+			return new ChangeOutcome(null, null, null, false);
 		}
 		// 근거 id가 틀리면 어느 문장도 화면에 낼 수 없으므로 통째로 버린다.
 		JsonNode evidenceNode = changeNode.path("evidenceRecordId");
 		if (!evidenceNode.canConvertToLong() || !allowedIds.contains(evidenceNode.asLong())) {
 			log.warn("CHANGE_DROPPED recordId={} field=change|support reason=EVIDENCE length=- raw={}", recordId,
 					rawOf(changeNode));
-			return new ChangeOutcome(null, null, null);
+			return new ChangeOutcome(null, null, null, false);
 		}
 		long evidenceId = evidenceNode.asLong();
 		// 한쪽만 실패하면 그 필드만 버리고 나머지는 살린다.
@@ -440,10 +465,16 @@ public class RecordAnalysisService {
 			}
 		}
 		lastDropReason.remove();
-		if (text == null && support == null) {
-			return new ChangeOutcome(null, supportIssue, evidenceId);
+		boolean overpraise = false;
+		if (support != null && isOverpraise(support, record)) {
+			// 평범한 기록에 강한 칭찬: 문장은 살려 두고, 한 번 더 불러 보도록 이유만 남긴다.
+			supportIssue = OVERPRAISE_CORRECTION;
+			overpraise = true;
 		}
-		return new ChangeOutcome(new StoredChange(text, evidenceId, support), supportIssue, evidenceId);
+		if (text == null && support == null) {
+			return new ChangeOutcome(null, supportIssue, evidenceId, false);
+		}
+		return new ChangeOutcome(new StoredChange(text, evidenceId, support), supportIssue, evidenceId, overpraise);
 	}
 
 	/** 직전 sanitizeChangeField가 버린 이유를 교정 지시 문장으로 넘기는 용도(호출 스레드 안에서만 쓴다). */
@@ -468,7 +499,17 @@ public class RecordAnalysisService {
 		if (containsForbiddenWord(value)) {
 			return dropField(recordId, field, "FORBIDDEN", node, value.length(), "능력 단정·과장·점수화·단정적 예측 표현을 씀");
 		}
-		if (REPORT_STYLE_PHRASES.stream().anyMatch(value::contains)) {
+		// "좋아 보여요"처럼 따뜻한 표현 안에 든 "보여요"는 관찰체로 보지 않는다.
+		String styleTarget = value;
+		for (String warm : WARM_PHRASES) {
+			styleTarget = styleTarget.replace(warm, "");
+		}
+		if (requireWarm && EMPHASIS_WORDS.stream().anyMatch(value::contains)) {
+			return dropField(recordId, field, "EMPHASIS", node, value.length(),
+					"강조어(" + String.join(", ", EMPHASIS_WORDS) + ")를 씀");
+		}
+		final String checkedForStyle = styleTarget;
+		if (REPORT_STYLE_PHRASES.stream().anyMatch(checkedForStyle::contains)) {
 			return dropField(recordId, field, "STYLE", node, value.length(),
 					"관찰체·보고서체 표현(" + String.join(", ", REPORT_STYLE_PHRASES) + ")을 씀");
 		}
@@ -477,6 +518,16 @@ public class RecordAnalysisService {
 					"따뜻한 직접 표현(" + String.join(", ", WARM_PHRASES) + ") 중 하나가 없음");
 		}
 		return value;
+	}
+
+	/** 막힌 점(어려움)이 없고 감정 방향이 힘듦이 아닌 평범한 기록에서 support가 강한 칭찬을 쓰면 과한 칭찬이다. record가 없으면 검사하지 않는다. */
+	private static boolean isOverpraise(String support, AnalysisRecordInput record) {
+		if (record == null) {
+			return false;
+		}
+		boolean heavy = (record.difficulty() != null && !record.difficulty().isBlank())
+				|| "HARD".equals(record.feelingDirection());
+		return !heavy && WARM_STRONG.stream().anyMatch(support::contains);
 	}
 
 	private String dropField(Long recordId, String field, String reason, JsonNode node, int length, String correction) {
