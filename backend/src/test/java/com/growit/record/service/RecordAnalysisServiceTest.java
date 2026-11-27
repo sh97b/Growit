@@ -69,7 +69,7 @@ class RecordAnalysisServiceTest {
 	}
 
 	private ActivityRecord createPendingRecord(Long userId, Long hobbyId, LocalDate date, String content) {
-		ActivityRecord record = new ActivityRecord(userId, hobbyId, date, content, 20, "코드 전환이 느렸다", Feeling.PROUD,
+		ActivityRecord record = new ActivityRecord(userId, hobbyId, date, content, 20, "코드 전환이 느렸다", Feeling.NEUTRAL,
 				false);
 		record.markAnalysisPending(LocalDateTime.now());
 		return activityRecordRepository.save(record);
@@ -247,7 +247,7 @@ class RecordAnalysisServiceTest {
 		service(enabledProperties()).analyze(current.getId(), 1L);
 
 		ActivityRecord result = activityRecordRepository.findById(current.getId()).orElseThrow();
-		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":12").contains("\"model\":\"model\"");
+		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":13").contains("\"model\":\"model\"");
 	}
 
 	@Test
@@ -693,7 +693,7 @@ class RecordAnalysisServiceTest {
 	@Test
 	void change_everyWarmPhrase_isAccepted() {
 		for (String warm : RecordAnalysisService.WARM_PHRASES) {
-			String support = "끝까지 쳤네요. " + warm;
+			String support = "이어 쳤네요. " + warm;
 			assertThat(storedChangeOf(analyzeWithChange("전환을 이어 쳤어요.", support, true)).support()).as(warm)
 					.isEqualTo(support);
 		}
@@ -838,7 +838,7 @@ class RecordAnalysisServiceTest {
 		java.util.List<String> logs = captureLogs();
 
 		StoredChange change = storedChangeOf(
-				analyzeWithChange("열 번 이어 친 점을 알 수 있어요.", "끝까지 한 과정이 보여요. 멋져요", true));
+				analyzeWithChange("열 번 이어 친 점을 알 수 있어요.", "이어 간 과정이 보여요. 멋져요", true));
 
 		assertThat(change.text()).isNull();
 		assertThat(change.support()).isEqualTo(RecordAnalysisService.FALLBACK_SUPPORT_HARD);
@@ -905,9 +905,9 @@ class RecordAnalysisServiceTest {
 	}
 
 	@Test
-	void change_promptVersionIsTwelveAndOldSingleSentenceResultsStillRead() {
+	void change_promptVersionIsThirteenAndOldSingleSentenceResultsStillRead() {
 		ActivityRecord result = analyzeWithChange("전환을 이어 쳤어요.", "이어 간 게 멋져요.", true);
-		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":12");
+		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":13");
 
 		StoredAnalysis old = service(enabledProperties()).readJson("{\"title\":\"예전\",\"tags\":[],"
 				+ "\"relatedRecordIds\":[],\"change\":{\"text\":\"지난번엔 끊겼는데 오늘은 이어 쳤어요\",\"evidenceRecordId\":1},"
@@ -1019,9 +1019,9 @@ class RecordAnalysisServiceTest {
 		java.util.List<String> logs = captureLogs();
 
 		// 기본 테스트 기록에는 어려움("코드 전환이 느렸다")이 적혀 있어 강한 칭찬이 어울린다.
-		ActivityRecord result = analyzeWithChange(null, "느렸던 전환을 끝까지 이어 쳤네요. 대단해요.", false);
+		ActivityRecord result = analyzeWithChange(null, "느렸던 전환을 이어 쳤네요. 대단해요.", false);
 
-		assertThat(storedChangeOf(result).support()).isEqualTo("느렸던 전환을 끝까지 이어 쳤네요. 대단해요.");
+		assertThat(storedChangeOf(result).support()).isEqualTo("느렸던 전환을 이어 쳤네요. 대단해요.");
 		assertThat(logs).noneMatch(l -> l.contains("SUPPORT_RETRY") || l.contains("SUPPORT_OVERPRAISE"));
 		org.mockito.Mockito.verify(aiChatClient, org.mockito.Mockito.times(1)).complete(anyString(), anyString());
 	}
@@ -1072,7 +1072,7 @@ class RecordAnalysisServiceTest {
 
 	@Test
 	void t7_warmLists_areSplitAndUnioned() {
-		assertThat(RecordAnalysisService.WARM_STRONG).containsExactly("멋져요", "대단해요", "잘하셨어요", "잘했어요");
+		assertThat(RecordAnalysisService.WARM_STRONG).containsExactly("멋져요", "대단해요", "잘하셨어요", "잘했어요", "해냈", "자랑스러워", "장해요");
 		assertThat(RecordAnalysisService.WARM_SOFT).contains("수고했어요", "고생했어요", "애썼어요", "괜찮아요", "충분해요", "응원해요",
 				"다행이에요", "좋았겠어요", "좋아 보여요", "편안했겠어요", "반가워요", "좋은 시작", "좋은 흐름", "기분 좋은", "잘 이어 가고 있어요");
 		assertThat(RecordAnalysisService.WARM_PHRASES).containsAll(RecordAnalysisService.WARM_STRONG)
@@ -1093,5 +1093,195 @@ class RecordAnalysisServiceTest {
 			assertThat(RecordAnalysisService.WARM_STRONG).noneMatch(fallback::contains);
 			assertThat(fallback.length()).isLessThanOrEqualTo(80);
 		}
+	}
+
+	// ---- T8: 성취형 판정·직접 인정 필수·기록에 없는 말 금지 ----
+
+	private ActivityRecord pendingRecord(String content, String difficulty, Feeling feeling) {
+		Long hobbyId = createHobby(1L);
+		ActivityRecord record = new ActivityRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), content, 15, difficulty,
+				feeling, false);
+		record.markAnalysisPending(LocalDateTime.now());
+		return activityRecordRepository.save(record);
+	}
+
+	/** 주어진 change JSON들을 차례로 돌려주게 하고 분석한다(마지막 응답은 반복). */
+	private ActivityRecord analyzeRecord(ActivityRecord current, String... changeJsons) {
+		AiChatResponse[] responses = new AiChatResponse[changeJsons.length];
+		for (int i = 0; i < changeJsons.length; i++) {
+			responses[i] = new AiChatResponse(changeJsons[i], 10, "model");
+		}
+		org.mockito.BDDMockito.BDDMyOngoingStubbing<AiChatResponse> stub = given(aiChatClient.complete(anyString(), anyString()))
+				.willReturn(responses[0]);
+		for (int i = 1; i < responses.length; i++) {
+			stub = stub.willReturn(responses[i]);
+		}
+		service(enabledProperties()).analyze(current.getId(), 1L);
+		return activityRecordRepository.findById(current.getId()).orElseThrow();
+	}
+
+	private ActivityRecord achievementRecord() {
+		return pendingRecord("어제 막혔던 F 코드를 오늘은 10번 중 8번 깨끗하게 잡았다", "손가락이 아프다", Feeling.PROUD);
+	}
+
+	@Test
+	void t8_achievementJudgement_difficultyWithGoodFeeling_orOvercomePhrase_butNeverWhenHard() {
+		// (막힌 점이 있고 감정이 좋음)
+		assertThat(RecordAnalysisService.isAchievement("F 코드를 쳤다", "손가락이 아프다", "GOOD")).isTrue();
+		// 막힌 점만 있고 감정이 보통이면 성취형이 아니다.
+		assertThat(RecordAnalysisService.isAchievement("F 코드를 쳤다", "손가락이 아프다", "NEUTRAL")).isFalse();
+		assertThat(RecordAnalysisService.isAchievement("F 코드를 쳤다", null, "GOOD")).isFalse();
+		assertThat(RecordAnalysisService.isAchievement("F 코드를 쳤다", "  ", "GOOD")).isFalse();
+		// 본문의 극복 표현(감정 방향과 상관없이 힘듦만 아니면)
+		for (String phrase : RecordAnalysisService.OVERCOME_PHRASES) {
+			assertThat(RecordAnalysisService.isAchievement("오늘은 " + phrase + " F 코드를 잡았다", null, "NEUTRAL")).as(phrase).isTrue();
+			// 감정 방향이 힘듦이면 극복 표현이 있어도, 막힌 점이 있어도 위로형을 유지한다.
+			assertThat(RecordAnalysisService.isAchievement("오늘은 " + phrase + " F 코드를 잡았다", "손가락이 아프다", "HARD")).as(phrase)
+					.isFalse();
+		}
+		assertThat(RecordAnalysisService.OVERCOME_PHRASES)
+				.containsExactly("막혔던", "안 되던", "못 하던", "어렵던", "드디어", "처음으로", "마침내", "결국");
+	}
+
+	@Test
+	void t8_achievementFlagIsSentToAi() {
+		ActivityRecord record = achievementRecord();
+		stubAiResponse(changeJson(null, "10번 중 8번 잡았네요. 해냈네요.", record.getId()));
+		service(enabledProperties()).analyze(record.getId(), 1L);
+		assertThat(capturedUserPrompt()).contains("\"achievement\":true");
+org.mockito.Mockito.clearInvocations(aiChatClient);
+
+		ActivityRecord plain = pendingRecord("아침에 가볍게 뛰었다", null, Feeling.RELIEVED);
+		stubAiResponse(changeJson(null, "다리가 가벼웠다니 다행이에요.", plain.getId()));
+		service(enabledProperties()).analyze(plain.getId(), 1L);
+		assertThat(capturedUserPrompt()).contains("\"achievement\":false");
+	}
+
+	@Test
+	void t8_achievementSupportWithoutRecognition_retriesWithCorrection_andAcceptsRecognizedAnswer() {
+		java.util.List<String> logs = captureLogs();
+		ActivityRecord record = achievementRecord();
+
+		ActivityRecord result = analyzeRecord(record,
+				changeJson(null, "손가락이 아팠는데도 15분 연습했네요. 뿌듯한 마음이 좋았겠어요.", record.getId()),
+				changeJson(null, "막혔던 F 코드를 10번 중 8번 잡았네요. 해냈네요.", record.getId()));
+
+		assertThat(storedChangeOf(result).support()).isEqualTo("막혔던 F 코드를 10번 중 8번 잡았네요. 해냈네요.");
+		assertThat(logs).anyMatch(l -> l.contains("SUPPORT_RETRY") && l.contains("achievement=true"));
+		assertThat(logs).anyMatch(l -> l.contains("field=support") && l.contains("reason=NO_RECOGNITION"));
+		assertThat(logs).noneMatch(l -> l.contains("SUPPORT_FALLBACK"));
+		org.mockito.ArgumentCaptor<String> system = org.mockito.ArgumentCaptor.forClass(String.class);
+		org.mockito.Mockito.verify(aiChatClient, org.mockito.Mockito.times(2)).complete(system.capture(), anyString());
+		assertThat(system.getAllValues().get(1)).contains("[교정 지시]", RecordAnalysisService.ACHIEVEMENT_CORRECTION);
+	}
+
+	@Test
+	void t8_achievementRetryAlsoLacksRecognition_usesAchievementFallback() {
+		java.util.List<String> logs = captureLogs();
+		ActivityRecord record = achievementRecord();
+
+		ActivityRecord result = analyzeRecord(record,
+				changeJson(null, "손가락이 아팠는데도 15분 연습했네요. 뿌듯한 마음이 좋았겠어요.", record.getId()));
+
+		assertThat(storedChangeOf(result).support()).isEqualTo(RecordAnalysisService.FALLBACK_SUPPORT_ACHIEVEMENT)
+				.isEqualTo("어려웠던 걸 해냈네요. 대단해요.");
+		assertThat(logs).anyMatch(l -> l.contains("SUPPORT_FALLBACK") && l.contains("achievement=true"));
+	}
+
+	@Test
+	void t8_everyStrongWord_countsAsRecognition() {
+		for (String strong : RecordAnalysisService.WARM_STRONG) {
+			ActivityRecord record = achievementRecord();
+			String support = "10번 중 8번 잡았네요. " + strong;
+			assertThat(storedChangeOf(analyzeRecord(record, changeJson(null, support, record.getId()))).support()).as(strong)
+					.isEqualTo(support);
+		}
+	}
+
+	@Test
+	void t8_ungroundedWord_isViolation_unlessTheRecordHasIt() {
+		java.util.List<String> logs = captureLogs();
+		ActivityRecord record = achievementRecord();
+
+		// "집중해서"는 이번 기록 본문·막힌 점에 없다 → 같은 재호출 경로로 한 번 더 부르고, 고친 답을 쓴다.
+		ActivityRecord result = analyzeRecord(record,
+				changeJson(null, "15분 동안 집중해서 연습했네요. 대단해요.", record.getId()),
+				changeJson(null, "10번 중 8번 잡았네요. 대단해요.", record.getId()));
+		assertThat(storedChangeOf(result).support()).isEqualTo("10번 중 8번 잡았네요. 대단해요.");
+		assertThat(logs).anyMatch(l -> l.contains("field=support") && l.contains("reason=UNGROUNDED"));
+		assertThat(logs).anyMatch(l -> l.contains("SUPPORT_RETRY"));
+
+		// 기록에 "집중"이 적혀 있으면 그대로 쓸 수 있다.
+		ActivityRecord focused = pendingRecord("오늘은 집중해서 F 코드를 연습했다. 드디어 깨끗하게 잡았다", null, Feeling.NEUTRAL);
+		org.mockito.Mockito.clearInvocations(aiChatClient);
+		ActivityRecord ok = analyzeRecord(focused, changeJson(null, "집중해서 연습하더니 드디어 잡았네요. 해냈네요.", focused.getId()));
+		assertThat(storedChangeOf(ok).support()).isEqualTo("집중해서 연습하더니 드디어 잡았네요. 해냈네요.");
+		org.mockito.Mockito.verify(aiChatClient, org.mockito.Mockito.times(1)).complete(anyString(), anyString());
+	}
+
+	@Test
+	void t8_ungroundedStems_areTheFiveWords_andPreviousRecordTextDoesNotCount() {
+		assertThat(RecordAnalysisService.UNGROUNDED_STEMS).containsExactly("집중", "열심히", "꾸준", "최선", "끝까지");
+		java.util.List<String> logs = captureLogs();
+		Long hobbyId = createHobby(1L);
+		// 이전 기록에는 "끝까지"가 있지만 이번 기록에는 없다 → 위반.
+		ActivityRecord previous = new ActivityRecord(1L, hobbyId, LocalDate.of(2026, 10, 1), "끝까지 쳤다", 15, null,
+				Feeling.NEUTRAL, false);
+		previous.markAnalysisPending(LocalDateTime.now());
+		previous = activityRecordRepository.save(previous);
+		ActivityRecord current = new ActivityRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), "코드를 쳤다", 15, null,
+				Feeling.NEUTRAL, false);
+		current.markAnalysisPending(LocalDateTime.now());
+		current = activityRecordRepository.save(current);
+
+		ActivityRecord result = analyzeRecord(current,
+				changeJson("지난번엔 끝까지 쳤는데, 오늘도 이어 쳤네요.", "이어 쳤네요. 괜찮아요.", previous.getId()));
+
+		// change 문장만 버리고(재호출 한 번 뒤에도 같으면) support는 그대로 둔다. 기본 문장으로 바꾸지 않는다.
+		StoredChange change = storedChangeOf(result);
+		assertThat(change.text()).isNull();
+		assertThat(change.support()).isEqualTo("이어 쳤네요. 괜찮아요.");
+		assertThat(logs).anyMatch(l -> l.contains("field=change") && l.contains("reason=UNGROUNDED"));
+		assertThat(logs).anyMatch(l -> l.contains("SUPPORT_RETRY"));
+		assertThat(logs).noneMatch(l -> l.contains("SUPPORT_FALLBACK"));
+		org.mockito.Mockito.verify(aiChatClient, org.mockito.Mockito.times(2)).complete(anyString(), anyString());
+	}
+
+	@Test
+	void t8_hardFeelingWithOvercomePhrase_staysComfortType_noRecognitionRequired() {
+		ActivityRecord record = pendingRecord("드디어 마지막 곡까지 쳤지만 몸이 무거웠다", null, Feeling.STUCK);
+
+		ActivityRecord result = analyzeRecord(record, changeJson(null, "몸이 무거운 날이었네요. 고생했어요.", record.getId()));
+
+		assertThat(storedChangeOf(result).support()).isEqualTo("몸이 무거운 날이었네요. 고생했어요.");
+		org.mockito.Mockito.verify(aiChatClient, org.mockito.Mockito.times(1)).complete(anyString(), anyString());
+	}
+
+	@Test
+	void t8_overcomePhraseWithoutDifficulty_allowsStrongRecognition_notOverpraise() {
+		java.util.List<String> logs = captureLogs();
+		ActivityRecord record = pendingRecord("드디어 F 코드를 깨끗하게 잡았다", null, Feeling.NEUTRAL);
+
+		ActivityRecord result = analyzeRecord(record, changeJson(null, "드디어 F 코드를 잡았네요. 해냈네요.", record.getId()));
+
+		assertThat(storedChangeOf(result).support()).isEqualTo("드디어 F 코드를 잡았네요. 해냈네요.");
+		assertThat(logs).noneMatch(l -> l.contains("SUPPORT_OVERPRAISE") || l.contains("SUPPORT_RETRY"));
+	}
+
+	@Test
+	void t8_threeSameEndingsInARow_onlyLogsStyleSoft() {
+		java.util.List<String> logs = captureLogs();
+		ActivityRecord record = achievementRecord();
+
+		ActivityRecord result = analyzeRecord(record,
+				changeJson("어제는 막혔는데 오늘은 잡았네요.", "10번 중 8번 해냈네요. 손가락이 아파도 쳤네요.", record.getId()));
+
+		// 글은 그대로 저장하고(버리지 않고) 로그만 남긴다.
+		StoredChange change = storedChangeOf(result);
+		assertThat(change.text()).isEqualTo("어제는 막혔는데 오늘은 잡았네요.");
+		assertThat(change.support()).isEqualTo("10번 중 8번 해냈네요. 손가락이 아파도 쳤네요.");
+		assertThat(logs).anyMatch(l -> l.startsWith("STYLE_SOFT recordId=") && l.contains("reason=SAME_ENDING")
+				&& l.contains("ending=네요") && l.contains("run=3"));
+		assertThat(logs).noneMatch(l -> l.contains("SUPPORT_RETRY"));
 	}
 }

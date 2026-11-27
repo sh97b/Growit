@@ -68,7 +68,7 @@ public class RecordAnalysisService {
 			List.of("다시 연습", "복습", "꾸준히", "자신 있는 곳", "한 번 더 연습", "한 번 더 해");
 	private static final int NEXT_ACTION_REASON_MAX = 40;
 	/** 강한 칭찬 표현. 어려움을 넘겼거나 새로 해 본 일, 뚜렷한 진전이 있을 때만 어울려, 평범한 기록에서는 과한 칭찬으로 본다. */
-	static final List<String> WARM_STRONG = List.of("멋져요", "대단해요", "잘하셨어요", "잘했어요");
+	static final List<String> WARM_STRONG = List.of("멋져요", "대단해요", "잘하셨어요", "잘했어요", "해냈", "자랑스러워", "장해요");
 	/** 부드러운 따뜻한 표현(공감·가벼운 인정). 평범한 기록에도 쓸 수 있다. */
 	static final List<String> WARM_SOFT = List.of("수고했어요", "고생했어요", "애썼어요", "괜찮아요", "충분해요", "응원해요", "다행이에요",
 			"좋았겠어요", "좋아 보여요", "편안했겠어요", "반가워요", "좋은 시작", "좋은 흐름", "기분 좋은", "잘 이어 가고 있어요");
@@ -77,17 +77,25 @@ public class RecordAnalysisService {
 			.toList();
 	/** support에 쓰면 안 되는 강조어(하드). 칭찬이 부풀려 보이는 것을 막는다. */
 	static final List<String> EMPHASIS_WORDS = List.of("정말", "너무", "진짜", "엄청", "굉장히");
+	/** 본문에 이 표현이 있으면(감정이 힘듦이 아닐 때) 어려움을 넘긴 성취형 기록으로 본다. */
+	static final List<String> OVERCOME_PHRASES = List.of("막혔던", "안 되던", "못 하던", "어렵던", "드디어", "처음으로", "마침내", "결국");
+	/** 이 말(어간)은 이번 기록 본문·막힌 점에 있을 때만 support·change에 쓸 수 있다(기록에 없는 행동·정도를 덧붙이지 않게). */
+	static final List<String> UNGROUNDED_STEMS = List.of("집중", "열심히", "꾸준", "최선", "끝까지");
+	/** 성취형 기록의 support에 강한 인정이 하나도 없을 때 재호출에 붙이는 교정 문구. */
+	static final String ACHIEVEMENT_CORRECTION = "성취한 기록이므로 구체적 사실을 짚은 뒤 멋져요·대단해요·해냈네요 같은 직접 인정을 한 번 넣어요";
+	private static final String UNGROUNDED_PREFIX = "기록에 없는 말";
 	/** 평범한 기록(어려움 없음, 감정이 힘듦 아님)의 support가 강한 칭찬을 쓸 때 재호출에 붙이는 교정 문구. */
 	static final String OVERPRAISE_CORRECTION = "평범한 기록이므로 강한 칭찬 대신 공감이나 가벼운 인정 한 문장으로 써요";
 	/** 보고서처럼 관찰하는 문체. support와 change 모두에서 막는다. */
 	static final List<String> REPORT_STYLE_PHRASES = List.of("알 수 있어요", "알 수 있습니다", "주목해요", "기억해요", "느껴져요",
 			"잘 드러", "과정이 보여", "점이에요", "기록이에요", "보여요");
 	static final String FALLBACK_SUPPORT_HARD = "힘든 날에도 기록을 남겼네요. 오늘은 이걸로 충분해요. 고생했어요.";
+	static final String FALLBACK_SUPPORT_ACHIEVEMENT = "어려웠던 걸 해냈네요. 대단해요.";
 	static final String FALLBACK_SUPPORT_GOOD = "오늘도 기록을 이어 갔네요. 좋은 흐름이에요.";
 	static final String FALLBACK_SUPPORT_NORMAL = "오늘도 한 줄 남겼네요. 이어 가는 것만으로 충분해요.";
 	private static final String PROMPT_RESOURCE_NAME = "record-analysis-system.txt";
 	/** prompts/record-analysis-system.txt의 내용을 바꿀 때마다 올린다. 저장된 결과가 어떤 지시문으로 만들어졌는지 추적하기 위해서다. */
-	static final int PROMPT_VERSION = 12;
+	static final int PROMPT_VERSION = 13;
 
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
@@ -173,7 +181,7 @@ public class RecordAnalysisService {
 			AiCallResult result = aiCallService.call(userId, AiResultType.ANALYSIS, systemPrompt, input.payload());
 			ValidationOutcome outcome = validateOutcome(result.content(), input.allowedHistoryIds(), result.model(),
 					input.recordId(), input.corpus(), input.roadmapItemIds(), input.payload().record());
-			if (outcome.supportIssue() != null) {
+			if (outcome.supportIssue() != null || outcome.textIssue() != null) {
 				outcome = retryForSupport(userId, systemPrompt, input, outcome);
 			}
 			analysis = outcome.supportIssue() == null ? outcome.analysis() : withFallbackSupport(outcome, input);
@@ -199,8 +207,10 @@ public class RecordAnalysisService {
 	 */
 	private ValidationOutcome retryForSupport(Long userId, String systemPrompt, AnalysisInput input,
 			ValidationOutcome first) {
-		log.warn("SUPPORT_RETRY recordId={} reason={}", input.recordId(), first.supportIssue());
-		String corrected = systemPrompt + "\n\n[교정 지시] 직전 응답의 support가 규칙을 어겼어요: " + first.supportIssue()
+		String reason = first.supportIssue() != null ? first.supportIssue() : first.textIssue();
+		log.warn("SUPPORT_RETRY recordId={} achievement={} reason={}", input.recordId(),
+				input.payload().record().achievement(), reason);
+		String corrected = systemPrompt + "\n\n[교정 지시] 직전 응답의 support가 규칙을 어겼어요: " + reason
 				+ ". 같은 입력으로 규칙을 지켜 JSON 객체 하나만 다시 응답해요.";
 		try {
 			AiCallResult result = aiCallService.call(userId, AiResultType.ANALYSIS, corrected, input.payload(), true);
@@ -220,17 +230,19 @@ public class RecordAnalysisService {
 	}
 
 	private ValidationOutcome acceptedWithOverpraise(ValidationOutcome outcome, AnalysisInput input) {
-		log.warn("SUPPORT_OVERPRAISE recordId={}", input.recordId());
-		return new ValidationOutcome(outcome.analysis(), null, outcome.evidenceId(), false);
+		log.warn("SUPPORT_OVERPRAISE recordId={} achievement={}", input.recordId(), input.payload().record().achievement());
+		return new ValidationOutcome(outcome.analysis(), null, outcome.evidenceId(), false, null);
 	}
 
 	private StoredAnalysis withFallbackSupport(ValidationOutcome outcome, AnalysisInput input) {
 		AnalysisRecordInput record = input.payload().record();
 		boolean hard = "HARD".equals(record.feelingDirection())
 				|| (record.difficulty() != null && !record.difficulty().isBlank());
-		String support = hard ? FALLBACK_SUPPORT_HARD
+		String support = record.achievement() ? FALLBACK_SUPPORT_ACHIEVEMENT
+				: hard ? FALLBACK_SUPPORT_HARD
 				: "GOOD".equals(record.feelingDirection()) ? FALLBACK_SUPPORT_GOOD : FALLBACK_SUPPORT_NORMAL;
-		log.warn("SUPPORT_FALLBACK recordId={} reason={}", input.recordId(), outcome.supportIssue());
+		log.warn("SUPPORT_FALLBACK recordId={} achievement={} reason={}", input.recordId(), record.achievement(),
+				outcome.supportIssue());
 		StoredAnalysis a = outcome.analysis();
 		String text = a.change() == null ? null : a.change().text();
 		StoredChange change = new StoredChange(text, outcome.evidenceId(), support);
@@ -240,11 +252,15 @@ public class RecordAnalysisService {
 
 	/** supportIssue가 null이 아니면 support가 규칙을 어긴 것이다(evidenceId는 그때 기본 문장을 붙일 근거 기록). */
 	private record ValidationOutcome(StoredAnalysis analysis, String supportIssue, Long evidenceId,
-			boolean overpraise) {
+			boolean overpraise, String textIssue) {
 	}
 
-	/** overpraise가 true이면 supportIssue는 "과한 칭찬"뿐이고 support 문장 자체는 저장 가능한 상태다. */
-	private record ChangeOutcome(StoredChange change, String supportIssue, Long evidenceId, boolean overpraise) {
+	/**
+	 * overpraise가 true이면 supportIssue는 "과한 칭찬"뿐이고 support 문장 자체는 저장 가능한 상태다. textIssue는 change 문장이
+	 * 기록에 없는 말 때문에 버려졌을 때의 이유로, 재호출만 부르고 기본 문장으로 바꾸지는 않는다.
+	 */
+	private record ChangeOutcome(StoredChange change, String supportIssue, Long evidenceId, boolean overpraise,
+			String textIssue) {
 	}
 
 	/** FAILED 기록의 실패 이유("LIMIT")를 읽는다. 예전 행처럼 값이 없거나 읽을 수 없으면 null. */
@@ -283,7 +299,8 @@ public class RecordAnalysisService {
 				feelingText(record),
 				record.getMinutes(),
 				record.getId(),
-				feelingDirectionOf(record));
+				feelingDirectionOf(record),
+				isAchievement(record.getContent(), record.getDifficulty(), feelingDirectionOf(record)));
 		List<AnalysisHistoryItem> historyItems = history.stream()
 				.map(h -> new AnalysisHistoryItem(h.getId(), h.getRecordDate().toString(),
 						truncate(h.getContent(), HISTORY_CONTENT_MAX),
@@ -370,7 +387,7 @@ public class RecordAnalysisService {
 		StoredAnalysis analysis = new StoredAnalysis(title, tags, relatedRecordIds, changeOutcome.change(), null, null,
 				PROMPT_VERSION, model, nextAction, suggestion);
 		return new ValidationOutcome(analysis, changeOutcome.supportIssue(), changeOutcome.evidenceId(),
-				changeOutcome.overpraise());
+				changeOutcome.overpraise(), changeOutcome.textIssue());
 	}
 
 	/** 입력으로 준 미완료 항목의 id만 받는다(남의 것·이미 체크한 것·지어낸 id는 버린다). 자동 체크는 하지 않는다. */
@@ -443,20 +460,22 @@ public class RecordAnalysisService {
 		if (changeNode.isMissingNode() || changeNode.isNull() || !changeNode.isObject()) {
 			// 객체 자체가 없으면 근거 기록도 없어 기본 문장을 붙일 수 없다. 로그만 남긴다.
 			log.warn("SUPPORT_MISSING recordId={}", recordId);
-			return new ChangeOutcome(null, null, null, false);
+			return new ChangeOutcome(null, null, null, false, null);
 		}
 		// 근거 id가 틀리면 어느 문장도 화면에 낼 수 없으므로 통째로 버린다.
 		JsonNode evidenceNode = changeNode.path("evidenceRecordId");
 		if (!evidenceNode.canConvertToLong() || !allowedIds.contains(evidenceNode.asLong())) {
 			log.warn("CHANGE_DROPPED recordId={} field=change|support reason=EVIDENCE length=- raw={}", recordId,
 					rawOf(changeNode));
-			return new ChangeOutcome(null, null, null, false);
+			return new ChangeOutcome(null, null, null, false, null);
 		}
 		long evidenceId = evidenceNode.asLong();
 		// 한쪽만 실패하면 그 필드만 버리고 나머지는 살린다.
-		String text = sanitizeChangeField(changeNode.path("text"), "change", CHANGE_TEXT_MAX, recordId, false);
+		String text = sanitizeChangeField(changeNode.path("text"), "change", CHANGE_TEXT_MAX, recordId, false, record);
+		String textReason = lastDropReason.get();
+		String textIssue = text == null && textReason != null && textReason.startsWith(UNGROUNDED_PREFIX) ? textReason : null;
 		JsonNode supportNode = changeNode.path("support");
-		String support = sanitizeChangeField(supportNode, "support", SUPPORT_TEXT_MAX, recordId, true);
+		String support = sanitizeChangeField(supportNode, "support", SUPPORT_TEXT_MAX, recordId, true, record);
 		String supportIssue = null;
 		if (support == null) {
 			supportIssue = lastDropReason.get() != null ? lastDropReason.get() : "support가 없음";
@@ -471,17 +490,20 @@ public class RecordAnalysisService {
 			supportIssue = OVERPRAISE_CORRECTION;
 			overpraise = true;
 		}
+		logSameEndingRun(recordId, text, support);
 		if (text == null && support == null) {
-			return new ChangeOutcome(null, supportIssue, evidenceId, false);
+			return new ChangeOutcome(null, supportIssue, evidenceId, false, textIssue);
 		}
-		return new ChangeOutcome(new StoredChange(text, evidenceId, support), supportIssue, evidenceId, overpraise);
+		return new ChangeOutcome(new StoredChange(text, evidenceId, support), supportIssue, evidenceId, overpraise,
+				textIssue);
 	}
 
 	/** 직전 sanitizeChangeField가 버린 이유를 교정 지시 문장으로 넘기는 용도(호출 스레드 안에서만 쓴다). */
 	private final ThreadLocal<String> lastDropReason = new ThreadLocal<>();
 
 	/** 형식·길이·금지어·관찰체를 검사해 통과하면 다듬은 글을, 아니면 null을 준다(버릴 때마다 필드와 이유를 로그로 남긴다). */
-	private String sanitizeChangeField(JsonNode node, String field, int maxLength, Long recordId, boolean requireWarm) {
+	private String sanitizeChangeField(JsonNode node, String field, int maxLength, Long recordId, boolean requireWarm,
+			AnalysisRecordInput record) {
 		lastDropReason.remove();
 		if (node.isMissingNode() || node.isNull()) {
 			return null;
@@ -513,16 +535,75 @@ public class RecordAnalysisService {
 			return dropField(recordId, field, "STYLE", node, value.length(),
 					"관찰체·보고서체 표현(" + String.join(", ", REPORT_STYLE_PHRASES) + ")을 씀");
 		}
+		String ungrounded = ungroundedStem(value, record);
+		if (ungrounded != null) {
+			return dropField(recordId, field, "UNGROUNDED", node, value.length(),
+					UNGROUNDED_PREFIX + "(" + ungrounded + ")을 덧붙임. 이번 기록에 적힌 행동·상태·정도만 써요");
+		}
 		if (requireWarm && WARM_PHRASES.stream().noneMatch(value::contains)) {
 			return dropField(recordId, field, "NOT_WARM", node, value.length(),
 					"따뜻한 직접 표현(" + String.join(", ", WARM_PHRASES) + ") 중 하나가 없음");
 		}
+		if (requireWarm && record != null && record.achievement() && WARM_STRONG.stream().noneMatch(value::contains)) {
+			return dropField(recordId, field, "NO_RECOGNITION", node, value.length(), ACHIEVEMENT_CORRECTION);
+		}
 		return value;
 	}
 
-	/** 막힌 점(어려움)이 없고 감정 방향이 힘듦이 아닌 평범한 기록에서 support가 강한 칭찬을 쓰면 과한 칭찬이다. record가 없으면 검사하지 않는다. */
-	private static boolean isOverpraise(String support, AnalysisRecordInput record) {
+	/** 성취형 판정: (막힌 점이 있고 감정 방향이 좋음) 또는 (본문에 극복 표현). 감정 방향이 힘듦이면 어느 쪽이든 성취형이 아니다(위로형 유지). */
+	static boolean isAchievement(String content, String difficulty, String feelingDirection) {
+		if ("HARD".equals(feelingDirection)) {
+			return false;
+		}
+		boolean hasDifficulty = difficulty != null && !difficulty.isBlank();
+		if (hasDifficulty && "GOOD".equals(feelingDirection)) {
+			return true;
+		}
+		return content != null && OVERCOME_PHRASES.stream().anyMatch(content::contains);
+	}
+
+	/** value에 쓰인 UNGROUNDED_STEMS 중 이번 기록 본문·막힌 점에 없는 것을 하나 돌려준다(없으면 null, record가 없으면 검사 안 함). */
+	private static String ungroundedStem(String value, AnalysisRecordInput record) {
 		if (record == null) {
+			return null;
+		}
+		String source = (record.content() == null ? "" : record.content()) + " "
+				+ (record.difficulty() == null ? "" : record.difficulty());
+		for (String stem : UNGROUNDED_STEMS) {
+			if (value.contains(stem) && !source.contains(stem)) {
+				return stem;
+			}
+		}
+		return null;
+	}
+
+	/** 같은 끝맺음("~네요.")이 연속 3문장 이상이면 읽기 단조롭다는 로그만 남긴다(버리지 않는다). */
+	private void logSameEndingRun(Long recordId, String text, String support) {
+		List<String> endings = new ArrayList<>();
+		for (String part : new String[] {text, support}) {
+			if (part == null) {
+				continue;
+			}
+			for (String sentence : part.split("(?<=[.!?])\\s*")) {
+				String core = sentence.replaceAll("[.!?\\s]+$", "");
+				if (core.length() >= 2) {
+					endings.add(core.substring(core.length() - 2));
+				}
+			}
+		}
+		int run = 1;
+		for (int i = 1; i < endings.size(); i++) {
+			run = endings.get(i).equals(endings.get(i - 1)) ? run + 1 : 1;
+			if (run >= 3) {
+				log.warn("STYLE_SOFT recordId={} reason=SAME_ENDING ending={} run={}", recordId, endings.get(i), run);
+				return;
+			}
+		}
+	}
+
+	/** 막힌 점(어려움)이 없고 감정 방향이 힘듦이 아닌 평범한 기록에서 support가 강한 칭찬을 쓰면 과한 칭찬이다. 성취형 기록과 record가 없는 호출은 검사하지 않는다. */
+	private static boolean isOverpraise(String support, AnalysisRecordInput record) {
+		if (record == null || record.achievement()) {
 			return false;
 		}
 		boolean heavy = (record.difficulty() != null && !record.difficulty().isBlank())
