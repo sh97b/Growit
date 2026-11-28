@@ -247,7 +247,7 @@ class RecordAnalysisServiceTest {
 		service(enabledProperties()).analyze(current.getId(), 1L);
 
 		ActivityRecord result = activityRecordRepository.findById(current.getId()).orElseThrow();
-		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":13").contains("\"model\":\"model\"");
+		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":14").contains("\"model\":\"model\"");
 	}
 
 	@Test
@@ -905,9 +905,9 @@ class RecordAnalysisServiceTest {
 	}
 
 	@Test
-	void change_promptVersionIsThirteenAndOldSingleSentenceResultsStillRead() {
+	void change_promptVersionIsFourteenAndOldSingleSentenceResultsStillRead() {
 		ActivityRecord result = analyzeWithChange("전환을 이어 쳤어요.", "이어 간 게 멋져요.", true);
-		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":13");
+		assertThat(result.getAiAnalysis()).contains("\"promptVersion\":14");
 
 		StoredAnalysis old = service(enabledProperties()).readJson("{\"title\":\"예전\",\"tags\":[],"
 				+ "\"relatedRecordIds\":[],\"change\":{\"text\":\"지난번엔 끊겼는데 오늘은 이어 쳤어요\",\"evidenceRecordId\":1},"
@@ -1283,5 +1283,154 @@ org.mockito.Mockito.clearInvocations(aiChatClient);
 		assertThat(logs).anyMatch(l -> l.startsWith("STYLE_SOFT recordId=") && l.contains("reason=SAME_ENDING")
 				&& l.contains("ending=네요") && l.contains("run=3"));
 		assertThat(logs).noneMatch(l -> l.contains("SUPPORT_RETRY"));
+	}
+
+	// ---- T9: nextAction 부가 작업(메모·정리 등) 검사, 시점 접두 보정, 컨디션 소프트 로그 ----
+
+	private static String metaAction(String text, int minutes) {
+		return "{\"text\":\"" + text + "\",\"minutes\":" + minutes + ",\"reason\":\"기록에 적은 내용이에요\",\"evidenceRecordId\":%ID%}";
+	}
+
+	private static String metaBody(String supportJson, String actionJson) {
+		return "{\"title\":\"연습\",\"tags\":[],\"relatedRecordIds\":[],\"change\":" + supportJson
+				+ ",\"nextAction\":" + actionJson + "}";
+	}
+
+	/** 분야·기록을 직접 정하고, 주어진 응답 본문을 차례로 돌려주게 해 분석한다. %ID%는 기록 id로 바뀐다. */
+	private ActivityRecord analyzeSequence(String hobbyName, String goal, String content, String difficulty,
+			Feeling feeling, String... bodies) {
+		Long hobbyId = hobbyRepository.save(new Hobby(1L, hobbyName, goal)).getId();
+		ActivityRecord current = new ActivityRecord(1L, hobbyId, LocalDate.of(2026, 10, 10), content, 20, difficulty, feeling,
+				false);
+		current.markAnalysisPending(LocalDateTime.now());
+		current = activityRecordRepository.save(current);
+		String id = String.valueOf(current.getId());
+		org.mockito.BDDMockito.BDDMyOngoingStubbing<AiChatResponse> stub = given(aiChatClient.complete(anyString(), anyString()))
+				.willReturn(new AiChatResponse(bodies[0].replace("%ID%", id), 10, "model"));
+		for (int i = 1; i < bodies.length; i++) {
+			stub = stub.willReturn(new AiChatResponse(bodies[i].replace("%ID%", id), 10, "model"));
+		}
+		service(enabledProperties()).analyze(current.getId(), 1L);
+		return activityRecordRepository.findById(current.getId()).orElseThrow();
+	}
+
+	private static final String NO_CHANGE = "null";
+
+	@Test
+	void t9_metaNextAction_retriesOnce_andAcceptsCorrectedAction() {
+		java.util.List<String> logs = captureLogs();
+
+		ActivityRecord result = analyzeSequence("독서", "매일 읽기", "피곤해서 3쪽만 읽었다", "졸렸다", Feeling.STUCK,
+				metaBody(NO_CHANGE, metaAction("그 3쪽 내용을 한 문장으로 메모해 봐요", 5)),
+				metaBody(NO_CHANGE, metaAction("잠들기 전 5분만 책을 펼쳐 읽어 봐요", 5)));
+
+		assertThat(result.getAiAnalysis()).contains("잠들기 전 5분만 책을 펼쳐 읽어 봐요").doesNotContain("메모");
+		assertThat(logs).anyMatch(l -> l.contains("SUPPORT_RETRY") && l.contains("부가 작업 낱말: 메모"));
+		assertThat(logs).noneMatch(l -> l.contains("NEXT_ACTION_DROPPED"));
+		org.mockito.ArgumentCaptor<String> system = org.mockito.ArgumentCaptor.forClass(String.class);
+		org.mockito.Mockito.verify(aiChatClient, org.mockito.Mockito.times(2)).complete(system.capture(), anyString());
+		assertThat(system.getAllValues().get(1)).contains("[교정 지시]", "nextAction", RecordAnalysisService.NEXT_ACTION_META_CORRECTION,
+				"메모");
+	}
+
+	@Test
+	void t9_metaNextActionAfterRetry_dropsOnlyNextAction_keepsChange_andLogsWithoutUserText() {
+		java.util.List<String> logs = captureLogs();
+		String change = "{\"text\":null,\"support\":\"피곤한 날에도 책을 펼쳤어요. 오늘은 이걸로 충분해요.\",\"evidenceRecordId\":%ID%}";
+
+		ActivityRecord result = analyzeSequence("독서", "매일 읽기", "피곤해서 3쪽만 읽었다", "졸렸다", Feeling.STUCK,
+				metaBody(change, metaAction("그 3쪽 내용을 한 문장으로 메모해 봐요", 5)),
+				metaBody(change, metaAction("읽은 부분을 간단히 정리해 봐요", 5)));
+
+		assertThat(result.getAiStatus()).isEqualTo(AiStatus.DONE);
+		assertThat(result.getAiAnalysis()).contains("\"nextAction\":null").contains("오늘은 이걸로 충분해요");
+		assertThat(logs).anyMatch(l -> l.startsWith("NEXT_ACTION_DROPPED recordId=") && l.contains("reason=META")
+				&& l.contains("matched=정리") && !l.contains("책"));
+		assertThat(logs).noneMatch(l -> l.contains("SUPPORT_FALLBACK"));
+		org.mockito.Mockito.verify(aiChatClient, org.mockito.Mockito.times(2)).complete(anyString(), anyString());
+	}
+
+	@Test
+	void t9_everyMetaWord_isRejected() {
+		for (String word : RecordAnalysisService.NEXT_ACTION_META_WORDS) {
+			ActivityRecord result = analyzeSequence("러닝", "5km 완주", "5km를 뛰었다", "숨이 찼다", Feeling.NEUTRAL,
+					metaBody(NO_CHANGE, metaAction("5km를 뛰고 나서 " + word + " 해 봐요", 6)),
+					metaBody(NO_CHANGE, metaAction("5km를 뛰고 나서 " + word + " 해 봐요", 6)));
+			assertThat(result.getAiAnalysis()).as(word).contains("\"nextAction\":null");
+		}
+	}
+
+	@Test
+	void t9_metaWordAllowed_whenHobbyIsThatActivity_orRecordAlreadyHasIt() {
+		// 분야 자체가 일기 쓰기
+		ActivityRecord diary = analyzeSequence("일기 쓰기", "매일 한 줄", "오늘은 두 줄 썼다", "무슨 말을 쓸지 몰랐다", Feeling.NEUTRAL,
+				metaBody(NO_CHANGE, metaAction("가장 쉬운 일기 한 줄만 써 봐요", 5)));
+		assertThat(diary.getAiAnalysis()).contains("가장 쉬운 일기 한 줄만 써 봐요");
+		org.mockito.Mockito.verify(aiChatClient, org.mockito.Mockito.times(1)).complete(anyString(), anyString());
+
+		// 기록 본문에 이미 있는 행동
+		ActivityRecord memo = analyzeSequence("영어", "회화", "단어를 메모해 두고 읽었다", "발음이 어려웠다", Feeling.NEUTRAL,
+				metaBody(NO_CHANGE, metaAction("메모한 단어 세 개만 소리 내어 읽어 봐요", 5)));
+		assertThat(memo.getAiAnalysis()).contains("메모한 단어 세 개만");
+	}
+
+	@Test
+	void t9_degreeWordJeogeodo_isNotMeta() {
+		ActivityRecord result = analyzeSequence("러닝", "5km 완주", "5km를 뛰었다", "숨이 찼다", Feeling.NEUTRAL,
+				metaBody(NO_CHANGE, metaAction("적어도 5분은 5km 코스를 천천히 뛰어 봐요", 5)));
+		assertThat(result.getAiAnalysis()).contains("5km 코스를 천천히");
+		org.mockito.Mockito.verify(aiChatClient, org.mockito.Mockito.times(1)).complete(anyString(), anyString());
+	}
+
+	@Test
+	void t9_timePrefix_isTrimmed_notDropped() {
+		for (String prefix : new String[] {"내일은 ", "오늘은 ", "이번 주에는 ", "다음 주에는 ", "이번에는 "}) {
+			java.util.List<String> logs = captureLogs();
+			ActivityRecord result = analyzeSequence("러닝", "5km 완주", "5km를 뛰었다", "숨이 찼다", Feeling.NEUTRAL,
+					metaBody(NO_CHANGE, metaAction(prefix + "5km 코스를 천천히 뛰어 봐요", 7)));
+			assertThat(result.getAiAnalysis()).as(prefix).contains("\"text\":\"5km 코스를 천천히 뛰어 봐요\"");
+			assertThat(logs).as(prefix).anyMatch(l -> l.startsWith("NEXT_ACTION_TRIMMED recordId="));
+			assertThat(logs).as(prefix).noneMatch(l -> l.contains("5km"));
+		}
+		// 접두가 아닌 낱말("오늘의")은 그대로 둔다.
+		ActivityRecord keep = analyzeSequence("러닝", "5km 완주", "5km를 뛰었다", "숨이 찼다", Feeling.NEUTRAL,
+				metaBody(NO_CHANGE, metaAction("오늘의 5km 코스를 천천히 뛰어 봐요", 7)));
+		assertThat(keep.getAiAnalysis()).contains("오늘의 5km 코스를");
+	}
+
+	@Test
+	void t9_lowConditionWithLongMinutes_logsSoftLoad_butDoesNotRetry() {
+		java.util.List<String> logs = captureLogs();
+
+		ActivityRecord tired = analyzeSequence("독서", "매일 읽기", "3쪽 읽었다", "졸렸다", Feeling.NEUTRAL,
+				metaBody(NO_CHANGE, metaAction("책 3쪽을 소리 내어 천천히 읽어 봐요", 8)));
+		assertThat(tired.getAiAnalysis()).contains("책 3쪽을 소리 내어");
+		assertThat(logs).anyMatch(l -> l.startsWith("NEXT_ACTION_SOFT recordId=") && l.contains("reason=LOAD"));
+		org.mockito.Mockito.verify(aiChatClient, org.mockito.Mockito.times(1)).complete(anyString(), anyString());
+
+		java.util.List<String> hardLogs = captureLogs();
+		analyzeSequence("독서", "매일 읽기", "3쪽 읽었다", "분량이 많았다", Feeling.STUCK,
+				metaBody(NO_CHANGE, metaAction("책 3쪽을 소리 내어 천천히 읽어 봐요", 10)));
+		assertThat(hardLogs).anyMatch(l -> l.contains("reason=LOAD"));
+	}
+
+	@Test
+	void t9_lowCondition_withFiveMinutes_orNormalCondition_logsNothing() {
+		java.util.List<String> logs = captureLogs();
+
+		analyzeSequence("독서", "매일 읽기", "3쪽 읽었다", "졸렸다", Feeling.NEUTRAL,
+				metaBody(NO_CHANGE, metaAction("책 3쪽을 소리 내어 천천히 읽어 봐요", 5)));
+		analyzeSequence("독서", "매일 읽기", "30쪽 읽었다", "집중이 흐려졌다", Feeling.NEUTRAL,
+				metaBody(NO_CHANGE, metaAction("책 30쪽 중 첫 10쪽만 소리 내어 읽어 봐요", 9)));
+
+		assertThat(logs).noneMatch(l -> l.contains("reason=LOAD"));
+	}
+
+	@Test
+	void t9_metaAndTimeWordLists_arePinned() {
+		assertThat(RecordAnalysisService.NEXT_ACTION_META_WORDS).containsExactly("메모", "정리", "요약", "복습", "기록해", "적어",
+				"노트", "일기", "계획", "다짐", "사진", "녹음", "영상");
+		assertThat(RecordAnalysisService.NEXT_ACTION_TIME_PREFIXES).containsExactly("내일", "오늘", "이번 주", "다음 주", "이번에는",
+				"이번엔", "다음에는");
 	}
 }

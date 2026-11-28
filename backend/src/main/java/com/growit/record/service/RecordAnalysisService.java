@@ -84,6 +84,16 @@ public class RecordAnalysisService {
 	/** 성취형 기록의 support에 강한 인정이 하나도 없을 때 재호출에 붙이는 교정 문구. */
 	static final String ACHIEVEMENT_CORRECTION = "성취한 기록이므로 구체적 사실을 짚은 뒤 멋져요·대단해요·해냈네요 같은 직접 인정을 한 번 넣어요";
 	private static final String UNGROUNDED_PREFIX = "기록에 없는 말";
+	/** nextAction이 활동에 딸린 부가 작업(메모·정리 등)을 권할 때의 낱말. 이번 기록·분야 이름·목표에 같은 어간이 있으면 통과한다. */
+	static final List<String> NEXT_ACTION_META_WORDS = List.of("메모", "정리", "요약", "복습", "기록해", "적어", "노트", "일기", "계획",
+			"다짐", "사진", "녹음", "영상");
+	/** 시점 표현 접두("내일은", "이번 주에는" 등). 위반으로 버리지 않고 접두만 떼어 보정한다. 뒤에 공백이 있어야 접두로 본다. */
+	static final List<String> NEXT_ACTION_TIME_PREFIXES = List.of("내일", "오늘", "이번 주", "다음 주", "이번에는", "이번엔", "다음에는");
+	private static final java.util.regex.Pattern TIME_PREFIX = java.util.regex.Pattern
+			.compile("^(?:(?:내일|오늘|이번 ?주|다음 ?주)(?:에는|에|은|는|엔|도)?|(?:이번|다음)(?:에는|엔))\\s+");
+	/** 막힌 점·시간 부족 같은 컨디션 낱말(소프트 검사 LOAD용). */
+	private static final List<String> LOW_CONDITION_WORDS = List.of("피곤", "졸", "바쁘", "시간 부족", "시간이 부족", "시간이 없");
+	static final String NEXT_ACTION_META_CORRECTION = "부가 작업(메모·정리·요약·기록·계획·사진·녹음 등) 대신 같은 활동을 더 작게·가볍게 다시 하는 행동 하나로 써요";
 	/** 평범한 기록(어려움 없음, 감정이 힘듦 아님)의 support가 강한 칭찬을 쓸 때 재호출에 붙이는 교정 문구. */
 	static final String OVERPRAISE_CORRECTION = "평범한 기록이므로 강한 칭찬 대신 공감이나 가벼운 인정 한 문장으로 써요";
 	/** 보고서처럼 관찰하는 문체. support와 change 모두에서 막는다. */
@@ -95,7 +105,7 @@ public class RecordAnalysisService {
 	static final String FALLBACK_SUPPORT_NORMAL = "오늘도 한 줄 남겼네요. 이어 가는 것만으로 충분해요.";
 	private static final String PROMPT_RESOURCE_NAME = "record-analysis-system.txt";
 	/** prompts/record-analysis-system.txt의 내용을 바꿀 때마다 올린다. 저장된 결과가 어떤 지시문으로 만들어졌는지 추적하기 위해서다. */
-	static final int PROMPT_VERSION = 13;
+	static final int PROMPT_VERSION = 14;
 
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
@@ -180,9 +190,15 @@ public class RecordAnalysisService {
 		try {
 			AiCallResult result = aiCallService.call(userId, AiResultType.ANALYSIS, systemPrompt, input.payload());
 			ValidationOutcome outcome = validateOutcome(result.content(), input.allowedHistoryIds(), result.model(),
-					input.recordId(), input.corpus(), input.roadmapItemIds(), input.payload().record());
-			if (outcome.supportIssue() != null || outcome.textIssue() != null) {
+					input.recordId(), input.corpus(), input.roadmapItemIds(), input.payload().record(),
+					input.payload().hobby());
+			if (outcome.supportIssue() != null || outcome.textIssue() != null || outcome.nextActionMeta() != null) {
 				outcome = retryForSupport(userId, systemPrompt, input, outcome);
+			}
+			if (outcome.nextActionMeta() != null) {
+				// 재호출 뒤에도 부가 작업 제안이면 nextAction만 버렸다(대체 문장 없음). 사용자 글은 로그에 남기지 않는다.
+				log.warn("NEXT_ACTION_DROPPED recordId={} reason=META matched={}", input.recordId(),
+						outcome.nextActionMeta());
 			}
 			analysis = outcome.supportIssue() == null ? outcome.analysis() : withFallbackSupport(outcome, input);
 		} catch (AiLimitException e) {
@@ -208,14 +224,20 @@ public class RecordAnalysisService {
 	private ValidationOutcome retryForSupport(Long userId, String systemPrompt, AnalysisInput input,
 			ValidationOutcome first) {
 		String reason = first.supportIssue() != null ? first.supportIssue() : first.textIssue();
+		String target = "support";
+		if (reason == null) {
+			reason = NEXT_ACTION_META_CORRECTION + "(부가 작업 낱말: " + first.nextActionMeta() + ")";
+			target = "nextAction";
+		}
 		log.warn("SUPPORT_RETRY recordId={} achievement={} reason={}", input.recordId(),
 				input.payload().record().achievement(), reason);
-		String corrected = systemPrompt + "\n\n[교정 지시] 직전 응답의 support가 규칙을 어겼어요: " + reason
+		String corrected = systemPrompt + "\n\n[교정 지시] 직전 응답의 " + target + "이 규칙을 어겼어요: " + reason
 				+ ". 같은 입력으로 규칙을 지켜 JSON 객체 하나만 다시 응답해요.";
 		try {
 			AiCallResult result = aiCallService.call(userId, AiResultType.ANALYSIS, corrected, input.payload(), true);
 			ValidationOutcome second = validateOutcome(result.content(), input.allowedHistoryIds(), result.model(),
-					input.recordId(), input.corpus(), input.roadmapItemIds(), input.payload().record());
+					input.recordId(), input.corpus(), input.roadmapItemIds(), input.payload().record(),
+					input.payload().hobby());
 			if (second.supportIssue() == null) {
 				return second;
 			}
@@ -231,7 +253,7 @@ public class RecordAnalysisService {
 
 	private ValidationOutcome acceptedWithOverpraise(ValidationOutcome outcome, AnalysisInput input) {
 		log.warn("SUPPORT_OVERPRAISE recordId={} achievement={}", input.recordId(), input.payload().record().achievement());
-		return new ValidationOutcome(outcome.analysis(), null, outcome.evidenceId(), false, null);
+		return new ValidationOutcome(outcome.analysis(), null, outcome.evidenceId(), false, null, outcome.nextActionMeta());
 	}
 
 	private StoredAnalysis withFallbackSupport(ValidationOutcome outcome, AnalysisInput input) {
@@ -252,7 +274,7 @@ public class RecordAnalysisService {
 
 	/** supportIssue가 null이 아니면 support가 규칙을 어긴 것이다(evidenceId는 그때 기본 문장을 붙일 근거 기록). */
 	private record ValidationOutcome(StoredAnalysis analysis, String supportIssue, Long evidenceId,
-			boolean overpraise, String textIssue) {
+			boolean overpraise, String textIssue, String nextActionMeta) {
 	}
 
 	/**
@@ -360,11 +382,12 @@ public class RecordAnalysisService {
 	/** corpus가 null이면 낱말 포함 검사는 건너뛴다(품질 평가 하네스처럼 입력 전문이 없는 호출). */
 	StoredAnalysis validate(String rawJson, Set<Long> allowedHistoryIds, String model, Long recordId,
 			String corpus) {
-		return validateOutcome(rawJson, allowedHistoryIds, model, recordId, corpus, Set.of(), null).analysis();
+		return validateOutcome(rawJson, allowedHistoryIds, model, recordId, corpus, Set.of(), null, null).analysis();
 	}
 
 	private ValidationOutcome validateOutcome(String rawJson, Set<Long> allowedHistoryIds, String model,
-			Long recordId, String corpus, Set<Long> roadmapItemIds, AnalysisRecordInput record) {
+			Long recordId, String corpus, Set<Long> roadmapItemIds, AnalysisRecordInput record,
+			AnalysisHobbyInput hobby) {
 		JsonNode node = aiResponseValidator.parse(rawJson);
 		aiResponseValidator.requireFields(node, "title", "tags", "relatedRecordIds");
 
@@ -379,15 +402,18 @@ public class RecordAnalysisService {
 		ChangeOutcome changeOutcome = sanitizeChange(node.path("change"), nextActionEvidenceIds, recordId, record);
 
 		// nextAction이 이상해도 나머지 결과는 살린다(전체 실패 금지).
+		lastNextActionMeta.remove();
 		StoredNextAction nextAction = sanitizeNextAction(node.path("nextAction"), nextActionEvidenceIds, corpus,
-				recordId);
+				recordId, record, hobby);
+		String nextActionMeta = lastNextActionMeta.get();
+		lastNextActionMeta.remove();
 
 		StoredRoadmapSuggestion suggestion = sanitizeRoadmapSuggestion(node.path("roadmapSuggestion"), roadmapItemIds,
 				recordId);
 		StoredAnalysis analysis = new StoredAnalysis(title, tags, relatedRecordIds, changeOutcome.change(), null, null,
 				PROMPT_VERSION, model, nextAction, suggestion);
 		return new ValidationOutcome(analysis, changeOutcome.supportIssue(), changeOutcome.evidenceId(),
-				changeOutcome.overpraise(), changeOutcome.textIssue());
+				changeOutcome.overpraise(), changeOutcome.textIssue(), nextActionMeta);
 	}
 
 	/** 입력으로 준 미완료 항목의 id만 받는다(남의 것·이미 체크한 것·지어낸 id는 버린다). 자동 체크는 하지 않는다. */
@@ -500,6 +526,9 @@ public class RecordAnalysisService {
 
 	/** 직전 sanitizeChangeField가 버린 이유를 교정 지시 문장으로 넘기는 용도(호출 스레드 안에서만 쓴다). */
 	private final ThreadLocal<String> lastDropReason = new ThreadLocal<>();
+
+	/** 직전 sanitizeNextAction이 부가 작업 낱말로 버린 제안의 낱말(없으면 null). 호출 스레드 안에서만 쓴다. */
+	private final ThreadLocal<String> lastNextActionMeta = new ThreadLocal<>();
 
 	/** 형식·길이·금지어·관찰체를 검사해 통과하면 다듬은 글을, 아니면 null을 준다(버릴 때마다 필드와 이유를 로그로 남긴다). */
 	private String sanitizeChangeField(JsonNode node, String field, int maxLength, Long recordId, boolean requireWarm,
@@ -630,7 +659,7 @@ public class RecordAnalysisService {
 	 * NEXT_ACTION_DROPPED 로그로 이유를 남겨 어디서 막히는지 운영에서 볼 수 있게 한다.
 	 */
 	private StoredNextAction sanitizeNextAction(JsonNode actionNode, Set<Long> allowedIds, String corpus,
-			Long recordId) {
+			Long recordId, AnalysisRecordInput record, AnalysisHobbyInput hobby) {
 		if (actionNode.isMissingNode() || actionNode.isNull()) {
 			return dropped(recordId, "MISSING", actionNode);
 		}
@@ -645,6 +674,11 @@ public class RecordAnalysisService {
 			return dropped(recordId, "FIELD", actionNode);
 		}
 		String text = textNode.asText().trim();
+		String trimmed = TIME_PREFIX.matcher(text).replaceFirst("").trim();
+		if (!trimmed.isEmpty() && !trimmed.equals(text)) {
+			log.info("NEXT_ACTION_TRIMMED recordId={}", recordId);
+			text = trimmed;
+		}
 		String reason = reasonNode.asText().trim();
 		int minutes = minutesNode.asInt();
 		if (minutes < NEXT_ACTION_MIN_MINUTES || minutes > NEXT_ACTION_MAX_MINUTES) {
@@ -658,6 +692,15 @@ public class RecordAnalysisService {
 		}
 		if (isForbiddenWording(text) || isForbiddenWording(reason)) {
 			return dropped(recordId, "FORBIDDEN", actionNode);
+		}
+		String meta = metaWord(text, record, hobby);
+		if (meta != null) {
+			// 버리는 로그는 재호출 결과까지 본 뒤 analyze()가 남긴다.
+			lastNextActionMeta.set(meta);
+			return null;
+		}
+		if (record != null && minutes > NEXT_ACTION_MIN_MINUTES && isLowCondition(record)) {
+			log.warn("NEXT_ACTION_SOFT recordId={} reason=LOAD minutes={}", recordId, minutes);
 		}
 
 		JsonNode evidenceNode = actionNode.path("evidenceRecordId");
@@ -692,6 +735,39 @@ public class RecordAnalysisService {
 
 	private StoredNextAction dropped(Long recordId, String reason, JsonNode actionNode) {
 		return dropped(recordId, reason, actionNode, "-");
+	}
+
+	/**
+	 * text에 부가 작업 낱말이 있고, 이번 기록 본문·막힌 점·분야 이름·목표에 그 낱말의 어간이 없으면 그 낱말을 준다.
+	 * 기록·분야에 이미 있는 행동(예: 분야가 일기 쓰기)은 부가 작업이 아니라 활동 자체라서 통과시킨다. record가 없으면 검사하지 않는다.
+	 */
+	private static String metaWord(String text, AnalysisRecordInput record, AnalysisHobbyInput hobby) {
+		if (record == null) {
+			return null;
+		}
+		String source = nullSafe(record.content()) + " " + nullSafe(record.difficulty()) + " "
+				+ (hobby == null ? "" : nullSafe(hobby.name()) + " " + nullSafe(hobby.goal()));
+		// "적어도"는 "적어 보기"가 아니라 정도 표현이다.
+		String target = text.replace("적어도", "");
+		for (String word : NEXT_ACTION_META_WORDS) {
+			if (!target.contains(word)) {
+				continue;
+			}
+			String stem = word.equals("기록해") ? "기록" : word;
+			if (!source.contains(stem)) {
+				return word;
+			}
+		}
+		return null;
+	}
+
+	private static boolean isLowCondition(AnalysisRecordInput record) {
+		return "HARD".equals(record.feelingDirection())
+				|| LOW_CONDITION_WORDS.stream().anyMatch(nullSafe(record.difficulty())::contains);
+	}
+
+	private static String nullSafe(String value) {
+		return value == null ? "" : value;
 	}
 
 	/** detail은 어느 필드가 몇 자였는지 같은 보충(없으면 "-"). */
