@@ -67,22 +67,30 @@ public class RecordAnalysisService {
 	static final List<String> GENERIC_PHRASES =
 			List.of("다시 연습", "복습", "꾸준히", "자신 있는 곳", "한 번 더 연습", "한 번 더 해");
 	private static final int NEXT_ACTION_REASON_MAX = 40;
-	/** 강한 칭찬 표현. 어려움을 넘겼거나 새로 해 본 일, 뚜렷한 진전이 있을 때만 어울려, 평범한 기록에서는 과한 칭찬으로 본다. */
-	static final List<String> WARM_STRONG = List.of("멋져요", "대단해요", "잘하셨어요", "잘했어요", "해냈", "자랑스러워", "장해요");
-	/** 부드러운 따뜻한 표현(공감·가벼운 인정). 평범한 기록에도 쓸 수 있다. */
-	static final List<String> WARM_SOFT = List.of("수고했어요", "고생했어요", "애썼어요", "괜찮아요", "충분해요", "응원해요", "다행이에요",
-			"좋았겠어요", "좋아 보여요", "편안했겠어요", "반가워요", "좋은 시작", "좋은 흐름", "기분 좋은", "잘 이어 가고 있어요");
+	/** 강한 칭찬 어간(변형 어미도 잡는다: 해내셨군요, 대단한 걸음이에요). 어려움을 넘겼거나 새로 해 본 일, 뚜렷한 진전이 있을 때만 어울려, 평범한 기록에서는 과한 칭찬으로 본다. */
+	static final List<String> WARM_STRONG = List.of("멋져", "대단", "해내", "해냈", "자랑스러", "잘하셨", "잘했", "장해", "큰 걸음", "큰 진전");
+	/** 부드러운 따뜻한 표현의 어간(공감·가벼운 인정). 평범한 기록에도 쓸 수 있다. */
+	static final List<String> WARM_SOFT = List.of("수고", "고생", "애쓰", "애썼", "괜찮", "충분", "응원", "다행", "좋았겠", "좋아 보",
+			"편안했겠", "좋은 시작", "좋은 흐름", "이어 가");
 	/** support에는 이 합집합(강함+부드러움) 중 하나 이상이 있어야 한다. 문구를 늘릴 때는 위 두 목록만 고친다. */
 	static final List<String> WARM_PHRASES = java.util.stream.Stream.concat(WARM_STRONG.stream(), WARM_SOFT.stream())
 			.toList();
 	/** support에 쓰면 안 되는 강조어(하드). 칭찬이 부풀려 보이는 것을 막는다. */
 	static final List<String> EMPHASIS_WORDS = List.of("정말", "너무", "진짜", "엄청", "굉장히");
+	/** "참"은 "참여·참고" 안에도 있어 독립한 낱말일 때만 강조어로 본다. */
+	private static final java.util.regex.Pattern EMPHASIS_CHAM = java.util.regex.Pattern.compile("(?<![가-힣])참(?![가-힣])");
+	/** 말투 규칙(T10) 위반 이름과 재호출 교정 문구. */
+	static final String STYLE_NERYO = "NERYO";
+	static final String STYLE_COMMA = "COMMA";
+	static final String STYLE_REPEAT = "REPEAT";
+	private static final java.util.regex.Pattern SMALL_NUMBER = java.util.regex.Pattern.compile(
+			"(?<!\\d)\\d{1,2}(?!\\d)|(?:두|세|다섯|여섯|일곱|여덟|아홉|열|스무|스물)(?=\\s?(?:번|개|쪽|분|곡|줄|세트|문장|바퀴|명|장|곳|가지))");
 	/** 본문에 이 표현이 있으면(감정이 힘듦이 아닐 때) 어려움을 넘긴 성취형 기록으로 본다. */
 	static final List<String> OVERCOME_PHRASES = List.of("막혔던", "안 되던", "못 하던", "어렵던", "드디어", "처음으로", "마침내", "결국");
 	/** 이 말(어간)은 이번 기록 본문·막힌 점에 있을 때만 support·change에 쓸 수 있다(기록에 없는 행동·정도를 덧붙이지 않게). */
 	static final List<String> UNGROUNDED_STEMS = List.of("집중", "열심히", "꾸준", "최선", "끝까지");
 	/** 성취형 기록의 support에 강한 인정이 하나도 없을 때 재호출에 붙이는 교정 문구. */
-	static final String ACHIEVEMENT_CORRECTION = "성취한 기록이므로 구체적 사실을 짚은 뒤 멋져요·대단해요·해냈네요 같은 직접 인정을 한 번 넣어요";
+	static final String ACHIEVEMENT_CORRECTION = "성취한 기록이므로 구체적 사실을 짚은 같은 문장 안에서 해내셨군요·대단한 걸음이에요 같은 직접 인정을 한 번 풀어 써요";
 	private static final String UNGROUNDED_PREFIX = "기록에 없는 말";
 	/** nextAction이 활동에 딸린 부가 작업(메모·정리 등)을 권할 때의 낱말. 이번 기록·분야 이름·목표에 같은 어간이 있으면 통과한다. */
 	static final List<String> NEXT_ACTION_META_WORDS = List.of("메모", "정리", "요약", "복습", "기록해", "적어", "노트", "일기", "계획",
@@ -99,13 +107,13 @@ public class RecordAnalysisService {
 	/** 보고서처럼 관찰하는 문체. support와 change 모두에서 막는다. */
 	static final List<String> REPORT_STYLE_PHRASES = List.of("알 수 있어요", "알 수 있습니다", "주목해요", "기억해요", "느껴져요",
 			"잘 드러", "과정이 보여", "점이에요", "기록이에요", "보여요");
-	static final String FALLBACK_SUPPORT_HARD = "힘든 날에도 기록을 남겼네요. 오늘은 이걸로 충분해요. 고생했어요.";
-	static final String FALLBACK_SUPPORT_ACHIEVEMENT = "어려웠던 걸 해냈네요. 대단해요.";
-	static final String FALLBACK_SUPPORT_GOOD = "오늘도 기록을 이어 갔네요. 좋은 흐름이에요.";
-	static final String FALLBACK_SUPPORT_NORMAL = "오늘도 한 줄 남겼네요. 이어 가는 것만으로 충분해요.";
+	static final String FALLBACK_SUPPORT_HARD = "힘든 날에도 기록을 남기셨군요. 오늘은 이걸로 충분해요. 고생하셨어요.";
+	static final String FALLBACK_SUPPORT_ACHIEVEMENT = "어려웠던 걸 해내셨군요. 대단한 걸음이에요.";
+	static final String FALLBACK_SUPPORT_GOOD = "오늘도 기록을 이어 가셨군요. 좋은 흐름이에요.";
+	static final String FALLBACK_SUPPORT_NORMAL = "오늘도 한 줄 남기셨네요. 이어 가는 것만으로 충분해요.";
 	private static final String PROMPT_RESOURCE_NAME = "record-analysis-system.txt";
 	/** prompts/record-analysis-system.txt의 내용을 바꿀 때마다 올린다. 저장된 결과가 어떤 지시문으로 만들어졌는지 추적하기 위해서다. */
-	static final int PROMPT_VERSION = 14;
+	static final int PROMPT_VERSION = 15;
 
 	private final ActivityRecordRepository activityRecordRepository;
 	private final HobbyRepository hobbyRepository;
@@ -192,8 +200,13 @@ public class RecordAnalysisService {
 			ValidationOutcome outcome = validateOutcome(result.content(), input.allowedHistoryIds(), result.model(),
 					input.recordId(), input.corpus(), input.roadmapItemIds(), input.payload().record(),
 					input.payload().hobby());
-			if (outcome.supportIssue() != null || outcome.textIssue() != null || outcome.nextActionMeta() != null) {
+			if (outcome.supportIssue() != null || outcome.textIssue() != null || outcome.nextActionMeta() != null
+					|| outcome.styleRule() != null) {
 				outcome = retryForSupport(userId, systemPrompt, input, outcome);
+			}
+			if (outcome.styleRule() != null && outcome.supportIssue() == null) {
+				// 재호출 뒤에도 말투 규칙을 어기면 그대로 저장하고 로그만 남긴다(사용자 글은 남기지 않는다).
+				log.warn("STYLE_VIOLATION recordId={} rule={}", input.recordId(), outcome.styleRule());
 			}
 			if (outcome.nextActionMeta() != null) {
 				// 재호출 뒤에도 부가 작업 제안이면 nextAction만 버렸다(대체 문장 없음). 사용자 글은 로그에 남기지 않는다.
@@ -223,12 +236,22 @@ public class RecordAnalysisService {
 	 */
 	private ValidationOutcome retryForSupport(Long userId, String systemPrompt, AnalysisInput input,
 			ValidationOutcome first) {
-		String reason = first.supportIssue() != null ? first.supportIssue() : first.textIssue();
-		String target = "support";
-		if (reason == null) {
-			reason = NEXT_ACTION_META_CORRECTION + "(부가 작업 낱말: " + first.nextActionMeta() + ")";
-			target = "nextAction";
+		List<String> reasons = new ArrayList<>();
+		if (first.supportIssue() != null) {
+			reasons.add(first.supportIssue());
 		}
+		if (first.textIssue() != null) {
+			reasons.add(first.textIssue());
+		}
+		boolean contentIssue = !reasons.isEmpty();
+		if (first.styleRule() != null) {
+			reasons.add(styleCorrection(first.styleRule()));
+		}
+		if (first.nextActionMeta() != null) {
+			reasons.add(NEXT_ACTION_META_CORRECTION + "(부가 작업 낱말: " + first.nextActionMeta() + ")");
+		}
+		String reason = String.join("; ", reasons);
+		String target = contentIssue ? "support" : first.styleRule() != null ? "change·support" : "nextAction";
 		log.warn("SUPPORT_RETRY recordId={} achievement={} reason={}", input.recordId(),
 				input.payload().record().achievement(), reason);
 		String corrected = systemPrompt + "\n\n[교정 지시] 직전 응답의 " + target + "이 규칙을 어겼어요: " + reason
@@ -241,6 +264,7 @@ public class RecordAnalysisService {
 			if (second.supportIssue() == null) {
 				return second;
 			}
+			// (아래: support가 다시 실패한 경우 — 말투·부가 작업 위반만 있던 첫 결과가 더 낫다.)
 			// 과한 칭찬은 문장 자체는 규칙에 맞으므로, 다시 불러도 같으면 그대로 두고 경고만 남긴다.
 			if (second.overpraise()) {
 				return acceptedWithOverpraise(second, input);
@@ -253,7 +277,8 @@ public class RecordAnalysisService {
 
 	private ValidationOutcome acceptedWithOverpraise(ValidationOutcome outcome, AnalysisInput input) {
 		log.warn("SUPPORT_OVERPRAISE recordId={} achievement={}", input.recordId(), input.payload().record().achievement());
-		return new ValidationOutcome(outcome.analysis(), null, outcome.evidenceId(), false, null, outcome.nextActionMeta());
+		return new ValidationOutcome(outcome.analysis(), null, outcome.evidenceId(), false, null, outcome.nextActionMeta(),
+				outcome.styleRule());
 	}
 
 	private StoredAnalysis withFallbackSupport(ValidationOutcome outcome, AnalysisInput input) {
@@ -274,7 +299,7 @@ public class RecordAnalysisService {
 
 	/** supportIssue가 null이 아니면 support가 규칙을 어긴 것이다(evidenceId는 그때 기본 문장을 붙일 근거 기록). */
 	private record ValidationOutcome(StoredAnalysis analysis, String supportIssue, Long evidenceId,
-			boolean overpraise, String textIssue, String nextActionMeta) {
+			boolean overpraise, String textIssue, String nextActionMeta, String styleRule) {
 	}
 
 	/**
@@ -282,7 +307,7 @@ public class RecordAnalysisService {
 	 * 기록에 없는 말 때문에 버려졌을 때의 이유로, 재호출만 부르고 기본 문장으로 바꾸지는 않는다.
 	 */
 	private record ChangeOutcome(StoredChange change, String supportIssue, Long evidenceId, boolean overpraise,
-			String textIssue) {
+			String textIssue, String styleRule) {
 	}
 
 	/** FAILED 기록의 실패 이유("LIMIT")를 읽는다. 예전 행처럼 값이 없거나 읽을 수 없으면 null. */
@@ -413,7 +438,7 @@ public class RecordAnalysisService {
 		StoredAnalysis analysis = new StoredAnalysis(title, tags, relatedRecordIds, changeOutcome.change(), null, null,
 				PROMPT_VERSION, model, nextAction, suggestion);
 		return new ValidationOutcome(analysis, changeOutcome.supportIssue(), changeOutcome.evidenceId(),
-				changeOutcome.overpraise(), changeOutcome.textIssue(), nextActionMeta);
+				changeOutcome.overpraise(), changeOutcome.textIssue(), nextActionMeta, changeOutcome.styleRule());
 	}
 
 	/** 입력으로 준 미완료 항목의 id만 받는다(남의 것·이미 체크한 것·지어낸 id는 버린다). 자동 체크는 하지 않는다. */
@@ -486,14 +511,14 @@ public class RecordAnalysisService {
 		if (changeNode.isMissingNode() || changeNode.isNull() || !changeNode.isObject()) {
 			// 객체 자체가 없으면 근거 기록도 없어 기본 문장을 붙일 수 없다. 로그만 남긴다.
 			log.warn("SUPPORT_MISSING recordId={}", recordId);
-			return new ChangeOutcome(null, null, null, false, null);
+			return new ChangeOutcome(null, null, null, false, null, null);
 		}
 		// 근거 id가 틀리면 어느 문장도 화면에 낼 수 없으므로 통째로 버린다.
 		JsonNode evidenceNode = changeNode.path("evidenceRecordId");
 		if (!evidenceNode.canConvertToLong() || !allowedIds.contains(evidenceNode.asLong())) {
 			log.warn("CHANGE_DROPPED recordId={} field=change|support reason=EVIDENCE length=- raw={}", recordId,
 					rawOf(changeNode));
-			return new ChangeOutcome(null, null, null, false, null);
+			return new ChangeOutcome(null, null, null, false, null, null);
 		}
 		long evidenceId = evidenceNode.asLong();
 		// 한쪽만 실패하면 그 필드만 버리고 나머지는 살린다.
@@ -518,10 +543,11 @@ public class RecordAnalysisService {
 		}
 		logSameEndingRun(recordId, text, support);
 		if (text == null && support == null) {
-			return new ChangeOutcome(null, supportIssue, evidenceId, false, textIssue);
+			return new ChangeOutcome(null, supportIssue, evidenceId, false, textIssue, null);
 		}
+		String styleRule = support == null ? null : styleViolation(text, support);
 		return new ChangeOutcome(new StoredChange(text, evidenceId, support), supportIssue, evidenceId, overpraise,
-				textIssue);
+				textIssue, styleRule);
 	}
 
 	/** 직전 sanitizeChangeField가 버린 이유를 교정 지시 문장으로 넘기는 용도(호출 스레드 안에서만 쓴다). */
@@ -555,9 +581,9 @@ public class RecordAnalysisService {
 		for (String warm : WARM_PHRASES) {
 			styleTarget = styleTarget.replace(warm, "");
 		}
-		if (requireWarm && EMPHASIS_WORDS.stream().anyMatch(value::contains)) {
+		if (requireWarm && (EMPHASIS_WORDS.stream().anyMatch(value::contains) || EMPHASIS_CHAM.matcher(value).find())) {
 			return dropField(recordId, field, "EMPHASIS", node, value.length(),
-					"강조어(" + String.join(", ", EMPHASIS_WORDS) + ")를 씀");
+					"강조어(" + String.join(", ", EMPHASIS_WORDS) + ", 참)를 씀");
 		}
 		final String checkedForStyle = styleTarget;
 		if (REPORT_STYLE_PHRASES.stream().anyMatch(checkedForStyle::contains)) {
@@ -628,6 +654,63 @@ public class RecordAnalysisService {
 				return;
 			}
 		}
+	}
+
+	/** 말투 규칙 위반 이름(NERYO·COMMA·REPEAT) 중 첫 번째를 준다. 없으면 null. text는 null일 수 있다. */
+	static String styleViolation(String text, String support) {
+		List<String> sentences = new ArrayList<>();
+		for (String part : new String[] {text, support}) {
+			if (part == null) {
+				continue;
+			}
+			for (String s : part.split("(?<=[.!?])\\s*")) {
+				String core = s.replaceAll("[.!?\\s]+$", "");
+				if (!core.isEmpty()) {
+					sentences.add(core);
+				}
+			}
+		}
+		if (sentences.stream().filter(s -> s.endsWith("네요")).count() >= 2) {
+			return STYLE_NERYO;
+		}
+		for (String core : sentences) {
+			if (core.length() <= 7 && WARM_STRONG.stream().anyMatch(core::contains)) {
+				return STYLE_COMMA;
+			}
+			String[] clauses = core.split("\\s*,\\s*");
+			for (int i = 1; i < clauses.length; i++) {
+				String before = clauses[i - 1];
+				String after = clauses[i];
+				if (WARM_STRONG.stream().anyMatch(before::contains) && WARM_STRONG.stream().anyMatch(after::contains)) {
+					return STYLE_COMMA;
+				}
+			}
+		}
+		if (text != null && support != null) {
+			java.util.Set<String> inText = numbersOf(text);
+			inText.retainAll(numbersOf(support));
+			if (!inText.isEmpty()) {
+				return STYLE_REPEAT;
+			}
+		}
+		return null;
+	}
+
+	private static java.util.Set<String> numbersOf(String value) {
+		java.util.Set<String> numbers = new java.util.LinkedHashSet<>();
+		java.util.regex.Matcher m = SMALL_NUMBER.matcher(value);
+		while (m.find()) {
+			numbers.add(m.group());
+		}
+		return numbers;
+	}
+
+	static String styleCorrection(String rule) {
+		return switch (rule) {
+			case STYLE_NERYO -> "'~네요'로 끝나는 문장이 카드 전체에 2개 이상이에요. ~셨군요·~이에요·~해요·~겠어요·~죠처럼 어미를 섞고 ~네요는 1번만 써요";
+			case STYLE_COMMA -> "칭찬 단어를 쉼표로 잇거나 단독 문장으로 쓰지 말고 구체적 사실을 짚은 같은 문장 안에서 풀어 써요";
+			default -> "change와 support에 같은 숫자를 쓰지 말고 한쪽은 의미를 바꿔 말해요";
+		};
 	}
 
 	/** 막힌 점(어려움)이 없고 감정 방향이 힘듦이 아닌 평범한 기록에서 support가 강한 칭찬을 쓰면 과한 칭찬이다. 성취형 기록과 record가 없는 호출은 검사하지 않는다. */
